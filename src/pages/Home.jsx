@@ -506,7 +506,7 @@ function WeatherCard({ t, tc, onOpen }) {
         <div>
           <div style={{ fontSize: 12.5, opacity: .9, fontWeight: 600 }}>{t("weather")} · {loc.name}</div>
           <div style={{ fontFamily: T.display, fontSize: 40, fontWeight: 800, lineHeight: 1.1, marginTop: 2 }}>{c.temp}°</div>
-          <div style={{ fontSize: 13, opacity: .92 }}>{c.condition} · feels {c.feelsLike}°</div>
+          <div style={{ fontSize: 13, opacity: .92 }}>{c.condition} · {tc({en:`feels ${c.feelsLike}°`,hi:`अनुभव ${c.feelsLike}°`,bn:`অনুভূত ${c.feelsLike}°`})}</div>
         </div>
         <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 12, opacity: .92, lineHeight: 1.8 }}>
           <div><Icon name="Droplets" size={12} style={{ verticalAlign: -1 }} /> {c.humidity}%</div>
@@ -516,7 +516,7 @@ function WeatherCard({ t, tc, onOpen }) {
       {st.alert && (
         <div style={{ display: "flex", gap: 8, marginTop: 14, padding: "9px 12px", borderRadius: 12, background: "rgba(255,255,255,.16)", fontSize: 12.5, position: "relative" }}>
           <Icon name={st.alert.icon} size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>{st.alert.title} — {st.alert.body}</span>
+          <span>{tc(st.alert.titleI18n || {en:st.alert.title})} — {tc(st.alert.bodyI18n || {en:st.alert.body})}</span>
         </div>
       )}
     </div>

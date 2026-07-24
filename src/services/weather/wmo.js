@@ -42,3 +42,5 @@ export const isThunder = (c) => c >= 95;
 export const isRain = (c) => (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95;
 export const isHeavyRain = (c) => c === 65 || c === 82 || c >= 95;
 export const isSnow = (c) => (c >= 71 && c <= 77) || c === 85 || c === 86;
+export const isFog = (c) => c === 45 || c === 48;
+export const isHail = (c) => c === 96 || c === 99;

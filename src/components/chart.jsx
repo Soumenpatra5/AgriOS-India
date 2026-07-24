@@ -36,3 +36,37 @@ export function LineChart({ data = [], height = 120, color = T.blue, fill = true
     </svg>
   );
 }
+
+/* Bar chart for rainfall / discrete data. `data` = [{ label, value }]. */
+export function BarChart({ data = [], height = 100, color = T.blue, unit = "" }) {
+  if (!data.length) return null;
+  const W = 320, H = height, padX = 12, padY = 16;
+  const max = Math.max(1, ...data.map(d => d.value ?? 0));
+  const barW = Math.min(24, (W - padX * 2) / data.length - 4);
+  const gap = (W - padX * 2 - barW * data.length) / Math.max(1, data.length - 1);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" role="img" aria-label="bar chart">
+      {data.map((d, i) => {
+        const bh = Math.max(1, ((d.value ?? 0) / max) * (H - padY * 2));
+        const bx = padX + i * (barW + gap);
+        const by = H - padY - bh;
+        return (
+          <g key={i}>
+            <rect x={bx} y={by} width={barW} height={bh} rx={Math.min(4, barW / 2)} fill={color} opacity="0.75" />
+            {d.value > 0 && (
+              <text x={bx + barW / 2} y={by - 4} fontSize="8" fill={T.inkSoft} textAnchor="middle">
+                {Math.round(d.value)}{unit}
+              </text>
+            )}
+            {d.label && (
+              <text x={bx + barW / 2} y={H - 3} fontSize="7.5" fill={T.inkFaint} textAnchor="middle">
+                {d.label}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
