@@ -1,17 +1,18 @@
-/* Provider abstraction over the LLM transport.
+/* LLM transport with automatic key selection and failover.
 
-   Production: POST /api/ai/chat (Vercel serverless holds the API key).
-   Dev:        if a dev key is set (see config.getDevKey), call the OpenAI
-               API directly from the browser — dev convenience only.
+   Uses keyManager for the active API key. If a request fails with
+   401/429, automatically rotates to the next healthy key and retries.
 
-   The client sends messages in Anthropic-style format internally. The
-   serverless proxy (or dev path) translates to OpenAI wire format. */
+   Production path: POST /api/ai/chat (serverless proxy holds no key —
+   the client-managed key is sent via x-api-key header, and the proxy
+   forwards it).
+   Direct path: if an active key exists, call the provider API directly. */
 
-import { API_ENDPOINT, getDevKey } from "../config.js";
+import { API_ENDPOINT } from "../config.js";
 import { parseStream } from "./streamParser.js";
 import { authFetch } from "../../services/firebase/authFetch.js";
-
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+import { keyManager } from "../keyManager.js";
+import { getProvider } from "../providers/providerRegistry.js";
 
 /* Convert Anthropic-style messages to OpenAI format */
 function toOpenAIMessages(system, messages) {
@@ -19,7 +20,6 @@ function toOpenAIMessages(system, messages) {
   if (system) out.push({ role: "system", content: system });
 
   for (const msg of messages) {
-    // Pass through OpenAI-format messages (tool results, assistant with tool_calls)
     if (msg.role === "tool") { out.push(msg); continue; }
     if (msg.tool_calls) { out.push(msg); continue; }
 
@@ -69,14 +69,31 @@ async function openAIFetch({ model, system, messages, tools, maxTokens }, signal
     ...(openAITools ? { tools: openAITools } : {}),
   };
 
-  const devKey = getDevKey();
-  const url = devKey ? OPENAI_URL : API_ENDPOINT;
-  const headers = devKey
-    ? { "content-type": "application/json", "authorization": `Bearer ${devKey}` }
-    : { "content-type": "application/json" };
+  const activeKey = keyManager.getActiveKey();
 
-  const fetcher = devKey ? fetch : authFetch;
-  const res = await fetcher(url, { method: "POST", headers, body: JSON.stringify(body), signal });
+  if (activeKey) {
+    const provider = getProvider(activeKey.provider);
+    const url = provider.apiUrl;
+    const headers = { "content-type": "application/json", ...provider.authHeader(activeKey.key) };
+    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal });
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.json())?.error?.message || ""; } catch { /* opaque */ }
+      const err = new Error(detail || `AI request failed (HTTP ${res.status})`);
+      err.status = res.status;
+      err.keyId = activeKey.id;
+      throw err;
+    }
+    return { res, keyId: activeKey.id };
+  }
+
+  // No client-side key — use serverless proxy
+  const res = await authFetch(API_ENDPOINT, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
   if (!res.ok) {
     let detail = "";
     try { detail = (await res.json())?.error?.message || ""; } catch { /* opaque */ }
@@ -84,14 +101,32 @@ async function openAIFetch({ model, system, messages, tools, maxTokens }, signal
     err.status = res.status;
     throw err;
   }
-  return res;
+  return { res, keyId: null };
 }
 
 export const llmClient = {
-  /* Streams a chat completion. Returns { content, stopReason, usage }. */
+  /* Streams a chat completion with automatic failover. */
   async streamChat(request, { onText, signal } = {}) {
-    const res = await openAIFetch(request, signal);
-    return parseStream(res, { onText, signal });
+    try {
+      const { res, keyId } = await openAIFetch(request, signal);
+      const result = await parseStream(res, { onText, signal });
+      if (keyId) keyManager.recordSuccess(keyId);
+      return result;
+    } catch (err) {
+      if (err.keyId) {
+        keyManager.recordFailure(err.keyId, err.message, err.status);
+        if (keyManager.shouldFailover(err.status)) {
+          const next = keyManager.rotateKey(err.keyId);
+          if (next) {
+            const { res, keyId } = await openAIFetch(request, signal);
+            const result = await parseStream(res, { onText, signal });
+            if (keyId) keyManager.recordSuccess(keyId);
+            return result;
+          }
+        }
+      }
+      throw err;
+    }
   },
 
   /* One-shot, non-streamed short completion (used by the router). */

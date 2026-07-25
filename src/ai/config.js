@@ -1,6 +1,6 @@
 /* AI engine configuration — single source of truth for models and limits.
    Answer model: highest quality. Router model: fast/cheap intent classification.
-   Uses OpenAI GPT models via the serverless proxy. */
+   Key management is handled by keyManager.js — no keys stored here. */
 
 export const MODELS = {
   answer: "gpt-4o",
@@ -19,13 +19,3 @@ export const LIMITS = {
 };
 
 export const API_ENDPOINT = "/api/ai/chat";
-
-/* Dev fallback: `npm run dev` has no serverless runtime. If a dev key is
-   present in localStorage, the client calls OpenAI directly (dev only).
-   Set it once in the browser console:
-     localStorage.setItem("agrios:devApiKey", JSON.stringify("sk-..."))   */
-export function getDevKey() {
-  if (!import.meta.env.DEV) return null;
-  try { return JSON.parse(localStorage.getItem("agrios:devApiKey")) || null; }
-  catch { return null; }
-}

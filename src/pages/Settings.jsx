@@ -31,7 +31,7 @@ function Toggle({ on, onChange }) {
 }
 
 export default function Settings() {
-  const { t, tc, pop, lang, setLang, toast } = useApp();
+  const { t, tc, pop, push, lang, setLang, toast } = useApp();
   const { mode, setTheme } = useTheme();
   const [notif, setNotif] = useState(() => notificationService.isEnabled());
   const [langSheet, setLangSheet] = useState(false);
@@ -82,6 +82,9 @@ export default function Settings() {
           <Row icon="Bell" label={t("notifications")}><Toggle on={notif} onChange={setNotifP} /></Row>
           <Row icon="Languages" label={t("language")} onClick={() => setLangSheet(true)}>
             <span style={{ fontSize: 13, color: T.inkSoft, fontWeight: 600 }}>{current?.native} <Icon name="ChevronRight" size={16} style={{ verticalAlign: -3, color: T.inkFaint }} /></span>
+          </Row>
+          <Row icon="Key" label={tc({ en: "API Key Manager", hi: "API कुंजी प्रबंधक", bn: "API কী ম্যানেজার" })} onClick={() => push({ kind: "apiKeyManager" })}>
+            <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
           </Row>
           <Row icon="ShieldCheck" label={t("security")} onClick={() => toast(tc({ en: "Security settings — coming soon", hi: "सुरक्षा सेटिंग्स — जल्द आ रहा है", bn: "নিরাপত্তা সেটিংস — শীঘ্রই আসছে" }))}>
             <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />

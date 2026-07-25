@@ -94,6 +94,7 @@ const ModelRegistryPage  = lazy(() => import("../pages/mlops/ModelRegistryPage.j
 const ExperimentList     = lazy(() => import("../pages/mlops/ExperimentList.jsx"));
 const TrainingDashboard  = lazy(() => import("../pages/mlops/TrainingDashboard.jsx"));
 const MonitoringDashboard = lazy(() => import("../pages/mlops/MonitoringDashboard.jsx"));
+const ApiKeyManager       = lazy(() => import("../pages/ApiKeyManager.jsx"));
 
 const TAB_SCREENS = { home: Home, ai: AIHub, market: Market, services: Services, profile: Profile };
 
@@ -185,6 +186,7 @@ function StackScreen({ item }) {
   if (item.kind === "experimentList")       return <ExperimentList />;
   if (item.kind === "trainingDashboard")    return <TrainingDashboard />;
   if (item.kind === "monitoringDashboard")  return <MonitoringDashboard />;
+  if (item.kind === "apiKeyManager")        return <ApiKeyManager />;
   return null;
 }
 

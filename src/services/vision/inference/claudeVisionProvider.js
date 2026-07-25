@@ -1,9 +1,11 @@
-/* GPT Vision inference provider — calls /api/ai/chat with an image block.
-   This is the default cloud provider; works immediately with no model download. */
+/* GPT Vision inference provider — calls the LLM with an image block.
+   Uses the key manager for API key selection and failover. */
 
 import { CAPABILITIES } from "./inferenceInterface.js";
 import { API_ENDPOINT, MODELS } from "../../../ai/config.js";
 import { authFetch } from "../../firebase/authFetch.js";
+import { keyManager } from "../../../ai/keyManager.js";
+import { getProvider } from "../../../ai/providers/providerRegistry.js";
 
 export const claudeVisionProvider = {
   id:   "claude-vision",
@@ -31,17 +33,36 @@ export const claudeVisionProvider = {
       { role: "user", content: userContent },
     ];
 
-    const res = await authFetch(API_ENDPOINT, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ model: MODELS.answer, max_tokens: 1024, messages }),
-    });
+    const body = { model: MODELS.answer, max_tokens: 1024, messages, stream: true };
+    const activeKey = keyManager.getActiveKey();
+    let res;
+
+    if (activeKey) {
+      const provider = getProvider(activeKey.provider);
+      res = await fetch(provider.apiUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...provider.authHeader(activeKey.key) },
+        body: JSON.stringify(body),
+      });
+    } else {
+      res = await authFetch(API_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
 
     if (!res.ok) {
       let msg = `Vision API error (${res.status})`;
       try { msg = (await res.json()).error?.message || msg; } catch { /* ignore */ }
+      if (activeKey) {
+        keyManager.recordFailure(activeKey.id, msg, res.status);
+        if (keyManager.shouldFailover(res.status)) keyManager.rotateKey(activeKey.id);
+      }
       throw new Error(msg);
     }
+
+    if (activeKey) keyManager.recordSuccess(activeKey.id);
 
     const text = await consumeSse(res);
 
