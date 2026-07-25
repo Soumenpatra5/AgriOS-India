@@ -4,14 +4,20 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  fetchSignInMethodsForEmail,
   GoogleAuthProvider,
   FacebookAuthProvider,
   OAuthProvider,
   TwitterAuthProvider,
   onAuthStateChanged,
   signOut,
+  browserLocalPersistence,
+  setPersistence,
 } from "firebase/auth";
 import { auth } from "./config.js";
+
+// Ensure auth state persists across sessions and page reloads
+setPersistence(auth, browserLocalPersistence).catch(() => {});
 
 let confirmationResult = null;
 
@@ -45,15 +51,21 @@ export async function verifyOtp(code) {
 /* ── Email / Password ────────────────────────────────────────────────────── */
 
 export async function signInWithEmail(email, password) {
+  const result = await signInWithEmailAndPassword(auth, email, password);
+  return result.user;
+}
+
+export async function signUpWithEmail(email, password) {
+  const result = await createUserWithEmailAndPassword(auth, email, password);
+  return result.user;
+}
+
+export async function checkEmailExists(email) {
   try {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    return result.user;
-  } catch (err) {
-    if (err.code === "auth/user-not-found" || err.code === "auth/invalid-credential") {
-      const result = await createUserWithEmailAndPassword(auth, email, password);
-      return result.user;
-    }
-    throw err;
+    const methods = await fetchSignInMethodsForEmail(auth, email);
+    return methods.length > 0;
+  } catch {
+    return false;
   }
 }
 

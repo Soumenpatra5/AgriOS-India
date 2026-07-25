@@ -7,12 +7,35 @@ import {
   sendOtp,
   signInWithGoogle,
   signInWithApple,
+  signInWithFacebook,
+  signInWithTwitter,
   signInWithEmail,
+  signUpWithEmail,
 } from "../services/firebase/auth.js";
+
+const ERR = {
+  "auth/invalid-credential":   { en: "Incorrect email or password", hi: "गलत ईमेल या पासवर्ड", bn: "ভুল ইমেইল বা পাসওয়ার্ড" },
+  "auth/wrong-password":       { en: "Incorrect password", hi: "गलत पासवर्ड", bn: "ভুল পাসওয়ার্ড" },
+  "auth/user-not-found":       { en: "No account found — please sign up", hi: "कोई खाता नहीं मिला — साइन अप करें", bn: "কোনো অ্যাকাউন্ট পাওয়া যায়নি — সাইন আপ করুন" },
+  "auth/email-already-in-use": { en: "Account already exists — please log in", hi: "खाता पहले से मौजूद है — लॉग इन करें", bn: "অ্যাকাউন্ট ইতিমধ্যে আছে — লগ ইন করুন" },
+  "auth/invalid-email":        { en: "Invalid email address", hi: "अमान्य ईमेल पता", bn: "অবৈধ ইমেইল ঠিকানা" },
+  "auth/weak-password":        { en: "Password must be at least 6 characters", hi: "पासवर्ड कम से कम 6 अक्षर का होना चाहिए", bn: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে" },
+  "auth/too-many-requests":    { en: "Too many attempts — please wait and try again", hi: "बहुत अधिक प्रयास — कृपया प्रतीक्षा करें", bn: "অনেক বেশি চেষ্টা — অনুগ্রহ করে অপেক্ষা করুন" },
+  "auth/network-request-failed": { en: "Network error — check your connection", hi: "नेटवर्क त्रुटि — कनेक्शन जाँचें", bn: "নেটওয়ার্ক ত্রুটি — সংযোগ পরীক্ষা করুন" },
+  "auth/popup-blocked":        { en: "Popup blocked — allow popups and try again", hi: "पॉपअप अवरुद्ध — पॉपअप अनुमति दें", bn: "পপআপ ব্লক — পপআপ অনুমতি দিন" },
+  "auth/account-exists-with-different-credential": { en: "Account exists with a different sign-in method", hi: "खाता पहले से अलग तरीके से जुड़ा है", bn: "অ্যাকাউন্ট অন্য সাইন-ইন পদ্ধতিতে আছে" },
+};
+
+function authError(err, tc) {
+  const msg = ERR[err?.code];
+  if (msg) return tc(msg);
+  return tc({ en: `Login failed (${err?.code || "unknown"})`, hi: `लॉगिन विफल (${err?.code || "अज्ञात"})`, bn: `লগইন ব্যর্থ (${err?.code || "অজানা"})` });
+}
 
 export default function Login() {
   const { login, t, tc } = useApp();
   const [step, setStep] = useState("main");
+  const [mode, setMode] = useState("login"); // "login" or "signup"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,38 +44,42 @@ export default function Login() {
 
   useEffect(() => { setupRecaptcha("recaptcha-container"); }, []);
 
+  const fbLogin = (fbUser) => {
+    login({
+      uid: fbUser.uid, name: fbUser.displayName || "",
+      email: fbUser.email || "", phone: fbUser.phoneNumber?.replace("+91", "") || "",
+      photo: fbUser.photoURL || "", provider: fbUser.providerData?.[0]?.providerId || "", joined: Date.now(),
+    });
+  };
+
   const handleSocial = async (id, fn) => {
     setError(""); setSocialLoading(id);
     try {
       const fbUser = await fn();
-      login({
-        uid: fbUser.uid, name: fbUser.displayName || "",
-        email: fbUser.email || "", phone: fbUser.phoneNumber?.replace("+91", "") || "",
-        photo: fbUser.photoURL || "", provider: id, joined: Date.now(),
-      });
+      fbLogin(fbUser);
     } catch (err) {
-      if (err?.code !== "auth/popup-closed-by-user") {
-        setError(err?.code === "auth/account-exists-with-different-credential"
-          ? tc({ en: "Account exists with a different sign-in method", hi: "खाता पहले से अलग तरीके से जुड़ा है", bn: "অ্যাকাউন্ট অন্য সাইন-ইন পদ্ধতিতে আছে" })
-          : tc({ en: "Sign-in failed — please try again", hi: "साइन-इन विफल — कृपया पुनः प्रयास करें", bn: "সাইন-ইন ব্যর্থ — আবার চেষ্টা করুন" }));
-      }
+      if (err?.code !== "auth/popup-closed-by-user") setError(authError(err, tc));
     } finally { setSocialLoading(null); }
   };
 
-  const handleEmailContinue = async () => {
+  const handleEmailSubmit = async () => {
     if (step === "main") { setStep("email"); setError(""); return; }
     if (!email.includes("@") || password.length < 6) return;
     setError(""); setLoading(true);
     try {
-      const fbUser = await signInWithEmail(email, password);
-      login({ email, uid: fbUser.uid, name: fbUser.displayName || "", joined: Date.now() });
+      const fbUser = mode === "signup"
+        ? await signUpWithEmail(email, password)
+        : await signInWithEmail(email, password);
+      fbLogin(fbUser);
     } catch (err) {
-      setError(
-        err?.code === "auth/invalid-email" ? tc({ en: "Invalid email address", hi: "अमान्य ईमेल पता", bn: "অবৈধ ইমেইল ঠিকানা" })
-        : err?.code === "auth/wrong-password" || err?.code === "auth/invalid-credential" ? tc({ en: "Incorrect email or password", hi: "गलत ईमेल या पासवर्ड", bn: "ভুল ইমেইল বা পাসওয়ার্ড" })
-        : err?.code === "auth/weak-password" ? tc({ en: "Password must be at least 6 characters", hi: "पासवर्ड कम से कम 6 अक्षर का होना चाहिए", bn: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে" })
-        : tc({ en: `Login failed — ${err?.code || "please try again"}`, hi: `लॉगिन विफल — ${err?.code || "कृपया पुनः प्रयास करें"}`, bn: `লগইন ব্যর্থ — ${err?.code || "আবার চেষ্টা করুন"}` })
-      );
+      // If login fails with invalid-credential, suggest signing up
+      if (mode === "login" && (err?.code === "auth/invalid-credential" || err?.code === "auth/user-not-found")) {
+        setError(tc({ en: "Incorrect email or password. If you're new, switch to Sign Up.", hi: "गलत ईमेल या पासवर्ड। अगर आप नए हैं, तो साइन अप पर जाएँ।", bn: "ভুল ইমেইল বা পাসওয়ার্ড। আপনি নতুন হলে সাইন আপ-এ যান।" }));
+      } else if (mode === "signup" && err?.code === "auth/email-already-in-use") {
+        setError(tc({ en: "Account already exists — switch to Log In.", hi: "खाता पहले से मौजूद है — लॉग इन पर जाएँ।", bn: "অ্যাকাউন্ট ইতিমধ্যে আছে — লগ ইন-এ যান।" }));
+      } else {
+        setError(authError(err, tc));
+      }
     } finally { setLoading(false); }
   };
 
@@ -116,7 +143,7 @@ export default function Login() {
                 onFocus={(e) => e.target.style.borderColor = "#10a37f"}
                 onBlur={(e) => e.target.style.borderColor = "#e5e5e5"} />
 
-              <button onClick={handleEmailContinue} disabled={!email.includes("@")}
+              <button onClick={handleEmailSubmit} disabled={!email.includes("@")}
                 style={{ width: "100%", padding: "13px 16px", borderRadius: 12, border: "none",
                   background: "#1a1a1a", color: "#fff", fontSize: 15, fontWeight: 600,
                   fontFamily: "inherit", cursor: "pointer",
@@ -125,12 +152,12 @@ export default function Login() {
               </button>
 
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => handleSocial("facebook", signInWithGoogle)} disabled={disabled}
+                <button onClick={() => handleSocial("facebook", signInWithFacebook)} disabled={disabled}
                   style={{ ...btnStyle, flex: 1, justifyContent: "center", padding: "12px 0" }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                   {tc({ en: "Facebook", hi: "Facebook", bn: "Facebook" })}
                 </button>
-                <button onClick={() => handleSocial("twitter", signInWithGoogle)} disabled={disabled}
+                <button onClick={() => handleSocial("twitter", signInWithTwitter)} disabled={disabled}
                   style={{ ...btnStyle, flex: 1, justifyContent: "center", padding: "12px 0" }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="#1a1a1a"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                   {tc({ en: "X", hi: "X", bn: "X" })}
@@ -142,11 +169,29 @@ export default function Login() {
 
         {step === "email" && (
           <>
-            <button onClick={() => { setStep("main"); setError(""); }}
+            <button onClick={() => { setStep("main"); setError(""); setMode("login"); }}
               style={{ position: "absolute", top: 16, left: 16, background: "none", border: "none",
                 cursor: "pointer", fontSize: 20, color: "#999", padding: 4 }}>←</button>
-            <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 28px", color: "#1a1a1a",
-              textAlign: "center", fontFamily: "inherit" }}>{tc({ en: "Email login", hi: "ईमेल लॉगिन", bn: "ইমেইল লগইন" })}</h1>
+            <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 8px", color: "#1a1a1a",
+              textAlign: "center", fontFamily: "inherit" }}>
+              {mode === "signup"
+                ? tc({ en: "Create account", hi: "खाता बनाएँ", bn: "অ্যাকাউন্ট তৈরি করুন" })
+                : tc({ en: "Email login", hi: "ईमेल लॉगिन", bn: "ইমেইল লগইন" })}
+            </h1>
+
+            {/* Login / Sign Up toggle */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 22 }}>
+              {["login", "signup"].map((m) => (
+                <button key={m} onClick={() => { setMode(m); setError(""); }}
+                  style={{ padding: "6px 18px", borderRadius: 99, border: `1.5px solid ${mode === m ? "#1a1a1a" : "#e5e5e5"}`,
+                    background: mode === m ? "#1a1a1a" : "#fff", color: mode === m ? "#fff" : "#6b6b6b",
+                    fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  {m === "login"
+                    ? tc({ en: "Log In", hi: "लॉग इन", bn: "লগ ইন" })
+                    : tc({ en: "Sign Up", hi: "साइन अप", bn: "সাইন আপ" })}
+                </button>
+              ))}
+            </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <input value={email} onChange={(e) => { setEmail(e.target.value.trim()); setError(""); }}
@@ -158,20 +203,26 @@ export default function Login() {
                 onBlur={(e) => e.target.style.borderColor = "#e5e5e5"} />
 
               <input value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                placeholder={tc({ en: "Password (min 6 characters)", hi: "पासवर्ड (कम से कम 6 अक्षर)", bn: "পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)" })} type="password"
+                placeholder={mode === "signup"
+                  ? tc({ en: "Create password (min 6 characters)", hi: "पासवर्ड बनाएँ (कम से कम 6 अक्षर)", bn: "পাসওয়ার্ড তৈরি করুন (কমপক্ষে ৬ অক্ষর)" })
+                  : tc({ en: "Password", hi: "पासवर्ड", bn: "পাসওয়ার্ড" })} type="password"
                 style={{ width: "100%", padding: "13px 16px", borderRadius: 12, fontSize: 15,
                   border: "1px solid #e5e5e5", background: "#f5f5f5", color: "#1a1a1a",
                   fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
                 onFocus={(e) => e.target.style.borderColor = "#10a37f"}
                 onBlur={(e) => e.target.style.borderColor = "#e5e5e5"} />
 
-              <button onClick={handleEmailContinue}
+              <button onClick={handleEmailSubmit}
                 disabled={!email.includes("@") || password.length < 6 || loading}
                 style={{ width: "100%", padding: "13px 16px", borderRadius: 12, border: "none",
                   background: "#1a1a1a", color: "#fff", fontSize: 15, fontWeight: 600,
                   fontFamily: "inherit", cursor: "pointer",
                   opacity: email.includes("@") && password.length >= 6 && !loading ? 1 : 0.35 }}>
-                {loading ? tc({ en: "Signing in…", hi: "साइन इन हो रहा है…", bn: "সাইন ইন হচ্ছে…" }) : t("continue")}
+                {loading
+                  ? tc({ en: "Please wait…", hi: "कृपया प्रतीक्षा करें…", bn: "অনুগ্রহ করে অপেক্ষা করুন…" })
+                  : mode === "signup"
+                    ? tc({ en: "Create Account", hi: "खाता बनाएँ", bn: "অ্যাকাউন্ট তৈরি করুন" })
+                    : tc({ en: "Log In", hi: "लॉग इन करें", bn: "লগ ইন করুন" })}
               </button>
             </div>
           </>
