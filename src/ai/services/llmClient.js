@@ -1,37 +1,78 @@
 /* Provider abstraction over the LLM transport.
 
    Production: POST /api/ai/chat (Vercel serverless holds the API key).
-   Dev:        if a dev key is set (see config.getDevKey), call the Anthropic
+   Dev:        if a dev key is set (see config.getDevKey), call the OpenAI
                API directly from the browser — dev convenience only.
 
-   Additional providers (OpenAI, Gemini, Ollama) implement the same
-   `streamChat(request, handlers)` contract and register here. */
+   The client sends messages in Anthropic-style format internally. The
+   serverless proxy (or dev path) translates to OpenAI wire format. */
 
 import { API_ENDPOINT, getDevKey } from "../config.js";
 import { parseStream } from "./streamParser.js";
 import { authFetch } from "../../services/firebase/authFetch.js";
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
-async function anthropicFetch({ model, system, messages, tools, maxTokens }, signal) {
+/* Convert Anthropic-style messages to OpenAI format */
+function toOpenAIMessages(system, messages) {
+  const out = [];
+  if (system) out.push({ role: "system", content: system });
+
+  for (const msg of messages) {
+    // Pass through OpenAI-format messages (tool results, assistant with tool_calls)
+    if (msg.role === "tool") { out.push(msg); continue; }
+    if (msg.tool_calls) { out.push(msg); continue; }
+
+    if (typeof msg.content === "string") {
+      out.push({ role: msg.role, content: msg.content });
+    } else if (Array.isArray(msg.content)) {
+      const parts = [];
+      for (const block of msg.content) {
+        if (block.type === "text") {
+          parts.push({ type: "text", text: block.text });
+        } else if (block.type === "image") {
+          const b64 = block.source?.data;
+          const mime = block.source?.media_type || "image/jpeg";
+          parts.push({ type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } });
+        }
+      }
+      out.push({ role: msg.role, content: parts.length === 1 && parts[0].type === "text" ? parts[0].text : parts });
+    } else {
+      out.push({ role: msg.role, content: String(msg.content ?? "") });
+    }
+  }
+  return out;
+}
+
+/* Convert Anthropic-style tools to OpenAI format */
+function toOpenAITools(tools) {
+  if (!tools?.length) return undefined;
+  return tools.map(t => ({
+    type: "function",
+    function: {
+      name: t.name,
+      description: t.description || "",
+      parameters: t.input_schema || { type: "object", properties: {} },
+    },
+  }));
+}
+
+async function openAIFetch({ model, system, messages, tools, maxTokens }, signal) {
+  const openAIMessages = toOpenAIMessages(system, messages);
+  const openAITools = toOpenAITools(tools);
+
   const body = {
     model,
+    messages: openAIMessages,
     max_tokens: maxTokens,
     stream: true,
-    system,
-    messages,
-    ...(tools?.length ? { tools } : {}),
+    ...(openAITools ? { tools: openAITools } : {}),
   };
 
   const devKey = getDevKey();
-  const url = devKey ? ANTHROPIC_URL : API_ENDPOINT;
+  const url = devKey ? OPENAI_URL : API_ENDPOINT;
   const headers = devKey
-    ? {
-        "content-type": "application/json",
-        "x-api-key": devKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      }
+    ? { "content-type": "application/json", "authorization": `Bearer ${devKey}` }
     : { "content-type": "application/json" };
 
   const fetcher = devKey ? fetch : authFetch;
@@ -49,7 +90,7 @@ async function anthropicFetch({ model, system, messages, tools, maxTokens }, sig
 export const llmClient = {
   /* Streams a chat completion. Returns { content, stopReason, usage }. */
   async streamChat(request, { onText, signal } = {}) {
-    const res = await anthropicFetch(request, signal);
+    const res = await openAIFetch(request, signal);
     return parseStream(res, { onText, signal });
   },
 

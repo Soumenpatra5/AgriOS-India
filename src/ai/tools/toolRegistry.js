@@ -43,15 +43,15 @@ export const toolRegistry = {
       .map(({ name, description, input_schema }) => ({ name, description, input_schema }));
   },
 
-  /* Execute one tool_use block → tool_result block. Errors return is_error. */
+  /* Execute one tool_use block → tool message for OpenAI. */
   async execute(block) {
     const tool = TOOLS.get(block.name);
     try {
       if (!tool) throw new Error(`unknown tool: ${block.name}`);
       const result = await tool.run(block.input || {});
-      return { type: "tool_result", tool_use_id: block.id, content: String(result) };
+      return { role: "tool", tool_call_id: block.id, content: String(result) };
     } catch (e) {
-      return { type: "tool_result", tool_use_id: block.id, content: `Error: ${e.message}`, is_error: true };
+      return { role: "tool", tool_call_id: block.id, content: `Error: ${e.message}` };
     }
   },
 };

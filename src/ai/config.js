@@ -1,9 +1,10 @@
 /* AI engine configuration — single source of truth for models and limits.
-   Answer model: highest quality. Router model: fast/cheap intent classification. */
+   Answer model: highest quality. Router model: fast/cheap intent classification.
+   Uses OpenAI GPT models via the serverless proxy. */
 
 export const MODELS = {
-  answer: "claude-opus-4-8",
-  router: "claude-haiku-4-5",
+  answer: "gpt-4o",
+  router: "gpt-4o-mini",
 };
 
 export const LIMITS = {
@@ -20,9 +21,9 @@ export const LIMITS = {
 export const API_ENDPOINT = "/api/ai/chat";
 
 /* Dev fallback: `npm run dev` has no serverless runtime. If a dev key is
-   present in localStorage, the client calls Anthropic directly (dev only).
+   present in localStorage, the client calls OpenAI directly (dev only).
    Set it once in the browser console:
-     localStorage.setItem("agrios:devApiKey", JSON.stringify("sk-ant-..."))   */
+     localStorage.setItem("agrios:devApiKey", JSON.stringify("sk-..."))   */
 export function getDevKey() {
   if (!import.meta.env.DEV) return null;
   try { return JSON.parse(localStorage.getItem("agrios:devApiKey")) || null; }

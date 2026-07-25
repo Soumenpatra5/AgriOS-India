@@ -83,9 +83,16 @@ export async function sendMessage({
       const toolUses = result.content.filter((b) => b.type === "tool_use");
       if (result.stopReason !== "tool_use" || !toolUses.length || ++toolRounds > LIMITS.maxToolRounds) break;
 
-      const results = await Promise.all(toolUses.map((b) => toolRegistry.execute(b)));
-      wire.push({ role: "assistant", content: result.content });
-      wire.push({ role: "user", content: results });
+      const toolResults = await Promise.all(toolUses.map((b) => toolRegistry.execute(b)));
+      // OpenAI format: assistant message with tool_calls, then individual tool messages
+      const roundText = result.content.filter((b) => b.type === "text").map((b) => b.text).join("") || null;
+      const assistantMsg = { role: "assistant", content: roundText };
+      assistantMsg.tool_calls = toolUses.map((b) => ({
+        id: b.id, type: "function",
+        function: { name: b.name, arguments: JSON.stringify(b.input || {}) },
+      }));
+      wire.push(assistantMsg);
+      for (const tr of toolResults) wire.push(tr);
     }
   } catch (e) {
     ok = false;

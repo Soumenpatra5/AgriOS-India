@@ -1,4 +1,4 @@
-/* Claude Vision inference provider — calls /api/ai/chat with an image block.
+/* GPT Vision inference provider — calls /api/ai/chat with an image block.
    This is the default cloud provider; works immediately with no model download. */
 
 import { CAPABILITIES } from "./inferenceInterface.js";
@@ -7,7 +7,7 @@ import { authFetch } from "../../firebase/authFetch.js";
 
 export const claudeVisionProvider = {
   id:   "claude-vision",
-  name: "Claude Vision (Cloud)",
+  name: "GPT Vision (Cloud)",
 
   isAvailable() {
     return navigator.onLine;
@@ -20,21 +20,21 @@ export const claudeVisionProvider = {
   async infer(imageBase64, metadata = {}, context = {}) {
     const t0 = Date.now();
 
-    const system = buildSystem(context);
+    const systemMsg = buildSystem(context);
+    const userContent = [
+      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
+      { type: "text", text: context.userPrompt || defaultPrompt(context) },
+    ];
+
     const messages = [
-      {
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageBase64 } },
-          { type: "text",  text: context.userPrompt || defaultPrompt(context) },
-        ],
-      },
+      { role: "system", content: systemMsg },
+      { role: "user", content: userContent },
     ];
 
     const res = await authFetch(API_ENDPOINT, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ model: MODELS.answer, max_tokens: 1024, system, messages }),
+      body:    JSON.stringify({ model: MODELS.answer, max_tokens: 1024, messages }),
     });
 
     if (!res.ok) {
@@ -75,7 +75,7 @@ function buildSystem(ctx) {
   return lines.join("\n");
 }
 
-// Consume an SSE stream from /api/ai/chat and return the assembled text.
+// Consume an OpenAI SSE stream and return the assembled text.
 async function consumeSse(res) {
   const reader  = res.body.getReader();
   const decoder = new TextDecoder();
@@ -87,14 +87,16 @@ async function consumeSse(res) {
     if (done) break;
     buf += decoder.decode(value, { stream: true });
     const lines = buf.split("\n");
-    buf = lines.pop(); // keep incomplete last line
+    buf = lines.pop();
     for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+      const data = trimmed.slice(5).trim();
+      if (data === "[DONE]") continue;
       try {
-        const ev = JSON.parse(line.slice(6));
-        if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
-          text += ev.delta.text;
-        }
+        const ev = JSON.parse(data);
+        const delta = ev.choices?.[0]?.delta?.content;
+        if (delta) text += delta;
       } catch { /* malformed chunk — skip */ }
     }
   }
