@@ -35,7 +35,29 @@ export default function Settings() {
   const { mode, setTheme } = useTheme();
   const [notif, setNotif] = useState(() => notificationService.isEnabled());
   const [langSheet, setLangSheet] = useState(false);
+  const [devTaps, setDevTaps] = useState(0);
+  const [devMode, setDevMode] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("agrios:devMode")) === true; } catch { return false; }
+  });
   const current = LANGUAGES.find((l) => l.code === lang);
+
+  const handleVersionTap = () => {
+    const next = devTaps + 1;
+    setDevTaps(next);
+    if (next >= 7 && !devMode) {
+      setDevMode(true);
+      localStorage.setItem("agrios:devMode", "true");
+      toast(tc({ en: "Developer mode enabled", hi: "डेवलपर मोड चालू", bn: "ডেভেলপার মোড চালু হয়েছে" }), "success");
+      setDevTaps(0);
+    } else if (next >= 7 && devMode) {
+      setDevMode(false);
+      localStorage.removeItem("agrios:devMode");
+      toast(tc({ en: "Developer mode disabled", hi: "डेवलपर मोड बंद", bn: "ডেভেলপার মোড বন্ধ হয়েছে" }), "info");
+      setDevTaps(0);
+    } else if (next >= 4) {
+      toast(tc({ en: `${7 - next} taps to developer mode`, hi: `डेवलपर मोड तक ${7 - next} टैप`, bn: `ডেভেলপার মোডে ${7 - next} ট্যাপ বাকি` }), "info");
+    }
+  };
 
   const setNotifP = async (v) => {
     if (v && notificationService.getPermission() !== "granted") {
@@ -83,9 +105,11 @@ export default function Settings() {
           <Row icon="Languages" label={t("language")} onClick={() => setLangSheet(true)}>
             <span style={{ fontSize: 13, color: T.inkSoft, fontWeight: 600 }}>{current?.native} <Icon name="ChevronRight" size={16} style={{ verticalAlign: -3, color: T.inkFaint }} /></span>
           </Row>
-          <Row icon="Key" label={tc({ en: "API Key Manager", hi: "API कुंजी प्रबंधक", bn: "API কী ম্যানেজার" })} onClick={() => push({ kind: "apiKeyManager" })}>
-            <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
-          </Row>
+          {devMode && (
+            <Row icon="Key" label={tc({ en: "API Key Manager", hi: "API कुंजी प्रबंधक", bn: "API কী ম্যানেজার" })} onClick={() => push({ kind: "apiKeyManager" })}>
+              <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
+            </Row>
+          )}
           <Row icon="ShieldCheck" label={t("security")} onClick={() => toast(tc({ en: "Security settings — coming soon", hi: "सुरक्षा सेटिंग्स — जल्द आ रहा है", bn: "নিরাপত্তা সেটিংস — শীঘ্রই আসছে" }))}>
             <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
           </Row>
@@ -95,7 +119,7 @@ export default function Settings() {
         </Card>
 
         <Card pad={6}>
-          <Row icon="Info" label={t("about")} onClick={() => toast("AgriOS India · v2.0.0")} last>
+          <Row icon="Info" label={t("about")} onClick={handleVersionTap} last>
             <span style={{ fontSize: 13, color: T.inkFaint }}>v2.0.0</span>
           </Row>
         </Card>
