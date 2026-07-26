@@ -34,7 +34,7 @@ registerProvider({
   authHeader: (key) => ({ authorization: `Bearer ${key}` }),
 });
 
-// ── Anthropic (future) ───────────────────────────────────────────────
+// ── Anthropic ───────────────────────────────────────────────────────
 registerProvider({
   id: "anthropic",
   name: "Anthropic",
@@ -45,6 +45,84 @@ registerProvider({
     { id: "claude-haiku-4-5", label: "Claude Haiku 4.5", tier: "router" },
   ],
   authHeader: (key) => ({ "x-api-key": key, "anthropic-version": "2023-06-01" }),
+  buildBody(openAIBody) {
+    const { model, messages, tools, max_tokens } = openAIBody;
+    let system = "";
+    const msgs = [];
+    for (const m of messages) {
+      if (m.role === "system") { system = typeof m.content === "string" ? m.content : ""; continue; }
+      if (m.role === "tool") {
+        msgs.push({ role: "user", content: [{ type: "tool_result", tool_use_id: m.tool_call_id, content: m.content }] });
+        continue;
+      }
+      if (m.role === "assistant" && m.tool_calls) {
+        const content = [];
+        if (m.content) content.push({ type: "text", text: m.content });
+        for (const tc of m.tool_calls) {
+          content.push({ type: "tool_use", id: tc.id, name: tc.function.name, input: JSON.parse(tc.function.arguments || "{}") });
+        }
+        msgs.push({ role: "assistant", content });
+        continue;
+      }
+      if (m.role === "user" && Array.isArray(m.content)) {
+        const parts = m.content.map((block) => {
+          if (block.type === "image_url") {
+            const url = block.image_url?.url || "";
+            const match = url.match(/^data:(image\/\w+);base64,(.+)/);
+            if (match) return { type: "image", source: { type: "base64", media_type: match[1], data: match[2] } };
+          }
+          return block;
+        });
+        msgs.push({ role: "user", content: parts });
+        continue;
+      }
+      msgs.push(m);
+    }
+    let anthropicTools;
+    if (Array.isArray(tools) && tools.length) {
+      anthropicTools = tools.map((t) => ({
+        name: t.function?.name || t.name,
+        description: t.function?.description || t.description || "",
+        input_schema: t.function?.parameters || t.input_schema || { type: "object", properties: {} },
+      }));
+    }
+    return {
+      model,
+      ...(system ? { system } : {}),
+      messages: msgs,
+      ...(anthropicTools ? { tools: anthropicTools } : {}),
+      max_tokens: max_tokens || 1024,
+      stream: true,
+    };
+  },
+  transformSSE(chunk) {
+    const lines = chunk.split("\n");
+    const out = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) { out.push(line); continue; }
+      const data = trimmed.slice(5).trim();
+      if (data === "[DONE]") { out.push("data: [DONE]"); continue; }
+      try {
+        const ev = JSON.parse(data);
+        if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+          out.push(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: ev.delta.text } }] })}`);
+        } else if (ev.type === "content_block_delta" && ev.delta?.type === "input_json_delta") {
+          out.push(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { tool_calls: [{ index: ev.index || 0, function: { arguments: ev.delta.partial_json } }] } }] })}`);
+        } else if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
+          out.push(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { tool_calls: [{ index: ev.index || 0, id: ev.content_block.id, type: "function", function: { name: ev.content_block.name, arguments: "" } }] } }] })}`);
+        } else if (ev.type === "message_stop") {
+          out.push("data: [DONE]");
+        } else if (ev.type === "message_delta" && ev.delta?.stop_reason) {
+          const reason = ev.delta.stop_reason === "end_turn" ? "stop" : ev.delta.stop_reason === "tool_use" ? "tool_calls" : ev.delta.stop_reason;
+          out.push(`data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: reason }] })}`);
+        } else {
+          out.push(line);
+        }
+      } catch { out.push(line); }
+    }
+    return out.join("\n");
+  },
 });
 
 // ── Google Gemini (future) ───────────────────────────────────────────

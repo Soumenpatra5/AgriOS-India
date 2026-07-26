@@ -187,7 +187,13 @@ export default async function handler(req, res) {
   const decoded = await verifyToken(req);
   if (!decoded) return res.status(401).json({ error: { message: "Unauthorized" } });
 
-  const keys = getKeys();
+  // Client-provided key (from API Key Manager) takes priority
+  const clientKey = req.headers["x-client-api-key"];
+  const clientProvider = req.headers["x-client-provider"];
+
+  const keys = clientKey && clientProvider
+    ? [{ provider: clientProvider, key: clientKey }]
+    : getKeys();
   if (!keys.length) return res.status(503).json({ error: { message: "AI is not configured — add API keys in Vercel environment variables." } });
 
   const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";

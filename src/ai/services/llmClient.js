@@ -72,10 +72,19 @@ async function openAIFetch({ model, system, messages, tools, maxTokens }, signal
   const activeKey = keyManager.getActiveKey();
 
   if (activeKey) {
-    const provider = getProvider(activeKey.provider);
-    const url = provider.apiUrl;
-    const headers = { "content-type": "application/json", ...provider.authHeader(activeKey.key) };
-    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal });
+    // All providers route through the serverless proxy to avoid CORS issues.
+    // The client-side key is passed via x-client-api-key + x-client-provider headers
+    // so the proxy uses it instead of its own env-var keys.
+    const res = await authFetch(API_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-client-api-key": activeKey.key,
+        "x-client-provider": activeKey.provider,
+      },
+      body: JSON.stringify(body),
+      signal,
+    });
     if (!res.ok) {
       let detail = "";
       try { detail = (await res.json())?.error?.message || ""; } catch { /* opaque */ }
