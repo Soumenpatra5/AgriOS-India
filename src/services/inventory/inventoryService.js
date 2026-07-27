@@ -1,7 +1,7 @@
 /* Inventory — items with stock in/out movements, low-stock + expiry alerts.
    Item: {name, category, unit, qty, minQty, expiryDate, supplierName, barcode} */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "../erp/erpDb.js";
 
 export const ITEM_CATEGORIES = [
   { id: "feed",       label: "Feed",         icon: "Package"     },

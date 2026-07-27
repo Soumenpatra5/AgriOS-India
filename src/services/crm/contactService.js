@@ -1,6 +1,6 @@
 /* CRM contacts — customers and suppliers in one store, split by type. */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "../erp/erpDb.js";
 
 export const CONTACT_TYPES = [
   { id: "customer",    label: "Customer"     },

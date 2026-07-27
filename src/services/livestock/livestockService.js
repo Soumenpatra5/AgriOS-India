@@ -1,4 +1,4 @@
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "./livestockDb.js";
 
 export const ENTERPRISES = [
   { id: "poultry", label: "Poultry",    icon: "Bird",      accent: "orange" },

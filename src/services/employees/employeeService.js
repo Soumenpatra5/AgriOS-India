@@ -1,6 +1,6 @@
 /* Employees — profiles, roles, daily attendance, wage records (payroll-ready). */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "../erp/erpDb.js";
 
 export const ROLES = [
   { id: "manager",    label: "Farm Manager" },

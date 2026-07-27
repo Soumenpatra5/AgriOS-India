@@ -3,7 +3,7 @@ import { storage } from "../utils/storage.js";
 import { makeT, pickLang } from "../i18n/strings.js";
 import { LOCALES } from "../constants/languages.js";
 import { onAuthChange, logout as fbLogout } from "../services/firebase/auth.js";
-import { migrateToFirestore } from "../services/firebase/migrate.js";
+import { initSync, onLogin as syncOnLogin, onLogout as syncOnLogout } from "../services/firebase/syncManager.js";
 
 const AppCtx = createContext(null);
 export const useApp = () => useContext(AppCtx);
@@ -24,6 +24,7 @@ export function AppProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
+    initSync();
     return onAuthChange((fbUser) => {
       if (fbUser) {
         const stored = storage.get("user", null);
@@ -56,10 +57,11 @@ export function AppProvider({ children }) {
   const finishOnboarding = useCallback(() => { storage.set("onboarded", true); setStage("auth"); }, []);
   const login = useCallback((u) => {
     storage.set("user", u); setUser(u); setStage("app"); setTab("home");
-    migrateToFirestore().catch(() => {});
+    syncOnLogin(u).catch(() => {});
   }, []);
   const logout = useCallback(async () => {
     await fbLogout();
+    syncOnLogout();
     storage.remove("user");
     setUser(null);
     setStack([]);

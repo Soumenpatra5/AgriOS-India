@@ -1,7 +1,7 @@
 /* Farm tasks — daily/weekly/monthly/recurring, priority, status, assignment.
    Completing a recurring task auto-creates the next occurrence. */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "../erp/erpDb.js";
 
 export const PRIORITIES = [
   { id: "high",   label: "High",   },

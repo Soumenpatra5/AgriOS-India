@@ -16,17 +16,24 @@ const firebaseConfig = {
   appId:             import.meta.env.VITE_FB_APP_ID,
 };
 
-export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+export const fbEnabled = !!firebaseConfig.apiKey;
 
-let db;
-try {
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
-    }),
-  });
-} catch {
-  db = getFirestore(app);
+let app = null;
+let auth = null;
+let db = null;
+
+if (fbEnabled) {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  try {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch {
+    db = getFirestore(app);
+  }
 }
-export { db };
+
+export { app, auth, db };

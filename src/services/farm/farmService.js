@@ -1,7 +1,7 @@
 /* Farm profiles — multiple farms with one "active" farm that scopes new
    ERP records. Active farm id lives in localStorage; farm rows in IndexedDB. */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "../erp/erpDb.js";
 import { storage } from "../../utils/storage.js";
 
 const ACTIVE_KEY = "erp:activeFarmId";

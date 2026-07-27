@@ -1,4 +1,4 @@
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "../erp/erpDb.js";
 
 const txns = repo("ledgerTxns");
 

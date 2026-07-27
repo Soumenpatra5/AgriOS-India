@@ -3,7 +3,7 @@
    Live MQTT/LoRaWAN ingestion plugs into `recordTelemetry` without changing
    any consumer. */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "../erp/erpDb.js";
 
 export const DEVICE_TYPES = [
   { id: "temp",      label: "Temperature Sensor", icon: "Thermometer", unit: "°C"  },

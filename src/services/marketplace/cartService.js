@@ -2,7 +2,7 @@
    getLines() joins live product data and validates each line against current
    stock and publish status so the UI always shows honest availability. */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "./marketDb.js";
 import { productService } from "./productService.js";
 
 const cart = repo("cart");

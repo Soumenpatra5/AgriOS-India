@@ -1,6 +1,7 @@
 import { collection, doc, setDoc } from "firebase/firestore";
-import { db, auth } from "./config.js";
+import { db, auth, fbEnabled } from "./config.js";
 import { storage } from "../../utils/storage.js";
+import { CORE_DBS, firestoreName } from "./dbRegistry.js";
 
 const MIGRATION_FLAG = "fb:migrated";
 
@@ -27,37 +28,26 @@ function readIdb(dbName, storeNames) {
 }
 
 export async function migrateToFirestore() {
+  if (!fbEnabled) return { skipped: true, reason: "firebase not configured" };
   if (storage.get(MIGRATION_FLAG)) return { skipped: true };
   const user = auth.currentUser;
   if (!user) return { skipped: true, reason: "not authenticated" };
 
-  const erpStores = ["farms", "parcels", "tasks", "inventory", "stockMoves", "assets", "maintenance", "employees", "attendance", "contacts", "orders", "devices", "telemetry"];
-  const livestockStores = ["animals", "productions", "events"];
-  const marketStores = ["sellers", "products", "cart", "wishlist", "orders", "reviews"];
-
-  const [erpData, livestockData, marketData] = await Promise.all([
-    readIdb("agrios-erp", erpStores),
-    readIdb("agrios-livestock", livestockStores),
-    readIdb("agrios-marketplace", marketStores),
-  ]);
-
   let total = 0;
   const userRoot = `users/${user.uid}`;
 
-  const writeAll = async (data, renames = {}) => {
+  for (const dbEntry of CORE_DBS) {
+    const data = await readIdb(dbEntry.name, dbEntry.stores);
+
     for (const [storeName, records] of Object.entries(data)) {
-      const colName = renames[storeName] || storeName;
+      const fsCol = firestoreName(dbEntry.name, storeName);
       for (const record of records) {
         if (!record.id) continue;
-        await setDoc(doc(collection(db, userRoot, colName), record.id), record);
+        await setDoc(doc(collection(db, userRoot, fsCol), record.id), record);
         total++;
       }
     }
-  };
-
-  await writeAll(erpData);
-  await writeAll(livestockData);
-  await writeAll(marketData, { orders: "mpOrders" });
+  }
 
   const ledgerTxns = storage.get("ldg:txns", []);
   for (const txn of ledgerTxns) {

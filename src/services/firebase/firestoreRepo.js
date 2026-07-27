@@ -8,44 +8,53 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { db, auth } from "./config.js";
+import { db, auth, fbEnabled } from "./config.js";
 
 const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 function userCol(storeName) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("Not authenticated");
-  return collection(db, "users", user.uid, storeName);
+  if (!fbEnabled || !auth || !auth.currentUser) return null;
+  return collection(db, "users", auth.currentUser.uid, storeName);
 }
 
 export function repo(storeName) {
   return {
     async add(data) {
+      const col = userCol(storeName);
+      if (!col) return null;
       const id = data.id || uid();
       const record = { ...data, id, createdAt: new Date().toISOString() };
-      await setDoc(doc(userCol(storeName), id), record);
+      await setDoc(doc(col, id), record);
       return record;
     },
 
     async getAll() {
-      const snap = await getDocs(userCol(storeName));
+      const col = userCol(storeName);
+      if (!col) return [];
+      const snap = await getDocs(col);
       return snap.docs.map((d) => d.data());
     },
 
     async getBy(field, value) {
-      const q = query(userCol(storeName), where(field, "==", value));
+      const col = userCol(storeName);
+      if (!col) return [];
+      const q = query(col, where(field, "==", value));
       const snap = await getDocs(q);
       return snap.docs.map((d) => d.data());
     },
 
     async getById(id) {
-      const snap = await getDoc(doc(userCol(storeName), id));
+      const col = userCol(storeName);
+      if (!col) return null;
+      const snap = await getDoc(doc(col, id));
       return snap.exists() ? snap.data() : null;
     },
 
     async update(id, patch) {
-      const ref = doc(userCol(storeName), id);
+      const col = userCol(storeName);
+      if (!col) return null;
+      const ref = doc(col, id);
       const snap = await getDoc(ref);
       if (!snap.exists()) return null;
       const updated = {
@@ -58,11 +67,15 @@ export function repo(storeName) {
     },
 
     async remove(id) {
-      await deleteDoc(doc(userCol(storeName), id));
+      const col = userCol(storeName);
+      if (!col) return;
+      await deleteDoc(doc(col, id));
     },
 
     async count() {
-      const snap = await getDocs(userCol(storeName));
+      const col = userCol(storeName);
+      if (!col) return 0;
+      const snap = await getDocs(col);
       return snap.size;
     },
   };

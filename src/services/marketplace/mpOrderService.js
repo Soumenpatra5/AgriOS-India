@@ -8,7 +8,7 @@
    - cancelled  -> release qty          (reservation returned)
    - returned   -> restock qty          (after delivery, stock comes back)   */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "./marketDb.js";
 import { productService } from "./productService.js";
 import { ORDER_FLOW } from "./constantsMp.js";
 import { storage } from "../../utils/storage.js";

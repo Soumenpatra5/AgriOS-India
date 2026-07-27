@@ -3,7 +3,7 @@
    tested CRUD implementation (Repository Pattern) instead of copying it. */
 
 const DB_NAME = "agrios-erp";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 /* store name -> indexes created on upgrade */
 const STORES = {
@@ -20,6 +20,7 @@ const STORES = {
   orders:      ["contactId", "kind", "date"],
   devices:     ["farmId"],
   telemetry:   ["deviceId", "date"],
+  ledgerTxns:  ["type", "category", "date"],
 };
 
 let _db = null;
@@ -43,8 +44,10 @@ export function openDb() {
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
+import { wrapWithSync } from "../firebase/syncRepo.js";
+
 /* Generic repository over one store. All ERP services build on this. */
-export function repo(storeName) {
+function _localRepo(storeName) {
   const run = (mode, fn) => openDb().then((db) => new Promise((res, rej) => {
     const store = db.transaction(storeName, mode).objectStore(storeName);
     const req = fn(store);
@@ -72,4 +75,8 @@ export function repo(storeName) {
     remove: (id) => run("readwrite", (s) => s.delete(id)),
     count: () => run("readonly", (s) => s.count()),
   };
+}
+
+export function repo(storeName) {
+  return wrapWithSync(storeName, _localRepo(storeName));
 }

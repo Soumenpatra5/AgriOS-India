@@ -1,6 +1,6 @@
 /* Land parcels — soil, water, ownership/lease, current crop, rotation history. */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "../erp/erpDb.js";
 
 export const SOIL_TYPES  = ["Alluvial","Black (Regur)","Red","Laterite","Sandy","Clay","Loamy","Saline"];
 export const WATER_SOURCES = ["Borewell","Canal","Pond","River","Rain-fed","Drip","Sprinkler"];

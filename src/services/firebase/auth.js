@@ -14,10 +14,9 @@ import {
   browserLocalPersistence,
   setPersistence,
 } from "firebase/auth";
-import { auth } from "./config.js";
+import { auth, fbEnabled } from "./config.js";
 
-// Ensure auth state persists across sessions and page reloads
-setPersistence(auth, browserLocalPersistence).catch(() => {});
+if (fbEnabled) setPersistence(auth, browserLocalPersistence).catch(() => {});
 
 let confirmationResult = null;
 
@@ -94,6 +93,7 @@ export async function signInWithTwitter() {
 /* ── Common ──────────────────────────────────────────────────────────────── */
 
 export function onAuthChange(cb) {
+  if (!fbEnabled) return () => {};
   return onAuthStateChanged(auth, cb);
 }
 
@@ -103,5 +103,6 @@ export async function getIdToken() {
 }
 
 export function logout() {
+  if (!fbEnabled) return Promise.resolve();
   return signOut(auth);
 }

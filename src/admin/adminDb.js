@@ -30,7 +30,9 @@ export function openDb() {
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-export function repo(storeName) {
+import { wrapWithSync } from "../services/firebase/syncRepo.js";
+
+function _localRepo(storeName) {
   const run = (mode, fn) => openDb().then((db) => new Promise((res, rej) => {
     const store = db.transaction(storeName, mode).objectStore(storeName);
     const req = fn(store);
@@ -58,4 +60,8 @@ export function repo(storeName) {
     remove: (id) => run("readwrite", (s) => s.delete(id)),
     count: () => run("readonly", (s) => s.count()),
   };
+}
+
+export function repo(storeName) {
+  return wrapWithSync(storeName, _localRepo(storeName));
 }

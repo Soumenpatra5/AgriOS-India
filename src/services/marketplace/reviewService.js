@@ -1,7 +1,7 @@
 /* Reviews — product & seller ratings. Review:
    { productId, sellerId, rating (1-5), text, author, verified, demo } */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "./marketDb.js";
 import { mpOrderService } from "./mpOrderService.js";
 
 const reviews = repo("reviews");

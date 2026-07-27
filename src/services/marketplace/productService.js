@@ -3,7 +3,7 @@
      stock, reserved, lowStockAt, description, specs:{k:v}, certifications:[],
      status: draft|published|archived, featured, demo } */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "./marketDb.js";
 import { categoryMeta } from "./constantsMp.js";
 
 const products = repo("products");

@@ -3,7 +3,7 @@
    { name, type, tagline, description, village, district, state, phone,
      icon, accent, gstin, verificationStatus, kycStatus, demo } */
 
-import { repo } from "../firebase/firestoreRepo.js";
+import { repo } from "./marketDb.js";
 import { storage } from "../../utils/storage.js";
 import { SELLER_TYPES } from "./constantsMp.js";
 
