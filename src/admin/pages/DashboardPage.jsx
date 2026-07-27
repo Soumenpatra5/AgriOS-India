@@ -62,7 +62,7 @@ export default function DashboardPage() {
           </div>
         </AdminCard>
       </div>
-      <div style={{ textAlign: "center", marginTop: 32, fontSize: 11.5, color: T.inkFaint }}>AgriOS Admin · v1.1.0 (Phase 8)</div>
+      <div style={{ textAlign: "center", marginTop: 32, fontSize: 11.5, color: T.inkFaint }}>AgriOS Admin · v2.0.0 (Phase 9)</div>
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { T } from "../../theme/ThemeProvider.jsx";
 import Breadcrumbs from "../components/Breadcrumbs.jsx";
 import AdminCard from "../components/AdminCard.jsx";
 import StatGrid from "../components/StatGrid.jsx";
+import { openDb as openErpDb } from "../../services/erp/erpDb.js";
+import { openDb as openLivestockDb } from "../../services/livestock/livestockDb.js";
 import { openDb as openMarketDb } from "../../services/marketplace/marketDb.js";
 import { openDb as openSvcDb } from "../../services/svcMarketplace/svcDb.js";
 import { openDb as openLogDb } from "../../services/logistics/logisticsDb.js";
@@ -10,6 +12,8 @@ import { openDb as openAiDb } from "../../services/aiCommerce/aiCommerceDb.js";
 import { openDb as openAdminDb } from "../adminDb.js";
 
 const DBS = [
+  { name: "agrios-erp", open: openErpDb },
+  { name: "agrios-livestock", open: openLivestockDb },
   { name: "agrios-marketplace", open: openMarketDb },
   { name: "agrios-svc-marketplace", open: openSvcDb },
   { name: "agrios-logistics", open: openLogDb },
@@ -61,7 +65,7 @@ export default function SystemInfoPage() {
       <StatGrid stats={[
         { icon: "HardDrive", label: "IndexedDB Databases", value: DBS.length, color: "#3b82f6" },
         { icon: "Server", label: "localStorage", value: fmt(lsSize), color: "#8b5cf6" },
-        { icon: "Package", label: "Total Stores", value: DBS.reduce((s, d) => s + d.stores.length, 0), color: T.primary },
+        { icon: "Package", label: "Total Stores", value: dbInfo.reduce((s, d) => s + d.stores.length, 0), color: T.primary },
       ]} />
 
       {dbInfo.map((db) => (
@@ -86,7 +90,7 @@ export default function SystemInfoPage() {
         <Row label="User Agent">{navigator.userAgent.slice(0, 80)}…</Row>
         <Row label="Language">{navigator.language}</Row>
         <Row label="Online">{navigator.onLine ? "Yes" : "No"}</Row>
-        <Row label="App Version">v1.1.0 (Phase 8)</Row>
+        <Row label="App Version">v2.0.0 (Phase 9)</Row>
       </AdminCard>
     </div>
   );

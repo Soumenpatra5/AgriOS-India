@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Component } from "react";
 import { ThemeProvider, T } from "../theme/ThemeProvider.jsx";
 import { adminAuth } from "./adminAuth.js";
 import { openDb } from "./adminDb.js";
@@ -95,6 +95,28 @@ function LoginGate({ onLogin }) {
   );
 }
 
+class PageErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 32, textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px" }}>Something went wrong</h2>
+          <p style={{ fontSize: 13, color: T.inkSoft, margin: "0 0 16px" }}>{this.state.error.message}</p>
+          <button onClick={() => { this.setState({ error: null }); location.hash = "/"; }}
+            style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: T.primary, color: "#fff",
+              fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            Back to Dashboard
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function AdminApp() {
   const [authed, setAuthed] = useState(() => adminAuth.isLoggedIn());
 
@@ -103,7 +125,9 @@ export default function AdminApp() {
       {authed ? (
         <RouterProvider>
           <AdminShell onLogout={() => { adminAuth.logout(); setAuthed(false); }}>
-            <AdminRouter routes={ROUTES} fallback={DashboardPage} />
+            <PageErrorBoundary>
+              <AdminRouter routes={ROUTES} fallback={DashboardPage} />
+            </PageErrorBoundary>
           </AdminShell>
         </RouterProvider>
       ) : (
