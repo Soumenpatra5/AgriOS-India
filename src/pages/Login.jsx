@@ -11,6 +11,7 @@ import {
   signInWithTwitter,
   signInWithEmail,
   signUpWithEmail,
+  resetPassword,
 } from "../services/firebase/auth.js";
 
 const ERR = {
@@ -38,9 +39,11 @@ export default function Login() {
   const [mode, setMode] = useState("login"); // "login" or "signup"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => { setupRecaptcha("recaptcha-container"); }, []);
 
@@ -80,6 +83,21 @@ export default function Login() {
       } else {
         setError(authError(err, tc));
       }
+    } finally { setLoading(false); }
+  };
+
+  const handleReset = async () => {
+    setError(""); setNotice("");
+    if (!email.includes("@")) {
+      setError(tc({ en: "Enter your email above first, then tap Forgot password.", hi: "पहले ऊपर अपना ईमेल भरें, फिर पासवर्ड भूल गए पर टैप करें।", bn: "আগে উপরে আপনার ইমেইল লিখুন, তারপর পাসওয়ার্ড ভুলে গেছেন-এ ট্যাপ করুন।" }));
+      return;
+    }
+    setLoading(true);
+    try {
+      await resetPassword(email);
+      setNotice(tc({ en: "Password reset link sent — check your email.", hi: "पासवर्ड रीसेट लिंक भेजा गया — अपना ईमेल देखें।", bn: "পাসওয়ার্ড রিসেট লিঙ্ক পাঠানো হয়েছে — আপনার ইমেইল দেখুন।" }));
+    } catch (err) {
+      setError(authError(err, tc));
     } finally { setLoading(false); }
   };
 
@@ -182,7 +200,7 @@ export default function Login() {
             {/* Login / Sign Up toggle */}
             <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 22 }}>
               {["login", "signup"].map((m) => (
-                <button key={m} onClick={() => { setMode(m); setError(""); }}
+                <button key={m} onClick={() => { setMode(m); setError(""); setNotice(""); }}
                   style={{ padding: "6px 18px", borderRadius: 99, border: `1.5px solid ${mode === m ? "#1a1a1a" : "#e5e5e5"}`,
                     background: mode === m ? "#1a1a1a" : "#fff", color: mode === m ? "#fff" : "#6b6b6b",
                     fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
@@ -202,15 +220,26 @@ export default function Login() {
                 onFocus={(e) => e.target.style.borderColor = "#10a37f"}
                 onBlur={(e) => e.target.style.borderColor = "#e5e5e5"} />
 
-              <input value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                placeholder={mode === "signup"
-                  ? tc({ en: "Create password (min 6 characters)", hi: "पासवर्ड बनाएँ (कम से कम 6 अक्षर)", bn: "পাসওয়ার্ড তৈরি করুন (কমপক্ষে ৬ অক্ষর)" })
-                  : tc({ en: "Password", hi: "पासवर्ड", bn: "পাসওয়ার্ড" })} type="password"
-                style={{ width: "100%", padding: "13px 16px", borderRadius: 12, fontSize: 15,
-                  border: "1px solid #e5e5e5", background: "#f5f5f5", color: "#1a1a1a",
-                  fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
-                onFocus={(e) => e.target.style.borderColor = "#10a37f"}
-                onBlur={(e) => e.target.style.borderColor = "#e5e5e5"} />
+              <div style={{ position: "relative", width: "100%" }}>
+                <input value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                  placeholder={mode === "signup"
+                    ? tc({ en: "Create password (min 6 characters)", hi: "पासवर्ड बनाएँ (कम से कम 6 अक्षर)", bn: "পাসওয়ার্ড তৈরি করুন (কমপক্ষে ৬ অক্ষর)" })
+                    : tc({ en: "Password", hi: "पासवर्ड", bn: "পাসওয়ার্ড" })} type={showPassword ? "text" : "password"}
+                  style={{ width: "100%", padding: "13px 44px 13px 16px", borderRadius: 12, fontSize: 15,
+                    border: "1px solid #e5e5e5", background: "#f5f5f5", color: "#1a1a1a",
+                    fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+                  onFocus={(e) => e.target.style.borderColor = "#10a37f"}
+                  onBlur={(e) => e.target.style.borderColor = "#e5e5e5"} />
+                <button type="button" onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword
+                    ? tc({ en: "Hide password", hi: "पासवर्ड छिपाएँ", bn: "পাসওয়ার্ড লুকান" })
+                    : tc({ en: "Show password", hi: "पासवर्ड दिखाएँ", bn: "পাসওয়ার্ড দেখান" })}
+                  style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
+                    width: 34, height: 34, display: "grid", placeItems: "center", padding: 0,
+                    background: "transparent", border: "none", cursor: "pointer", color: "#8a8a8a" }}>
+                  <Icon name={showPassword ? "EyeOff" : "Eye"} size={19} />
+                </button>
+              </div>
 
               <button onClick={handleEmailSubmit}
                 disabled={!email.includes("@") || password.length < 6 || loading}
@@ -224,6 +253,22 @@ export default function Login() {
                     ? tc({ en: "Create Account", hi: "खाता बनाएँ", bn: "অ্যাকাউন্ট তৈরি করুন" })
                     : tc({ en: "Log In", hi: "लॉग इन करें", bn: "লগ ইন করুন" })}
               </button>
+
+              {mode === "login" && (
+                <button type="button" onClick={handleReset} disabled={loading}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 4,
+                    color: "#10a37f", fontSize: 13.5, fontWeight: 600, fontFamily: "inherit",
+                    alignSelf: "center" }}>
+                  {tc({ en: "Forgot password?", hi: "पासवर्ड भूल गए?", bn: "পাসওয়ার্ড ভুলে গেছেন?" })}
+                </button>
+              )}
+
+              {notice && (
+                <div style={{ padding: "10px 12px", borderRadius: 10, background: "#e7f6ef",
+                  color: "#0d7a4f", fontSize: 13, fontFamily: "inherit", textAlign: "center" }}>
+                  {notice}
+                </div>
+              )}
             </div>
           </>
         )}

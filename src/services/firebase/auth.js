@@ -4,6 +4,7 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   fetchSignInMethodsForEmail,
   GoogleAuthProvider,
   FacebookAuthProvider,
@@ -66,6 +67,10 @@ export async function checkEmailExists(email) {
   } catch {
     return false;
   }
+}
+
+export async function resetPassword(email) {
+  await sendPasswordResetEmail(auth, email);
 }
 
 /* ── Social providers ────────────────────────────────────────────────────── */
