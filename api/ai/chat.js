@@ -107,13 +107,16 @@ const PROVIDERS = {
 };
 
 // ── Build key list from env vars ─────────────────────────────────────
+// .trim() guards against trailing spaces/newlines accidentally pasted into
+// the Vercel env var, which the provider would otherwise reject as invalid.
 function getKeys() {
   const keys = [];
-  if (process.env.OPENAI_API_KEY) keys.push({ provider: "openai", key: process.env.OPENAI_API_KEY });
-  if (process.env.ANTHROPIC_API_KEY) keys.push({ provider: "anthropic", key: process.env.ANTHROPIC_API_KEY });
-  if (process.env.OPENAI_API_KEY_2) keys.push({ provider: "openai", key: process.env.OPENAI_API_KEY_2 });
-  if (process.env.OPENAI_API_KEY_3) keys.push({ provider: "openai", key: process.env.OPENAI_API_KEY_3 });
-  if (process.env.ANTHROPIC_API_KEY_2) keys.push({ provider: "anthropic", key: process.env.ANTHROPIC_API_KEY_2 });
+  const add = (provider, raw) => { const key = (raw || "").trim(); if (key) keys.push({ provider, key }); };
+  add("openai", process.env.OPENAI_API_KEY);
+  add("anthropic", process.env.ANTHROPIC_API_KEY);
+  add("openai", process.env.OPENAI_API_KEY_2);
+  add("openai", process.env.OPENAI_API_KEY_3);
+  add("anthropic", process.env.ANTHROPIC_API_KEY_2);
   return keys;
 }
 
@@ -190,7 +193,7 @@ export default async function handler(req, res) {
   if (!decoded) return res.status(401).json({ error: { message: "Unauthorized" } });
 
   // Client-provided key (from API Key Manager) takes priority
-  const clientKey = req.headers["x-client-api-key"];
+  const clientKey = (req.headers["x-client-api-key"] || "").trim();
   const clientProvider = req.headers["x-client-provider"];
 
   const keys = clientKey && clientProvider
