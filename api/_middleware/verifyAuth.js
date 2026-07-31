@@ -1,43 +1,42 @@
-import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
+/* Firebase ID token verification — keyless.
 
-/* Lazily initialize the Admin SDK. If credentials are missing or invalid,
-   we swallow the error here so a misconfiguration returns a clean 401
-   from verifyToken() instead of crashing the whole serverless function
-   (FUNCTION_INVOCATION_FAILED) at module load. */
-let initError = null;
+   Firebase ID tokens are RS256 JWTs signed by Google. Verifying one only
+   requires Google's PUBLIC signing keys (JWKS) plus the project id — never a
+   service-account private key. This avoids needing a service-account JSON key
+   (which some Google Cloud org policies forbid creating) and drops the heavy
+   firebase-admin dependency entirely.
 
-function ensureApp() {
-  if (getApps().length) return true;
-  const { FB_PROJECT_ID, FB_CLIENT_EMAIL, FB_PRIVATE_KEY } = process.env;
-  if (!FB_PROJECT_ID || !FB_CLIENT_EMAIL || !FB_PRIVATE_KEY) {
-    initError = "Firebase Admin credentials are not configured (FB_PROJECT_ID / FB_CLIENT_EMAIL / FB_PRIVATE_KEY).";
-    return false;
-  }
-  try {
-    initializeApp({
-      credential: cert({
-        projectId:   FB_PROJECT_ID,
-        clientEmail: FB_CLIENT_EMAIL,
-        privateKey:  FB_PRIVATE_KEY.replace(/\\n/g, "\n"),
-      }),
-    });
-    return true;
-  } catch (err) {
-    initError = `Firebase Admin init failed: ${err.message}`;
-    return false;
-  }
+   The project id is public; set FB_PROJECT_ID in Vercel (falls back to the
+   VITE_FB_PROJECT_ID already used by the client build). */
+
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+const JWKS = createRemoteJWKSet(
+  new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
+);
+
+function projectId() {
+  return process.env.FB_PROJECT_ID || process.env.VITE_FB_PROJECT_ID || "";
 }
 
 export async function verifyToken(req) {
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) return null;
-  if (!ensureApp()) {
-    console.error(initError);
+
+  const pid = projectId();
+  if (!pid) {
+    console.error("verifyToken: no project id (set FB_PROJECT_ID)");
     return null;
   }
+
   try {
-    return await getAuth().verifyIdToken(header.slice(7));
+    const { payload } = await jwtVerify(header.slice(7), JWKS, {
+      issuer: `https://securetoken.google.com/${pid}`,
+      audience: pid,
+    });
+    // A valid Firebase ID token always carries a non-empty subject (uid).
+    if (!payload.sub) return null;
+    return payload;
   } catch {
     return null;
   }
