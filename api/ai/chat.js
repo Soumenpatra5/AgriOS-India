@@ -9,6 +9,8 @@
      ANTHROPIC_API_KEY   = sk-ant-...       (Anthropic Claude key)
      OPENAI_API_KEY_2    = sk-...           (backup OpenAI key, optional)  */
 
+import { verifyToken } from "../_middleware/verifyAuth.js";
+
 const MAX_TOKENS_CAP = 4096;
 const MAX_BODY_CHARS = 400_000;
 const MAX_MESSAGES = 40;
@@ -181,9 +183,9 @@ async function tryKey(entry, body) {
 
 // ── Handler ──────────────────────────────────────────────────────────
 export default async function handler(req, res) {
+  try {
   if (req.method !== "POST") return res.status(405).json({ error: { message: "POST only" } });
 
-  const { verifyToken } = await import("../_middleware/verifyAuth.js");
   const decoded = await verifyToken(req);
   if (!decoded) return res.status(401).json({ error: { message: "Unauthorized" } });
 
@@ -245,4 +247,11 @@ export default async function handler(req, res) {
   }
 
   return res.status(502).json({ error: { message: `All API keys failed. Last error: ${lastError}` } });
+  } catch (err) {
+    // TEMPORARY diagnostic — surface the real crash instead of FUNCTION_INVOCATION_FAILED
+    console.error("chat handler crash:", err);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: { message: `handler crash: ${err?.message}`, stack: err?.stack } });
+    }
+  }
 }
