@@ -248,10 +248,10 @@ export default async function handler(req, res) {
 
   return res.status(502).json({ error: { message: `All API keys failed. Last error: ${lastError}` } });
   } catch (err) {
-    // TEMPORARY diagnostic — surface the real crash instead of FUNCTION_INVOCATION_FAILED
-    console.error("chat handler crash:", err);
+    // Fail gracefully instead of an opaque FUNCTION_INVOCATION_FAILED crash
+    console.error("chat handler error:", err);
     if (!res.headersSent) {
-      return res.status(500).json({ error: { message: `handler crash: ${err?.message}`, stack: err?.stack } });
+      return res.status(500).json({ error: { message: "Internal error" } });
     }
   }
 }
