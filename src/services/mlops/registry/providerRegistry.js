@@ -1,7 +1,9 @@
 /* AI provider registry — provider-agnostic interface.
    Each provider defines its capabilities and connection contract.
-   The ANTHROPIC_API_KEY stays server-side; entries here hold only
-   metadata and the endpoint path (not secrets). */
+   API keys stay server-side (in api/); entries here hold only metadata and
+   the endpoint path — never secrets, nor the names of their server env vars.
+   `authType: "server_env"` signals the key lives in a Vercel env var; the
+   client never needs to know which one. */
 
 export const SUPPORTED_PROVIDERS = {
   ANTHROPIC: {
@@ -10,7 +12,7 @@ export const SUPPORTED_PROVIDERS = {
     icon: "Bot",
     endpoint: "/api/ai/chat",
     authType: "server_env",
-    envKey: "ANTHROPIC_API_KEY",
+    envKey: null,
     models: ["claude-opus-4-8", "claude-haiku-4-5"],
     capabilities: ["text", "vision", "structured_output"],
     status: "active",
@@ -21,7 +23,7 @@ export const SUPPORTED_PROVIDERS = {
     icon: "Sparkles",
     endpoint: "/api/ai/gemini",
     authType: "server_env",
-    envKey: "GOOGLE_AI_API_KEY",
+    envKey: null,
     models: ["gemini-1.5-pro", "gemini-1.5-flash"],
     capabilities: ["text", "vision", "structured_output"],
     status: "planned",
@@ -32,7 +34,7 @@ export const SUPPORTED_PROVIDERS = {
     icon: "Bot",
     endpoint: "/api/ai/openai",
     authType: "server_env",
-    envKey: "OPENAI_API_KEY",
+    envKey: null,
     models: ["gpt-4o", "gpt-4o-mini"],
     capabilities: ["text", "vision", "structured_output"],
     status: "planned",
@@ -43,7 +45,7 @@ export const SUPPORTED_PROVIDERS = {
     icon: "Cloud",
     endpoint: "/api/ai/azure",
     authType: "server_env",
-    envKey: "AZURE_OPENAI_API_KEY",
+    envKey: null,
     models: [],
     capabilities: ["text", "vision"],
     status: "planned",
@@ -65,7 +67,7 @@ export const SUPPORTED_PROVIDERS = {
     icon: "Network",
     endpoint: "/api/ai/vertex",
     authType: "service_account",
-    envKey: "GOOGLE_APPLICATION_CREDENTIALS",
+    envKey: null,
     models: ["gemini-1.5-pro", "claude-3-5-sonnet@20241022"],
     capabilities: ["text", "vision"],
     status: "planned",
