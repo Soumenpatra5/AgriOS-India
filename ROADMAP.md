@@ -24,7 +24,9 @@ The daily loop = morning (weather + tasks + advice) → evening (record activiti
 
 ## Phase 2 — Intelligence & market
 
-- **AI disease detection (assistive)**: photo + crop + season sent to Claude vision; framed as "possible causes — confirm with KVK". No custom ML training.
+- **AI disease detection (assistive)**: photo + crop + season sent to cloud vision; framed as "possible causes — confirm with KVK".
+  - _Status:_ **cloud path live** — 7 domains (crop, poultry, dairy, goat, pig, fish, bee), symptom checklist + photo → structured diagnosis with confidence, severity, and escalation. Offline captures are queued and analyzed on reconnect.
+  - _On-device (optional, future):_ a runtime-agnostic **inference harness** is built and verified (`localProvider` + `localInference` — preprocess/softmax/top-k, `registerModel` seam). It ships **no ML dependency and no model** — dormant until a trained crop-disease model + labels are registered, at which point on-device gives fast triage and cloud/expert provides treatment. See [`AUDIT-cloud-vision.md`](AUDIT-cloud-vision.md) (F6). Deciding whether to train/commission a model remains a product call.
 - **Market prices**: Agmarknet / eNAM via data.gov.in APIs; nearest-mandi prices for the farmer's crops with 7-day trend.
 - **Government schemes**: curated per state × enterprise; start with 2 states done well rather than all states done badly.
 - Weather upgrade: village-level pin (GPS) instead of state capital; IMD alerts.
