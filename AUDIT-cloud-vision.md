@@ -88,8 +88,17 @@ Kept intentionally (still live): `models/modelRegistry.js` (seeds MLOps
 
 ## Open follow-ups
 
-- **F6** — wire a real on-device model into `localProvider` (TF.js/ONNX). Seams are
-  ready; today it reports unavailable and the hybrid falls straight to cloud.
+- **F6** — on-device inference · 🟡 HARNESS DONE, model pending. `localProvider` is
+  now a real, runtime-agnostic inference engine: `localInference.js` does image→tensor
+  preprocessing + softmax/top-k, and `registerModel(id, { run, labels, ... })` takes a
+  caller-supplied `run(tensor)→logits` closure (bring your own ONNX Runtime Web / TF.js —
+  no ML dependency ships until then). It emits the diagnosis schema so the orchestrator's
+  parser consumes it directly, with `needsExpertReview: true` (on-device = fast triage;
+  treatment deferred to expert/cloud). Verified end-to-end in-browser with a stand-in
+  runner (tensor shapes, softmax, gating, parser round-trip). **Remaining:** (a) a trained
+  crop-disease model + labels, (b) a one-time `registerModel` call wiring the chosen
+  runtime. Until then `isAvailable()` is false and the hybrid uses cloud — no behavior
+  change, no fabricated diagnoses.
 - **Verification gap** — full end-to-end AI diagnosis not yet exercised in production
   (needs the deployed serverless API + a logged-in session). Build, module-graph load,
   and domain-validation paths are verified locally.
