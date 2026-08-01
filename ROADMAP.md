@@ -1,57 +1,76 @@
-# AgriOS India — MVP Roadmap
+# AgriOS India — Roadmap
 
 Built from the Core Concept Document v1.0. Guiding rule: **ship the daily loop deep before going wide.**
 The daily loop = morning (weather + tasks + advice) → evening (record activities, income, expenses).
 
+**Status legend:** ✅ shipped · 🟡 partial · ⬜ planned. Last reviewed: Aug 2026.
+
 ---
 
-## Phase 0 — Done (this prototype)
+## Phase 0 — Prototype foundation · ✅ shipped
 
-- Onboarding: name, state, land size, enterprises, **language (English / Hindi / Bengali)**
-- Home dashboard: live weather (Open-Meteo, per-state) + spray/field-work advisory, monthly money snapshot, task list
-- **Farm Diary**: daily activity log (sowing, irrigation, spraying, vaccination, sale, …) tagged by enterprise
-- **Business ledger**: income/expense entries, monthly P&L, per-enterprise P&L, category breakdown, Indian ₹ formatting, delete confirmation
-- **AI Farm Advisor**: chat grounded in the farmer's profile, this month's ledger, diary, tasks and weather; answers in the app language; safety disclaimer for chemicals/vet advice. Uses the Claude API (`claude-opus-4-8`) with a user-supplied key stored on-device.
-- All data offline-first in local storage (artifact `window.storage` compatible)
+- ✅ Onboarding: name, state, land size, enterprises, **language (English / Hindi / Bengali)**
+- ✅ Home dashboard: live weather (Open-Meteo, per-state) + spray/field-work advisory, monthly money snapshot, task list
+- ✅ **Farm Diary**: daily activity log (sowing, irrigation, spraying, vaccination, sale, …) tagged by enterprise
+- ✅ **Business ledger**: income/expense entries, monthly P&L, per-enterprise P&L, category breakdown, ₹ formatting, delete confirmation
+- ✅ **AI Farm Advisor**: chat grounded in the farmer's profile, ledger, diary, tasks and weather; answers in the app language; KVK/vet safety disclaimers. Runs on Claude (`claude-opus-4-8`) **via a keyless serverless proxy — farmers never handle an API key** (auth by Firebase ID token, verified server-side).
+- ✅ All data offline-first in local storage
 
-## Phase 1 — MVP hardening (next)
+## Phase 1 — MVP hardening · ✅ shipped
 
-- **Backend + sync**: keep local-first writes, sync to a small API (Supabase/Firebase class) so data survives device loss. Auth by phone number + OTP (farmers rarely have email).
-- **Advisor via server**: move the Claude API call behind your backend so farmers never handle API keys; meter usage for the free/premium split.
-- **Voice input** for tasks, diary and advisor questions (Web Speech API / native STT) — critical for low-literacy users.
-- **Vaccination & feed reminders** for livestock (local notifications) — first real "intelligent reminder".
-- More languages: Odia, Telugu, Marathi (the i18n layer is ready — add a dictionary per language).
+- ✅ **Backend + sync**: local-first writes mirrored to **Firebase/Firestore**; offline writes queued in IndexedDB and flushed on reconnect; fresh-device login pulls cloud → local. Data survives device loss.
+- ✅ **Auth**: phone-number **OTP** + email/password (with reset) + Google / Apple / Facebook / X. Keyless server-side token verification.
+- ✅ **Advisor via server**: Claude call behind the serverless proxy with multi-key failover; no client keys.
+- ✅ **Voice input** for advisor questions (Web Speech API STT).
+- 🟡 **Vaccination & reminders**: vaccination calendar shipped; local-notification service in place. Feed-reminder scheduling still to wire.
+- 🟡 **More languages**: 8 selectable (en, hi, bn, ta, te, mr, pa, or). English/Hindi/Bengali fully translated; others need dictionary completion.
 
 ## Phase 2 — Intelligence & market
 
-- **AI disease detection (assistive)**: photo + crop + season sent to cloud vision; framed as "possible causes — confirm with KVK".
-  - _Status:_ **cloud path live** — 7 domains (crop, poultry, dairy, goat, pig, fish, bee), symptom checklist + photo → structured diagnosis with confidence, severity, and escalation. Offline captures are queued and analyzed on reconnect.
-  - _On-device (optional, future):_ a runtime-agnostic **inference harness** is built and verified (`localProvider` + `localInference` — preprocess/softmax/top-k, `registerModel` seam). It ships **no ML dependency and no model** — dormant until a trained crop-disease model + labels are registered, at which point on-device gives fast triage and cloud/expert provides treatment. See [`AUDIT-cloud-vision.md`](AUDIT-cloud-vision.md) (F6). Deciding whether to train/commission a model remains a product call.
-- **Market prices**: Agmarknet / eNAM via data.gov.in APIs; nearest-mandi prices for the farmer's crops with 7-day trend.
-- **Government schemes**: curated per state × enterprise; start with 2 states done well rather than all states done badly.
-- Weather upgrade: village-level pin (GPS) instead of state capital; IMD alerts.
+- ✅ **AI disease detection (assistive)**: 7 domains (crop, poultry, dairy, goat, pig, fish, bee) — symptom checklist + photo → **structured diagnosis** with confidence, severity, risk, and escalation; framed as "possible causes — confirm with KVK". Offline captures are queued and analyzed on reconnect.
+  - _On-device (optional):_ a runtime-agnostic **inference harness** is built and verified (`localProvider` + `localInference`, `registerModel` seam). Ships **no ML dependency and no model** — dormant until a trained crop-disease model + labels are registered. See [`AUDIT-cloud-vision.md`](AUDIT-cloud-vision.md) (F6). Training/commissioning a model is a product call.
+- ✅ **Government schemes**: curated scheme explorer per enterprise/eligibility.
+- ✅ **Weather upgrade**: location-based dashboard (GPS pin) with ECMWF model + advisories.
+- ⬜ **Live market prices**: Agmarknet / eNAM via data.gov.in — **not yet live.** UI + `priceProxy` → `/api/prices` scaffolding is ready; today the Market tab shows curated MSP + seasonal bands (clearly labelled "not today's rate"). Needs a data.gov.in key + feed implementation in `api/prices.js`.
+- ⬜ IMD real-time alerts.
 
 ## Phase 3 — Premium anchors
 
-- **AI DPR Generator**: project type + size + state → bank-format draft DPR (this is the strongest willingness-to-pay feature; farmers already pay agents for these).
-- **Livestock modules**: animal profiles, growth tracking, batch economics for poultry/goat/fish.
-- Cash-flow view, loan EMI calculator, season-over-season comparison.
-- B2B channel: FPO/dealer dashboards sponsoring premium for member farmers.
+- 🟡 **Business/advisory AI**: business-advisor agent shipped (project reports, scaling). A dedicated **bank-format DPR generator** (strongest willingness-to-pay) is still to build.
+- ✅ **Livestock modules**: managers for poultry, dairy, goat, pig, sheep, fish, bee — profiles, production, events.
+- 🟡 Cash-flow view ✅, loan EMI calculator ✅; season-over-season comparison ⬜.
+- ⬜ B2B channel: FPO/dealer dashboards sponsoring premium for member farmers.
 
 ---
 
-## Data sources to line up
+## Delivered beyond the original MVP scope · ✅ shipped
 
-| Need | Source | Notes |
+The app has grown well past the initial daily-loop MVP. Also live:
+
+- **Farm ERP**: farms, land/parcels, tasks, inventory, assets, employees, CRM, production, reports, analytics, IoT devices.
+- **Marketplace**: buy/sell seeds, feed, medicine, equipment; cart, checkout, orders, wishlist, seller dashboard.
+- **Service Marketplace**: vet, drone, machinery, soil-test, farm-worker booking; provider profiles + dashboards.
+- **Logistics & Trade**: shipments, cold chain, fleet, warehouses, contracts, auctions, procurement, export.
+- **AI Commerce**: recommendations, price forecasts, buyer matchmaking, fraud/risk, insights.
+- **MLOps Platform**: dataset/annotation, model registry, deployment pipeline, monitoring.
+- **Enterprise Admin Panel**: audit logs, tickets, articles, announcements (local-first, desktop-first).
+- **13 specialised AI agents** with intent routing, tool-calling (calculator, weather, market, schemes), and per-farmer context.
+
+---
+
+## Data sources
+
+| Need | Source | Status |
 |---|---|---|
-| Weather | Open-Meteo (now), IMD (later) | Open-Meteo is free, no key, CORS-friendly |
-| Market prices | Agmarknet / eNAM via data.gov.in | Needs API key registration; data is messy — budget cleaning time |
-| Schemes | PM-KISAN, state portals | No API — manual curation, needs quarterly refresh |
-| AI | Claude API (`claude-opus-4-8`) | Move behind backend in Phase 1 |
+| Weather | Open-Meteo / ECMWF (now), IMD (later) | ✅ live; IMD alerts ⬜ |
+| Market prices | Agmarknet / eNAM via data.gov.in | ⬜ not wired — needs key + feed; MSP/seasonal bands shown meanwhile |
+| Schemes | PM-KISAN, state portals | ✅ curated (manual quarterly refresh) |
+| AI | Claude (`claude-opus-4-8`) | ✅ behind keyless serverless proxy with failover |
 
 ## Risks to keep in view
 
-1. Scope creep — say no to anything outside the daily loop until Phase 1 ships.
-2. Trust — one bad pesticide dose recommendation kills the brand; keep the KVK disclaimer everywhere and never let the AI invent numbers.
-3. Connectivity — every feature must degrade gracefully offline (weather and advisor already do).
-4. Farmer price sensitivity — validate the premium tier with FPOs before betting on individual subscriptions.
+1. **Trust** — one bad pesticide/vet dose kills the brand; keep KVK disclaimers everywhere and never let the AI invent numbers. (Enforced in the diagnosis safety layer + prompt safety preamble.)
+2. **Connectivity** — every feature degrades gracefully offline; the AI advisor fails honestly (can't fabricate an answer offline).
+3. **Data honesty** — don't present static/seed data as live (e.g. market prices are labelled; the misleading Home price block was removed).
+4. **Farmer price sensitivity** — validate the premium tier with FPOs before betting on individual subscriptions.
+5. **Scope** — the app is now very wide; prioritise depth/polish on the daily loop and the live market feed over new modules.
