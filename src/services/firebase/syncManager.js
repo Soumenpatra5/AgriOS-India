@@ -4,6 +4,7 @@ import { repo as cloudRepo } from "./firestoreRepo.js";
 import { pullFromCloud } from "./pullFromCloud.js";
 import { migrateToFirestore } from "./migrate.js";
 import { saveProfile } from "./userProfile.js";
+import { fcmService } from "../notifications/fcmService.js";
 
 let _initialized = false;
 
@@ -30,9 +31,14 @@ export function initSync() {
 export async function onLogin(user) {
   if (!fbEnabled) return;
   saveProfile(user).catch(() => {});
+  fcmService.requestToken()
+    .then(() => fcmService.saveToken(user.uid))
+    .catch(() => {});
   await pullFromCloud().catch(() => {});
   await migrateToFirestore().catch(() => {});
   await flushQueue().catch(() => {});
 }
 
-export function onLogout() {}
+export function onLogout() {
+  fcmService.deleteToken().catch(() => {});
+}

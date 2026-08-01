@@ -5,6 +5,7 @@ import { AppBar, Card, BottomSheet } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { LANGUAGES } from "../constants/languages.js";
 import { notificationService } from "../services/notifications/notificationService.js";
+import { fcmService } from "../services/notifications/fcmService.js";
 
 function Row({ icon, label, children, onClick, last }) {
   return (
@@ -34,6 +35,7 @@ export default function Settings() {
   const { t, tc, pop, push, lang, setLang, toast } = useApp();
   const { mode, setTheme } = useTheme();
   const [notif, setNotif] = useState(() => notificationService.isEnabled());
+  const [topicPrefs, setTopicPrefs] = useState(() => fcmService.getTopicPrefs());
   const [langSheet, setLangSheet] = useState(false);
   const [devTaps, setDevTaps] = useState(0);
   const [devMode, setDevMode] = useState(() => {
@@ -102,6 +104,22 @@ export default function Settings() {
 
         <Card pad={6}>
           <Row icon="Bell" label={t("notifications")}><Toggle on={notif} onChange={setNotifP} /></Row>
+          {notif && (
+            <>
+              {[
+                { key: "order_updates", icon: "Package", label: { en: "Order Updates", hi: "ऑर्डर अपडेट", bn: "অর্ডার আপডেট" } },
+                { key: "weather_alerts", icon: "CloudRain", label: { en: "Weather Alerts", hi: "मौसम अलर्ट", bn: "আবহাওয়া সতর্কতা" } },
+                { key: "price_changes", icon: "TrendingUp", label: { en: "Price Changes", hi: "मूल्य परिवर्तन", bn: "মূল্য পরিবর্তন" } },
+              ].map((topic) => (
+                <Row key={topic.key} icon={topic.icon} label={tc(topic.label)}>
+                  <Toggle on={topicPrefs[topic.key] ?? true} onChange={(v) => {
+                    setTopicPrefs((p) => ({ ...p, [topic.key]: v }));
+                    fcmService.setTopicPref(topic.key, v);
+                  }} />
+                </Row>
+              ))}
+            </>
+          )}
           <Row icon="Languages" label={t("language")} onClick={() => setLangSheet(true)}>
             <span style={{ fontSize: 13, color: T.inkSoft, fontWeight: 600 }}>{current?.native} <Icon name="ChevronRight" size={16} style={{ verticalAlign: -3, color: T.inkFaint }} /></span>
           </Row>

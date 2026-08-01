@@ -37,3 +37,15 @@ if (fbEnabled) {
 }
 
 export { app, auth, db };
+
+let _messaging = null;
+export async function getMessagingInstance() {
+  if (!fbEnabled) return null;
+  if (_messaging) return _messaging;
+  try {
+    const { isSupported, getMessaging } = await import("firebase/messaging");
+    if (!(await isSupported())) return null;
+    _messaging = getMessaging(app);
+    return _messaging;
+  } catch { return null; }
+}

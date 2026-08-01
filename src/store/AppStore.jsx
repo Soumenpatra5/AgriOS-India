@@ -4,6 +4,7 @@ import { makeT, pickLang } from "../i18n/strings.js";
 import { LOCALES } from "../constants/languages.js";
 import { onAuthChange, logout as fbLogout } from "../services/firebase/auth.js";
 import { initSync, onLogin as syncOnLogin, onLogout as syncOnLogout } from "../services/firebase/syncManager.js";
+import { fcmService } from "../services/notifications/fcmService.js";
 
 const AppCtx = createContext(null);
 export const useApp = () => useContext(AppCtx);
@@ -46,6 +47,14 @@ export function AppProvider({ children }) {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    fcmService.init((payload) => {
+      const { title, body } = payload.notification || {};
+      if (title) toast(title + (body ? `: ${body}` : ""), "info");
+    }).catch(() => {});
+  }, [user, toast]);
 
   const t = useMemo(() => makeT(lang), [lang]);
   const tc = useCallback((obj) => pickLang(lang, obj), [lang]);
