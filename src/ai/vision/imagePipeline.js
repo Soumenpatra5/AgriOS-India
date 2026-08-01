@@ -58,4 +58,3 @@ export { imageProcessor }    from "../../services/vision/imageProcessor.js";
 export { imageValidator }    from "../../services/vision/imageValidator.js";
 export { cameraService }     from "../../services/vision/cameraService.js";
 export { galleryService }    from "../../services/vision/galleryService.js";
-export { visionPipeline }    from "../../services/vision/pipeline.js";
