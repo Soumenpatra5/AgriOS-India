@@ -52,7 +52,7 @@ Provider display name corrected to "Cloud Vision" and `id` renamed
 field is no longer read by any live path (the old `visionPipeline` that compared
 it was deleted in F1). The MLOps model-registry `provider: "claude-vision"`
 metadata is a separate taxonomy and intentionally left unchanged.
-Note: the file/export are still named `claudeVisionProvider` — cosmetic only.
+The file and export were also renamed `claudeVisionProvider → cloudVisionProvider`.
 
 ### F4 — The live diagnostics flow bypassed the abstraction · ✅ RESOLVED
 `orchestrator.analyze()` called `llmClient.complete()` directly, so the local-first

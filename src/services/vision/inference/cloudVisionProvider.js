@@ -10,7 +10,7 @@ import { CAPABILITIES } from "./inferenceInterface.js";
 import { MODELS } from "../../../ai/config.js";
 import { llmClient } from "../../../ai/services/llmClient.js";
 
-export const claudeVisionProvider = {
+export const cloudVisionProvider = {
   id:   "cloudVision",
   name: "Cloud Vision",
 
