@@ -1,15 +1,18 @@
-/* GPT Vision inference provider — calls the LLM with an image block.
-   Uses the key manager for API key selection and failover. */
+/* Cloud vision inference provider — delegates to the shared llmClient.
+
+   This provider owns only the vision *prompt* (system + user framing) and the
+   result envelope. All transport — key selection, 401/429 failover with retry,
+   OpenAI⇄Anthropic translation, and SSE parsing — lives in llmClient, the single
+   cloud transport. Do NOT re-implement fetch/streaming here; that duplication
+   previously drifted from llmClient (no Anthropic support, no failover retry). */
 
 import { CAPABILITIES } from "./inferenceInterface.js";
-import { API_ENDPOINT, MODELS } from "../../../ai/config.js";
-import { authFetch } from "../../firebase/authFetch.js";
-import { keyManager } from "../../../ai/keyManager.js";
-import { getProvider } from "../../../ai/providers/providerRegistry.js";
+import { MODELS } from "../../../ai/config.js";
+import { llmClient } from "../../../ai/services/llmClient.js";
 
 export const claudeVisionProvider = {
   id:   "claude-vision",
-  name: "GPT Vision (Cloud)",
+  name: "Cloud Vision",
 
   isAvailable() {
     return navigator.onLine;
@@ -22,49 +25,20 @@ export const claudeVisionProvider = {
   async infer(imageBase64, metadata = {}, context = {}) {
     const t0 = Date.now();
 
-    const systemMsg = buildSystem(context);
-    const userContent = [
-      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
-      { type: "text", text: context.userPrompt || defaultPrompt(context) },
-    ];
+    // Internal (Anthropic-style) content blocks — llmClient converts to whatever
+    // the active provider needs.
+    const messages = [{
+      role: "user",
+      content: [
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageBase64 } },
+        { type: "text", text: context.userPrompt || defaultPrompt(context) },
+      ],
+    }];
 
-    const messages = [
-      { role: "system", content: systemMsg },
-      { role: "user", content: userContent },
-    ];
-
-    const body = { model: MODELS.answer, max_tokens: 1024, messages, stream: true };
-    const activeKey = keyManager.getActiveKey();
-    let res;
-
-    if (activeKey) {
-      const provider = getProvider(activeKey.provider);
-      res = await fetch(provider.apiUrl, {
-        method: "POST",
-        headers: { "content-type": "application/json", ...provider.authHeader(activeKey.key) },
-        body: JSON.stringify(body),
-      });
-    } else {
-      res = await authFetch(API_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-    }
-
-    if (!res.ok) {
-      let msg = `Vision API error (${res.status})`;
-      try { msg = (await res.json()).error?.message || msg; } catch { /* ignore */ }
-      if (activeKey) {
-        keyManager.recordFailure(activeKey.id, msg, res.status);
-        if (keyManager.shouldFailover(res.status)) keyManager.rotateKey(activeKey.id);
-      }
-      throw new Error(msg);
-    }
-
-    if (activeKey) keyManager.recordSuccess(activeKey.id);
-
-    const text = await consumeSse(res);
+    const text = await llmClient.complete(
+      { model: MODELS.answer, maxTokens: 1024, system: buildSystem(context), messages },
+      { signal: context.signal },
+    );
 
     return {
       provider:    this.id,
@@ -94,33 +68,4 @@ function buildSystem(ctx) {
   if (ctx.location)  lines.push(`Location: ${ctx.location}.`);
   if (ctx.season)    lines.push(`Season: ${ctx.season}.`);
   return lines.join("\n");
-}
-
-// Consume an OpenAI SSE stream and return the assembled text.
-async function consumeSse(res) {
-  const reader  = res.body.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  let buf  = "";
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split("\n");
-    buf = lines.pop();
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("data:")) continue;
-      const data = trimmed.slice(5).trim();
-      if (data === "[DONE]") continue;
-      try {
-        const ev = JSON.parse(data);
-        const delta = ev.choices?.[0]?.delta?.content;
-        if (delta) text += delta;
-      } catch { /* malformed chunk — skip */ }
-    }
-  }
-
-  return text;
 }
