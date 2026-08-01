@@ -11,7 +11,7 @@ import { MODELS } from "../../../ai/config.js";
 import { llmClient } from "../../../ai/services/llmClient.js";
 
 export const claudeVisionProvider = {
-  id:   "claude-vision",
+  id:   "cloudVision",
   name: "Cloud Vision",
 
   isAvailable() {

@@ -46,10 +46,13 @@ Copies diverge. Path C had accumulated latent bugs vs `llmClient`:
 **Fix:** by delegating to `llmClient` (F2), the provider inherits Anthropic
 translation, failover-with-retry, and the shared parser automatically. — commit `8c927a3`
 
-### F3b — Naming drift · ⚠️ PARTIAL (cosmetic)
-Provider display name corrected to "Cloud Vision", but `id` remains
-`"claude-vision"` (kept to avoid breaking any persisted references), and it sends
-`MODELS.answer` (gpt-4o). Non-functional; rename `id → cloudVision` in a future pass.
+### F3b — Naming drift · ✅ RESOLVED
+Provider display name corrected to "Cloud Vision" and `id` renamed
+`claude-vision → cloudVision`. Safe because the returned envelope's `provider`
+field is no longer read by any live path (the old `visionPipeline` that compared
+it was deleted in F1). The MLOps model-registry `provider: "claude-vision"`
+metadata is a separate taxonomy and intentionally left unchanged.
+Note: the file/export are still named `claudeVisionProvider` — cosmetic only.
 
 ### F4 — The live diagnostics flow bypassed the abstraction · ✅ RESOLVED
 `orchestrator.analyze()` called `llmClient.complete()` directly, so the local-first
@@ -85,7 +88,6 @@ Kept intentionally (still live): `models/modelRegistry.js` (seeds MLOps
 
 ## Open follow-ups
 
-- **F3b** — rename provider `id` `claude-vision → cloudVision` (cosmetic).
 - **F6** — wire a real on-device model into `localProvider` (TF.js/ONNX). Seams are
   ready; today it reports unavailable and the hybrid falls straight to cloud.
 - **Verification gap** — full end-to-end AI diagnosis not yet exercised in production
