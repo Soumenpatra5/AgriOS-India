@@ -6,6 +6,7 @@ import { AppBar, IconTile, BottomSheet, Dialog, EmptyState, accent } from "../co
 import { useApp } from "../store/AppStore.jsx";
 import { useAI, conversationStore, voice, getAgent } from "../ai/index.js";
 import { textOf } from "../ai/models/message.js";
+import { DISCLAIMERS } from "../i18n/strings.js";
 import CameraCapture from "../components/CameraCapture.jsx";
 import { compressImage, toImageBlock } from "../ai/vision/imagePipeline.js";
 
@@ -99,8 +100,9 @@ export default function AIChat({ agentId = null, conversationId = null }) {
         )}
 
         {/* messages */}
-        {ai.messages.map((m) => (
-          <Bubble key={m.id} msg={m} onSpeak={(txt) => voice.speak(txt, lang)} />
+        {ai.messages.map((m, i) => (
+          <Bubble key={m.id} msg={m} onSpeak={(txt) => voice.speak(txt, lang)}
+            isLast={i === ai.messages.length - 1 && !ai.busy} onChip={send} />
         ))}
 
         {/* live stream */}
@@ -124,7 +126,7 @@ export default function AIChat({ agentId = null, conversationId = null }) {
         )}
 
         <div style={{ textAlign: "center", fontSize: 11, color: T.inkFaint, marginTop: 16, lineHeight: 1.5 }}>
-          {t("chatDisclaimer")}
+          {DISCLAIMERS[detectLang(ai.messages, lang)] || DISCLAIMERS.en}
         </div>
         <div ref={endRef} />
       </div>
@@ -133,10 +135,15 @@ export default function AIChat({ agentId = null, conversationId = null }) {
       <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 25, display: "flex", justifyContent: "center" }}>
         <div style={{ width: "100%", maxWidth: 460, background: T.bg, borderTop: `1px solid ${T.lineSoft}`, padding: "10px 12px calc(12px + env(safe-area-inset-bottom))" }}>
           {pendingImage && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "7px 10px", borderRadius: T.rMd, background: T.surface2, fontSize: 12.5, color: T.inkSoft }}>
-              <Icon name="Camera" size={14} /> {pendingImage.meta.name}
-              <button onClick={() => setPendingImage(null)} aria-label="Remove image" style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex" }}>
-                <Icon name="X" size={14} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "6px 10px", borderRadius: T.rMd, background: T.surface2 }}>
+              <img src={pendingImage.block.source?.data ? `data:image/jpeg;base64,${pendingImage.block.source.data}` : ""}
+                alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>{t("imageAttached")}</div>
+                <div style={{ fontSize: 11, color: T.inkFaint, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pendingImage.meta.name}</div>
+              </div>
+              <button onClick={() => setPendingImage(null)} aria-label="Remove image" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
+                <Icon name="X" size={16} />
               </button>
             </div>
           )}
@@ -199,6 +206,23 @@ export default function AIChat({ agentId = null, conversationId = null }) {
   );
 }
 
+function parseQuickReplies(text) {
+  const match = text.match(/---\s*\n(.+)$/m);
+  if (!match) return { body: text, chips: [] };
+  const chips = match[1].split("|").map((s) => s.trim()).filter(Boolean);
+  if (chips.length < 2 || chips.length > 6) return { body: text, chips: [] };
+  return { body: text.slice(0, match.index).trimEnd(), chips };
+}
+
+function detectLang(messages, appLang) {
+  const last = [...messages].reverse().find((m) => m.role === "user");
+  if (!last) return appLang;
+  const text = textOf(last);
+  if (/[ঀ-৿]/.test(text)) return "bn";
+  if (/[ऀ-ॿ]/.test(text)) return "hi";
+  return appLang;
+}
+
 /* ---------- pieces ---------- */
 
 const bubbleCss = (isUser) => ({
@@ -211,11 +235,12 @@ const bubbleCss = (isUser) => ({
   borderBottomLeftRadius: isUser ? 18 : 6,
 });
 
-function Bubble({ msg, onSpeak }) {
+function Bubble({ msg, onSpeak, isLast, onChip }) {
   const isUser = msg.role === "user";
-  const text = textOf(msg);
+  const rawText = textOf(msg);
   const hasImage = Array.isArray(msg.content) && msg.content.some((b) => b.type === "image");
   const agent = !isUser && msg.agentId ? getAgent(msg.agentId) : null;
+  const { body, chips } = !isUser ? parseQuickReplies(rawText) : { body: rawText, chips: [] };
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start", marginTop: 12 }}>
       {agent && (
@@ -224,15 +249,34 @@ function Bubble({ msg, onSpeak }) {
         </div>
       )}
       <div style={{ ...bubbleCss(isUser), animation: "ag-rise .22s var(--ag-ease)" }}>
-        {hasImage && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: .8, marginBottom: 6 }}>
-            <Icon name="Camera" size={13} /> photo attached
-          </div>
-        )}
-        {isUser ? text : <Markdown text={text} />}
+        {hasImage && (() => {
+          const imgBlock = msg.content.find((b) => b.type === "image");
+          const src = imgBlock?.source?.data ? `data:image/jpeg;base64,${imgBlock.source.data}` : null;
+          return (
+            <div style={{ marginBottom: 8 }}>
+              {src ? <img src={src} alt="" style={{ width: "100%", maxWidth: 200, borderRadius: 10, display: "block" }} />
+                : <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: .8 }}>
+                    <Icon name="Camera" size={13} /> 📷
+                  </div>}
+            </div>
+          );
+        })()}
+        {isUser ? body : <Markdown text={body} />}
       </div>
-      {!isUser && text && (
-        <button onClick={() => onSpeak(text)} aria-label="Read aloud"
+      {isLast && chips.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxWidth: "88%" }}>
+          {chips.map((chip) => (
+            <button key={chip} onClick={() => onChip(chip)}
+              style={{ padding: "8px 14px", borderRadius: T.pill, border: `1.5px solid ${T.primary}`,
+                background: T.surface, color: T.primary, fontSize: 13, fontWeight: 600,
+                cursor: "pointer", fontFamily: T.body, whiteSpace: "nowrap" }}>
+              {chip}
+            </button>
+          ))}
+        </div>
+      )}
+      {!isUser && body && (
+        <button onClick={() => onSpeak(body)} aria-label="Read aloud"
           style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", alignItems: "center", gap: 4, fontSize: 11, padding: "5px 4px", fontFamily: T.body }}>
           <Icon name="Volume2" size={13} />
         </button>

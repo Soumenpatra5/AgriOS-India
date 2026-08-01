@@ -117,6 +117,12 @@ const S = {
   },
 };
 
+export const DISCLAIMERS = {
+  en: S.en.chatDisclaimer,
+  hi: S.hi.chatDisclaimer,
+  bn: S.bn.chatDisclaimer,
+};
+
 export const makeT = (lang) => {
   const d = S[lang] || S.en;
   return (k) => d[k] ?? S.en[k] ?? k;
