@@ -78,6 +78,11 @@ export default function DiagnosticFlow({ domainId }) {
         additionalNotes: notes,
         lang,
       });
+      if (record.queued) {
+        toast(tc({en:"You're offline — saved. We'll analyze it and add it to your history when you reconnect.", hi:"आप ऑफ़लाइन हैं — सहेजा गया। दोबारा कनेक्ट होने पर विश्लेषण कर इतिहास में जोड़ देंगे।", bn:"আপনি অফলাইন — সংরক্ষিত। পুনরায় সংযুক্ত হলে বিশ্লেষণ করে ইতিহাসে যোগ করা হবে।"}), "info");
+        pop();
+        return;
+      }
       push({ kind: "diagnosticResult", props: { record } });
     } catch (err) {
       toast(tc({en:"Diagnosis failed — please try again", hi:"निदान विफल — पुनः प्रयास करें", bn:"রোগ নির্ণয় ব্যর্থ — আবার চেষ্টা করুন"}), "error");

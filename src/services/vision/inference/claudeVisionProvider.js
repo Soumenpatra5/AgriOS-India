@@ -35,8 +35,15 @@ export const claudeVisionProvider = {
       ],
     }];
 
+    // Callers (e.g. the diagnostics orchestrator) may supply their own system
+    // prompt / model / token budget; otherwise use this provider's defaults.
     const text = await llmClient.complete(
-      { model: MODELS.answer, maxTokens: 1024, system: buildSystem(context), messages },
+      {
+        model:     context.model     || MODELS.answer,
+        maxTokens: context.maxTokens || 1024,
+        system:    context.system    || buildSystem(context),
+        messages,
+      },
       { signal: context.signal },
     );
 

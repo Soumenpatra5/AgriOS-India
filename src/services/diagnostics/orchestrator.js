@@ -12,6 +12,8 @@ import { escalationEngine }    from "./escalationEngine.js";
 import { recommendationEngine } from "./recommendationEngine.js";
 import { historyService }      from "./historyService.js";
 import { reportService }       from "./reportService.js";
+import { hybridProvider }      from "../vision/inference/hybridProvider.js";
+import { offlineQueue }        from "../vision/offlineQueue.js";
 import { llmClient }           from "../../ai/services/llmClient.js";
 import { MODELS }              from "../../ai/config.js";
 
@@ -80,15 +82,18 @@ IMPORTANT AI SAFETY GUIDELINES:
 6. Maintain human-in-the-loop: every diagnosis must recommend expert validation for Severe or Critical cases.`;
 
 export const orchestrator = {
-  async analyze({ domainId, imageFile, symptoms = {}, species = "", additionalNotes = "", lang = "en" }) {
+  async analyze({ domainId, imageFile, symptoms = {}, species = "", additionalNotes = "", lang = "en", signal = null, _imageBase64 = null, _metadata = null }) {
+    ensureFlushRegistered();
+
     // Step 1 — Validate domain
     const domain = domainRegistry.get(domainId);
     if (!domain) throw new Error(`Unknown domain: ${domainId}`);
 
-    // Step 2 — Image processing (optional — text-only diagnosis if no image)
-    let imageBase64 = null;
-    let metadata    = {};
-    if (imageFile) {
+    // Step 2 — Image processing (optional — text-only diagnosis if no image).
+    // On an offline-flush re-entry the base64 is already processed — reuse it.
+    let imageBase64 = _imageBase64;
+    let metadata    = _metadata || {};
+    if (!imageBase64 && imageFile) {
       const validation = await imageValidator.validate(imageFile);
       if (!validation.valid) {
         return buildError(domainId, "Image validation failed: " + validation.error);
@@ -96,6 +101,18 @@ export const orchestrator = {
       const processed = await imageProcessor.process(imageFile);
       imageBase64     = processed.base64;
       metadata        = await metadataExtractor.extract(imageFile).catch(() => ({}));
+    }
+
+    // Step 2b — Offline with an image: queue the diagnosis and return. The flush
+    // handler re-runs analyze on reconnect; the result lands in Diagnostic History.
+    if (imageBase64 && !_imageBase64 && typeof navigator !== "undefined" && navigator.onLine === false) {
+      await offlineQueue.enqueue({
+        kind:   "diagnosis",
+        params: { domainId, symptoms, species, additionalNotes, lang },
+        imageBase64,
+        metadata,
+      });
+      return buildQueued(domainId);
     }
 
     // Steps 3–7 — Assemble context (weather, farm profile, GPS, history)
@@ -114,19 +131,23 @@ export const orchestrator = {
 
     const userText = buildUserMessage({ domain, domainId, symptomSummary, additionalNotes, lang, hasImage: !!imageBase64 });
 
-    const messages = [{
-      role:    "user",
-      content: imageBase64
-        ? [
-            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageBase64 } },
-            { type: "text", text: userText },
-          ]
-        : [{ type: "text", text: userText }],
-    }];
-
+    // Inference — image diagnoses go through the provider abstraction
+    // (on-device model first, cloud fallback); text-only uses the shared
+    // llmClient directly. Both ultimately share one cloud transport.
     let rawText;
     try {
-      rawText = await llmClient.complete({ model: MODELS.answer, maxTokens: 2048, system: systemPrompt, messages });
+      if (imageBase64) {
+        const inf = await hybridProvider.infer(imageBase64, metadata, {
+          system: systemPrompt, userPrompt: userText, model: MODELS.answer, maxTokens: 2048, signal,
+        });
+        rawText = inf.raw;
+      } else {
+        rawText = await llmClient.complete(
+          { model: MODELS.answer, maxTokens: 2048, system: systemPrompt,
+            messages: [{ role: "user", content: [{ type: "text", text: userText }] }] },
+          { signal },
+        );
+      }
     } catch (err) {
       return buildError(domainId, "AI inference failed: " + err.message);
     }
@@ -161,6 +182,28 @@ export const orchestrator = {
     return record;
   },
 };
+
+// Register the offline-queue flush handler exactly once. On reconnect, any
+// queued diagnosis re-runs through analyze() and is saved to history.
+let _flushRegistered = false;
+function ensureFlushRegistered() {
+  if (_flushRegistered) return;
+  _flushRegistered = true;
+  offlineQueue.onFlush(async (job) => {
+    if (job?.kind !== "diagnosis") return;
+    await orchestrator.analyze({ ...job.params, _imageBase64: job.imageBase64, _metadata: job.metadata });
+  });
+}
+
+function buildQueued(domainId) {
+  return {
+    ok:        true,
+    queued:    true,
+    domainId,
+    message:   "Saved for analysis when back online.",
+    createdAt: new Date().toISOString(),
+  };
+}
 
 function buildUserMessage({ domain, domainId, symptomSummary, additionalNotes, lang, hasImage }) {
   const parts = [
