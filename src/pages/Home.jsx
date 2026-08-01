@@ -10,7 +10,7 @@ import { ledgerService } from "../services/ledger/ledgerService.js";
 import { notificationService } from "../services/notifications/notificationService.js";
 import { cropCalendarService } from "../services/calendar/cropCalendarService.js";
 import {
-  QUICK_ACTIONS, TASKS, SCHEMES, PRICES, NEWS, CALCULATORS, CATEGORIES, FEATURED, AI_TOOLS,
+  QUICK_ACTIONS, TASKS, SCHEMES, NEWS, CALCULATORS, CATEGORIES, FEATURED, AI_TOOLS,
 } from "../constants/content.js";
 import { accent } from "../components/primitives.jsx";
 
@@ -344,28 +344,6 @@ export default function Home() {
             );
           })}
         </HScroll>
-      </div>
-
-      {/* prices */}
-      <div style={{ padding: `20px ${H_PAD}px 0` }}>
-        <SectionHeader title={t("prices")} action={t("seeAll")} onAction={() => switchTab("market")} />
-        <Card pad={6}>
-          {PRICES.map((p, i) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 12px", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
-              <IconTile name={p.crop === "Milk" ? "Milk" : "Wheat"} a="primary" size={38} iconSize={18} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{tc(p.crop)}</div>
-                <div style={{ fontSize: 12, color: T.inkSoft }}>{tc(p.mandi)}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{rupee(p.price)}<span style={{ fontSize: 11, color: T.inkFaint, fontWeight: 500 }}>/{tc(p.unit)}</span></div>
-                <div style={{ fontSize: 11.5, fontWeight: 600, color: p.up ? T.primary : T.red, display: "flex", alignItems: "center", gap: 2, justifyContent: "flex-end" }}>
-                  <Icon name={p.up ? "TrendingUp" : "TrendingDown"} size={12} /> {p.change}%
-                </div>
-              </div>
-            </div>
-          ))}
-        </Card>
       </div>
 
       {/* disease detection banner */}
