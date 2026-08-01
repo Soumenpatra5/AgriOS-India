@@ -19,6 +19,7 @@ export default function AIChat({ agentId = null, conversationId = null }) {
   const [cameraOpen, setCameraOpen]     = useState(false);
   const [historyOpen, setHistoryOpen]   = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [speakingId, setSpeakingId] = useState(null);
   const endRef = useRef(null);
   const sttRef = useRef(null);
 
@@ -101,7 +102,10 @@ export default function AIChat({ agentId = null, conversationId = null }) {
 
         {/* messages */}
         {ai.messages.map((m, i) => (
-          <Bubble key={m.id} msg={m} onSpeak={(txt) => voice.speak(txt, lang)}
+          <Bubble key={m.id} msg={m}
+            onSpeak={(txt) => { setSpeakingId(m.id); voice.speak(txt, lang); const check = setInterval(() => { if (!speechSynthesis.speaking) { setSpeakingId(null); clearInterval(check); } }, 300); }}
+            onStop={() => { voice.stopSpeaking(); setSpeakingId(null); }}
+            speaking={speakingId === m.id}
             isLast={i === ai.messages.length - 1 && !ai.busy} onChip={send} />
         ))}
 
@@ -235,7 +239,7 @@ const bubbleCss = (isUser) => ({
   borderBottomLeftRadius: isUser ? 18 : 6,
 });
 
-function Bubble({ msg, onSpeak, isLast, onChip }) {
+function Bubble({ msg, onSpeak, onStop, speaking, isLast, onChip }) {
   const isUser = msg.role === "user";
   const rawText = textOf(msg);
   const hasImage = Array.isArray(msg.content) && msg.content.some((b) => b.type === "image");
@@ -276,9 +280,12 @@ function Bubble({ msg, onSpeak, isLast, onChip }) {
         </div>
       )}
       {!isUser && body && (
-        <button onClick={() => onSpeak(body)} aria-label="Read aloud"
-          style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", alignItems: "center", gap: 4, fontSize: 11, padding: "5px 4px", fontFamily: T.body }}>
-          <Icon name="Volume2" size={13} />
+        <button onClick={() => speaking ? onStop() : onSpeak(body)} aria-label={speaking ? "Stop reading" : "Read aloud"}
+          style={{ background: "none", border: "none", cursor: "pointer",
+            color: speaking ? T.primary : T.inkFaint, display: "flex", alignItems: "center", gap: 4,
+            fontSize: 11, padding: "5px 4px", fontFamily: T.body,
+            animation: speaking ? "ag-pulse 1s infinite" : "none" }}>
+          <Icon name={speaking ? "VolumeX" : "Volume2"} size={13} />
         </button>
       )}
     </div>

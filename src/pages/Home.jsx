@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { Card, IconTile, SectionHeader, Chip } from "../components/index.js";
@@ -17,7 +17,7 @@ import { accent } from "../components/primitives.jsx";
 const H_PAD = 16;
 
 export default function Home() {
-  const { t, tc, locale, user, push, switchTab } = useApp();
+  const { t, tc, locale, user, push, switchTab, toast } = useApp();
   const [tasks, setTasks] = useState(TASKS);
   const [calTick, setCalTick] = useState(0);
   const hasCrops  = useMemo(() => cropCalendarService.all().length > 0, [calTick]);
@@ -59,6 +59,33 @@ export default function Home() {
     setShowNotifBanner(false);
   };
 
+  const [installEvt, setInstallEvt] = useState(null);
+  const [installDismissed, setInstallDismissed] = useState(() => localStorage.getItem("ag_pwa_dismissed") === "1");
+
+  useEffect(() => {
+    if (window.matchMedia("(display-mode: standalone)").matches) return;
+    const handler = (e) => { e.preventDefault(); setInstallEvt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstall = useCallback(async () => {
+    if (!installEvt) return;
+    installEvt.prompt();
+    const { outcome } = await installEvt.userChoice;
+    setInstallEvt(null);
+    if (outcome === "accepted") {
+      toast(tc({ en: "AgriOS installed!", hi: "AgriOS इंस्टॉल हो गया!", bn: "AgriOS ইনস্টল হয়েছে!" }), "success");
+      setInstallDismissed(true);
+      localStorage.setItem("ag_pwa_dismissed", "1");
+    }
+  }, [installEvt, toast, tc]);
+
+  const handleInstallDismiss = useCallback(() => {
+    setInstallDismissed(true);
+    localStorage.setItem("ag_pwa_dismissed", "1");
+  }, []);
+
   return (
     <div style={{ paddingBottom: 24, animation: "ag-fade .25s var(--ag-ease)" }}>
       {/* greeting */}
@@ -98,6 +125,29 @@ export default function Home() {
               Allow
             </button>
             <button onClick={handleNotifDismiss}
+              style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4, flexShrink: 0 }}>
+              <Icon name="X" size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PWA install banner */}
+      {installEvt && !installDismissed && (
+        <div style={{ padding: `10px ${H_PAD}px 0` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
+            borderRadius: T.rLg, background: T.blueSoft, border: `1px solid ${T.blue}22` }}>
+            <Icon name="Download" size={20} style={{ color: T.blue, flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: T.blue }}>{tc({ en: "Install AgriOS", hi: "AgriOS इंस्टॉल करें", bn: "AgriOS ইনস্টল করুন" })}</div>
+              <div style={{ fontSize: 12, color: T.inkSoft }}>{tc({ en: "Add to home screen for offline access.", hi: "ऑफ़लाइन एक्सेस के लिए होम स्क्रीन पर जोड़ें।", bn: "অফলাইন অ্যাক্সেসের জন্য হোম স্ক্রিনে যোগ করুন।" })}</div>
+            </div>
+            <button onClick={handleInstall}
+              style={{ background: T.blue, color: "#fff", border: "none", borderRadius: 10,
+                padding: "7px 12px", cursor: "pointer", fontFamily: T.body, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>
+              {tc({ en: "Install", hi: "इंस्टॉल", bn: "ইনস্টল" })}
+            </button>
+            <button onClick={handleInstallDismiss}
               style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4, flexShrink: 0 }}>
               <Icon name="X" size={16} />
             </button>

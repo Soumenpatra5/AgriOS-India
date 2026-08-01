@@ -23,6 +23,15 @@ export function AppProvider({ children }) {
   const [tab, setTab] = useState("home");
   const [stack, setStack] = useState([]);
   const [toasts, setToasts] = useState([]);
+  const [online, setOnline] = useState(() => navigator.onLine);
+
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, []);
 
   useEffect(() => {
     initSync();
@@ -93,9 +102,9 @@ export function AppProvider({ children }) {
     user, login, logout,
     stage, setStage: setStageP, finishOnboarding,
     tab, switchTab, stack, push, pop,
-    toasts, toast, dismissToast,
+    toasts, toast, dismissToast, online,
   }), [lang, setLang, t, tc, locale, user, login, logout, stage, setStageP, finishOnboarding,
-      tab, switchTab, stack, push, pop, toasts, toast, dismissToast]);
+      tab, switchTab, stack, push, pop, toasts, toast, dismissToast, online]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

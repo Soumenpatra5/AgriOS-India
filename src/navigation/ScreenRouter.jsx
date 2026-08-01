@@ -3,6 +3,7 @@ import { T } from "../theme/ThemeProvider.jsx";
 import { useApp } from "../store/AppStore.jsx";
 import BottomNav from "./BottomNav.jsx";
 import { ToastHost, Spinner } from "../components/index.js";
+import Icon from "../components/Icon.jsx";
 
 /* Core screens loaded eagerly (always visible on every session) */
 import Splash from "../pages/Splash.jsx";
@@ -190,13 +191,24 @@ function StackScreen({ item }) {
   return null;
 }
 
+function OfflineBar({ tc }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+      padding: "6px 12px", background: T.orange, color: "#fff", fontSize: 12, fontWeight: 600 }}>
+      <Icon name="WifiOff" size={14} />
+      {tc({ en: "You're offline — data saved locally", hi: "आप ऑफ़लाइन हैं — डेटा लोकली सेव है", bn: "আপনি অফলাইনে আছেন — ডেটা স্থানীয়ভাবে সংরক্ষিত" })}
+    </div>
+  );
+}
+
 export default function ScreenRouter() {
-  const { stage, tab, stack } = useApp();
+  const { stage, tab, stack, online, tc } = useApp();
 
   if (stage !== "app") {
     const Flow = { splash: Splash, language: LanguageSelect, onboarding: Onboarding, auth: AuthFlow }[stage] || Splash;
     return (
       <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg }}>
+        {!online && <OfflineBar tc={tc} />}
         <Flow />
         <ToastHost />
       </div>
@@ -208,6 +220,7 @@ export default function ScreenRouter() {
 
   return (
     <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg, position: "relative" }}>
+      {!online && <OfflineBar tc={tc} />}
       <div style={{ paddingBottom: 84 }}>
         <Suspense fallback={<LazyFallback />}>
           {top
