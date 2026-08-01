@@ -48,14 +48,6 @@ export function AppProvider({ children }) {
     });
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
-    fcmService.init((payload) => {
-      const { title, body } = payload.notification || {};
-      if (title) toast(title + (body ? `: ${body}` : ""), "info");
-    }).catch(() => {});
-  }, [user, toast]);
-
   const t = useMemo(() => makeT(lang), [lang]);
   const tc = useCallback((obj) => pickLang(lang, obj), [lang]);
   const locale = LOCALES[lang] || "en-IN";
@@ -87,6 +79,14 @@ export function AppProvider({ children }) {
     setTimeout(() => setToasts((q) => q.filter((x) => x.id !== id)), 2600);
   }, []);
   const dismissToast = useCallback((id) => setToasts((q) => q.filter((x) => x.id !== id)), []);
+
+  useEffect(() => {
+    if (!user) return;
+    fcmService.init((payload) => {
+      const { title, body } = payload.notification || {};
+      if (title) toast(title + (body ? `: ${body}` : ""), "info");
+    }).catch(() => {});
+  }, [user, toast]);
 
   const value = useMemo(() => ({
     lang, setLang, t, tc, locale,

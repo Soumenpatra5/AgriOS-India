@@ -433,12 +433,30 @@ export default function Home() {
 /* Live weather summary — real data via weatherService, tuned to the farmer's
    active location. Falls back gracefully when no location is set or offline. */
 function WeatherCard({ t, tc, onOpen }) {
-  const [loc] = useState(() => locationService.getActive());
-  const [st, setSt] = useState({ status: loc ? "loading" : "empty", data: null, alert: null });
+  const [loc, setLoc] = useState(() => locationService.getActive());
+  const [st, setSt] = useState({ status: loc ? "loading" : "detecting", data: null, alert: null });
+
+  useEffect(() => {
+    let alive = true;
+    if (!loc && locationService.supportsGPS()) {
+      setSt({ status: "detecting", data: null, alert: null });
+      locationService.currentPosition({ timeout: 8000 })
+        .then((pos) => {
+          if (!alive) return;
+          const saved = locationService.add({ name: pos.name, lat: pos.lat, lon: pos.lon });
+          setLoc(saved);
+        })
+        .catch(() => { if (alive) setSt({ status: "empty", data: null, alert: null }); });
+    } else if (!loc) {
+      setSt({ status: "empty", data: null, alert: null });
+    }
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     if (!loc) return;
     let alive = true;
+    setSt((prev) => ({ ...prev, status: "loading" }));
     weatherService.get({ lat: loc.lat, lon: loc.lon })
       .then(({ weather, alerts }) => { if (alive) setSt({ status: "ready", data: weather, alert: alerts[0] || null }); })
       .catch(() => { if (alive) setSt({ status: "error", data: null, alert: null }); });
@@ -447,7 +465,21 @@ function WeatherCard({ t, tc, onOpen }) {
 
   const grad = "linear-gradient(135deg, #2C6E9E, #1E5178)";
 
-  // No location yet — invite the farmer to set one.
+  if (st.status === "detecting") {
+    return (
+      <div style={{ borderRadius: T.rLg, padding: 18, color: "#fff", position: "relative", overflow: "hidden", background: grad, boxShadow: T.shadowMd }}>
+        <div style={{ position: "absolute", right: -18, top: -18, opacity: .18 }}><Icon name="LocateFixed" size={130} /></div>
+        <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 12 }}>
+          <Icon name="LocateFixed" size={24} style={{ animation: "ag-pulse 1.2s infinite" }} />
+          <div>
+            <div style={{ fontFamily: T.display, fontSize: 16, fontWeight: 700 }}>{t("weather")}</div>
+            <div style={{ fontSize: 12.5, opacity: .92, marginTop: 2 }}>{tc({ en: "Detecting your location…", hi: "आपका स्थान पता लगा रहे हैं…", bn: "আপনার অবস্থান সনাক্ত করা হচ্ছে…" })}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (st.status === "empty") {
     return (
       <div onClick={onOpen} style={{ borderRadius: T.rLg, padding: 18, cursor: "pointer", color: "#fff", position: "relative", overflow: "hidden", background: grad, boxShadow: T.shadowMd }}>

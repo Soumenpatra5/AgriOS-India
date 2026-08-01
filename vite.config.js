@@ -13,6 +13,15 @@ export default defineConfig({
         main: "index.html",
         admin: "admin.html",
       },
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/@firebase/firestore") || id.includes("node_modules/firebase/firestore")) return "fb-firestore";
+          if (id.includes("node_modules/@firebase/auth") || id.includes("node_modules/firebase/auth")) return "fb-auth";
+          if (id.includes("node_modules/@firebase/messaging") || id.includes("node_modules/firebase/messaging")) return "fb-messaging";
+          if (id.includes("node_modules/firebase/") || id.includes("node_modules/@firebase/")) return "fb-core";
+          if (id.includes("node_modules/idb")) return "fb-core";
+        },
+      },
     },
   },
   test: {

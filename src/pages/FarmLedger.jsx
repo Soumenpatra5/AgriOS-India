@@ -22,7 +22,7 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 const fmtDate  = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
 export default function FarmLedger() {
-  const { pop, toast, tc, t } = useApp();
+  const { pop, toast, tc, t, lang } = useApp();
   const now = new Date();
   const [year, setYear]   = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-indexed
@@ -219,7 +219,7 @@ function AddSheet({ open, onClose, onSaved }) {
         <Dropdown label={tc({en:"Category",hi:"श्रेणी",bn:"বিভাগ"})} value={form.categoryId} onChange={(v) => set("categoryId", v)} options={catOpts} />
         <Dropdown label={tc({en:"Enterprise",hi:"उद्यम",bn:"এন্টারপ্রাইজ"})} value={form.enterpriseId} onChange={(v) => set("enterpriseId", v)} options={entOpts} />
         <Input label={tc({en:"Date",hi:"तारीख",bn:"তারিখ"})} value={form.date} onChange={(v) => set("date", v)} type="date" />
-        <Input label={tc({en:"Note (optional)",hi:"नोट (वैकल्पिक)",bn:"নোট (ঐচ্ছিক)"})} value={form.note} onChange={(v) => set("note", v)} placeholder={tc({en:"e.g. North field paddy sale",hi:"जैसे उत्तरी खेत धान बिक्री",bn:"যেমন উত্তর মাঠের ধান বিক্রি"})} />
+        <Input label={tc({en:"Note (optional)",hi:"नोट (वैकल्पिक)",bn:"নোট (ঐচ্ছিক)"})} value={form.note} onChange={(v) => set("note", v)} placeholder={tc({en:"e.g. North field paddy sale",hi:"जैसे उत्तरी खेत धान बिक्री",bn:"যেমন উত্তর মাঠের ধান বিক্রি"})} mic lang={lang} />
       </div>
     </BottomSheet>
   );

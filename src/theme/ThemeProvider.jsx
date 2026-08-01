@@ -68,6 +68,7 @@ export function ThemeProvider({ children }) {
     @keyframes ag-toast{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
     @keyframes ag-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
     @keyframes ag-blink{0%,100%{opacity:1}50%{opacity:0}}
+    @keyframes ag-pulse{0%,100%{opacity:1}50%{opacity:.4}}
   `;
 
   const value = useMemo(() => ({ mode, resolved, setTheme }), [mode, resolved]);

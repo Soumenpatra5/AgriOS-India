@@ -7,7 +7,7 @@ import { useApp } from "../store/AppStore.jsx";
 import { SERVICES } from "../constants/content.js";
 
 export default function Services() {
-  const { t, tc, push } = useApp();
+  const { t, tc, push, lang } = useApp();
   const [q, setQ] = useState("");
   const list = SERVICES.filter((x) => {
     const title = typeof x.title === "object" ? Object.values(x.title).join(" ") : x.title;
@@ -22,7 +22,7 @@ export default function Services() {
     <>
       <AppBar title={t("servicesTitle")} large />
       <div style={{ padding: "4px 16px 24px", display: "flex", flexDirection: "column", gap: 16, animation: "ag-fade .25s var(--ag-ease)" }}>
-        <SearchBar value={q} onChange={setQ} placeholder={tc({ en: "Search services…", hi: "सेवाएँ खोजें…", bn: "সেবা খুঁজুন…" })} />
+        <SearchBar value={q} onChange={setQ} placeholder={tc({ en: "Search services…", hi: "सेवाएँ खोजें…", bn: "সেবা খুঁজুন…" })} mic lang={lang} />
         {list.length === 0 ? (
           <EmptyState icon="SearchX" title={tc({ en: "No services found", hi: "कोई सेवा नहीं मिली", bn: "কোনো সেবা পাওয়া যায়নি" })} body={tc({ en: `Nothing matches "${q}". Try a different word.`, hi: `"${q}" से कुछ नहीं मिला। दूसरा शब्द आज़माएँ।`, bn: `"${q}" মেলেনি। অন্য শব্দ চেষ্টা করুন।` })} />
         ) : (

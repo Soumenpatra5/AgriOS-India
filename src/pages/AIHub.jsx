@@ -6,7 +6,7 @@ import { useApp } from "../store/AppStore.jsx";
 import { AI_TOOLS } from "../constants/content.js";
 
 export default function AIHub() {
-  const { t, tc, push } = useApp();
+  const { t, tc, push, lang } = useApp();
   const [q, setQ] = useState("");
   const list = AI_TOOLS.filter((x) => {
     const title = typeof x.title === "object" ? Object.values(x.title).join(" ") : x.title;
@@ -29,7 +29,7 @@ export default function AIHub() {
           </div>
         </div>
 
-        <SearchBar value={q} onChange={setQ} placeholder={tc({ en: "Search assistants…", hi: "सहायक खोजें…", bn: "সহায়ক খুঁজুন…" })} />
+        <SearchBar value={q} onChange={setQ} placeholder={tc({ en: "Search assistants…", hi: "सहायक खोजें…", bn: "সহায়ক খুঁজুন…" })} mic lang={lang} />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {list.map((x) => {

@@ -13,11 +13,12 @@ import financeExpert from "./definitions/financeExpert.js";
 import veterinaryExpert from "./definitions/veterinaryExpert.js";
 import educationExpert from "./definitions/educationExpert.js";
 import commerceAdvisor from "./definitions/commerceAdvisor.js";
+import dprGenerator from "./definitions/dprGenerator.js";
 
 const AGENTS = [
   generalAssistant, farmDoctor, cropExpert, livestockExpert, businessAdvisor,
   loanAdvisor, governmentAdvisor, weatherExpert, marketExpert, financeExpert,
-  veterinaryExpert, educationExpert, commerceAdvisor,
+  veterinaryExpert, educationExpert, commerceAdvisor, dprGenerator,
 ];
 
 const byId = new Map(AGENTS.map((a) => [a.id, a]));
