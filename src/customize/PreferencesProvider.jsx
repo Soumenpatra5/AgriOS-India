@@ -25,6 +25,11 @@ export function PreferencesProvider({ children }) {
     applyAppearance(prefs.appearance, theme.resolved);
   }, [prefs.appearance, theme.resolved]);
 
+  // Accessibility: reduce motion.
+  useEffect(() => {
+    document.documentElement.dataset.motion = prefs.accessibility.reduceMotion ? "reduce" : "full";
+  }, [prefs.accessibility.reduceMotion]);
+
   // Cloud sync: pull on sign-in (new-device restore), push on change (debounced).
   useEffect(() => onAuthChange(async (user) => {
     if (!user) return;
@@ -35,6 +40,8 @@ export function PreferencesProvider({ children }) {
   const saveTimer = useRef(null);
   useEffect(() => {
     clearTimeout(saveTimer.current);
+    // "off" = local only: don't push preferences to the cloud.
+    if (prefs.offline.mode === "off") return;
     saveTimer.current = setTimeout(() => savePrefsCloud(preferences.all()), 800);
     return () => clearTimeout(saveTimer.current);
   }, [prefs]);
@@ -53,6 +60,10 @@ export function PreferencesProvider({ children }) {
           --ag-line: color-mix(in srgb, var(--ag-ink) 34%, transparent);
           --ag-line-soft: color-mix(in srgb, var(--ag-ink) 22%, transparent);
           --ag-ink-soft: color-mix(in srgb, var(--ag-ink) 78%, var(--ag-bg));
+        }
+        :root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after {
+          animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+          transition-duration: .001ms !important; scroll-behavior: auto !important;
         }
       `}</style>
       {children}

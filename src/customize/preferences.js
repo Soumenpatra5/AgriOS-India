@@ -53,7 +53,7 @@ export const DEFAULTS = {
 
   offline: { mode: "auto" },     // auto | aggressive | off
 
-  accessibility: { largerText: false, screenReader: false },
+  accessibility: { largerText: false, reduceMotion: false, screenReader: false },
 };
 
 /* Deep-merge stored prefs over defaults so new keys appear automatically. */

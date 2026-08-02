@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, Card, BottomSheet } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
+import { notificationService } from "../services/notifications/notificationService.js";
 import { usePrefs } from "../customize/PreferencesProvider.jsx";
 import { ACCENTS, CARD_STYLES, DISPLAY_SIZES } from "../customize/appearance.js";
 import { FARMER_TYPES, TYPE_LABELS } from "../customize/farmerTypes.js";
@@ -77,6 +78,42 @@ export default function Personalize() {
     { value: "system", label: tc({ en: "System", hi: "सिस्टम", bn: "সিস্টেম" }) },
   ];
 
+  const fileRef = useRef(null);
+
+  const setPush = async (v) => {
+    if (v && notificationService.getPermission() !== "granted") {
+      const res = await notificationService.requestPermission();
+      const granted = res === "granted";
+      set("notifications.push", granted);
+      notificationService.setEnabled(granted);
+      toast(granted ? tc({ en: "Push notifications on", hi: "पुश सूचनाएँ चालू", bn: "পুশ বিজ্ঞপ্তি চালু" }) : tc({ en: "Blocked — enable in browser settings", hi: "ब्लॉक — ब्राउज़र सेटिंग्स में चालू करें", bn: "ব্লক — ব্রাউজার সেটিংসে চালু করুন" }), granted ? "success" : "info");
+      return;
+    }
+    set("notifications.push", v);
+    notificationService.setEnabled(v);
+  };
+
+  const downloadBackup = () => {
+    const blob = new Blob([exportPrefs()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "agrios-settings.json"; a.click();
+    URL.revokeObjectURL(url);
+    toast(tc({ en: "Backup downloaded", hi: "बैकअप डाउनलोड हुआ", bn: "ব্যাকআপ ডাউনলোড হয়েছে" }), "success");
+  };
+
+  const onFile = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      const res = importPrefs(String(r.result));
+      toast(res.ok ? tc({ en: "Settings restored", hi: "सेटिंग्स बहाल हुईं", bn: "সেটিংস পুনরুদ্ধার হয়েছে" }) : tc({ en: "Invalid backup file", hi: "अमान्य बैकअप फ़ाइल", bn: "অবৈধ ব্যাকআপ ফাইল" }), res.ok ? "success" : "error");
+    };
+    r.readAsText(f);
+  };
+
   const moveWidget = (id, dir) => {
     const order = [...prefs.dashboard.order];
     const i = order.indexOf(id), j = i + dir;
@@ -133,8 +170,11 @@ export default function Personalize() {
             <Row label={tc({ en: "High contrast", hi: "उच्च कंट्रास्ट", bn: "উচ্চ কনট্রাস্ট" })}>
               <Toggle on={a.highContrast} onChange={(v) => set("appearance.highContrast", v)} />
             </Row>
-            <Row label={tc({ en: "Larger text", hi: "बड़ा टेक्स्ट", bn: "বড় লেখা" })} last>
+            <Row label={tc({ en: "Larger text", hi: "बड़ा टेक्स्ट", bn: "বড় লেখা" })}>
               <Toggle on={prefs.accessibility.largerText} onChange={(v) => { set("accessibility.largerText", v); set("appearance.displaySize", v ? "spacious" : "comfortable"); }} />
+            </Row>
+            <Row label={tc({ en: "Reduce motion", hi: "गति कम करें", bn: "মোশন কমান" })} last>
+              <Toggle on={prefs.accessibility.reduceMotion} onChange={(v) => set("accessibility.reduceMotion", v)} />
             </Row>
           </Card>
         </Section>
@@ -199,12 +239,46 @@ export default function Personalize() {
           </div>
         </Section>
 
-        <Section title={tc({ en: "Backup & reset", hi: "बैकअप और रीसेट", bn: "ব্যাকআপ ও রিসেট" })}>
+        <Section title={tc({ en: "Notifications", hi: "सूचनाएँ", bn: "বিজ্ঞপ্তি" })}>
           <Card pad={6}>
+            <Row label={tc({ en: "Push notifications", hi: "पुश सूचनाएँ", bn: "পুশ বিজ্ঞপ্তি" })}>
+              <Toggle on={prefs.notifications.push} onChange={setPush} />
+            </Row>
+            <Row label={tc({ en: "SMS", hi: "एसएमएस", bn: "এসএমএস" })}>
+              <Toggle on={prefs.notifications.sms} onChange={(v) => set("notifications.sms", v)} />
+            </Row>
+            <Row label={tc({ en: "Email", hi: "ईमेल", bn: "ইমেইল" })} last>
+              <Toggle on={prefs.notifications.email} onChange={(v) => set("notifications.email", v)} />
+            </Row>
+          </Card>
+        </Section>
+
+        <Section title={tc({ en: "Offline data", hi: "ऑफ़लाइन डेटा", bn: "অফলাইন ডেটা" })}>
+          <Segmented
+            options={[
+              { value: "auto", label: tc({ en: "Auto", hi: "स्वतः", bn: "স্বয়ং" }) },
+              { value: "aggressive", label: tc({ en: "Save more", hi: "ज़्यादा सहेजें", bn: "বেশি সংরক্ষণ" }) },
+              { value: "off", label: tc({ en: "Local only", hi: "केवल डिवाइस", bn: "শুধু ডিভাইস" }) },
+            ]}
+            value={prefs.offline.mode} onChange={(v) => set("offline.mode", v)} />
+          <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 6, padding: "0 2px" }}>
+            {tc({ en: "“Local only” keeps your data on this device and won't sync to the cloud.", hi: "“केवल डिवाइस” आपका डेटा इसी डिवाइस पर रखता है, क्लाउड सिंक नहीं करता।", bn: "“শুধু ডিভাইস” আপনার তথ্য এই ডিভাইসেই রাখে, ক্লাউডে সিঙ্ক করে না।" })}
+          </div>
+        </Section>
+
+        <Section title={tc({ en: "Backup & reset", hi: "बैकअप और रीसेट", bn: "ব্যাকআপ ও রিসেট" })}>
+          <input ref={fileRef} type="file" accept="application/json,.json" onChange={onFile} style={{ display: "none" }} />
+          <Card pad={6}>
+            <Row label={tc({ en: "Download backup file", hi: "बैकअप फ़ाइल डाउनलोड करें", bn: "ব্যাকআপ ফাইল ডাউনলোড করুন" })} onClick={downloadBackup}>
+              <Icon name="Download" size={18} style={{ color: T.inkFaint }} />
+            </Row>
+            <Row label={tc({ en: "Restore from file", hi: "फ़ाइल से बहाल करें", bn: "ফাইল থেকে পুনরুদ্ধার" })} onClick={() => fileRef.current?.click()}>
+              <Icon name="Upload" size={18} style={{ color: T.inkFaint }} />
+            </Row>
             <Row label={tc({ en: "Copy settings (backup)", hi: "सेटिंग्स कॉपी करें", bn: "সেটিংস কপি করুন" })} onClick={copyBackup}>
               <Icon name="Copy" size={18} style={{ color: T.inkFaint }} />
             </Row>
-            <Row label={tc({ en: "Restore from backup", hi: "बैकअप से बहाल करें", bn: "ব্যাকআপ থেকে পুনরুদ্ধার" })} onClick={() => setRestoreOpen(true)}>
+            <Row label={tc({ en: "Restore from text", hi: "टेक्स्ट से बहाल करें", bn: "টেক্সট থেকে পুনরুদ্ধার" })} onClick={() => setRestoreOpen(true)}>
               <Icon name="Upload" size={18} style={{ color: T.inkFaint }} />
             </Row>
             <Row label={tc({ en: "Reset to default", hi: "डिफ़ॉल्ट पर रीसेट", bn: "ডিফল্টে রিসেট" })} onClick={() => setConfirmReset(true)} last danger>

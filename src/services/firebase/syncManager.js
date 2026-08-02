@@ -5,11 +5,17 @@ import { pullFromCloud } from "./pullFromCloud.js";
 import { migrateToFirestore } from "./migrate.js";
 import { saveProfile } from "./userProfile.js";
 import { fcmService } from "../notifications/fcmService.js";
+import { preferences } from "../../customize/preferences.js";
 
 let _initialized = false;
 
+/* Respect the user's offline preference — "off" keeps data on-device only. */
+function cloudSyncEnabled() {
+  return preferences.get("offline.mode", "auto") !== "off";
+}
+
 async function flushQueue() {
-  if (!fbEnabled) return;
+  if (!fbEnabled || !cloudSyncEnabled()) return;
   const pending = await getAll();
   for (const entry of pending) {
     try {
