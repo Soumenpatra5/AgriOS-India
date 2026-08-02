@@ -5,6 +5,7 @@ export const poultryDomain = {
   id:     "poultry",
   name:   "Poultry",
   icon:   "Bird",
+  emoji:  "🐔",
   accent: "orange",
   description: "Diagnose diseases and health problems in chickens, ducks, and turkeys",
 

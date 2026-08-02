@@ -4,6 +4,7 @@ export const pigDomain = {
   id:     "pig",
   name:   "Pig Farming",
   icon:   "PiggyBank",
+  emoji:  "🐖",
   accent: "red",
   description: "Diagnose diseases and health problems in pigs",
 

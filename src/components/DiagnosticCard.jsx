@@ -26,9 +26,9 @@ export default function DiagnosticCard({ record, onClick }) {
       <div style={{
         width: 44, height: 44, borderRadius: 13, flexShrink: 0,
         background: "var(--ag-primary-soft)", display: "grid", placeItems: "center",
-        color: "var(--ag-primary)",
+        color: "var(--ag-primary)", fontSize: 24, lineHeight: 1,
       }}>
-        <Icon name={domain?.icon || "Microscope"} size={22} />
+        {domain?.emoji || <Icon name={domain?.icon || "Microscope"} size={22} />}
       </div>
 
       {/* Info */}

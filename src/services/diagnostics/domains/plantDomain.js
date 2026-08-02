@@ -5,6 +5,7 @@ export const plantDomain = {
   id:     "plant",
   name:   "Plant & Crop",
   icon:   "Leaf",
+  emoji:  "🌱",
   accent: "primary",
   description: "Diagnose diseases, pests, nutrient deficiencies, and stress in crops",
 

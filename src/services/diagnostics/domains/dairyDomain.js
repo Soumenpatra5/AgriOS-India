@@ -5,6 +5,7 @@ export const dairyDomain = {
   id:     "dairy",
   name:   "Dairy (Cow & Buffalo)",
   icon:   "Milk",
+  emoji:  "🐄",
   accent: "blue",
   description: "Diagnose health problems in cows and buffaloes",
 

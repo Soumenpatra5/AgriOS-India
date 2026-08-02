@@ -4,6 +4,7 @@ export const goatDomain = {
   id:     "goat",
   name:   "Goat Farming",
   icon:   "Rabbit",
+  emoji:  "🐐",
   accent: "orange",
   description: "Diagnose diseases and health problems in goats and sheep",
 

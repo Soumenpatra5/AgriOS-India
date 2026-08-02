@@ -5,6 +5,7 @@ export const fishDomain = {
   id:     "fish",
   name:   "Fish Farming",
   icon:   "Fish",
+  emoji:  "🐟",
   accent: "blue",
   description: "Diagnose diseases and health problems in fish and aquaculture",
 

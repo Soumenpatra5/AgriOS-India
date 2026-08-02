@@ -1,13 +1,13 @@
 import { repo } from "./livestockDb.js";
 
 export const ENTERPRISES = [
-  { id: "poultry", label: "Poultry",    icon: "Bird",      accent: "orange" },
-  { id: "dairy",   label: "Dairy",      icon: "Milk",      accent: "blue"   },
-  { id: "goat",    label: "Goat",       icon: "Rabbit",    accent: "primary"},
-  { id: "pig",     label: "Pig",        icon: "PiggyBank", accent: "red"    },
-  { id: "sheep",   label: "Sheep",      icon: "Beef",      accent: "blue"   },
-  { id: "fish",    label: "Fish",       icon: "Fish",      accent: "blue"   },
-  { id: "bee",     label: "Beekeeping", icon: "Bug",       accent: "yellow" },
+  { id: "poultry", label: "Poultry",    icon: "Bird",      emoji: "🐔", accent: "orange" },
+  { id: "dairy",   label: "Dairy",      icon: "Milk",      emoji: "🐄", accent: "blue"   },
+  { id: "goat",    label: "Goat",       icon: "Rabbit",    emoji: "🐐", accent: "primary"},
+  { id: "pig",     label: "Pig",        icon: "PiggyBank", emoji: "🐖", accent: "red"    },
+  { id: "sheep",   label: "Sheep",      icon: "Beef",      emoji: "🐑", accent: "blue"   },
+  { id: "fish",    label: "Fish",       icon: "Fish",      emoji: "🐟", accent: "blue"   },
+  { id: "bee",     label: "Beekeeping", icon: "Bug",       emoji: "🐝", accent: "yellow" },
 ];
 
 const animalsRepo     = repo("animals");

@@ -4,6 +4,7 @@ export const beeDomain = {
   id:     "bee",
   name:   "Bee Keeping",
   icon:   "Bug",
+  emoji:  "🐝",
   accent: "yellow",
   description: "Assess hive health, diagnose bee diseases, and monitor colony strength",
 

@@ -61,8 +61,8 @@ export default function LivestockHub() {
         <div style={{ background: `linear-gradient(135deg, #7c3aed, #4f46e5)`, borderRadius: T.rLg,
           padding: "18px 18px", display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ width: 46, height: 46, borderRadius: 13, background: "rgba(255,255,255,.18)",
-            display: "grid", placeItems: "center", flexShrink: 0 }}>
-            <Icon name="Rabbit" size={24} color="#fff" />
+            display: "grid", placeItems: "center", flexShrink: 0, fontSize: 26, lineHeight: 1 }}>
+            🐄
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Livestock Manager</div>
@@ -86,8 +86,8 @@ export default function LivestockHub() {
               <div style={{ width: 4, alignSelf: "stretch", background: fg, flexShrink: 0 }} />
               <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 13, padding: "14px 14px" }}>
                 <div style={{ width: 46, height: 46, borderRadius: 12, background: bg,
-                  display: "grid", placeItems: "center", flexShrink: 0 }}>
-                  <Icon name={e.icon} size={22} color={fg} />
+                  display: "grid", placeItems: "center", flexShrink: 0, fontSize: 26, lineHeight: 1 }}>
+                  {e.emoji || <Icon name={e.icon} size={22} color={fg} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.display, fontSize: 15, fontWeight: 700, color: T.ink }}>
