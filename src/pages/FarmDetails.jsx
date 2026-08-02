@@ -3,6 +3,7 @@ import { T } from "../theme/ThemeProvider.jsx";
 import { AppBar, Card } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { usePrefs } from "../customize/PreferencesProvider.jsx";
+import { FARMER_TYPES, TYPE_LABELS } from "../customize/farmerTypes.js";
 import { profileMemory } from "../ai/memory/profileMemory.js";
 
 function Field({ label, value, onChange, placeholder, hint }) {
@@ -65,6 +66,27 @@ export default function FarmDetails() {
             placeholder={tc({ en: "Poultry, Dairy cow, Goat…", hi: "मुर्गी, गाय, बकरी…", bn: "মুরগি, গরু, ছাগল…" })}
             hint={tc({ en: "Comma separated", hi: "अल्पविराम से अलग करें", bn: "কমা দিয়ে আলাদা করুন" })} />
         </Card>
+
+        <div>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft, marginBottom: 10, padding: "0 2px" }}>
+            {tc({ en: "What do you farm?", hi: "आप क्या खेती करते हैं?", bn: "আপনি কী চাষ করেন?" })}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {FARMER_TYPES.map((k) => {
+              const on = prefs.farmerProfile.types[k] !== false;
+              return (
+                <button key={k} onClick={() => set(`farmerProfile.types.${k}`, !on)}
+                  style={{ padding: "9px 14px", borderRadius: T.pill, cursor: "pointer", fontFamily: T.body, fontSize: 13.5, fontWeight: 600,
+                    border: `1.5px solid ${on ? T.primary : T.line}`, background: on ? T.primarySoft : T.surface, color: on ? T.primary : T.inkSoft, transition: "all .16s var(--ag-ease)" }}>
+                  {tc(TYPE_LABELS[k])}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 8, padding: "0 2px" }}>
+            {tc({ en: "Diagnostics & livestock tailor to your enterprises.", hi: "निदान और पशुपालन आपके उद्यमों के अनुसार दिखेंगे।", bn: "রোগ নির্ণয় ও পশুপালন আপনার উদ্যোগ অনুযায়ী দেখাবে।" })}
+          </div>
+        </div>
 
         <div style={{ fontSize: 11.5, color: T.inkFaint, lineHeight: 1.6, textAlign: "center" }}>
           {tc({ en: "These details personalize your AI advice, market prices and reminders.", hi: "ये विवरण आपकी AI सलाह, बाज़ार भाव और रिमाइंडर को व्यक्तिगत बनाते हैं।", bn: "এই বিবরণ আপনার AI পরামর্শ, বাজার দর ও রিমাইন্ডার ব্যক্তিগত করে।" })}
