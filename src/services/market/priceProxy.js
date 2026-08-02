@@ -5,16 +5,19 @@
 
 import { authFetch } from "../firebase/authFetch.js";
 import { profileMemory } from "../../ai/memory/profileMemory.js";
+import { preferences } from "../../customize/preferences.js";
 
 /* Strip grade/variety parentheticals: "Paddy (Common)" -> "Paddy". */
 export function commodityOf(crop) {
   return (crop?.name || "").split("(")[0].trim();
 }
 
-/* Best-effort farmer state from the saved profile (free-form: district/state). */
+/* Farmer state — the region set in Personalize wins; otherwise fall back to the
+   free-form location saved in the profile. */
 function farmerState() {
-  const loc = profileMemory.get().location || "";
-  return loc.trim();
+  const region = (preferences.get("region.state", "") || "").trim();
+  if (region) return region;
+  return (profileMemory.get().location || "").trim();
 }
 
 export async function fetchLivePrice(crop, { market = "", signal } = {}) {

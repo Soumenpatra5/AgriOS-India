@@ -3,6 +3,8 @@ import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
+import { usePrefs } from "../customize/PreferencesProvider.jsx";
+import { filterByType } from "../customize/farmerTypes.js";
 import { domainRegistry } from "../services/diagnostics/domainRegistry.js";
 import { historyService } from "../services/diagnostics/historyService.js";
 import { consentService } from "../services/diagnostics/consentService.js";
@@ -18,7 +20,9 @@ const ACCENT_COLORS = {
 
 export default function DiagnosticsHome() {
   const { pop, push, tc } = useApp();
-  const domains = domainRegistry.getAll();
+  const { prefs } = usePrefs();
+  // Show only the enterprises the farmer runs (Personalize → Farmer profile).
+  const domains = filterByType(prefs, domainRegistry.getAll());
   const [recent,  setRecent]  = useState([]);
   const [consent, setConsent] = useState(false);
 

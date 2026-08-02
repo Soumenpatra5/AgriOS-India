@@ -3,6 +3,8 @@ import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, SectionHeader } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
+import { usePrefs } from "../../customize/PreferencesProvider.jsx";
+import { filterByType } from "../../customize/farmerTypes.js";
 import { ENTERPRISES, animalService, eventService } from "../../services/livestock/livestockService.js";
 
 const H_PAD = 16;
@@ -35,6 +37,8 @@ const accentSoft = {
 
 export default function LivestockHub() {
   const { pop, push } = useApp();
+  const { prefs } = usePrefs();
+  const enterprises = filterByType(prefs, ENTERPRISES);
   const [counts, setCounts]   = useState({});
   const [upcoming, setUpcoming] = useState({});
 
@@ -70,7 +74,7 @@ export default function LivestockHub() {
 
         <SectionHeader title="Your Enterprises" />
 
-        {ENTERPRISES.map((e) => {
+        {enterprises.map((e) => {
           const fg  = accentColor[e.accent] || T.primary;
           const bg  = accentSoft[e.accent]  || T.primarySoft;
           const cnt = counts[e.id] || 0;

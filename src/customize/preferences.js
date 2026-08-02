@@ -42,8 +42,9 @@ export const DEFAULTS = {
   },
 
   farmerProfile: {
-    // enable modules relevant to the farmer's enterprises
-    types: { crop: true, poultry: false, dairy: false, fish: false, goat: false, pig: false, bee: false },
+    // which enterprises the farmer runs — opt-out: all on by default, turn off
+    // the ones you don't do to declutter diagnostics / livestock to your farm.
+    types: { crop: true, poultry: true, dairy: true, fish: true, goat: true, pig: true, bee: true },
   },
 
   notifications: { push: true, sms: false, email: false },
