@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, Screen, Card, Chip, IconTile, Button } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { marketService } from "../services/market/marketService.js";
+import { fetchLivePrice } from "../services/market/priceProxy.js";
 import { rupee } from "../utils/format.js";
 
 const cropName = (crop, lang) =>
@@ -176,6 +177,17 @@ function CropSheet({ crop, onClose, bookmarks, onToggle }) {
   const sc = SEASON_COLOR(T)[crop.season] || SEASON_COLOR(T)["year-round"];
   const isBookmarked = bookmarks.includes(crop.id);
 
+  // Live mandi rate (data.gov.in / Agmarknet). Silently absent until the feed
+  // is configured server-side; the MSP + seasonal band below always render.
+  const [live, setLive] = useState({ status: "loading" });
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetchLivePrice(crop, { signal: ctrl.signal })
+      .then((r) => setLive(r && r.live && r.modal ? { status: "ok", data: r } : { status: "none" }))
+      .catch(() => setLive({ status: "none" }));
+    return () => ctrl.abort();
+  }, [crop]);
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: T.scrim, display: "flex", alignItems: "flex-end", justifyContent: "center", animation: "ag-fade .2s var(--ag-ease)" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: T.surface, borderRadius: `${T.rXl} ${T.rXl} 0 0`, padding: "10px 20px 36px", maxHeight: "80vh", overflowY: "auto", animation: "ag-sheet .3s var(--ag-ease)" }}>
@@ -194,6 +206,34 @@ function CropSheet({ crop, onClose, bookmarks, onToggle }) {
         <span style={{ display: "inline-flex", fontSize: 12, fontWeight: 700, color: sc.fg, background: sc.bg, padding: "4px 10px", borderRadius: 7, marginBottom: 16 }}>
           {tc(SEASON_LABEL[crop.season])} · {tc({ en: "per", hi: "प्रति", bn: "প্রতি" })} {crop.unit}
         </span>
+
+        {/* Live mandi rate (data.gov.in / Agmarknet) — shown only when available */}
+        {live.status === "loading" && (
+          <div style={{ background: T.surface2, borderRadius: T.rLg, padding: 14, marginBottom: 12, fontSize: 12.5, color: T.inkSoft, display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon name="RefreshCw" size={14} style={{ color: T.inkFaint }} />
+            {tc({ en: "Checking today's mandi rate…", hi: "आज का मंडी भाव देख रहे हैं…", bn: "আজকের মান্ডি দর দেখা হচ্ছে…" })}
+          </div>
+        )}
+        {live.status === "ok" && (
+          <div style={{ background: T.blueSoft, borderRadius: T.rLg, padding: 14, marginBottom: 12, border: `1px solid ${T.blue}22` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: T.blue, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: T.blue }}>{tc({ en: "LIVE MANDI RATE", hi: "लाइव मंडी भाव", bn: "লাইভ মান্ডি দর" })}</span>
+            </div>
+            <div style={{ fontFamily: T.display, fontSize: 28, fontWeight: 800, color: T.ink }}>
+              ₹{live.data.modal.toLocaleString("en-IN")}<span style={{ fontSize: 14, fontWeight: 500, color: T.inkSoft }}>/{live.data.unit}</span>
+            </div>
+            {(live.data.min || live.data.max) && (
+              <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 2 }}>
+                {tc({ en: "Range", hi: "सीमा", bn: "পরিসীমা" })} ₹{(live.data.min ?? live.data.modal).toLocaleString("en-IN")} – ₹{(live.data.max ?? live.data.modal).toLocaleString("en-IN")}
+              </div>
+            )}
+            <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 6, lineHeight: 1.5 }}>
+              {[live.data.market, live.data.district, live.data.state].filter(Boolean).join(", ")}
+              {live.data.date ? ` · ${live.data.date}` : ""}<br />{live.data.source}
+            </div>
+          </div>
+        )}
 
         {/* MSP */}
         <div style={{ background: T.primarySoft, borderRadius: T.rLg, padding: 14, marginBottom: 12 }}>
