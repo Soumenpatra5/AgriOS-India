@@ -114,11 +114,6 @@ export const MARKET_SECTIONS = [
 ];
 
 export const SERVICES = [
-  { id: "marketplace", title: { en: "Marketplace", hi: "बाज़ार", bn: "বাজার" }, desc: { en: "Buy & sell seeds, feed, equipment", hi: "बीज, चारा, उपकरण खरीदें-बेचें", bn: "বীজ, খাদ্য, সরঞ্জাম কিনুন-বিক্রি করুন" }, icon: "ShoppingBag", accent: "primary", kind: "marketplace" },
-  { id: "svcMp", title: { en: "Service Marketplace", hi: "सेवा बाज़ार", bn: "সেবা বাজার" }, desc: { en: "Book vet, drone, machinery & more", hi: "पशु चिकित्सक, ड्रोन, मशीन बुक करें", bn: "পশু চিকিৎসক, ড্রোন, যন্ত্র বুক করুন" }, icon: "Handshake", accent: "blue", kind: "svcMarketplace" },
-  { id: "logistics", title: { en: "Logistics & Trade", hi: "लॉजिस्टिक्स और व्यापार", bn: "লজিস্টিক্স ও বাণিজ্য" }, desc: { en: "Shipments, cold chain, auctions & more", hi: "शिपमेंट, कोल्ड चेन, नीलामी", bn: "শিপমেন্ট, কোল্ড চেইন, নিলাম" }, icon: "Truck", accent: "primary", kind: "logisticsHub" },
-  { id: "aiCommerce", title: { en: "AI Commerce", hi: "AI कॉमर्स", bn: "AI কমার্স" }, desc: { en: "Recommendations, price forecasts & insights", hi: "सुझाव, मूल्य पूर्वानुमान और जानकारी", bn: "পরামর্শ, মূল্য পূর্বাভাস ও তথ্য" }, icon: "BrainCircuit", accent: "blue", kind: "aiCommerceHub" },
-  { id: "erp", title: { en: "Farm ERP", hi: "फार्म ERP", bn: "ফার্ম ERP" }, desc: { en: "Complete farm management system", hi: "पूर्ण खेत प्रबंधन प्रणाली", bn: "সম্পূর্ণ খামার ব্যবস্থাপনা" }, icon: "Tractor", accent: "primary", kind: "farmErp" },
   { id: "livestock", title: { en: "Livestock Manager", hi: "पशुपालन प्रबंधक", bn: "পশুপালন ম্যানেজার" }, desc: { en: "Poultry, dairy, goat, pig, sheep, fish & bees", hi: "मुर्गी, डेयरी, बकरी, सूअर, भेड़, मछली", bn: "মুরগি, দুগ্ধ, ছাগল, শূকর, ভেড়া, মাছ" }, icon: "Rabbit", accent: "primary", kind: "livestockHub" },
   { id: "vax", title: { en: "Vaccination Calendar", hi: "टीकाकरण कैलेंडर", bn: "টিকাকরণ ক্যালেন্ডার" }, desc: { en: "Upcoming & missed vaccinations", hi: "आने वाले और छूटे टीके", bn: "আসন্ন ও বাকি টিকা" }, icon: "Syringe", accent: "red", kind: "vaccinationCalendar" },
   { id: "inventory", title: { en: "Inventory", hi: "इन्वेंटरी", bn: "ইনভেন্টরি" }, desc: { en: "Feed, medicine & stock alerts", hi: "चारा, दवाई और स्टॉक अलर्ट", bn: "খাদ্য, ওষুধ ও স্টক সতর্কতা" }, icon: "Warehouse", accent: "orange", kind: "erpInventory" },
