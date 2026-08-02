@@ -103,6 +103,9 @@ export default function Settings() {
         </div>
 
         <Card pad={6}>
+          <Row icon="SlidersHorizontal" label={tc({ en: "Personalize", hi: "अनुकूलित करें", bn: "ব্যক্তিগতকরণ" })} onClick={() => push({ kind: "personalize" })}>
+            <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
+          </Row>
           <Row icon="Bell" label={t("notifications")}><Toggle on={notif} onChange={setNotifP} /></Row>
           {notif && (
             <>

@@ -44,8 +44,11 @@ export function Button({ children, onClick, variant = "primary", size = "md", fu
 export function Card({ children, onClick, pad = 16, style, elevated }) {
   return (
     <div onClick={onClick}
-      style={{ background: elevated ? T.elevated : T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg,
-        padding: pad, boxShadow: elevated ? T.shadowMd : "none", cursor: onClick ? "pointer" : "default",
+      style={{ background: elevated ? T.elevated : `var(--ag-card-bg, ${T.surface})`,
+        border: `var(--ag-card-border, 1px solid ${T.line})`, borderRadius: `var(--ag-card-radius, ${T.rLg})`,
+        padding: pad, boxShadow: elevated ? T.shadowMd : `var(--ag-card-shadow, none)`,
+        backdropFilter: "var(--ag-card-backdrop, none)", WebkitBackdropFilter: "var(--ag-card-backdrop, none)",
+        cursor: onClick ? "pointer" : "default",
         transition: "transform .16s var(--ag-ease), box-shadow .2s var(--ag-ease), border-color .2s",
         ...style }}
       onMouseEnter={onClick ? (e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = T.shadowMd; } : undefined}

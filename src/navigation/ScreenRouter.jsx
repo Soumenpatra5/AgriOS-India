@@ -18,6 +18,7 @@ const Market             = lazy(() => import("../pages/Market.jsx"));
 const Services           = lazy(() => import("../pages/Services.jsx"));
 const Profile            = lazy(() => import("../pages/Profile.jsx"));
 const Settings           = lazy(() => import("../pages/Settings.jsx"));
+const Personalize        = lazy(() => import("../pages/Personalize.jsx"));
 const FeatureDetail      = lazy(() => import("../pages/FeatureDetail.jsx"));
 const AIChat             = lazy(() => import("../pages/AIChat.jsx"));
 const WeatherDashboard   = lazy(() => import("../pages/WeatherDashboard.jsx"));
@@ -109,6 +110,7 @@ function LazyFallback() {
 
 function StackScreen({ item }) {
   if (item.kind === "settings") return <Settings />;
+  if (item.kind === "personalize") return <Personalize />;
   if (item.kind === "feature") return <FeatureDetail {...item.props} />;
   if (item.kind === "chat") return <AIChat {...item.props} />;
   if (item.kind === "weather") return <WeatherDashboard />;
