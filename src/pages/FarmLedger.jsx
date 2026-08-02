@@ -173,7 +173,7 @@ function SumTile({ label, value, icon, bg, fg }) {
 }
 
 function AddSheet({ open, onClose, onSaved }) {
-  const { tc } = useApp();
+  const { tc, lang } = useApp();
   const [form, setForm] = useState({ kind: "income", amount: "", categoryId: "", enterpriseId: "crop", date: todayStr(), note: "" });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
