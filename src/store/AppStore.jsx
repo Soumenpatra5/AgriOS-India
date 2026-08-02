@@ -78,6 +78,10 @@ export function AppProvider({ children }) {
     setStage("auth");
   }, []);
 
+  const updateUser = useCallback((patch) => {
+    setUser((prev) => { const next = { ...(prev || {}), ...patch }; storage.set("user", next); return next; });
+  }, []);
+
   const push = useCallback((screen) => setStack((s) => [...s, screen]), []);
   const pop = useCallback(() => setStack((s) => s.slice(0, -1)), []);
   const switchTab = useCallback((tk) => { setStack([]); setTab(tk); }, []);
@@ -99,11 +103,11 @@ export function AppProvider({ children }) {
 
   const value = useMemo(() => ({
     lang, setLang, t, tc, locale,
-    user, login, logout,
+    user, login, logout, updateUser,
     stage, setStage: setStageP, finishOnboarding,
     tab, switchTab, stack, push, pop,
     toasts, toast, dismissToast, online,
-  }), [lang, setLang, t, tc, locale, user, login, logout, stage, setStageP, finishOnboarding,
+  }), [lang, setLang, t, tc, locale, user, login, logout, updateUser, stage, setStageP, finishOnboarding,
       tab, switchTab, stack, push, pop, toasts, toast, dismissToast, online]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;

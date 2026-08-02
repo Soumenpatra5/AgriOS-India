@@ -22,6 +22,9 @@ export default function Profile() {
   const tap = (id) => {
     if (id === "settings") return push({ kind: "settings" });
     if (id === "language") return push({ kind: "settings" });
+    if (id === "farm") return push({ kind: "farmDetails" });
+    if (id === "support") return push({ kind: "support" });
+    if (id === "privacy") return push({ kind: "privacy" });
     const item = PROFILE_ITEMS.find((x) => x.id === id);
     push({ kind: "feature", props: { title: t(item.title), desc: tc({ en: "Manage your " + t(item.title).toLowerCase() + ".", hi: "अपना " + t(item.title) + " प्रबंधित करें।", bn: "আপনার " + t(item.title) + " পরিচালনা করুন।" }), icon: item.icon, a: "primary" } });
   };
