@@ -6,6 +6,23 @@ import { useApp } from "../store/AppStore.jsx";
 import { usePrefs } from "../customize/PreferencesProvider.jsx";
 import { ACCENTS, CARD_STYLES, DISPLAY_SIZES } from "../customize/appearance.js";
 
+const WIDGET_LABELS = {
+  weather:      { en: "Weather", hi: "मौसम", bn: "আবহাওয়া" },
+  summary:      { en: "Farm summary", hi: "खेत सारांश", bn: "খামার সারসংক্ষেপ" },
+  quickActions: { en: "AI quick actions", hi: "AI त्वरित क्रियाएँ", bn: "AI দ্রুত ক্রিয়া" },
+  tasks:        { en: "Today's tasks", hi: "आज के काम", bn: "আজকের কাজ" },
+  diagnostics:  { en: "AI diagnostics", hi: "AI निदान", bn: "AI রোগ নির্ণয়" },
+  schemes:      { en: "Govt schemes", hi: "सरकारी योजनाएँ", bn: "সরকারি স্কিম" },
+  disease:      { en: "Disease detection", hi: "रोग पहचान", bn: "রোগ শনাক্তকরণ" },
+  calculators:  { en: "Calculators", hi: "कैलकुलेटर", bn: "ক্যালকুলেটর" },
+  news:         { en: "News", hi: "समाचार", bn: "খবর" },
+};
+const TAB_LABELS = {
+  ai:       { en: "AI", hi: "AI", bn: "AI" },
+  market:   { en: "Market", hi: "बाज़ार", bn: "বাজার" },
+  services: { en: "Services", hi: "सेवाएँ", bn: "সেবা" },
+};
+
 function Section({ title, children }) {
   return (
     <div>
@@ -59,6 +76,14 @@ export default function Personalize() {
     { value: "system", label: tc({ en: "System", hi: "सिस्टम", bn: "সিস্টেম" }) },
   ];
 
+  const moveWidget = (id, dir) => {
+    const order = [...prefs.dashboard.order];
+    const i = order.indexOf(id), j = i + dir;
+    if (j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    set("dashboard.order", order);
+  };
+
   const copyBackup = async () => {
     try { await navigator.clipboard.writeText(exportPrefs()); toast(tc({ en: "Settings copied to clipboard", hi: "सेटिंग्स कॉपी हुईं", bn: "সেটিংস কপি হয়েছে" }), "success"); }
     catch { toast(tc({ en: "Couldn't copy", hi: "कॉपी नहीं हुआ", bn: "কপি করা যায়নি" }), "error"); }
@@ -111,6 +136,39 @@ export default function Personalize() {
               <Toggle on={prefs.accessibility.largerText} onChange={(v) => { set("accessibility.largerText", v); set("appearance.displaySize", v ? "spacious" : "comfortable"); }} />
             </Row>
           </Card>
+        </Section>
+
+        <Section title={tc({ en: "Dashboard widgets", hi: "डैशबोर्ड विजेट", bn: "ড্যাশবোর্ড উইজেট" })}>
+          <Card pad={6}>
+            {prefs.dashboard.order.map((id, idx) => (
+              <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px",
+                borderTop: idx ? `1px solid ${T.lineSoft}` : "none" }}>
+                <button onClick={() => moveWidget(id, -1)} disabled={idx === 0} aria-label="move up"
+                  style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? T.inkFaint : T.inkSoft, opacity: idx === 0 ? .35 : 1, display: "flex", padding: 2 }}>
+                  <Icon name="ChevronUp" size={18} />
+                </button>
+                <button onClick={() => moveWidget(id, 1)} disabled={idx === prefs.dashboard.order.length - 1} aria-label="move down"
+                  style={{ background: "none", border: "none", cursor: idx === prefs.dashboard.order.length - 1 ? "default" : "pointer", color: T.inkSoft, opacity: idx === prefs.dashboard.order.length - 1 ? .35 : 1, display: "flex", padding: 2 }}>
+                  <Icon name="ChevronDown" size={18} />
+                </button>
+                <span style={{ flex: 1, fontSize: 14.5, fontWeight: 500, color: prefs.dashboard.widgets[id] === false ? T.inkFaint : T.ink }}>{tc(WIDGET_LABELS[id] || { en: id })}</span>
+                <Toggle on={prefs.dashboard.widgets[id] !== false} onChange={(v) => set(`dashboard.widgets.${id}`, v)} />
+              </div>
+            ))}
+          </Card>
+        </Section>
+
+        <Section title={tc({ en: "Bottom navigation", hi: "नीचे नेविगेशन", bn: "নিচের নেভিগেশন" })}>
+          <Card pad={6}>
+            {Object.keys(TAB_LABELS).map((k, idx) => (
+              <Row key={k} label={tc(TAB_LABELS[k])} last={idx === Object.keys(TAB_LABELS).length - 1}>
+                <Toggle on={prefs.nav.tabs[k] !== false} onChange={(v) => set(`nav.tabs.${k}`, v)} />
+              </Row>
+            ))}
+          </Card>
+          <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 6, padding: "0 2px" }}>
+            {tc({ en: "Home and Profile are always shown.", hi: "होम और प्रोफ़ाइल हमेशा दिखते हैं।", bn: "হোম ও প্রোফাইল সবসময় দেখানো হয়।" })}
+          </div>
         </Section>
 
         <Section title={tc({ en: "Backup & reset", hi: "बैकअप और रीसेट", bn: "ব্যাকআপ ও রিসেট" })}>

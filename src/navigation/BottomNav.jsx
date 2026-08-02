@@ -1,6 +1,7 @@
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { useApp } from "../store/AppStore.jsx";
+import { usePrefs } from "../customize/PreferencesProvider.jsx";
 
 const TABS = [
   { k: "home", label: "navHome", icon: "House" },
@@ -9,15 +10,19 @@ const TABS = [
   { k: "services", label: "navServices", icon: "LayoutGrid" },
   { k: "profile", label: "navProfile", icon: "User" },
 ];
+// Home & Profile are always kept so the user can never strand themselves.
+const ALWAYS = new Set(["home", "profile"]);
 
 export default function BottomNav() {
   const { tab, switchTab, stack, t } = useApp();
+  const { prefs } = usePrefs();
   const onTab = stack.length === 0;
+  const visible = TABS.filter((x) => ALWAYS.has(x.k) || prefs.nav.tabs[x.k] !== false);
   return (
     <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 460, background: T.surface, borderTop: `1px solid ${T.line}`,
         display: "flex", padding: "8px 6px calc(10px + env(safe-area-inset-bottom))" }}>
-        {TABS.map(({ k, label, icon }) => {
+        {visible.map(({ k, label, icon }) => {
           const active = onTab && tab === k;
           return (
             <button key={k} onClick={() => switchTab(k)}

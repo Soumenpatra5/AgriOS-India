@@ -3,6 +3,7 @@ import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { Card, IconTile, SectionHeader, Chip } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
+import { usePrefs } from "../customize/PreferencesProvider.jsx";
 import { greetingKey, longDate, initials, rupee, compact } from "../utils/format.js";
 import { weatherService } from "../services/weather/weatherService.js";
 import { locationService } from "../services/location/locationService.js";
@@ -18,6 +19,14 @@ const H_PAD = 16;
 
 export default function Home() {
   const { t, tc, locale, user, push, switchTab, toast } = useApp();
+  const { prefs } = usePrefs();
+  // Dashboard widget visibility + order (Personalize → Dashboard). CSS `order`
+  // reorders without moving JSX; `display:none` hides.
+  const dash = prefs.dashboard;
+  const wStyle = (id) => {
+    const i = dash.order.indexOf(id);
+    return { order: i === -1 ? 99 : i, display: dash.widgets[id] === false ? "none" : undefined };
+  };
   const [tasks, setTasks] = useState(TASKS);
   const [calTick, setCalTick] = useState(0);
   const hasCrops  = useMemo(() => cropCalendarService.all().length > 0, [calTick]);
@@ -87,9 +96,9 @@ export default function Home() {
   }, []);
 
   return (
-    <div style={{ paddingBottom: 24, animation: "ag-fade .25s var(--ag-ease)" }}>
+    <div style={{ paddingBottom: 24, animation: "ag-fade .25s var(--ag-ease)", display: "flex", flexDirection: "column" }}>
       {/* greeting */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: `18px ${H_PAD}px 8px` }}>
+      <div style={{ order: -20, display: "flex", alignItems: "center", gap: 12, padding: `18px ${H_PAD}px 8px` }}>
         <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(150deg, ${T.primary}, ${T.primaryDark})`, color: "#fff", display: "grid", placeItems: "center", fontFamily: T.display, fontWeight: 700, fontSize: 17 }}>
           {initials(user?.name || "Farmer")}
         </div>
@@ -105,13 +114,13 @@ export default function Home() {
       </div>
 
       {/* weather */}
-      <div style={{ padding: `6px ${H_PAD}px 0` }}>
+      <div style={{ padding: `6px ${H_PAD}px 0`, ...wStyle("weather") }}>
         <WeatherCard t={t} tc={tc} onOpen={() => push({ kind: "weather" })} />
       </div>
 
       {/* notification opt-in banner — shown once */}
       {showNotifBanner && (
-        <div style={{ padding: `10px ${H_PAD}px 0` }}>
+        <div style={{ order: -10, padding: `10px ${H_PAD}px 0` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
             borderRadius: T.rLg, background: T.primarySoft, border: `1px solid ${T.primary}22` }}>
             <Icon name="BellRing" size={20} style={{ color: T.primary, flexShrink: 0 }} />
@@ -134,7 +143,7 @@ export default function Home() {
 
       {/* PWA install banner */}
       {installEvt && !installDismissed && (
-        <div style={{ padding: `10px ${H_PAD}px 0` }}>
+        <div style={{ order: -10, padding: `10px ${H_PAD}px 0` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
             borderRadius: T.rLg, background: T.blueSoft, border: `1px solid ${T.blue}22` }}>
             <Icon name="Download" size={20} style={{ color: T.blue, flexShrink: 0 }} />
@@ -156,7 +165,7 @@ export default function Home() {
       )}
 
       {/* farm summary */}
-      <div style={{ padding: `18px ${H_PAD}px 0` }}>
+      <div style={{ padding: `18px ${H_PAD}px 0`, ...wStyle("summary") }}>
         <SectionHeader title={t("farmSummary")} action={t("seeAll")} onAction={() => push({ kind: "farmLedger" })} />
         <div style={{ display: "flex", gap: 10 }}>
           <StatTile label={t("net")} value={compact(monthNet)} accentColor={T.primary} icon="TrendingUp" bg={T.primarySoft} />
@@ -166,7 +175,7 @@ export default function Home() {
       </div>
 
       {/* AI quick actions */}
-      <div style={{ padding: `20px ${H_PAD}px 0` }}>
+      <div style={{ padding: `20px ${H_PAD}px 0`, ...wStyle("quickActions") }}>
         <SectionHeader title={t("aiQuick")} action={t("seeAll")} onAction={() => switchTab("ai")} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
           {QUICK_ACTIONS.map((q) => (
@@ -179,7 +188,7 @@ export default function Home() {
       </div>
 
       {/* tasks */}
-      <div style={{ padding: `20px ${H_PAD}px 0` }}>
+      <div style={{ padding: `20px ${H_PAD}px 0`, ...wStyle("tasks") }}>
         <SectionHeader title={t("todayTasks")}
           action={hasCrops ? t("seeAll") : undefined}
           onAction={hasCrops ? () => push({ kind: "cropCalendar" }) : undefined} />
@@ -232,7 +241,7 @@ export default function Home() {
       </div>
 
       {/* AI Diagnostics banner */}
-      <div style={{ padding: `20px ${H_PAD}px 0` }}>
+      <div style={{ padding: `20px ${H_PAD}px 0`, ...wStyle("diagnostics") }}>
         <button onClick={() => push({ kind: "diagnosticsHome" })}
           style={{ width: "100%", padding: "16px 18px", borderRadius: T.rLg, cursor: "pointer",
             background: `linear-gradient(135deg, ${T.primary}, ${T.primaryDark})`,
@@ -253,7 +262,7 @@ export default function Home() {
       </div>
 
       {/* schemes — horizontal */}
-      <div style={{ paddingTop: 20 }}>
+      <div style={{ paddingTop: 20, ...wStyle("schemes") }}>
         <div style={{ padding: `0 ${H_PAD}px` }}><SectionHeader title={t("schemes")} action={t("seeAll")} onAction={() => push({ kind: "schemeExplorer" })} /></div>
         <HScroll>
           {SCHEMES.map((s) => {
@@ -271,7 +280,7 @@ export default function Home() {
       </div>
 
       {/* disease detection banner */}
-      <div style={{ padding: `20px ${H_PAD}px 0` }}>
+      <div style={{ padding: `20px ${H_PAD}px 0`, ...wStyle("disease") }}>
         <div onClick={() => openAI("doctor")}
           style={{ display: "flex", alignItems: "center", gap: 14, borderRadius: T.rLg, padding: 16, cursor: "pointer",
             background: `linear-gradient(135deg, ${T.primary}, ${T.primaryDark})`, color: "#fff", boxShadow: T.shadowMd }}>
@@ -287,7 +296,7 @@ export default function Home() {
       </div>
 
       {/* calculators */}
-      <div style={{ padding: `20px ${H_PAD}px 0` }}>
+      <div style={{ padding: `20px ${H_PAD}px 0`, ...wStyle("calculators") }}>
         <SectionHeader title={t("calculators")} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
           {CALCULATORS.map((c) => (
@@ -301,7 +310,7 @@ export default function Home() {
       </div>
 
       {/* news */}
-      <div style={{ padding: `20px ${H_PAD}px 0` }}>
+      <div style={{ padding: `20px ${H_PAD}px 0`, ...wStyle("news") }}>
         <SectionHeader title={t("news")} />
         <Card pad={6}>
           {NEWS.map((n, i) => (
