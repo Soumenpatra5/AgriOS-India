@@ -21,10 +21,10 @@ export const palette = {
     orange: "#EA7A17", orangeSoft: "#FCEEDD",
     red: "#D64430", redSoft: "#FBE9E5",
     yellow: "#C9930B", yellowSoft: "#FBF2D8",
-    scrim: "rgba(14,24,18,.44)",
-    shadowSm: "0 1px 2px rgba(18,40,26,.05)",
-    shadowMd: "0 6px 20px rgba(18,40,26,.07)",
-    shadowLg: "0 16px 40px rgba(18,40,26,.12)",
+    scrim: "rgba(14,24,18,.40)",
+    shadowSm: "0 1px 2px rgba(18,40,26,.04)",
+    shadowMd: "0 1px 3px rgba(18,40,26,.05)",
+    shadowLg: "0 4px 16px rgba(18,40,26,.07)",
   },
   dark: {
     bg: "#0D1411",
@@ -44,14 +44,14 @@ export const palette = {
     orange: "#F6A24E", orangeSoft: "#332217",
     red: "#F0715C", redSoft: "#341C18",
     yellow: "#E7BC4E", yellowSoft: "#302913",
-    scrim: "rgba(0,0,0,.6)",
-    shadowSm: "0 1px 2px rgba(0,0,0,.3)",
-    shadowMd: "0 6px 20px rgba(0,0,0,.4)",
-    shadowLg: "0 18px 44px rgba(0,0,0,.5)",
+    scrim: "rgba(0,0,0,.55)",
+    shadowSm: "0 1px 2px rgba(0,0,0,.25)",
+    shadowMd: "0 1px 3px rgba(0,0,0,.3)",
+    shadowLg: "0 4px 16px rgba(0,0,0,.4)",
   },
 };
 
-export const radius = { sm: 10, md: 14, lg: 20, xl: 28, pill: 999 };
+export const radius = { sm: 9, md: 12, lg: 16, xl: 22, pill: 999 };
 export const space = { xs: 6, sm: 10, md: 14, lg: 18, xl: 24, xxl: 32 };
 export const type = {
   display: "'Manrope','Noto Sans Devanagari','Noto Sans Bengali',system-ui,sans-serif",

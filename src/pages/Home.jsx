@@ -353,7 +353,7 @@ function WeatherCard({ t, tc, onOpen }) {
     return () => { alive = false; };
   }, [loc]);
 
-  const grad = "linear-gradient(135deg, #2C6E9E, #1E5178)";
+  const grad = "linear-gradient(135deg, #2E5670, #223F52)";
 
   if (st.status === "detecting") {
     return (
