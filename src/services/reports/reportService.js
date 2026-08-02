@@ -31,7 +31,7 @@ export const reportService = {
   },
 
   async _summary() {
-    const kpi = kpiService.summary(year());
+    const kpi = await kpiService.summary(year());
     const snapshot = await productionAggregator.monthSnapshot();
     const buckets = await taskService.buckets();
     return [

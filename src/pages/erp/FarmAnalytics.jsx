@@ -20,8 +20,8 @@ export default function FarmAnalytics() {
   const [assetValue, setAssetValue] = useState(0);
 
   useEffect(() => {
-    setKpi(kpiService.summary(year));
-    setForecast(costAnalysis.forecast(year));
+    kpiService.summary(year).then(setKpi);
+    costAnalysis.forecast(year).then(setForecast);
     costAnalysis.costPerUnit(year).then(setCosts);
     costAnalysis.breakEven(year).then(setBreakEven);
     inventoryService.stockValue().then(setStockValue);

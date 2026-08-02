@@ -43,7 +43,7 @@ export default function FarmERPHub() {
 
   useEffect(() => {
     farmService.getActive().then(setFarm);
-    setKpi(kpiService.summary(new Date().getFullYear()));
+    kpiService.summary(new Date().getFullYear()).then(setKpi);
     (async () => {
       const [buckets, vax, inv] = await Promise.all([
         taskService.buckets(),
