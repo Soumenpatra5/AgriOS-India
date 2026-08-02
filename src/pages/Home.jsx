@@ -10,7 +10,7 @@ import { ledgerService } from "../services/ledger/ledgerService.js";
 import { notificationService } from "../services/notifications/notificationService.js";
 import { cropCalendarService } from "../services/calendar/cropCalendarService.js";
 import {
-  QUICK_ACTIONS, TASKS, SCHEMES, NEWS, CALCULATORS, CATEGORIES, FEATURED, AI_TOOLS,
+  QUICK_ACTIONS, TASKS, SCHEMES, NEWS, CALCULATORS, AI_TOOLS,
 } from "../constants/content.js";
 import { accent } from "../components/primitives.jsx";
 
@@ -252,132 +252,6 @@ export default function Home() {
         </button>
       </div>
 
-      {/* MLOps Platform banner */}
-      <div style={{ padding: `10px ${H_PAD}px 0` }}>
-        <button onClick={() => push({ kind: "mlopsHub" })}
-          style={{ width: "100%", padding: "14px 18px", borderRadius: T.rLg, cursor: "pointer",
-            background: `linear-gradient(135deg, #1e3a5f, #0f2444)`,
-            border: "none", fontFamily: T.body, textAlign: "left",
-            display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(255,255,255,.15)",
-            display: "grid", placeItems: "center", flexShrink: 0 }}>
-            <Icon name="Layers" size={22} color="#fff" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{tc({ en: "MLOps Platform", hi: "MLOps प्लेटफ़ॉर्म", bn: "MLOps প্ল্যাটফর্ম" })}</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 2 }}>
-              {tc({ en: "Dataset · Annotation · Model Registry · Monitoring", hi: "डेटासेट · एनोटेशन · मॉडल रजिस्ट्री · मॉनिटरिंग", bn: "ডেটাসেট · অ্যানোটেশন · মডেল রেজিস্ট্রি · মনিটরিং" })}
-            </div>
-          </div>
-          <Icon name="ChevronRight" size={18} color="rgba(255,255,255,.6)" />
-        </button>
-      </div>
-
-      {/* Farm ERP banner — livestock, land, inventory, business, everything */}
-      <div style={{ padding: `10px ${H_PAD}px 0` }}>
-        <button onClick={() => push({ kind: "farmErp" })}
-          style={{ width: "100%", padding: "14px 18px", borderRadius: T.rLg, cursor: "pointer",
-            background: `linear-gradient(135deg, #065f46, #064e3b)`,
-            border: "none", fontFamily: T.body, textAlign: "left",
-            display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(255,255,255,.15)",
-            display: "grid", placeItems: "center", flexShrink: 0 }}>
-            <Icon name="Tractor" size={22} color="#fff" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{tc({ en: "Farm ERP", hi: "फार्म ERP", bn: "ফার্ম ERP" })}</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 2 }}>
-              {tc({ en: "Livestock · Land · Inventory · Team · Business · Reports", hi: "पशुपालन · ज़मीन · इन्वेंटरी · टीम · व्यापार · रिपोर्ट", bn: "পশুপালন · জমি · ইনভেন্টরি · দল · ব্যবসা · রিপোর্ট" })}
-            </div>
-          </div>
-          <Icon name="ChevronRight" size={18} color="rgba(255,255,255,.6)" />
-        </button>
-      </div>
-
-      {/* Marketplace banner */}
-      <div style={{ padding: `10px ${H_PAD}px 0` }}>
-        <button onClick={() => push({ kind: "marketplace" })}
-          style={{ width: "100%", padding: "14px 18px", borderRadius: T.rLg, cursor: "pointer",
-            background: `linear-gradient(135deg, #9a3412, #7c2d12)`,
-            border: "none", fontFamily: T.body, textAlign: "left",
-            display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(255,255,255,.15)",
-            display: "grid", placeItems: "center", flexShrink: 0 }}>
-            <Icon name="ShoppingBag" size={22} color="#fff" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{tc({ en: "Marketplace", hi: "बाज़ार", bn: "বাজার" })}</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 2 }}>
-              {tc({ en: "Seeds · Feed · Medicine · Equipment · Sell your produce", hi: "बीज · चारा · दवाई · उपकरण · अपनी उपज बेचें", bn: "বীজ · খাদ্য · ওষুধ · সরঞ্জাম · আপনার ফসল বিক্রি করুন" })}
-            </div>
-          </div>
-          <Icon name="ChevronRight" size={18} color="rgba(255,255,255,.6)" />
-        </button>
-      </div>
-
-      {/* Service Marketplace banner */}
-      <div style={{ padding: `10px ${H_PAD}px 0` }}>
-        <button onClick={() => push({ kind: "svcMarketplace" })}
-          style={{ width: "100%", padding: "14px 18px", borderRadius: T.rLg, cursor: "pointer",
-            background: `linear-gradient(135deg, #1e40af, #1d4ed8)`,
-            border: "none", fontFamily: T.body, textAlign: "left",
-            display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(255,255,255,.15)",
-            display: "grid", placeItems: "center", flexShrink: 0 }}>
-            <Icon name="Handshake" size={22} color="#fff" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{tc({ en: "Service Marketplace", hi: "सेवा बाज़ार", bn: "সেবা বাজার" })}</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 2 }}>
-              {tc({ en: "Vet · Drone · Machinery · Soil Test · Farm Workers", hi: "पशु चिकित्सक · ड्रोन · मशीन · मिट्टी जाँच · मजदूर", bn: "পশু চিকিৎসক · ড্রোন · যন্ত্র · মাটি পরীক্ষা · শ্রমিক" })}
-            </div>
-          </div>
-          <Icon name="ChevronRight" size={18} color="rgba(255,255,255,.6)" />
-        </button>
-      </div>
-
-      {/* Logistics & Trade banner */}
-      <div style={{ padding: `10px ${H_PAD}px 0` }}>
-        <button onClick={() => push({ kind: "logisticsHub" })}
-          style={{ width: "100%", padding: "14px 18px", borderRadius: T.rLg, cursor: "pointer",
-            background: `linear-gradient(135deg, #0f766e, #115e59)`,
-            border: "none", fontFamily: T.body, textAlign: "left",
-            display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(255,255,255,.15)",
-            display: "grid", placeItems: "center", flexShrink: 0 }}>
-            <Icon name="Truck" size={22} color="#fff" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{tc({ en: "Logistics & Trade", hi: "लॉजिस्टिक्स और व्यापार", bn: "লজিস্টিক্স ও বাণিজ্য" })}</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 2 }}>
-              {tc({ en: "Shipments · Cold Chain · Auctions · Contracts · Procurement", hi: "शिपमेंट · कोल्ड चेन · नीलामी · अनुबंध · खरीद", bn: "শিপমেন্ট · কোল্ড চেইন · নিলাম · চুক্তি · ক্রয়" })}
-            </div>
-          </div>
-          <Icon name="ChevronRight" size={18} color="rgba(255,255,255,.6)" />
-        </button>
-      </div>
-
-      {/* AI Commerce banner */}
-      <div style={{ padding: `10px ${H_PAD}px 0` }}>
-        <button onClick={() => push({ kind: "aiCommerceHub" })}
-          style={{ width: "100%", padding: "14px 18px", borderRadius: T.rLg, cursor: "pointer",
-            background: `linear-gradient(135deg, #4338ca, #3730a3)`,
-            border: "none", fontFamily: T.body, textAlign: "left",
-            display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(255,255,255,.15)",
-            display: "grid", placeItems: "center", flexShrink: 0 }}>
-            <Icon name="BrainCircuit" size={22} color="#fff" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{tc({ en: "AI Commerce", hi: "AI कॉमर्स", bn: "AI কমার্স" })}</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 2 }}>
-              {tc({ en: "Recommendations · Price forecasts · Buyer match · Insights", hi: "सुझाव · मूल्य पूर्वानुमान · खरीदार मैच · जानकारी", bn: "পরামর্শ · মূল্য পূর্বাভাস · ক্রেতা ম্যাচ · তথ্য" })}
-            </div>
-          </div>
-          <Icon name="ChevronRight" size={18} color="rgba(255,255,255,.6)" />
-        </button>
-      </div>
-
       {/* schemes — horizontal */}
       <div style={{ paddingTop: 20 }}>
         <div style={{ padding: `0 ${H_PAD}px` }}><SectionHeader title={t("schemes")} action={t("seeAll")} onAction={() => push({ kind: "schemeExplorer" })} /></div>
@@ -424,40 +298,6 @@ export default function Home() {
             </button>
           ))}
         </div>
-      </div>
-
-      {/* categories */}
-      <div style={{ padding: `20px ${H_PAD}px 0` }}>
-        <SectionHeader title={t("categories")} />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-          {CATEGORIES.map((c) => (
-            <button key={c.id} onClick={() => openFeature(tc(c.title), "", c.icon, c.accent)}
-              style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg, padding: "16px 10px", cursor: "pointer", display: "grid", justifyItems: "center", gap: 8 }}>
-              <IconTile name={c.icon} a={c.accent} size={46} iconSize={22} />
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>{tc(c.title)}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* featured services */}
-      <div style={{ paddingTop: 20 }}>
-        <div style={{ padding: `0 ${H_PAD}px` }}><SectionHeader title={t("featured")} action={t("seeAll")} onAction={() => switchTab("services")} /></div>
-        <HScroll>
-          {FEATURED.map((s) => {
-            const c = accent(s.accent);
-            return (
-              <div key={s.id} onClick={() => openFeature(tc(s.title), tc(s.desc), s.icon, s.accent)}
-                style={{ minWidth: 190, background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg, padding: 15, cursor: "pointer" }}>
-                <div style={{ width: 44, height: 44, borderRadius: 14, background: c.bg, color: c.fg, display: "grid", placeItems: "center", marginBottom: 12 }}>
-                  <Icon name={s.icon} size={22} />
-                </div>
-                <div style={{ fontFamily: T.display, fontSize: 15, fontWeight: 700 }}>{tc(s.title)}</div>
-                <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 2 }}>{tc(s.desc)}</div>
-              </div>
-            );
-          })}
-        </HScroll>
       </div>
 
       {/* news */}
