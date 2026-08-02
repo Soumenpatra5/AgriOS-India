@@ -41,6 +41,10 @@ export const DEFAULTS = {
     tabs: { home: true, ai: true, market: true, services: true, profile: true },
   },
 
+  layout: {
+    view: "grid",   // grid | list — for content screens (AI hub, Services)
+  },
+
   farmerProfile: {
     // which enterprises the farmer runs — opt-out: all on by default, turn off
     // the ones you don't do to declutter diagnostics / livestock to your farm.

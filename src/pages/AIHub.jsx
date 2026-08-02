@@ -3,10 +3,13 @@ import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, SearchBar, Card, accent } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
+import { usePrefs } from "../customize/PreferencesProvider.jsx";
 import { AI_TOOLS } from "../constants/content.js";
 
 export default function AIHub() {
   const { t, tc, push, lang } = useApp();
+  const { prefs } = usePrefs();
+  const grid = prefs.layout.view !== "list";
   const [q, setQ] = useState("");
   const list = AI_TOOLS.filter((x) => {
     const title = typeof x.title === "object" ? Object.values(x.title).join(" ") : x.title;
@@ -31,15 +34,17 @@ export default function AIHub() {
 
         <SearchBar value={q} onChange={setQ} placeholder={tc({ en: "Search assistants…", hi: "सहायक खोजें…", bn: "সহায়ক খুঁজুন…" })} mic lang={lang} />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: grid ? "1fr 1fr" : "1fr", gap: 12 }}>
           {list.map((x) => {
             const c = accent(x.accent);
             return (
-              <Card key={x.id} onClick={() => open(x)} pad={15} style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 132 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 14, background: c.bg, color: c.fg, display: "grid", placeItems: "center" }}>
+              <Card key={x.id} onClick={() => open(x)} pad={15}
+                style={{ display: "flex", flexDirection: grid ? "column" : "row", alignItems: grid ? "stretch" : "center",
+                  gap: grid ? 10 : 13, minHeight: grid ? 132 : undefined }}>
+                <div style={{ width: 44, height: 44, borderRadius: 14, background: c.bg, color: c.fg, display: "grid", placeItems: "center", flexShrink: 0 }}>
                   <Icon name={x.icon} size={22} strokeWidth={2.1} />
                 </div>
-                <div>
+                <div style={{ flex: grid ? undefined : 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.display, fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>{tc(x.title)}</div>
                   <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 4, lineHeight: 1.4 }}>{tc(x.desc)}</div>
                 </div>

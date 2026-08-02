@@ -160,6 +160,18 @@ export default function Personalize() {
             value={a.cardStyle} onChange={(v) => set("appearance.cardStyle", v)} />
         </Section>
 
+        <Section title={tc({ en: "List view", hi: "सूची दृश्य", bn: "তালিকা ভিউ" })}>
+          <Segmented
+            options={[
+              { value: "grid", label: tc({ en: "Grid", hi: "ग्रिड", bn: "গ্রিড" }) },
+              { value: "list", label: tc({ en: "List", hi: "सूची", bn: "তালিকা" }) },
+            ]}
+            value={prefs.layout.view} onChange={(v) => set("layout.view", v)} />
+          <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 6, padding: "0 2px" }}>
+            {tc({ en: "How the AI assistants and services are shown.", hi: "AI सहायक और सेवाएँ कैसे दिखें।", bn: "AI সহায়ক ও সেবা কীভাবে দেখানো হয়।" })}
+          </div>
+        </Section>
+
         <Section title={tc({ en: "Display size", hi: "प्रदर्शन आकार", bn: "প্রদর্শন আকার" })}>
           <Segmented options={Object.entries(DISPLAY_SIZES).map(([v, d]) => ({ value: v, label: d.label }))}
             value={a.displaySize} onChange={(v) => set("appearance.displaySize", v)} />
