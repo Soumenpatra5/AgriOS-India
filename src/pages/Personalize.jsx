@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, Card, BottomSheet } from "../components/index.js";
@@ -51,6 +51,80 @@ function Segmented({ options, value, onChange }) {
       })}
     </div>
   );
+}
+
+/* Touch/mouse drag-and-drop reorder for a vertical list of rows.
+   Reads live row height from the DOM so it works at any display size /
+   text scale, and shifts sibling rows as a live preview while dragging. */
+function DragReorderList({ items, renderRow, onReorder }) {
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragY, setDragY] = useState(0);
+  const startY = useRef(0);
+  const rowH = useRef(52);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
+  const currentIdx = dragIdx === null ? null
+    : Math.min(items.length - 1, Math.max(0, dragIdx + Math.round(dragY / rowH.current)));
+
+  useEffect(() => {
+    if (dragIdx === null) return;
+    const pos = (e) => (e.touches ? e.touches[0] : e);
+    const move = (e) => { e.preventDefault(); setDragY(pos(e).clientY - startY.current); };
+    const up = (e) => {
+      const finalDelta = pos(e).clientY - startY.current;
+      const target = Math.min(itemsRef.current.length - 1, Math.max(0, dragIdx + Math.round(finalDelta / rowH.current)));
+      if (target !== dragIdx) {
+        const next = [...itemsRef.current];
+        const [moved] = next.splice(dragIdx, 1);
+        next.splice(target, 0, moved);
+        onReorder(next);
+      }
+      setDragIdx(null);
+      setDragY(0);
+    };
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("touchmove", move, { passive: false });
+    window.addEventListener("touchend", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", up);
+    };
+  }, [dragIdx, onReorder]);
+
+  const startDrag = (idx) => (e) => {
+    if (e.cancelable) e.preventDefault();
+    const row = e.currentTarget.closest("[data-drag-row]");
+    if (row) rowH.current = row.offsetHeight;
+    startY.current = (e.touches ? e.touches[0] : e).clientY;
+    setDragIdx(idx);
+    setDragY(0);
+  };
+
+  return items.map((id, idx) => {
+    let translateY = 0;
+    if (dragIdx !== null) {
+      if (idx === dragIdx) translateY = dragY;
+      else if (dragIdx < currentIdx && idx > dragIdx && idx <= currentIdx) translateY = -rowH.current;
+      else if (dragIdx > currentIdx && idx < dragIdx && idx >= currentIdx) translateY = rowH.current;
+    }
+    const dragging = idx === dragIdx;
+    return (
+      <div key={id} data-drag-row
+        style={{ position: "relative", zIndex: dragging ? 2 : 1, background: dragging ? T.surface : "transparent",
+          borderRadius: dragging ? T.rMd : 0, boxShadow: dragging ? T.shadowMd : "none",
+          transform: `translateY(${translateY}px)`, transition: dragging ? "none" : "transform .18s var(--ag-ease)" }}>
+        {renderRow(id, idx, <button onPointerDown={startDrag(idx)} onTouchStart={startDrag(idx)} aria-label="Drag to reorder"
+          style={{ background: "none", border: "none", cursor: dragging ? "grabbing" : "grab", color: T.inkFaint,
+            display: "flex", padding: 4, touchAction: "none" }}>
+          <Icon name="GripVertical" size={17} />
+        </button>)}
+      </div>
+    );
+  });
 }
 
 function Toggle({ on, onChange }) {
@@ -193,21 +267,23 @@ export default function Personalize() {
 
         <Section title={tc({ en: "Dashboard widgets", hi: "डैशबोर्ड विजेट", bn: "ড্যাশবোর্ড উইজেট" })}>
           <Card pad={6}>
-            {prefs.dashboard.order.map((id, idx) => (
-              <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px",
-                borderTop: idx ? `1px solid ${T.lineSoft}` : "none" }}>
-                <button onClick={() => moveWidget(id, -1)} disabled={idx === 0} aria-label="move up"
-                  style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? T.inkFaint : T.inkSoft, opacity: idx === 0 ? .35 : 1, display: "flex", padding: 2 }}>
-                  <Icon name="ChevronUp" size={18} />
-                </button>
-                <button onClick={() => moveWidget(id, 1)} disabled={idx === prefs.dashboard.order.length - 1} aria-label="move down"
-                  style={{ background: "none", border: "none", cursor: idx === prefs.dashboard.order.length - 1 ? "default" : "pointer", color: T.inkSoft, opacity: idx === prefs.dashboard.order.length - 1 ? .35 : 1, display: "flex", padding: 2 }}>
-                  <Icon name="ChevronDown" size={18} />
-                </button>
-                <span style={{ flex: 1, fontSize: 14.5, fontWeight: 500, color: prefs.dashboard.widgets[id] === false ? T.inkFaint : T.ink }}>{tc(WIDGET_LABELS[id] || { en: id })}</span>
-                <Toggle on={prefs.dashboard.widgets[id] !== false} onChange={(v) => set(`dashboard.widgets.${id}`, v)} />
-              </div>
-            ))}
+            <DragReorderList items={prefs.dashboard.order} onReorder={(next) => set("dashboard.order", next)}
+              renderRow={(id, idx, handle) => (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "10px 12px",
+                  borderTop: idx ? `1px solid ${T.lineSoft}` : "none" }}>
+                  {handle}
+                  <span style={{ flex: 1, fontSize: 14.5, fontWeight: 500, color: prefs.dashboard.widgets[id] === false ? T.inkFaint : T.ink }}>{tc(WIDGET_LABELS[id] || { en: id })}</span>
+                  <button onClick={() => moveWidget(id, -1)} disabled={idx === 0} aria-label="move up"
+                    style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? T.inkFaint : T.inkSoft, opacity: idx === 0 ? .35 : 1, display: "flex", padding: 2 }}>
+                    <Icon name="ChevronUp" size={16} />
+                  </button>
+                  <button onClick={() => moveWidget(id, 1)} disabled={idx === prefs.dashboard.order.length - 1} aria-label="move down"
+                    style={{ background: "none", border: "none", cursor: idx === prefs.dashboard.order.length - 1 ? "default" : "pointer", color: T.inkSoft, opacity: idx === prefs.dashboard.order.length - 1 ? .35 : 1, display: "flex", padding: 2 }}>
+                    <Icon name="ChevronDown" size={16} />
+                  </button>
+                  <Toggle on={prefs.dashboard.widgets[id] !== false} onChange={(v) => set(`dashboard.widgets.${id}`, v)} />
+                </div>
+              )} />
           </Card>
         </Section>
 
