@@ -8,12 +8,13 @@
 import { MODELS, LIMITS } from "../config.js";
 import { llmClient } from "../services/llmClient.js";
 import { routeIntent } from "../router/intentRouter.js";
-import { getAgent } from "../agents/registry.js";
+import { getAgent, DEFAULT_AGENT_ID } from "../agents/registry.js";
 import { buildSystemPrompt } from "../prompts/promptEngine.js";
 import { checkOutput } from "../prompts/safety.js";
 import { contextEngine } from "../context/contextEngine.js";
 import { memoryEngine } from "../memory/memoryEngine.js";
 import { conversationStore } from "../memory/conversationStore.js";
+import { responseCache } from "../memory/responseCache.js";
 import { toolRegistry } from "../tools/toolRegistry.js";
 import { validateInput, detectSensitive, rateLimit } from "../middleware/validation.js";
 import { aiAnalytics } from "../analytics/aiAnalytics.js";
@@ -40,6 +41,29 @@ export async function sendMessage({
 
   // 2. Conversation
   const convo = (conversationId && conversationStore.get(conversationId)) || conversationStore.create(agentId);
+
+  // A knowledge answer is cacheable only when it's the first turn (no history to
+  // depend on) and carries no image. Tool use is checked after the fact.
+  const firstTurn = convo.messages.length === 0;
+  const cacheable = firstTurn && imageBlocks.length === 0;
+
+  // 2b. Offline replay — if there's no network and we've answered this exact
+  // question before, serve it instantly instead of failing.
+  if (cacheable && typeof navigator !== "undefined" && navigator.onLine === false) {
+    const hit = responseCache.get(v.text, lang);
+    if (hit) {
+      const agent = getAgent(hit.agentId || agentId || convo.agentId || DEFAULT_AGENT_ID);
+      convo.agentId = agent.id;
+      onAgent?.(agent);
+      onText?.(hit.text);
+      const userMsg = userMessage(v.text, imageBlocks);
+      convo.messages.push(userMsg);
+      convo.messages.push(assistantMessage(hit.text, agent.id, { cached: true }));
+      conversationStore.save(convo);
+      aiAnalytics.log({ type: "turn", agentId: agent.id, ok: true, latencyMs: Date.now() - started, cached: true });
+      return { conversationId: convo.id, agent, text: hit.text, cached: true };
+    }
+  }
 
   // 3. Routing (pinned agent wins; otherwise sticky + classify)
   let resolvedId = agentId || convo.agentId;
@@ -102,6 +126,12 @@ export async function sendMessage({
 
   // 7. Output check (cheap leak guard)
   const guard = checkOutput(finalText);
+
+  // 7b. Cache the answer for offline replay — only clean, tool-free first turns
+  // (tool answers depend on live data and must never be replayed stale).
+  if (cacheable && toolRounds === 0 && !guard.flagged && finalText) {
+    responseCache.set(v.text, lang, finalText, agent.id);
+  }
 
   // 8. Persist
   convo.messages.push(userMsg);

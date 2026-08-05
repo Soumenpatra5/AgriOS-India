@@ -4,6 +4,7 @@ import { useApp } from "../store/AppStore.jsx";
 import BottomNav from "./BottomNav.jsx";
 import { ToastHost, Spinner } from "../components/index.js";
 import Icon from "../components/Icon.jsx";
+import ErrorBoundary from "../components/ErrorBoundary.jsx";
 
 /* Core screens loaded eagerly (always visible on every session) */
 import Splash from "../pages/Splash.jsx";
@@ -222,7 +223,7 @@ function OfflineBar({ tc }) {
 }
 
 export default function ScreenRouter() {
-  const { stage, tab, stack, online, tc } = useApp();
+  const { stage, tab, stack, online, tc, pop, switchTab } = useApp();
 
   if (stage !== "app") {
     const Flow = { splash: Splash, language: LanguageSelect, onboarding: Onboarding, auth: AuthFlow }[stage] || Splash;
@@ -237,16 +238,20 @@ export default function ScreenRouter() {
 
   const TabScreen = TAB_SCREENS[tab] || Home;
   const top = stack[stack.length - 1];
+  // A crash on a pushed screen should pop back; a crash on a tab root resets to Home.
+  const recover = () => (stack.length ? pop() : switchTab("home"));
 
   return (
     <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg, position: "relative" }}>
       {!online && <OfflineBar tc={tc} />}
       <div style={{ paddingBottom: 84 }}>
-        <Suspense fallback={<LazyFallback />}>
-          {top
-            ? <div key={stack.length} style={{ animation: "ag-push-in .26s var(--ag-ease)" }}><StackScreen item={top} /></div>
-            : <div key={tab} style={{ animation: "ag-fade .22s var(--ag-ease)" }}><TabScreen /></div>}
-        </Suspense>
+        <ErrorBoundary variant="screen" resetKey={`${tab}:${stack.length}`} onReset={recover}>
+          <Suspense fallback={<LazyFallback />}>
+            {top
+              ? <div key={stack.length} style={{ animation: "ag-push-in .26s var(--ag-ease)" }}><StackScreen item={top} /></div>
+              : <div key={tab} style={{ animation: "ag-fade .22s var(--ag-ease)" }}><TabScreen /></div>}
+          </Suspense>
+        </ErrorBoundary>
       </div>
       <BottomNav />
       <ToastHost />

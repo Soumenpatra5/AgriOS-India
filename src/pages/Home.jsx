@@ -10,6 +10,7 @@ import { locationService } from "../services/location/locationService.js";
 import { ledgerService } from "../services/ledger/ledgerService.js";
 import { notificationService } from "../services/notifications/notificationService.js";
 import { cropCalendarService } from "../services/calendar/cropCalendarService.js";
+import { priceAlertService } from "../services/market/priceAlerts.js";
 import {
   QUICK_ACTIONS, TASKS, SCHEMES, NEWS, CALCULATORS, AI_TOOLS,
 } from "../constants/content.js";
@@ -33,6 +34,12 @@ export default function Home() {
   const [calTick, setCalTick] = useState(0);
   const hasCrops  = useMemo(() => cropCalendarService.all().length > 0, [calTick]);
   const calTasks  = useMemo(() => cropCalendarService.upcomingTasks(7), [calTick]);
+  const todayItems = useMemo(() => {
+    const overdue = cropCalendarService.overdueTasks().length;
+    const dueToday = cropCalendarService.upcomingTasks(0).length;
+    const alerts = priceAlertService.getAll().filter((a) => a.enabled && !a.triggeredAt).length;
+    return { overdue, dueToday, alerts };
+  }, [calTick]);
   const farmerFallback = { en: "Farmer", hi: "किसान", bn: "কৃষক" };
   const name = (user?.name || tc(farmerFallback)).split(" ")[0];
 
@@ -165,6 +172,9 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* today — needs attention */}
+      <TodayCard items={todayItems} tc={tc} push={push} />
 
       {/* farm summary */}
       <div style={{ padding: `18px ${H_PAD}px 0`, ...wStyle("summary") }}>
@@ -445,6 +455,52 @@ function StatTile({ label, value, accentColor, icon, bg }) {
       </div>
       <div style={{ fontSize: 11.5, color: T.inkSoft }}>{label}</div>
       <div style={{ fontFamily: T.display, fontSize: 17, fontWeight: 700, color: T.ink, marginTop: 1 }}>{value}</div>
+    </div>
+  );
+}
+
+function TodayCard({ items, tc, push }) {
+  const { overdue, dueToday, alerts } = items;
+  if (!overdue && !dueToday && !alerts) return null;
+
+  const rows = [];
+  if (overdue) rows.push({
+    icon: "AlertCircle", color: T.red, bg: T.redSoft,
+    label: tc({ en: `${overdue} overdue task${overdue > 1 ? "s" : ""}`, hi: `${overdue} विलंबित कार्य`, bn: `${overdue}টি বিলম্বিত কাজ` }),
+    onClick: () => push({ kind: "cropCalendar" }),
+  });
+  if (dueToday) rows.push({
+    icon: "Sprout", color: T.primary, bg: T.primarySoft,
+    label: tc({ en: `${dueToday} task${dueToday > 1 ? "s" : ""} due today`, hi: `आज ${dueToday} कार्य देय`, bn: `আজ ${dueToday}টি কাজ` }),
+    onClick: () => push({ kind: "cropCalendar" }),
+  });
+  if (alerts) rows.push({
+    icon: "Bell", color: T.orange, bg: T.orangeSoft,
+    label: tc({ en: `${alerts} price alert${alerts > 1 ? "s" : ""} active`, hi: `${alerts} मूल्य अलर्ट सक्रिय`, bn: `${alerts}টি মূল্য সতর্কতা সক্রিয়` }),
+    onClick: () => push({ kind: "mandiPrices" }),
+  });
+
+  return (
+    <div style={{ order: -8, padding: `12px ${H_PAD}px 0` }}>
+      <Card pad={6}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 12px 5px" }}>
+          <Icon name="Sun" size={15} style={{ color: T.orange }} />
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: T.inkSoft, textTransform: "uppercase", letterSpacing: .3 }}>
+            {tc({ en: "Needs attention", hi: "ध्यान चाहिए", bn: "মনোযোগ প্রয়োজন" })}
+          </span>
+        </div>
+        {rows.map((r, i) => (
+          <button key={i} onClick={r.onClick}
+            style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "11px 12px", cursor: "pointer",
+              background: "none", border: "none", borderTop: `1px solid ${T.lineSoft}`, fontFamily: T.body }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: r.bg, color: r.color, display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <Icon name={r.icon} size={16} />
+            </div>
+            <span style={{ flex: 1, textAlign: "left", fontSize: 14, fontWeight: 500, color: T.ink }}>{r.label}</span>
+            <Icon name="ChevronRight" size={17} style={{ color: T.inkFaint }} />
+          </button>
+        ))}
+      </Card>
     </div>
   );
 }

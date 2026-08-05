@@ -31,11 +31,17 @@ try {
   /* Firebase SDK unavailable — fall back to plain push handler below */
 }
 
-const CACHE = "agrios-v1";
-const SHELL = ["/", "/index.html"];
+const CACHE = "agrios-v2";
+/* Core shell precached at install so the app launches offline on first run. */
+const SHELL = [
+  "/", "/index.html", "/manifest.json",
+  "/icon-192.png", "/icon-512.png", "/icon.svg", "/favicon.png", "/apple-touch-icon.png",
+];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
+  e.waitUntil(
+    caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {})
+  );
   self.skipWaiting();
 });
 
@@ -49,12 +55,33 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  if (e.request.method !== "GET") return;
-  if (new URL(e.request.url).pathname.startsWith("/api/")) return;
+  const req = e.request;
+  if (req.method !== "GET") return;
+
+  const url = new URL(req.url);
+  // Never touch API calls or cross-origin requests (CDNs, weather/price feeds).
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith("/api/")) return;
+
+  // SPA navigations: network-first, fall back to the cached app shell when
+  // offline so the app always boots even on a route that was never visited.
+  if (req.mode === "navigate") {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          caches.open(CACHE).then((c) => c.put("/index.html", res.clone())).catch(() => {});
+          return res;
+        })
+        .catch(() => caches.match("/index.html").then((c) => c || caches.match("/")))
+    );
+    return;
+  }
+
+  // Static assets (hashed JS/CSS, icons): stale-while-revalidate.
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const live = fetch(e.request).then((res) => {
-        if (res.ok) caches.open(CACHE).then((c) => c.put(e.request, res.clone()));
+    caches.match(req).then((cached) => {
+      const live = fetch(req).then((res) => {
+        if (res.ok) caches.open(CACHE).then((c) => c.put(req, res.clone()));
         return res;
       }).catch(() => cached);
       return cached || live;
