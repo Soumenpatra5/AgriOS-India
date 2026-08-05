@@ -1,9 +1,11 @@
+import { useState, useMemo } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, Card, SectionHeader, IconTile } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { MARKET_SECTIONS } from "../constants/content.js";
 import { marketService } from "../services/market/marketService.js";
+import { priceAlertService } from "../services/market/priceAlerts.js";
 
 const TOP_CROPS = ["paddy", "wheat", "mustard", "arhar", "potato", "milk"];
 
@@ -13,6 +15,7 @@ const cropName = (crop, lang) =>
 
 export default function Market() {
   const { t, tc, lang, push } = useApp();
+  const alerts = useMemo(() => priceAlertService.getAll().filter((a) => a.enabled && !a.triggeredAt), []);
   const open = (title, icon, a) => push({ kind: "feature", props: { title, desc: tc({ en: "Browse and connect — arriving in a later phase.", hi: "ब्राउज़ और कनेक्ट — अगले चरण में आ रहा है।", bn: "ব্রাউজ ও সংযোগ — পরবর্তী ধাপে আসছে।" }), icon, a } });
 
   const topCrops = TOP_CROPS.map((id) => marketService.allCrops.find((c) => c.id === id)).filter(Boolean);
@@ -63,6 +66,23 @@ export default function Market() {
               bn: <>MSP 2024-25 · মৌসুমি পরিসীমা · <strong>আজকের লাইভ দর নয়</strong></> })}
           </div>
         </div>
+
+        {/* price alerts summary */}
+        {alerts.length > 0 && (
+          <Card pad={14} onClick={() => push({ kind: "mandiPrices" })}
+            style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+            <div style={{ width: 40, height: 40, borderRadius: 13, background: T.orangeSoft, color: T.orange, display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <Icon name="Bell" size={20} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{tc({ en: "Price Alerts", hi: "मूल्य अलर्ट", bn: "মূল্য সতর্কতা" })}</div>
+              <div style={{ fontSize: 12, color: T.inkSoft }}>
+                {tc({ en: `${alerts.length} active alert${alerts.length > 1 ? "s" : ""}`, hi: `${alerts.length} सक्रिय अलर्ट`, bn: `${alerts.length}টি সক্রিয় সতর্কতা` })}
+              </div>
+            </div>
+            <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
+          </Card>
+        )}
 
         {/* market sections grid */}
         <div>

@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, Screen, Card, Chip, IconTile, Button } from "../components/index.js";
+import { BottomSheet, Input, Dropdown } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { marketService } from "../services/market/marketService.js";
 import { fetchLivePrice } from "../services/market/priceProxy.js";
+import { priceAlertService } from "../services/market/priceAlerts.js";
 import { rupee } from "../utils/format.js";
 
 const cropName = (crop, lang) =>
@@ -173,7 +175,21 @@ export default function MandiPrices() {
 }
 
 function CropSheet({ crop, onClose, bookmarks, onToggle }) {
-  const { lang, tc } = useApp();
+  const { lang, tc, toast } = useApp();
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertPrice, setAlertPrice] = useState("");
+  const [alertDir, setAlertDir] = useState("above");
+  const [alerts, setAlerts] = useState(() => priceAlertService.forCrop(crop.id));
+
+  const addAlert = () => {
+    if (!alertPrice || Number(alertPrice) <= 0) return;
+    priceAlertService.add({ cropId: crop.id, cropName: cropName(crop, lang), targetPrice: alertPrice, direction: alertDir });
+    setAlerts(priceAlertService.forCrop(crop.id));
+    setAlertOpen(false);
+    setAlertPrice("");
+    toast(tc({ en: "Price alert set!", hi: "मूल्य अलर्ट सेट!", bn: "মূল্য সতর্কতা সেট!" }), "success");
+  };
+  const removeAlert = (id) => { priceAlertService.remove(id); setAlerts(priceAlertService.forCrop(crop.id)); };
   const sc = SEASON_COLOR(T)[crop.season] || SEASON_COLOR(T)["year-round"];
   const isBookmarked = bookmarks.includes(crop.id);
 
@@ -269,6 +285,37 @@ function CropSheet({ crop, onClose, bookmarks, onToggle }) {
             bn: "আজকের আসল মান্ডি দরের জন্য আপনার স্থানীয় মান্ডি বোর্ড, eNAM অ্যাপ বা Agmarknet দেখুন।" })}
         </div>
 
+        {/* price alerts */}
+        {alerts.filter((a) => !a.triggeredAt).length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+              <Icon name="Bell" size={13} /> {tc({ en: "Your alerts", hi: "आपके अलर्ट", bn: "আপনার সতর্কতা" })}
+            </div>
+            {alerts.filter((a) => !a.triggeredAt).map((a) => (
+              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: T.rMd, background: T.surface2, marginBottom: 4 }}>
+                <Icon name={a.direction === "above" ? "TrendingUp" : "TrendingDown"} size={14} style={{ color: a.direction === "above" ? T.primary : T.orange }} />
+                <span style={{ flex: 1, fontSize: 13, color: T.ink }}>
+                  {a.direction === "above"
+                    ? tc({ en: `Above ₹${a.targetPrice}`, hi: `₹${a.targetPrice} से ऊपर`, bn: `₹${a.targetPrice}-এর উপরে` })
+                    : tc({ en: `Below ₹${a.targetPrice}`, hi: `₹${a.targetPrice} से नीचे`, bn: `₹${a.targetPrice}-এর নিচে` })}
+                </span>
+                <button onClick={() => removeAlert(a.id)} aria-label="Remove alert"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
+                  <Icon name="X" size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <button onClick={() => setAlertOpen(true)}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 0", borderRadius: T.pill,
+              background: T.orangeSoft, color: T.orange, fontWeight: 600, fontSize: 13.5, border: "none", cursor: "pointer", fontFamily: T.body }}>
+            <Icon name="Bell" size={15} /> {tc({ en: "Set price alert", hi: "मूल्य अलर्ट सेट करें", bn: "মূল্য সতর্কতা সেট করুন" })}
+          </button>
+        </div>
+
         <div style={{ display: "flex", gap: 10 }}>
           <a href="https://enam.gov.in" target="_blank" rel="noreferrer" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 0", borderRadius: T.pill, background: T.primarySoft, color: T.primary, fontWeight: 600, fontSize: 13.5, textDecoration: "none" }}>
             <Icon name="ExternalLink" size={15} /> eNAM
@@ -277,6 +324,28 @@ function CropSheet({ crop, onClose, bookmarks, onToggle }) {
             <Icon name="ExternalLink" size={15} /> Agmarknet
           </a>
         </div>
+
+        <BottomSheet open={alertOpen} onClose={() => setAlertOpen(false)} title={tc({ en: "Set price alert", hi: "मूल्य अलर्ट सेट करें", bn: "মূল্য সতর্কতা সেট করুন" })}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontSize: 13, color: T.inkSoft }}>
+              {tc({ en: `Alert me when ${cropName(crop, lang)} price goes:`, hi: `जब ${cropName(crop, lang)} का भाव जाए:`, bn: `যখন ${cropName(crop, lang)}-এর দাম যায়:` })}
+            </div>
+            <Dropdown label={tc({ en: "Direction", hi: "दिशा", bn: "দিক" })} value={alertDir} onChange={setAlertDir}
+              options={[
+                { value: "above", label: tc({ en: "Above target", hi: "लक्ष्य से ऊपर", bn: "লক্ষ্যের উপরে" }) },
+                { value: "below", label: tc({ en: "Below target", hi: "लक्ष्य से नीचे", bn: "লক্ষ্যের নিচে" }) },
+              ]} />
+            <Input label={tc({ en: `Target price (₹/${crop.unit})`, hi: `लक्ष्य मूल्य (₹/${crop.unit})`, bn: `লক্ষ্য মূল্য (₹/${crop.unit})` })}
+              type="number" placeholder={crop.msp ? String(crop.msp) : "0"} value={alertPrice} onChange={setAlertPrice} />
+            <button onClick={addAlert} disabled={!alertPrice || Number(alertPrice) <= 0}
+              style={{ width: "100%", padding: 14, borderRadius: T.pill, border: "none", cursor: "pointer", fontFamily: T.body,
+                background: alertPrice && Number(alertPrice) > 0 ? T.primary : T.surface2,
+                color: alertPrice && Number(alertPrice) > 0 ? T.onPrimary : T.inkFaint,
+                fontSize: 15, fontWeight: 600 }}>
+              {tc({ en: "Set alert", hi: "अलर्ट सेट करें", bn: "সতর্কতা সেট করুন" })}
+            </button>
+          </div>
+        </BottomSheet>
       </div>
     </div>
   );

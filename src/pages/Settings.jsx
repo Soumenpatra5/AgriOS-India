@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { T, useTheme } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, Card, BottomSheet } from "../components/index.js";
@@ -6,6 +6,7 @@ import { useApp } from "../store/AppStore.jsx";
 import { LANGUAGES } from "../constants/languages.js";
 import { notificationService } from "../services/notifications/notificationService.js";
 import { fcmService } from "../services/notifications/fcmService.js";
+import { createBackup, downloadBackup, restoreBackup } from "../utils/backup.js";
 
 function Row({ icon, label, children, onClick, last }) {
   return (
@@ -37,6 +38,29 @@ export default function Settings() {
   const [notif, setNotif] = useState(() => notificationService.isEnabled());
   const [topicPrefs, setTopicPrefs] = useState(() => fcmService.getTopicPrefs());
   const [langSheet, setLangSheet] = useState(false);
+  const [backing, setBacking] = useState(false);
+  const restoreRef = useRef(null);
+
+  const handleBackup = async () => {
+    setBacking(true);
+    try {
+      const backup = await createBackup();
+      downloadBackup(backup);
+      toast(tc({ en: "Backup downloaded", hi: "बैकअप डाउनलोड हुआ", bn: "ব্যাকআপ ডাউনলোড হয়েছে" }), "success");
+    } catch { toast(tc({ en: "Backup failed", hi: "बैकअप विफल", bn: "ব্যাকআপ ব্যর্থ" }), "error"); }
+    setBacking(false);
+  };
+
+  const handleRestore = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const date = await restoreBackup(file);
+      toast(tc({ en: `Restored from ${date?.slice(0, 10) || "backup"}`, hi: `${date?.slice(0, 10) || "बैकअप"} से पुनर्स्थापित`, bn: `${date?.slice(0, 10) || "ব্যাকআপ"} থেকে পুনরুদ্ধার হয়েছে` }), "success");
+      setTimeout(() => location.reload(), 800);
+    } catch { toast(tc({ en: "Invalid backup file", hi: "अमान्य बैकअप फ़ाइल", bn: "অবৈধ ব্যাকআপ ফাইল" }), "error"); }
+    e.target.value = "";
+  };
   // Developer mode is toggled by the 7-tap version easter egg on the About page.
   const devMode = (() => { try { return JSON.parse(localStorage.getItem("agrios:devMode")) === true; } catch { return false; } })();
   const current = LANGUAGES.find((l) => l.code === lang);
@@ -117,6 +141,18 @@ export default function Settings() {
           <Row icon="SlidersHorizontal" label={t("permissions")} onClick={() => push({ kind: "permissions" })} last>
             <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
           </Row>
+        </Card>
+
+        <Card pad={6}>
+          <Row icon="Download" label={tc({ en: "Backup data", hi: "डेटा बैकअप", bn: "ডেটা ব্যাকআপ" })} onClick={handleBackup}>
+            {backing
+              ? <Icon name="RefreshCw" size={18} style={{ color: T.inkFaint, animation: "ag-spin 1s linear infinite" }} />
+              : <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />}
+          </Row>
+          <Row icon="Upload" label={tc({ en: "Restore data", hi: "डेटा पुनर्स्थापित", bn: "ডেটা পুনরুদ্ধার" })} onClick={() => restoreRef.current?.click()} last>
+            <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
+          </Row>
+          <input ref={restoreRef} type="file" accept=".json" onChange={handleRestore} style={{ display: "none" }} />
         </Card>
 
         <Card pad={6}>
