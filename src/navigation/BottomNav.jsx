@@ -19,13 +19,13 @@ export default function BottomNav() {
   const onTab = stack.length === 0;
   const visible = TABS.filter((x) => ALWAYS.has(x.k) || prefs.nav.tabs[x.k] !== false);
   return (
-    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, display: "flex", justifyContent: "center" }}>
-      <div style={{ width: "100%", maxWidth: 460, background: T.surface, borderTop: `1px solid ${T.line}`,
+    <nav aria-label="Main navigation" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, display: "flex", justifyContent: "center" }}>
+      <div role="tablist" style={{ width: "100%", maxWidth: 460, background: T.surface, borderTop: `1px solid ${T.line}`,
         display: "flex", padding: "8px 6px calc(10px + env(safe-area-inset-bottom))" }}>
         {visible.map(({ k, label, icon }) => {
           const active = onTab && tab === k;
           return (
-            <button key={k} onClick={() => switchTab(k)}
+            <button key={k} role="tab" aria-selected={active} aria-label={t(label)} onClick={() => switchTab(k)}
               style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "grid", justifyItems: "center",
                 gap: 4, padding: "6px 0", fontFamily: T.body }}>
               <div style={{ position: "relative", display: "grid", placeItems: "center", width: 46, height: 30, borderRadius: T.pill,
@@ -37,6 +37,6 @@ export default function BottomNav() {
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }

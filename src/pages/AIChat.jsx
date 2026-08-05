@@ -9,6 +9,7 @@ import { textOf } from "../ai/models/message.js";
 import { DISCLAIMERS } from "../i18n/strings.js";
 import CameraCapture from "../components/CameraCapture.jsx";
 import { compressImage, toImageBlock } from "../ai/vision/imagePipeline.js";
+import { shareText, canShare } from "../utils/share.js";
 
 export default function AIChat({ agentId = null, conversationId = null }) {
   const { t, lang, pop, toast } = useApp();
@@ -79,7 +80,7 @@ export default function AIChat({ agentId = null, conversationId = null }) {
         }
       />
 
-      <div style={{ padding: "4px 16px 150px", animation: "ag-fade .25s var(--ag-ease)" }}>
+      <div role="log" aria-live="polite" style={{ padding: "4px 16px 150px", animation: "ag-fade .25s var(--ag-ease)" }}>
         {/* agent hero on empty chat */}
         {ai.messages.length === 0 && !ai.busy && (
           <div style={{ textAlign: "center", padding: "26px 12px 10px" }}>
@@ -106,6 +107,7 @@ export default function AIChat({ agentId = null, conversationId = null }) {
             onSpeak={(txt) => { setSpeakingId(m.id); voice.speak(txt, lang); const check = setInterval(() => { if (!speechSynthesis.speaking) { setSpeakingId(null); clearInterval(check); } }, 300); }}
             onStop={() => { voice.stopSpeaking(); setSpeakingId(null); }}
             speaking={speakingId === m.id}
+            onShare={async (txt) => { const r = await shareText(txt, "AgriOS"); if (r === "copied") toast(t("copied") || "Copied!", "success"); }}
             isLast={i === ai.messages.length - 1 && !ai.busy} onChip={send} />
         ))}
 
@@ -141,7 +143,7 @@ export default function AIChat({ agentId = null, conversationId = null }) {
           {pendingImage && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "6px 10px", borderRadius: T.rMd, background: T.surface2 }}>
               <img src={pendingImage.block.source?.data ? `data:image/jpeg;base64,${pendingImage.block.source.data}` : ""}
-                alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover" }} />
+                alt="Attached photo" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover" }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>{t("imageAttached")}</div>
                 <div style={{ fontSize: 11, color: T.inkFaint, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pendingImage.meta.name}</div>
@@ -239,7 +241,7 @@ const bubbleCss = (isUser) => ({
   borderBottomLeftRadius: isUser ? 18 : 6,
 });
 
-function Bubble({ msg, onSpeak, onStop, speaking, isLast, onChip }) {
+function Bubble({ msg, onSpeak, onStop, speaking, onShare, isLast, onChip }) {
   const isUser = msg.role === "user";
   const rawText = textOf(msg);
   const hasImage = Array.isArray(msg.content) && msg.content.some((b) => b.type === "image");
@@ -258,7 +260,7 @@ function Bubble({ msg, onSpeak, onStop, speaking, isLast, onChip }) {
           const src = imgBlock?.source?.data ? `data:image/jpeg;base64,${imgBlock.source.data}` : null;
           return (
             <div style={{ marginBottom: 8 }}>
-              {src ? <img src={src} alt="" style={{ width: "100%", maxWidth: 200, borderRadius: 10, display: "block" }} />
+              {src ? <img src={src} alt="Uploaded image" style={{ width: "100%", maxWidth: 200, borderRadius: 10, display: "block" }} />
                 : <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: .8 }}>
                     <Icon name="Camera" size={13} /> 📷
                   </div>}
@@ -280,13 +282,23 @@ function Bubble({ msg, onSpeak, onStop, speaking, isLast, onChip }) {
         </div>
       )}
       {!isUser && body && (
-        <button onClick={() => speaking ? onStop() : onSpeak(body)} aria-label={speaking ? "Stop reading" : "Read aloud"}
-          style={{ background: "none", border: "none", cursor: "pointer",
-            color: speaking ? T.primary : T.inkFaint, display: "flex", alignItems: "center", gap: 4,
-            fontSize: 11, padding: "5px 4px", fontFamily: T.body,
-            animation: speaking ? "ag-pulse 1s infinite" : "none" }}>
-          <Icon name={speaking ? "VolumeX" : "Volume2"} size={13} />
-        </button>
+        <div style={{ display: "flex", gap: 2 }}>
+          <button onClick={() => speaking ? onStop() : onSpeak(body)} aria-label={speaking ? "Stop reading" : "Read aloud"}
+            style={{ background: "none", border: "none", cursor: "pointer",
+              color: speaking ? T.primary : T.inkFaint, display: "flex", alignItems: "center", gap: 4,
+              fontSize: 11, padding: "5px 4px", fontFamily: T.body,
+              animation: speaking ? "ag-pulse 1s infinite" : "none" }}>
+            <Icon name={speaking ? "VolumeX" : "Volume2"} size={13} />
+          </button>
+          {canShare && (
+            <button onClick={() => onShare(body)} aria-label="Share"
+              style={{ background: "none", border: "none", cursor: "pointer",
+                color: T.inkFaint, display: "flex", alignItems: "center",
+                fontSize: 11, padding: "5px 4px", fontFamily: T.body }}>
+              <Icon name="Share2" size={13} />
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -294,10 +306,18 @@ function Bubble({ msg, onSpeak, onStop, speaking, isLast, onChip }) {
 
 function HistoryList({ t, onOpen, onDelete, onExport }) {
   const [items, setItems] = useState(() => conversationStore.list());
-  if (!items.length) return <EmptyState icon="Inbox" title={t("noChats")} body={t("noChatsBody")} />;
+  const [sq, setSq] = useState("");
+  const shown = sq.trim() ? conversationStore.search(sq) : items;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {items.map((e) => {
+      <div style={{ position: "relative" }}>
+        <Icon name="Search" size={15} style={{ position: "absolute", left: 10, top: 10, color: T.inkFaint, pointerEvents: "none" }} />
+        <input value={sq} onChange={(e) => setSq(e.target.value)} placeholder={t("searchChats") || "Search chats…"}
+          style={{ width: "100%", boxSizing: "border-box", padding: "9px 10px 9px 32px", borderRadius: T.rMd, border: `1px solid ${T.line}`,
+            background: T.surface2, color: T.ink, fontSize: 13, fontFamily: T.body, outline: "none" }} />
+      </div>
+      {!shown.length && <EmptyState icon="Inbox" title={sq ? (t("noResults") || "No results") : t("noChats")} body={sq ? "" : t("noChatsBody")} />}
+      {shown.map((e) => {
         const agent = e.agentId ? getAgent(e.agentId) : null;
         return (
           <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: T.rLg, background: T.surface2 }}>

@@ -7,6 +7,7 @@ import SeverityBadge from "../components/SeverityBadge.jsx";
 import ConfidenceMeter from "../components/ConfidenceMeter.jsx";
 import { domainRegistry } from "../services/diagnostics/domainRegistry.js";
 import { reportService } from "../services/diagnostics/reportService.js";
+import { shareText } from "../utils/share.js";
 
 const TABS = [
   { id: "diagnosis",       label: {en:"Diagnosis", hi:"निदान", bn:"রোগ নির্ণয়"},       icon: "Microscope"   },
@@ -16,7 +17,7 @@ const TABS = [
 ];
 
 export default function DiagnosticResult({ record }) {
-  const { pop, push, tc } = useApp();
+  const { pop, push, tc, toast } = useApp();
   const [tab, setTab] = useState("diagnosis");
 
   if (!record) return null;
@@ -28,11 +29,8 @@ export default function DiagnosticResult({ record }) {
 
   const share = async () => {
     const text = `AgriOS Diagnosis\n${record.primaryDiagnosis}\nSeverity: ${record.severity?.label}\nDate: ${new Date(record.createdAt).toLocaleDateString("en-IN")}\n\nReport ID: ${record.reportId}`;
-    if (navigator.share) {
-      await navigator.share({ title: "AgriOS Diagnostic Report", text }).catch(() => {});
-    } else {
-      await navigator.clipboard.writeText(text).catch(() => {});
-    }
+    const r = await shareText(text, "AgriOS Diagnostic Report");
+    if (r === "copied") toast(tc({ en: "Copied!", hi: "कॉपी हो गया!", bn: "কপি হয়েছে!" }), "success");
   };
 
   /* ── Emergency banner ─────────────────────────────────────────────────── */
