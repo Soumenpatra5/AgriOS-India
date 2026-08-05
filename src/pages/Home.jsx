@@ -14,6 +14,8 @@ import {
   QUICK_ACTIONS, TASKS, SCHEMES, NEWS, CALCULATORS, AI_TOOLS,
 } from "../constants/content.js";
 import { accent } from "../components/primitives.jsx";
+import OnboardingTour from "../components/OnboardingTour.jsx";
+import { useLazySection } from "../hooks/useLazySection.js";
 
 const H_PAD = 16;
 
@@ -295,8 +297,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* calculators */}
-      <div style={{ padding: `20px ${H_PAD}px 0`, ...wStyle("calculators") }}>
+      {/* calculators (lazy) */}
+      <LazyBlock><div style={{ padding: `20px ${H_PAD}px 0`, ...wStyle("calculators") }}>
         <SectionHeader title={t("calculators")} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
           {CALCULATORS.map((c) => (
@@ -325,6 +327,9 @@ export default function Home() {
           ))}
         </Card>
       </div>
+      </LazyBlock>
+
+      <OnboardingTour />
     </div>
   );
 }
@@ -450,4 +455,9 @@ function HScroll({ children }) {
       {children}
     </div>
   );
+}
+
+function LazyBlock({ children }) {
+  const { ref, visible } = useLazySection();
+  return <div ref={ref}>{visible ? children : <div style={{ minHeight: 200 }} />}</div>;
 }

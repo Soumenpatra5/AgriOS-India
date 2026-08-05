@@ -5,17 +5,14 @@ import { AppBar, SearchBar, Card, accent } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { usePrefs } from "../customize/PreferencesProvider.jsx";
 import { AI_TOOLS } from "../constants/content.js";
+import { fuzzyMatch } from "../utils/fuzzySearch.js";
 
 export default function AIHub() {
   const { t, tc, push, lang } = useApp();
   const { prefs } = usePrefs();
   const grid = prefs.layout.view !== "list";
   const [q, setQ] = useState("");
-  const list = AI_TOOLS.filter((x) => {
-    const title = typeof x.title === "object" ? Object.values(x.title).join(" ") : x.title;
-    const desc = typeof x.desc === "object" ? Object.values(x.desc).join(" ") : x.desc;
-    return (title + desc).toLowerCase().includes(q.toLowerCase());
-  });
+  const list = fuzzyMatch(AI_TOOLS, q);
   const open = (x) => push({ kind: "chat", props: { agentId: x.agentId } });
 
   return (

@@ -9,6 +9,7 @@ import {
   ledgerService, INCOME_CATEGORIES, EXPENSE_CATEGORIES, ENTERPRISES,
 } from "../services/ledger/ledgerService.js";
 import { compact, rupee } from "../utils/format.js";
+import { downloadCsv } from "../utils/exportCsv.js";
 
 const MONTHS_I18N = [
   {en:"January",hi:"जनवरी",bn:"জানুয়ারি"},{en:"February",hi:"फरवरी",bn:"ফেব্রুয়ারি"},
@@ -62,15 +63,37 @@ export default function FarmLedger() {
 
   const netPos = summary.net >= 0;
 
+  const handleExport = () => {
+    if (!txns.length) { toast(tc({en:"No entries to export",hi:"निर्यात के लिए कोई प्रविष्टि नहीं",bn:"রপ্তানির জন্য কোনো এন্ট্রি নেই"}), "info"); return; }
+    const rows = txns.map((t) => ({
+      Date: t.date,
+      Type: t.kind === "income" ? "Income" : "Expense",
+      Category: ledgerService.categoryLabel(t.kind, t.categoryId),
+      Enterprise: t.enterpriseId ? ledgerService.enterpriseLabel(t.enterpriseId) : "",
+      Amount: t.amount,
+      Note: t.note || "",
+    }));
+    const fn = `agrios-ledger-${year}-${String(month + 1).padStart(2, "0")}.csv`;
+    downloadCsv(rows, fn);
+    toast(tc({en:"Ledger exported",hi:"खाता निर्यात हो गया",bn:"খাতা রপ্তানি হয়েছে"}), "success");
+  };
+
   return (
     <>
       <AppBar title={tc({en:"Farm ledger",hi:"खेत का हिसाब",bn:"খামারের হিসাব"})} onBack={pop} action={
-        <button onClick={() => setAddOpen(true)}
-          style={{ background: T.primary, border: "none", borderRadius: 12, padding: "8px 13px",
-            cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6,
-            fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
-          <Icon name="PlusCircle" size={17} /> {tc({en:"Add",hi:"जोड़ें",bn:"যোগ করুন"})}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={handleExport} aria-label="Export CSV"
+            style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8,
+              cursor: "pointer", color: T.ink, display: "flex" }}>
+            <Icon name="Download" size={17} />
+          </button>
+          <button onClick={() => setAddOpen(true)}
+            style={{ background: T.primary, border: "none", borderRadius: 12, padding: "8px 13px",
+              cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6,
+              fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
+            <Icon name="PlusCircle" size={17} /> {tc({en:"Add",hi:"जोड़ें",bn:"যোগ করুন"})}
+          </button>
+        </div>
       } />
 
       <Screen gap={16}>
