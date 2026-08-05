@@ -2,8 +2,11 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import { preferences } from "./preferences.js";
 import { applyAppearance } from "./appearance.js";
 import { useTheme } from "../theme/ThemeProvider.jsx";
-import { onAuthChange } from "../services/firebase/auth.js";
-import { savePrefsCloud, loadPrefsCloud } from "./prefsSync.js";
+
+/* Firebase (auth + firestore) loaded lazily — preference cloud sync is a
+   background nicety and must not block the initial render. */
+const loadAuth = () => import("../services/firebase/auth.js");
+const loadPrefsSync = () => import("./prefsSync.js");
 
 const PrefsCtx = createContext(null);
 export const usePrefs = () => useContext(PrefsCtx);
@@ -31,18 +34,28 @@ export function PreferencesProvider({ children }) {
   }, [prefs.accessibility.reduceMotion]);
 
   // Cloud sync: pull on sign-in (new-device restore), push on change (debounced).
-  useEffect(() => onAuthChange(async (user) => {
-    if (!user) return;
-    const cloud = await loadPrefsCloud();
-    if (cloud) preferences.replace(cloud);
-  }), []);
+  useEffect(() => {
+    let unsub = () => {};
+    let cancelled = false;
+    Promise.all([loadAuth(), loadPrefsSync()]).then(([{ onAuthChange }, { loadPrefsCloud }]) => {
+      if (cancelled) return;
+      unsub = onAuthChange(async (user) => {
+        if (!user) return;
+        const cloud = await loadPrefsCloud();
+        if (cloud) preferences.replace(cloud);
+      });
+    }).catch(() => {});
+    return () => { cancelled = true; unsub(); };
+  }, []);
 
   const saveTimer = useRef(null);
   useEffect(() => {
     clearTimeout(saveTimer.current);
     // "off" = local only: don't push preferences to the cloud.
     if (prefs.offline.mode === "off") return;
-    saveTimer.current = setTimeout(() => savePrefsCloud(preferences.all()), 800);
+    saveTimer.current = setTimeout(() => {
+      loadPrefsSync().then(({ savePrefsCloud }) => savePrefsCloud(preferences.all())).catch(() => {});
+    }, 800);
     return () => clearTimeout(saveTimer.current);
   }, [prefs]);
 

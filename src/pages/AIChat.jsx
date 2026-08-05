@@ -11,6 +11,19 @@ import CameraCapture from "../components/CameraCapture.jsx";
 import { compressImage, toImageBlock } from "../ai/vision/imagePipeline.js";
 import { shareText, canShare } from "../utils/share.js";
 
+const QUICK_TEMPLATES = [
+  { cat: { en: "Today's plan", hi: "आज की योजना", bn: "আজকের পরিকল্পনা" },
+    text: { en: "What should I do on my farm today?", hi: "आज खेत में क्या काम करूँ?", bn: "আজ খামারে কী কাজ করব?" } },
+  { cat: { en: "Diagnose", hi: "रोग पहचान", bn: "রোগ নির্ণয়" },
+    text: { en: "My crop leaves are turning yellow, what could be wrong?", hi: "मेरी फसल की पत्तियाँ पीली हो रही हैं, क्या समस्या हो सकती है?", bn: "আমার ফসলের পাতা হলুদ হয়ে যাচ্ছে, কী সমস্যা হতে পারে?" } },
+  { cat: { en: "Government schemes", hi: "सरकारी योजनाएँ", bn: "সরকারি প্রকল্প" },
+    text: { en: "Which government schemes can I apply for?", hi: "मुझे कौन सी सरकारी योजनाएँ मिल सकती हैं?", bn: "আমি কোন কোন সরকারি প্রকল্পের সুবিধা পেতে পারি?" } },
+  { cat: { en: "Market price", hi: "बाज़ार भाव", bn: "বাজার দর" },
+    text: { en: "What is the best time to sell my crop?", hi: "मेरी फसल बेचने का सबसे अच्छा समय कब है?", bn: "আমার ফসল বিক্রির সেরা সময় কখন?" } },
+  { cat: { en: "Loan help", hi: "ऋण सहायता", bn: "ঋণ সহায়তা" },
+    text: { en: "How do I apply for a Kisan Credit Card loan?", hi: "किसान क्रेडिट कार्ड ऋण के लिए कैसे आवेदन करूँ?", bn: "কিষান ক্রেডিট কার্ড ঋণের জন্য কীভাবে আবেদন করব?" } },
+];
+
 export default function AIChat({ agentId = null, conversationId = null }) {
   const { t, lang, pop, toast } = useApp();
   const ai = useAI({ agentId, conversationId, lang });
@@ -90,10 +103,15 @@ export default function AIChat({ agentId = null, conversationId = null }) {
             <div style={{ fontFamily: T.display, fontSize: 19, fontWeight: 700 }}>{agent ? agent.name : t("aiTitle")}</div>
             <div style={{ fontSize: 13, color: T.inkSoft, marginTop: 4 }}>{agent?.tagline || t("advisorAuto")}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 22 }}>
-              {(agent?.suggested || [t("sampleGeneric1"), t("sampleGeneric2")]).map((q, i) => (
+              {(agent?.suggested || QUICK_TEMPLATES.map((q) => q.text[lang] || q.text.en)).map((q, i) => (
                 <button key={i} onClick={() => send(q)}
                   style={{ textAlign: "left", padding: "12px 15px", borderRadius: T.rLg, cursor: "pointer", fontFamily: T.body,
                     background: T.surface, border: `1px solid ${T.line}`, color: T.ink, fontSize: 13.5 }}>
+                  {!agent && QUICK_TEMPLATES[i] && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: T.primary, display: "block", marginBottom: 3 }}>
+                      {QUICK_TEMPLATES[i].cat[lang] || QUICK_TEMPLATES[i].cat.en}
+                    </span>
+                  )}
                   {q}
                 </button>
               ))}

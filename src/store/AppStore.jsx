@@ -2,9 +2,12 @@ import { createContext, useContext, useCallback, useEffect, useMemo, useState } 
 import { storage } from "../utils/storage.js";
 import { makeT, pickLang } from "../i18n/strings.js";
 import { LOCALES } from "../constants/languages.js";
-import { onAuthChange, logout as fbLogout } from "../services/firebase/auth.js";
-import { initSync, onLogin as syncOnLogin, onLogout as syncOnLogout } from "../services/firebase/syncManager.js";
-import { fcmService } from "../services/notifications/fcmService.js";
+
+/* Firebase is loaded lazily so its ~900kB of SDK stays off the initial render
+   path — splash, language and onboarding screens never touch it. */
+const loadAuth = () => import("../services/firebase/auth.js");
+const loadSync = () => import("../services/firebase/syncManager.js");
+const loadFcm = () => import("../services/notifications/fcmService.js");
 
 const AppCtx = createContext(null);
 export const useApp = () => useContext(AppCtx);
@@ -34,27 +37,34 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    initSync();
-    return onAuthChange((fbUser) => {
-      if (fbUser) {
-        const stored = storage.get("user", null);
-        if (stored && stored.uid === fbUser.uid) return;
-        const u = {
-          uid: fbUser.uid,
-          phone: fbUser.phoneNumber?.replace("+91", "") || stored?.phone || "",
-          email: fbUser.email || stored?.email || "",
-          name: fbUser.displayName || stored?.name || "",
-          photo: fbUser.photoURL || stored?.photo || "",
-          provider: fbUser.providerData?.[0]?.providerId || stored?.provider || "",
-          joined: stored?.joined || Date.now(),
-        };
-        storage.set("user", u);
-        setUser(u);
-      } else {
-        storage.remove("user");
-        setUser(null);
-      }
-    });
+    let unsub = () => {};
+    let cancelled = false;
+    (async () => {
+      const [{ onAuthChange }, { initSync }] = await Promise.all([loadAuth(), loadSync()]);
+      if (cancelled) return;
+      initSync();
+      unsub = onAuthChange((fbUser) => {
+        if (fbUser) {
+          const stored = storage.get("user", null);
+          if (stored && stored.uid === fbUser.uid) return;
+          const u = {
+            uid: fbUser.uid,
+            phone: fbUser.phoneNumber?.replace("+91", "") || stored?.phone || "",
+            email: fbUser.email || stored?.email || "",
+            name: fbUser.displayName || stored?.name || "",
+            photo: fbUser.photoURL || stored?.photo || "",
+            provider: fbUser.providerData?.[0]?.providerId || stored?.provider || "",
+            joined: stored?.joined || Date.now(),
+          };
+          storage.set("user", u);
+          setUser(u);
+        } else {
+          storage.remove("user");
+          setUser(null);
+        }
+      });
+    })();
+    return () => { cancelled = true; unsub(); };
   }, []);
 
   const t = useMemo(() => makeT(lang), [lang]);
@@ -67,11 +77,12 @@ export function AppProvider({ children }) {
   const finishOnboarding = useCallback(() => { storage.set("onboarded", true); setStage("auth"); }, []);
   const login = useCallback((u) => {
     storage.set("user", u); setUser(u); setStage("app"); setTab("home");
-    syncOnLogin(u).catch(() => {});
+    loadSync().then((m) => m.onLogin(u)).catch(() => {});
   }, []);
   const logout = useCallback(async () => {
+    const [{ logout: fbLogout }, { onLogout }] = await Promise.all([loadAuth(), loadSync()]);
     await fbLogout();
-    syncOnLogout();
+    onLogout();
     storage.remove("user");
     setUser(null);
     setStack([]);
@@ -95,9 +106,11 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!user) return;
-    fcmService.init((payload) => {
-      const { title, body } = payload.notification || {};
-      if (title) toast(title + (body ? `: ${body}` : ""), "info");
+    loadFcm().then(({ fcmService }) => {
+      fcmService.init((payload) => {
+        const { title, body } = payload.notification || {};
+        if (title) toast(title + (body ? `: ${body}` : ""), "info");
+      }).catch(() => {});
     }).catch(() => {});
   }, [user, toast]);
 

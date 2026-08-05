@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, Card, Chip, SectionHeader, IconTile, Button } from "../components/index.js";
 import { BottomSheet, Dialog, Dropdown, Input } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { cropCalendarService, CROPS } from "../services/calendar/cropCalendarService.js";
+import { reminderService } from "../services/calendar/reminderService.js";
 
 const FILTERS = ["Upcoming", "Overdue", "Done"];
 
@@ -37,10 +38,23 @@ export default function CropCalendar() {
   }, [tick, filter]);
 
   const refresh = () => setTick((n) => n + 1);
+  useEffect(() => { reminderService.boot(); }, []);
 
   const toggleTask = (task) => {
     if (task.done) cropCalendarService.markUndone(task.taskKey);
-    else cropCalendarService.markDone(task.taskKey);
+    else { cropCalendarService.markDone(task.taskKey); reminderService.remove(task.taskKey); }
+    refresh();
+  };
+
+  const toggleReminder = (task) => {
+    if (reminderService.has(task.taskKey)) {
+      reminderService.remove(task.taskKey);
+      toast(tc({ en: "Reminder removed", hi: "रिमाइंडर हटाया", bn: "রিমাইন্ডার সরানো হয়েছে" }), "info");
+    } else {
+      const label = `${task.type.label} — ${task.cropName}${task.note ? ` (${task.note})` : ""}`;
+      reminderService.set(task.taskKey, { label, dueDate: task.dueDate, hoursBefore: 24 });
+      toast(tc({ en: "Reminder set for 1 day before", hi: "1 दिन पहले रिमाइंडर सेट", bn: "১ দিন আগে রিমাইন্ডার সেট" }), "success");
+    }
     refresh();
   };
 
@@ -139,7 +153,8 @@ export default function CropCalendar() {
                 <Card pad={6}>
                   {tasks.map((task, i) => (
                     <TaskRow key={task.taskKey} task={task} i={i}
-                      onToggle={() => toggleTask(task)} />
+                      onToggle={() => toggleTask(task)}
+                      onReminder={() => toggleReminder(task)} />
                   ))}
                 </Card>
               )}
@@ -232,8 +247,9 @@ function CropCard({ inst, onDelete }) {
   );
 }
 
-function TaskRow({ task, i, onToggle }) {
+function TaskRow({ task, i, onToggle, onReminder }) {
   const { tc } = useApp();
+  const hasReminder = reminderService.has(task.taskKey);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const diff  = Math.floor((new Date(task.dueDate) - today) / 86400000);
 
@@ -277,6 +293,13 @@ function TaskRow({ task, i, onToggle }) {
         <div style={{ fontSize: 12, color: T.inkSoft }}>{task.cropName}</div>
       </div>
 
+      {!task.done && (
+        <button onClick={() => onReminder(task)} aria-label={hasReminder ? "Remove reminder" : "Set reminder"}
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex",
+            color: hasReminder ? T.orange : T.inkFaint }}>
+          <Icon name={hasReminder ? "BellRing" : "Bell"} size={15} />
+        </button>
+      )}
       <div style={{ fontSize: 11.5, fontWeight: 600, color: dateColor, flexShrink: 0 }}>
         {dateLabel}
       </div>

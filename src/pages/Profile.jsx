@@ -4,7 +4,11 @@ import { AppBar, Card, Dialog } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { PROFILE_ITEMS } from "../constants/content.js";
 import { initials } from "../utils/format.js";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+/* Cheap env check — avoids importing firebase/config (and the Firestore SDK)
+   into this page chunk just to know whether cloud sync exists. */
+const fbEnabled = !!import.meta.env.VITE_FB_API_KEY;
 
 const PROVIDER_LABELS = {
   "google.com": "Google",
@@ -16,8 +20,29 @@ const PROVIDER_LABELS = {
 };
 
 export default function Profile() {
-  const { t, tc, user, push, logout } = useApp();
+  const { t, tc, user, push, logout, online, toast } = useApp();
   const [confirm, setConfirm] = useState(false);
+  const [pending, setPending] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    if (!fbEnabled) return;
+    let alive = true;
+    pendingSyncCount().then((n) => { if (alive) setPending(n); });
+    return () => { alive = false; };
+  }, []);
+
+  const retrySync = async () => {
+    if (!online) { toast(tc({ en: "Still offline", hi: "अभी भी ऑफ़लाइन", bn: "এখনও অফলাইন" }), "info"); return; }
+    setSyncing(true);
+    const remaining = await flushNow();
+    setPending(remaining);
+    setSyncing(false);
+    toast(remaining === 0
+      ? tc({ en: "All synced!", hi: "सब सिंक हो गया!", bn: "সব সিঙ্ক হয়েছে!" })
+      : tc({ en: `${remaining} still pending`, hi: `${remaining} अभी भी बाकी`, bn: `${remaining}টি এখনও বাকি` }),
+      remaining === 0 ? "success" : "info");
+  };
 
   const tap = (id) => {
     if (id === "settings") return push({ kind: "settings" });
@@ -67,6 +92,36 @@ export default function Profile() {
           </div>
           <button onClick={() => tap("farm")} style={{ background: T.surface2, border: "none", borderRadius: 12, padding: "8px 10px", cursor: "pointer", color: T.primary, fontSize: 12.5, fontWeight: 600, fontFamily: T.body }}>{tc({ en: "Edit", hi: "बदलें", bn: "সম্পাদনা" })}</button>
         </Card>
+
+        {/* sync status */}
+        {fbEnabled && (pending > 0 || !online) && (
+          <Card style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: "grid", placeItems: "center",
+              background: online ? T.orangeSoft : T.surface2, color: online ? T.orange : T.inkSoft }}>
+              <Icon name={online ? "RefreshCw" : "CloudOff"} size={20} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>
+                {!online
+                  ? tc({ en: "Offline", hi: "ऑफ़लाइन", bn: "অফলাইন" })
+                  : tc({ en: "Changes to sync", hi: "सिंक करने के लिए बदलाव", bn: "সিঙ্ক করার পরিবর্তন" })}
+              </div>
+              <div style={{ fontSize: 12, color: T.inkSoft }}>
+                {pending > 0
+                  ? tc({ en: `${pending} change${pending > 1 ? "s" : ""} saved on device`, hi: `${pending} बदलाव डिवाइस पर सहेजे गए`, bn: `${pending}টি পরিবর্তন ডিভাইসে সংরক্ষিত` })
+                  : tc({ en: "Data saved locally", hi: "डेटा स्थानीय रूप से सहेजा गया", bn: "ডেটা স্থানীয়ভাবে সংরক্ষিত" })}
+              </div>
+            </div>
+            {online && pending > 0 && (
+              <button onClick={retrySync} disabled={syncing}
+                style={{ background: T.primarySoft, border: "none", borderRadius: 10, padding: "8px 12px", cursor: "pointer",
+                  color: T.primary, fontSize: 12.5, fontWeight: 600, fontFamily: T.body, display: "flex", alignItems: "center", gap: 5 }}>
+                <Icon name="RefreshCw" size={13} style={{ animation: syncing ? "ag-spin 1s linear infinite" : "none" }} />
+                {tc({ en: "Sync", hi: "सिंक", bn: "সিঙ্ক" })}
+              </button>
+            )}
+          </Card>
+        )}
 
         {/* subscription */}
         <div onClick={() => tap("subscription")}

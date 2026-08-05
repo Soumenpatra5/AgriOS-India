@@ -48,3 +48,12 @@ export async function onLogin(user) {
 export function onLogout() {
   fcmService.deleteToken().catch(() => {});
 }
+
+export async function pendingSyncCount() {
+  try { return (await getAll()).length; } catch { return 0; }
+}
+
+export async function flushNow() {
+  await flushQueue();
+  return pendingSyncCount();
+}

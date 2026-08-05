@@ -1,4 +1,5 @@
-import { getMessagingInstance, fbEnabled, auth, db } from "../firebase/config.js";
+import { getMessagingInstance, fbEnabled, auth } from "../firebase/config.js";
+import { db } from "../firebase/firestore.js";
 import { storage } from "../../utils/storage.js";
 
 const TOKEN_KEY = "fcm:token";

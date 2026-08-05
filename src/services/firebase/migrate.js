@@ -1,5 +1,6 @@
 import { collection, doc, setDoc } from "firebase/firestore";
-import { db, auth, fbEnabled } from "./config.js";
+import { auth, fbEnabled } from "./config.js";
+import { db } from "./firestore.js";
 import { storage } from "../../utils/storage.js";
 import { CORE_DBS, firestoreName } from "./dbRegistry.js";
 

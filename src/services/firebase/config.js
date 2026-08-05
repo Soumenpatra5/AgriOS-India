@@ -1,11 +1,5 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import {
-  getFirestore,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FB_API_KEY,
@@ -20,23 +14,15 @@ export const fbEnabled = !!firebaseConfig.apiKey;
 
 let app = null;
 let auth = null;
-let db = null;
 
 if (fbEnabled) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
-  try {
-    db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager(),
-      }),
-    });
-  } catch {
-    db = getFirestore(app);
-  }
 }
 
-export { app, auth, db };
+/* Firestore (`db`) lives in ./firestore.js so the Firestore SDK loads lazily —
+   see that file. Import `db` from there, not here. */
+export { app, auth };
 
 let _messaging = null;
 export async function getMessagingInstance() {

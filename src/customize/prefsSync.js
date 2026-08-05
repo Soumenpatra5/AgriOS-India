@@ -3,7 +3,8 @@
    No-ops gracefully when Firebase isn't configured or nobody is signed in. */
 
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { db, auth, fbEnabled } from "../services/firebase/config.js";
+import { auth, fbEnabled } from "../services/firebase/config.js";
+import { db } from "../services/firebase/firestore.js";
 
 function prefsRef() {
   if (!fbEnabled || !auth?.currentUser) return null;

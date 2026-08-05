@@ -1,5 +1,6 @@
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { db, auth, fbEnabled } from "./config.js";
+import { auth, fbEnabled } from "./config.js";
+import { db } from "./firestore.js";
 
 function profileRef() {
   if (!fbEnabled || !auth?.currentUser) return null;

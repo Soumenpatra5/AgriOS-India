@@ -1,17 +1,21 @@
-import { repo as cloudRepo } from "./firestoreRepo.js";
 import { enqueue } from "./syncQueue.js";
 
-export function wrapWithSync(storeName, local) {
-  const cloud = cloudRepo(storeName);
+/* firestoreRepo pulls in the Firestore SDK (~600kB). Load it lazily so reads —
+   which never touch the cloud — keep Firestore off the initial render path. */
+async function cloudRepo(storeName) {
+  const { repo } = await import("./firestoreRepo.js");
+  return repo(storeName);
+}
 
-  function pushToCloud(fn) {
-    try { fn().catch(() => {}); } catch {}
+export function wrapWithSync(storeName, local) {
+  function pushToCloud(op) {
+    cloudRepo(storeName).then(op).catch(() => {});
   }
 
   return {
     async add(data) {
       const record = await local.add(data);
-      pushToCloud(() =>
+      pushToCloud((cloud) =>
         cloud.add(record).catch(() => enqueue(storeName, "add", record))
       );
       return record;
@@ -24,7 +28,7 @@ export function wrapWithSync(storeName, local) {
     async update(id, patch) {
       const updated = await local.update(id, patch);
       if (updated) {
-        pushToCloud(() =>
+        pushToCloud((cloud) =>
           cloud.update(id, patch).catch(() => enqueue(storeName, "update", { id, ...patch }))
         );
       }
@@ -33,7 +37,7 @@ export function wrapWithSync(storeName, local) {
 
     async remove(id) {
       await local.remove(id);
-      pushToCloud(() =>
+      pushToCloud((cloud) =>
         cloud.remove(id).catch(() => enqueue(storeName, "remove", { id }))
       );
     },
