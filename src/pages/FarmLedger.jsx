@@ -48,6 +48,7 @@ export default function FarmLedger() {
   /* eslint-disable react-hooks/exhaustive-deps */
   const [summary, setSummary] = useState({ net: 0, income: 0, expense: 0 });
   const [txns, setTxns]       = useState([]);
+  const [breakdown, setBreakdown] = useState([]);
 
   useEffect(() => {
     let alive = true;
@@ -57,6 +58,22 @@ export default function FarmLedger() {
       if (!alive) return;
       setSummary(s);
       setTxns(filter === "all" ? all : all.filter((t) => t.kind === filter));
+
+      // Spending-by-category, from the whole month's expenses (filter-independent).
+      const expenses = all.filter((t) => t.kind === "expense");
+      const totalExp = expenses.reduce((sum, t) => sum + t.amount, 0);
+      const byCat = {};
+      for (const e of expenses) byCat[e.categoryId] = (byCat[e.categoryId] || 0) + e.amount;
+      setBreakdown(
+        Object.entries(byCat)
+          .map(([categoryId, total]) => ({
+            categoryId, total,
+            label: ledgerService.categoryLabel("expense", categoryId),
+            icon: ledgerService.categoryIcon("expense", categoryId),
+            pct: totalExp ? Math.round((total / totalExp) * 100) : 0,
+          }))
+          .sort((a, b) => b.total - a.total)
+      );
     })();
     return () => { alive = false; };
   }, [year, month, filter, tick]);
@@ -99,12 +116,12 @@ export default function FarmLedger() {
       <Screen gap={16}>
         {/* Month navigator */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button onClick={prevMonth}
+          <button onClick={prevMonth} aria-label="Previous month"
             style={{ background: T.surface2, border: "none", borderRadius: 10, padding: 8, cursor: "pointer", display: "flex", color: T.ink }}>
             <Icon name="ChevronLeft" size={20} />
           </button>
           <div style={{ fontFamily: T.display, fontSize: 17, fontWeight: 700 }}>{tc(MONTHS_I18N[month])} {year}</div>
-          <button onClick={nextMonth} disabled={atCurrentMonth}
+          <button onClick={nextMonth} disabled={atCurrentMonth} aria-label="Next month"
             style={{ background: T.surface2, border: "none", borderRadius: 10, padding: 8,
               cursor: atCurrentMonth ? "default" : "pointer", display: "flex",
               color: atCurrentMonth ? T.inkFaint : T.ink }}>
@@ -127,6 +144,30 @@ export default function FarmLedger() {
             <Chip key={k} active={filter === k} onClick={() => setFilter(k)}>{tc(l)}</Chip>
           ))}
         </div>
+
+        {/* Spending by category */}
+        {breakdown.length > 0 && (
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.inkSoft, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name="PieChart" size={15} /> {tc({ en: "Spending by category", hi: "श्रेणी अनुसार खर्च", bn: "বিভাগ অনুযায়ী ব্যয়" })}
+            </div>
+            <Card pad={14} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {breakdown.slice(0, 6).map((b) => (
+                <div key={b.categoryId}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                    <Icon name={b.icon} size={14} style={{ color: T.inkSoft, flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 13, color: T.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: T.ink, fontVariantNumeric: "tabular-nums" }}>{rupee(b.total)}</span>
+                    <span style={{ fontSize: 11.5, color: T.inkFaint, width: 34, textAlign: "right" }}>{b.pct}%</span>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 3, background: T.surface2, overflow: "hidden" }}>
+                    <div style={{ width: `${b.pct}%`, height: "100%", background: T.red, borderRadius: 3, transition: "width .4s var(--ag-ease)" }} />
+                  </div>
+                </div>
+              ))}
+            </Card>
+          </div>
+        )}
 
         {/* Transaction list */}
         {txns.length === 0 ? (
