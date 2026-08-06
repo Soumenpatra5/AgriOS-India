@@ -172,6 +172,7 @@ export default function Settings() {
                   border: `1.5px solid ${on ? T.primary : T.line}`, background: on ? T.primarySoft : T.surface }}>
                 <div style={{ fontFamily: T.display, fontSize: 16, fontWeight: 700, color: on ? T.primary : T.ink }}>{l.native}</div>
                 <div style={{ fontSize: 12, color: T.inkSoft }}>{l.label}</div>
+                {!l.t && <div style={{ fontSize: 10.5, fontWeight: 600, color: T.orange, marginTop: 3 }}>{tc({ en: "English UI", hi: "अंग्रेज़ी UI", bn: "ইংরেজি UI" })}</div>}
               </button>
 
             );
