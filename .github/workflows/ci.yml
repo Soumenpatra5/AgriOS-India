@@ -66,6 +66,9 @@ jobs:
           echo "Build size:"
           du -sh dist/
 
+      - name: Check bundle budget
+        run: npm run check:bundle
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:

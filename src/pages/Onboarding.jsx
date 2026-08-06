@@ -4,7 +4,7 @@ import Icon from "../components/Icon.jsx";
 import { Button, accent } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { usePrefs } from "../customize/PreferencesProvider.jsx";
-import { profileMemory } from "../ai/index.js";
+import { profileMemory } from "../ai/memory/profileMemory.js";
 import { ONBOARDING } from "../constants/content.js";
 
 export default function Onboarding() {
