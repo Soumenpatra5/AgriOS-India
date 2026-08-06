@@ -64,4 +64,19 @@ describe("reminderService", () => {
     expect(() => reminderService.boot()).not.toThrow();
     expect(reminderService.has("t1")).toBe(true);
   });
+
+  it("count() reflects the number of reminders", () => {
+    expect(reminderService.count()).toBe(0);
+    reminderService.set("t1", { label: "a", dueDate: future() });
+    reminderService.set("t2", { label: "b", dueDate: future() });
+    expect(reminderService.count()).toBe(2);
+  });
+
+  it("clear() removes every reminder", () => {
+    reminderService.set("t1", { label: "a", dueDate: future() });
+    reminderService.set("t2", { label: "b", dueDate: future() });
+    reminderService.clear();
+    expect(reminderService.count()).toBe(0);
+    expect(reminderService.has("t1")).toBe(false);
+  });
 });

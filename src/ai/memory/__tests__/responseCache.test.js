@@ -64,4 +64,13 @@ describe("responseCache", () => {
     responseCache.clear();
     expect(responseCache.get("q", "en")).toBeNull();
   });
+
+  it("count reflects the number of cached answers", () => {
+    expect(responseCache.count()).toBe(0);
+    responseCache.set("a", "en", "1", "x");
+    responseCache.set("b", "en", "2", "x");
+    expect(responseCache.count()).toBe(2);
+    responseCache.clear();
+    expect(responseCache.count()).toBe(0);
+  });
 });
