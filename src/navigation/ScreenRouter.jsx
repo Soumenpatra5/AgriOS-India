@@ -109,6 +109,7 @@ const TrainingDashboard  = lazy(() => import("../pages/mlops/TrainingDashboard.j
 const MonitoringDashboard = lazy(() => import("../pages/mlops/MonitoringDashboard.jsx"));
 const ApiKeyManager       = lazy(() => import("../pages/ApiKeyManager.jsx"));
 const StorageManager      = lazy(() => import("../pages/StorageManager.jsx"));
+const Calculator          = lazy(() => import("../pages/Calculator.jsx"));
 
 const TAB_SCREENS = { home: Home, ai: AIHub, market: Market, services: Services, profile: Profile };
 
@@ -212,6 +213,7 @@ function StackScreen({ item }) {
   if (item.kind === "monitoringDashboard")  return <MonitoringDashboard />;
   if (item.kind === "apiKeyManager")        return <ApiKeyManager />;
   if (item.kind === "storage")              return <StorageManager />;
+  if (item.kind === "calculator")           return <Calculator {...(item.props || {})} />;
   return null;
 }
 

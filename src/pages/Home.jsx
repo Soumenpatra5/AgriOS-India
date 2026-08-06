@@ -313,7 +313,7 @@ export default function Home() {
         <SectionHeader title={t("calculators")} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
           {CALCULATORS.map((c) => (
-            <button key={c.id} onClick={() => openFeature(tc(c.title), tc({ en: "Quick on-device calculation.", hi: "त्वरित ऑन-डिवाइस गणना।", bn: "দ্রুত হিসাব।" }), c.icon, c.accent)}
+            <button key={c.id} onClick={() => push({ kind: "calculator", props: { id: c.id } })}
               style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg, padding: "14px 10px", cursor: "pointer", display: "grid", justifyItems: "center", gap: 8 }}>
               <IconTile name={c.icon} a={c.accent} size={42} iconSize={20} />
               <span style={{ fontSize: 12, fontWeight: 600, color: T.ink }}>{tc(c.title)}</span>
