@@ -6,6 +6,7 @@ import { useApp } from "../store/AppStore.jsx";
 import { conversationStore, responseCache } from "../ai/index.js";
 import { reminderService } from "../services/calendar/reminderService.js";
 import { priceAlertService } from "../services/market/priceAlerts.js";
+import { errorLog } from "../utils/errorLog.js";
 
 const NS = "agrios:";
 
@@ -41,7 +42,10 @@ export default function StorageManager() {
     reminders: reminderService.count(),
     alerts: priceAlertService.getAll().length,
   };
+  const errors = errorLog.all();
   const localBytes = localStorageBytes();
+
+  const clearErrors = () => { errorLog.clear(); refresh(); toast(tc({ en: "Error log cleared", hi: "त्रुटि लॉग साफ़", bn: "ত্রুটি লগ মুছে গেছে" }), "success"); };
 
   useEffect(() => {
     let alive = true;
@@ -128,6 +132,33 @@ export default function StorageManager() {
             <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
           </div>
         </Card>
+
+        {/* recent errors — only when something has crashed */}
+        {errors.length > 0 && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 8, padding: "0 2px" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft, textTransform: "uppercase", letterSpacing: .4 }}>
+                {tc({ en: "Recent errors", hi: "हाल की त्रुटियाँ", bn: "সাম্প্রতিক ত্রুটি" })}
+              </span>
+              <button onClick={clearErrors} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: T.primary, fontSize: 12.5, fontWeight: 600, fontFamily: T.body }}>
+                {tc({ en: "Clear", hi: "साफ़", bn: "মুছুন" })}
+              </button>
+            </div>
+            <Card pad={6}>
+              {errors.slice(0, 5).map((e, i) => (
+                <div key={i} style={{ padding: "10px 12px", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, wordBreak: "break-word" }}>{e.message}</div>
+                  <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 2 }}>
+                    {new Date(e.time).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </Card>
+            <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 6, padding: "0 2px" }}>
+              {tc({ en: "Stored on this device only — nothing is sent anywhere.", hi: "केवल इस डिवाइस पर संग्रहीत — कहीं नहीं भेजा जाता।", bn: "শুধু এই ডিভাইসে সংরক্ষিত — কোথাও পাঠানো হয় না।" })}
+            </div>
+          </div>
+        )}
 
         <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center", lineHeight: 1.6, padding: "0 8px" }}>
           {tc({ en: "All data is stored on this device. Clearing data here cannot be undone — back up first if unsure.",

@@ -1,6 +1,7 @@
 import { Component } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "./Icon.jsx";
+import { errorLog } from "../utils/errorLog.js";
 
 /* Catches render/runtime errors in the subtree so one broken screen never
    white-screens the whole app. `resetKey` (e.g. the active route) clears the
@@ -12,6 +13,10 @@ export default class ErrorBoundary extends Component {
 
   static getDerivedStateFromError(error) {
     return { error };
+  }
+
+  componentDidCatch(error, info) {
+    try { errorLog.record(error, info); } catch { /* logging must never re-throw */ }
   }
 
   componentDidUpdate(prevProps) {
