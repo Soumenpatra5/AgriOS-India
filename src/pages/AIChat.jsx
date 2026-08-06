@@ -129,6 +129,18 @@ export default function AIChat({ agentId = null, conversationId = null }) {
             isLast={i === ai.messages.length - 1 && !ai.busy} onChip={send} />
         ))}
 
+        {/* regenerate — offered after a completed answer */}
+        {!ai.busy && ai.messages.length > 0 && ai.messages[ai.messages.length - 1].role === "assistant" && (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+            <button onClick={ai.regenerate}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: T.pill,
+                background: T.surface, border: `1px solid ${T.line}`, color: T.inkSoft, cursor: "pointer",
+                fontFamily: T.body, fontSize: 12.5, fontWeight: 600 }}>
+              <Icon name="RefreshCw" size={13} /> {t("regenerate") || "Regenerate"}
+            </button>
+          </div>
+        )}
+
         {/* live stream */}
         {ai.busy && (
           <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 12 }}>

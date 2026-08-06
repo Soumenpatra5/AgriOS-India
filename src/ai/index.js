@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { sendMessage } from "./gateway/aiGateway.js";
 import { conversationStore } from "./memory/conversationStore.js";
+import { textOf } from "./models/message.js";
 import { getAgent, listAgents, DEFAULT_AGENT_ID } from "./agents/registry.js";
 
 export { conversationStore } from "./memory/conversationStore.js";
@@ -55,6 +56,24 @@ export function useAI({ agentId = null, conversationId = null, lang = "en" } = {
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
+  // Re-run the last user turn for a fresh answer: drop the last user message and
+  // everything after it, then re-send that text so a new response is generated.
+  const regenerate = useCallback(() => {
+    if (busy || !convoId) return;
+    const convo = conversationStore.get(convoId);
+    if (!convo?.messages?.length) return;
+    let cut = -1;
+    for (let i = convo.messages.length - 1; i >= 0; i--) {
+      if (convo.messages[i].role === "user") { cut = i; break; }
+    }
+    if (cut < 0) return;
+    const text = textOf(convo.messages[cut]);
+    convo.messages = convo.messages.slice(0, cut);
+    conversationStore.save(convo);
+    setMessages(convo.messages);
+    send(text);
+  }, [busy, convoId, send]);
+
   const reset = useCallback(() => {
     stop(); setConvoId(null); setMessages([]); setStreamText(""); setError(null);
     setAgent(agentId ? getAgent(agentId) : null);
@@ -67,5 +86,5 @@ export function useAI({ agentId = null, conversationId = null, lang = "en" } = {
     setAgent(c.agentId ? getAgent(c.agentId) : null);
   }, []);
 
-  return { messages, streamText, busy, error, agent, conversationId: convoId, send, stop, reset, load };
+  return { messages, streamText, busy, error, agent, conversationId: convoId, send, stop, reset, load, regenerate };
 }
