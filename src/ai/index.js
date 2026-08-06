@@ -7,6 +7,7 @@ import { textOf } from "./models/message.js";
 import { getAgent, listAgents, DEFAULT_AGENT_ID } from "./agents/registry.js";
 
 export { conversationStore } from "./memory/conversationStore.js";
+export { responseCache } from "./memory/responseCache.js";
 export { profileMemory } from "./memory/profileMemory.js";
 export { aiAnalytics } from "./analytics/aiAnalytics.js";
 export { voice } from "./voice/speech.js";

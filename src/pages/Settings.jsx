@@ -149,7 +149,10 @@ export default function Settings() {
               ? <Icon name="RefreshCw" size={18} style={{ color: T.inkFaint, animation: "ag-spin 1s linear infinite" }} />
               : <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />}
           </Row>
-          <Row icon="Upload" label={tc({ en: "Restore data", hi: "डेटा पुनर्स्थापित", bn: "ডেটা পুনরুদ্ধার" })} onClick={() => restoreRef.current?.click()} last>
+          <Row icon="Upload" label={tc({ en: "Restore data", hi: "डेटा पुनर्स्थापित", bn: "ডেটা পুনরুদ্ধার" })} onClick={() => restoreRef.current?.click()}>
+            <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
+          </Row>
+          <Row icon="Database" label={tc({ en: "Storage & data", hi: "स्टोरेज और डेटा", bn: "স্টোরেজ ও ডেটা" })} onClick={() => push({ kind: "storage" })} last>
             <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
           </Row>
           <input ref={restoreRef} type="file" accept=".json" onChange={handleRestore} style={{ display: "none" }} />

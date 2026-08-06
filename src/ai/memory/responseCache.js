@@ -46,6 +46,10 @@ export const responseCache = {
     persist(entries.slice(0, MAX));
   },
 
+  count() {
+    return load().length;
+  },
+
   clear() {
     storage.remove(KEY);
   },

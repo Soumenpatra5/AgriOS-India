@@ -62,4 +62,14 @@ export const reminderService = {
       }
     }
   },
+
+  count() {
+    return Object.keys(getAll()).length;
+  },
+
+  clear() {
+    for (const id of timers.keys()) clearTimeout(timers.get(id));
+    timers.clear();
+    storage.remove(KEY);
+  },
 };
