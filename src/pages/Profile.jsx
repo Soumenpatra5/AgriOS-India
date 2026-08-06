@@ -5,6 +5,7 @@ import { useApp } from "../store/AppStore.jsx";
 import { PROFILE_ITEMS } from "../constants/content.js";
 import { initials } from "../utils/format.js";
 import { useState, useEffect } from "react";
+import { pendingSyncCount, flushNow } from "../services/firebase/syncManager.js";
 
 /* Cheap env check — avoids importing firebase/config (and the Firestore SDK)
    into this page chunk just to know whether cloud sync exists. */
