@@ -31,7 +31,7 @@ try {
   /* Firebase SDK unavailable — fall back to plain push handler below */
 }
 
-const CACHE = "agrios-v2";
+const CACHE = "agrios-v3";
 /* Core shell precached at install so the app launches offline on first run. */
 const SHELL = [
   "/", "/index.html", "/manifest.json",
@@ -42,7 +42,12 @@ self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {})
   );
-  self.skipWaiting();
+  // Do NOT skipWaiting here — the new worker waits so the app can prompt the
+  // user, then activates on demand via the SKIP_WAITING message below.
+});
+
+self.addEventListener("message", (e) => {
+  if (e.data === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {

@@ -5,6 +5,7 @@ import BottomNav from "./BottomNav.jsx";
 import { ToastHost, Spinner } from "../components/index.js";
 import Icon from "../components/Icon.jsx";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
+import UpdateBanner from "../components/UpdateBanner.jsx";
 
 /* Core screens loaded eagerly (always visible on every session) */
 import Splash from "../pages/Splash.jsx";
@@ -233,6 +234,7 @@ export default function ScreenRouter() {
       <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg }}>
         {!online && <OfflineBar tc={tc} />}
         <Flow />
+        <UpdateBanner />
         <ToastHost />
       </div>
     );
@@ -256,6 +258,7 @@ export default function ScreenRouter() {
         </ErrorBoundary>
       </div>
       <BottomNav />
+      <UpdateBanner />
       <ToastHost />
     </div>
   );
