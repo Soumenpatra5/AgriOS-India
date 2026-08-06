@@ -23,7 +23,7 @@ export default function Market() {
   return (
     <>
       <AppBar title={t("marketTitle")} large action={
-        <button onClick={() => push({ kind: "mandiPrices" })} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8, cursor: "pointer", color: T.ink, display: "flex" }}>
+        <button onClick={() => push({ kind: "mandiPrices" })} aria-label={tc({ en: "Search prices", hi: "भाव खोजें", bn: "দর খুঁজুন" })} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8, cursor: "pointer", color: T.ink, display: "flex" }}>
           <Icon name="Search" size={19} />
         </button>
       } />

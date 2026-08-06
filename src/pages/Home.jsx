@@ -116,6 +116,7 @@ export default function Home() {
           <div style={{ fontFamily: T.display, fontSize: 20, fontWeight: 700, color: T.ink }}>{t(greetingKey())}, {name}</div>
         </div>
         <button onClick={() => openFeature("Notifications", "Alerts, reminders and advisories.", "Bell", "orange")}
+          aria-label={tc({ en: "Notifications", hi: "सूचनाएँ", bn: "বিজ্ঞপ্তি" })}
           style={{ position: "relative", background: T.surface, border: `1px solid ${T.line}`, borderRadius: 13, padding: 9, cursor: "pointer", color: T.ink, display: "flex" }}>
           <Icon name="Bell" size={20} />
           <span style={{ position: "absolute", top: 8, right: 9, width: 7, height: 7, borderRadius: "50%", background: T.red, border: `2px solid ${T.surface}` }} />
@@ -142,7 +143,7 @@ export default function Home() {
                 padding: "7px 12px", cursor: "pointer", fontFamily: T.body, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>
               Allow
             </button>
-            <button onClick={handleNotifDismiss}
+            <button onClick={handleNotifDismiss} aria-label="Dismiss"
               style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4, flexShrink: 0 }}>
               <Icon name="X" size={16} />
             </button>
@@ -165,7 +166,7 @@ export default function Home() {
                 padding: "7px 12px", cursor: "pointer", fontFamily: T.body, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>
               {tc({ en: "Install", hi: "इंस्टॉल", bn: "ইনস্টল" })}
             </button>
-            <button onClick={handleInstallDismiss}
+            <button onClick={handleInstallDismiss} aria-label="Dismiss"
               style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4, flexShrink: 0 }}>
               <Icon name="X" size={16} />
             </button>

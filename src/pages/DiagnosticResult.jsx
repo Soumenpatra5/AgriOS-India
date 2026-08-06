@@ -267,9 +267,9 @@ export default function DiagnosticResult({ record }) {
       <AppBar title={tc({en:"Diagnosis Result", hi:"निदान परिणाम", bn:"রোগ নির্ণয়ের ফলাফল"})} onBack={pop}
         action={
           <div style={{ display: "flex", gap: 8 }}>
-            <HdrBtn icon="Share2" onClick={share} />
-            <HdrBtn icon="FileDown" onClick={() => reportService.downloadJson(record)} />
-            <HdrBtn icon="Printer" onClick={() => reportService.print(record)} />
+            <HdrBtn icon="Share2" label="Share" onClick={share} />
+            <HdrBtn icon="FileDown" label="Download report" onClick={() => reportService.downloadJson(record)} />
+            <HdrBtn icon="Printer" label="Print report" onClick={() => reportService.print(record)} />
           </div>
         } />
 
@@ -362,9 +362,9 @@ function EmptySection({ text }) {
   return <p style={{ fontSize: 13.5, color: T.inkSoft, margin: 0, padding: "8px 0" }}>{text}</p>;
 }
 
-function HdrBtn({ icon, onClick }) {
+function HdrBtn({ icon, onClick, label }) {
   return (
-    <button onClick={onClick} style={{ background: T.surface, border: `1px solid ${T.line}`,
+    <button onClick={onClick} aria-label={label} style={{ background: T.surface, border: `1px solid ${T.line}`,
       borderRadius: 12, padding: 8, cursor: "pointer", color: T.ink, display: "flex" }}>
       <Icon name={icon} size={17} />
     </button>

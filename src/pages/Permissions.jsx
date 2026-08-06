@@ -54,7 +54,7 @@ export default function Permissions() {
   return (
     <>
       <AppBar title={tc({ en: "Permissions", hi: "अनुमतियाँ", bn: "অনুমতি" })} onBack={pop}
-        action={<button onClick={refresh} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8, cursor: "pointer", color: T.ink, display: "flex" }}><Icon name="RefreshCw" size={18} /></button>} />
+        action={<button onClick={refresh} aria-label="Refresh" style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8, cursor: "pointer", color: T.ink, display: "flex" }}><Icon name="RefreshCw" size={18} /></button>} />
       <div style={{ padding: "4px 16px 28px", display: "flex", flexDirection: "column", gap: 12, animation: "ag-fade .25s var(--ag-ease)" }}>
         {PERMS.map((p, i) => {
           const st = STATE_LABEL[p.state] || STATE_LABEL.unknown;

@@ -220,7 +220,7 @@ function CropCard({ inst, onDelete }) {
   return (
     <div style={{ minWidth: 162, background: T.surface, border: `1px solid ${T.line}`,
       borderRadius: T.rLg, padding: 14, flexShrink: 0, position: "relative" }}>
-      <button onClick={onDelete}
+      <button onClick={onDelete} aria-label="Remove crop"
         style={{ position: "absolute", top: 8, right: 8, background: "none", border: "none",
           cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
         <Icon name="X" size={14} />

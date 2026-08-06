@@ -64,7 +64,7 @@ export default function Profile() {
   return (
     <>
       <AppBar title={t("profileTitle")} large action={
-        <button onClick={() => push({ kind: "settings" })} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8, cursor: "pointer", color: T.ink, display: "flex" }}>
+        <button onClick={() => push({ kind: "settings" })} aria-label={tc({ en: "Settings", hi: "सेटिंग्स", bn: "সেটিংস" })} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8, cursor: "pointer", color: T.ink, display: "flex" }}>
           <Icon name="Settings" size={19} />
         </button>
       } />
