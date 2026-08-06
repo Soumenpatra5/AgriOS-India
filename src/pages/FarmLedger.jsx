@@ -133,7 +133,12 @@ export default function FarmLedger() {
           <div style={{ textAlign: "center", padding: "52px 0", color: T.inkSoft }}>
             <Icon name="Receipt" size={36} style={{ color: T.inkFaint, display: "block", margin: "0 auto 12px" }} />
             <div style={{ fontSize: 15, fontWeight: 600 }}>{tc({en:"No entries yet",hi:"अभी कोई प्रविष्टि नहीं",bn:"এখনও কোনো এন্ট্রি নেই"})}</div>
-            <div style={{ fontSize: 13, color: T.inkFaint, marginTop: 4 }}>{tc({en:"Tap + Add to record income or expenses",hi:"आय या खर्च दर्ज करने के लिए + जोड़ें दबाएं",bn:"আয় বা ব্যয় লিখতে + যোগ করুন টিপুন"})}</div>
+            <div style={{ fontSize: 13, color: T.inkFaint, marginTop: 4, maxWidth: 260, marginLeft: "auto", marginRight: "auto", lineHeight: 1.5 }}>{tc({en:"Track every rupee — record your first income or expense to see your monthly balance.",hi:"हर रुपया ट्रैक करें — मासिक बैलेंस देखने के लिए अपनी पहली आय या खर्च दर्ज करें।",bn:"প্রতিটি টাকা ট্র্যাক করুন — মাসিক ব্যালেন্স দেখতে আপনার প্রথম আয় বা ব্যয় লিখুন।"})}</div>
+            <button onClick={() => setAddOpen(true)}
+              style={{ marginTop: 18, display: "inline-flex", alignItems: "center", gap: 7, padding: "11px 20px", borderRadius: T.pill,
+                background: T.primary, color: T.onPrimary, border: "none", cursor: "pointer", fontFamily: T.body, fontSize: 14, fontWeight: 600 }}>
+              <Icon name="Plus" size={16} /> {tc({en:"Add first entry",hi:"पहली प्रविष्टि जोड़ें",bn:"প্রথম এন্ট্রি যোগ করুন"})}
+            </button>
           </div>
         ) : (
           <Card pad={0}>

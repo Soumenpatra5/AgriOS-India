@@ -99,7 +99,9 @@ export default function DiagnosticHistory() {
           <EmptyState icon="History" title={tc({en:"No diagnoses yet", hi:"अभी कोई निदान नहीं", bn:"এখনও কোনো রোগ নির্ণয় নেই"})}
             body={records.length === 0
               ? tc({en:"Start your first AI diagnosis by selecting a domain from the Diagnostics home.", hi:"डायग्नोस्टिक्स होम से एक श्रेणी चुनकर अपना पहला AI निदान शुरू करें।", bn:"ডায়াগনস্টিক্স হোম থেকে একটি বিভাগ নির্বাচন করে আপনার প্রথম AI রোগ নির্ণয় শুরু করুন।"})
-              : tc({en:"No records match the selected filters.", hi:"चयनित फ़िल्टर से कोई रिकॉर्ड मेल नहीं खाता।", bn:"নির্বাচিত ফিল্টারের সাথে কোনো রেকর্ড মেলেনি।"})} />
+              : tc({en:"No records match the selected filters.", hi:"चयनित फ़िल्टर से कोई रिकॉर्ड मेल नहीं खाता।", bn:"নির্বাচিত ফিল্টারের সাথে কোনো রেকর্ড মেলেনি।"})}
+            action={records.length === 0 ? tc({en:"Start a diagnosis", hi:"निदान शुरू करें", bn:"রোগ নির্ণয় শুরু করুন"}) : undefined}
+            onAction={records.length === 0 ? () => push({ kind: "diagnosticsHome" }) : undefined} />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {filtered.map((r) => (
