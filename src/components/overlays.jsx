@@ -60,17 +60,20 @@ export function BottomSheet({ open, onClose, title, children, footer }) {
   );
 }
 
-/* Supports two call styles:
+/* Supports three call styles:
    - Simple:  <Dialog body="…" onConfirm={fn} confirmLabel danger /> — renders a
      Cancel + Confirm pair.
    - Actions: <Dialog actions={[{label,variant,onClick}, …]}>body</Dialog> —
-     renders a custom button row; each button runs its onClick then closes. */
+     renders a custom button row; each button runs its onClick then closes.
+   - Custom:  <Dialog>…own markup incl. buttons…</Dialog> — with no actions and
+     no onConfirm, renders only the children (no default button row). */
 export function Dialog({ open, onClose, title, body, children, actions, confirmLabel = "Confirm", cancelLabel = "Cancel", onConfirm, danger, icon }) {
   useLockScroll(open);
   useEscClose(open, onClose);
   const trapRef = useFocusTrap(open);
   if (!open) return null;
   const content = body ?? children;
+  const hasButtons = !!(actions?.length || onConfirm);
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 85, background: T.scrim,
       display: "grid", placeItems: "center", padding: 24, animation: "ag-fade .18s var(--ag-ease)" }}>
@@ -83,21 +86,23 @@ export function Dialog({ open, onClose, title, body, children, actions, confirmL
             <Icon name={icon} size={24} />
           </div>
         )}
-        <div style={{ fontFamily: T.display, fontSize: 19, fontWeight: 700, marginBottom: 7 }}>{title}</div>
-        {content && <div style={{ fontSize: 13.5, color: T.inkSoft, lineHeight: 1.55, marginBottom: 20 }}>{content}</div>}
-        <div style={{ display: "flex", gap: 10 }}>
-          {actions?.length ? (
-            actions.map((a, i) => (
-              <Button key={i} full variant={a.variant || (i === actions.length - 1 ? "primary" : "outline")}
-                onClick={() => { a.onClick?.(); onClose?.(); }}>{a.label}</Button>
-            ))
-          ) : (
-            <>
-              <Button variant="outline" full onClick={onClose}>{cancelLabel}</Button>
-              <Button variant={danger ? "danger" : "primary"} full onClick={() => { onConfirm?.(); onClose?.(); }}>{confirmLabel}</Button>
-            </>
-          )}
-        </div>
+        {title && <div style={{ fontFamily: T.display, fontSize: 19, fontWeight: 700, marginBottom: 7 }}>{title}</div>}
+        {content && <div style={{ fontSize: 13.5, color: T.inkSoft, lineHeight: 1.55, marginBottom: hasButtons ? 20 : 0 }}>{content}</div>}
+        {hasButtons && (
+          <div style={{ display: "flex", gap: 10 }}>
+            {actions?.length ? (
+              actions.map((a, i) => (
+                <Button key={i} full variant={a.variant || (i === actions.length - 1 ? "primary" : "outline")}
+                  onClick={() => { a.onClick?.(); onClose?.(); }}>{a.label}</Button>
+              ))
+            ) : (
+              <>
+                <Button variant="outline" full onClick={onClose}>{cancelLabel}</Button>
+                <Button variant={danger ? "danger" : "primary"} full onClick={() => { onConfirm?.(); onClose?.(); }}>{confirmLabel}</Button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
