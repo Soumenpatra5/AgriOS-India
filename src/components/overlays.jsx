@@ -60,11 +60,17 @@ export function BottomSheet({ open, onClose, title, children, footer }) {
   );
 }
 
-export function Dialog({ open, onClose, title, body, confirmLabel = "Confirm", cancelLabel = "Cancel", onConfirm, danger, icon }) {
+/* Supports two call styles:
+   - Simple:  <Dialog body="…" onConfirm={fn} confirmLabel danger /> — renders a
+     Cancel + Confirm pair.
+   - Actions: <Dialog actions={[{label,variant,onClick}, …]}>body</Dialog> —
+     renders a custom button row; each button runs its onClick then closes. */
+export function Dialog({ open, onClose, title, body, children, actions, confirmLabel = "Confirm", cancelLabel = "Cancel", onConfirm, danger, icon }) {
   useLockScroll(open);
   useEscClose(open, onClose);
   const trapRef = useFocusTrap(open);
   if (!open) return null;
+  const content = body ?? children;
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 85, background: T.scrim,
       display: "grid", placeItems: "center", padding: 24, animation: "ag-fade .18s var(--ag-ease)" }}>
@@ -78,10 +84,19 @@ export function Dialog({ open, onClose, title, body, confirmLabel = "Confirm", c
           </div>
         )}
         <div style={{ fontFamily: T.display, fontSize: 19, fontWeight: 700, marginBottom: 7 }}>{title}</div>
-        {body && <div style={{ fontSize: 13.5, color: T.inkSoft, lineHeight: 1.55, marginBottom: 20 }}>{body}</div>}
+        {content && <div style={{ fontSize: 13.5, color: T.inkSoft, lineHeight: 1.55, marginBottom: 20 }}>{content}</div>}
         <div style={{ display: "flex", gap: 10 }}>
-          <Button variant="outline" full onClick={onClose}>{cancelLabel}</Button>
-          <Button variant={danger ? "danger" : "primary"} full onClick={() => { onConfirm?.(); onClose?.(); }}>{confirmLabel}</Button>
+          {actions?.length ? (
+            actions.map((a, i) => (
+              <Button key={i} full variant={a.variant || (i === actions.length - 1 ? "primary" : "outline")}
+                onClick={() => { a.onClick?.(); onClose?.(); }}>{a.label}</Button>
+            ))
+          ) : (
+            <>
+              <Button variant="outline" full onClick={onClose}>{cancelLabel}</Button>
+              <Button variant={danger ? "danger" : "primary"} full onClick={() => { onConfirm?.(); onClose?.(); }}>{confirmLabel}</Button>
+            </>
+          )}
         </div>
       </div>
     </div>
