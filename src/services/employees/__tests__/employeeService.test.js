@@ -146,4 +146,29 @@ describe("employeeService — WF-1 profile logic", () => {
       await clearEmployees();
     });
   });
+
+  describe("payroll (WF-3)", () => {
+    it("computeGross pays daily-wage employees per worked day + overtime", () => {
+      const e = { type: "daily_wage", dailyWage: 400, overtimeRate: 60 };
+      const g = employeeService.computeGross(e, 20, 3);
+      expect(g.basis).toBe("daily");
+      expect(g.base).toBe(8000);       // 20 × 400
+      expect(g.overtime).toBe(180);    // 3 × 60
+      expect(g.gross).toBe(8180);
+    });
+
+    it("computeGross pays monthly employees their salary + overtime", () => {
+      const e = { type: "permanent", monthlySalary: 15000, overtimeRate: 100 };
+      const g = employeeService.computeGross(e, 22, 2);
+      expect(g.basis).toBe("monthly");
+      expect(g.base).toBe(15000);
+      expect(g.overtime).toBe(200);
+      expect(g.gross).toBe(15200);
+    });
+
+    it("computeNet applies bonus/allowance minus advance/deduction", () => {
+      expect(employeeService.computeNet({ gross: 8000, bonus: 500, allowance: 200, advance: 1000, deduction: 300 })).toBe(7400);
+      expect(employeeService.computeNet({ gross: 5000 })).toBe(5000);
+    });
+  });
 });

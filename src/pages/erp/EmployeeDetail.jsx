@@ -6,6 +6,7 @@ import { useApp } from "../../store/AppStore.jsx";
 import {
   employeeService, EMPLOYEE_TYPES, DEPARTMENTS, STATUSES, GENDERS,
 } from "../../services/employees/employeeService.js";
+import { paymentService } from "../../services/employees/paymentService.js";
 import { farmService } from "../../services/farm/farmService.js";
 import { rupee } from "../../utils/format.js";
 
@@ -44,6 +45,7 @@ const EMPLOYMENT = [
   { key: "probation", label: "On Probation", type: "select", options: [{ id: "yes", label: "Yes" }, { id: "no", label: "No" }] },
   { key: "dailyWage", label: "Daily Wage (₹)", type: "number", fmt: (v) => (v ? rupee(Number(v)) : "—") },
   { key: "monthlySalary", label: "Monthly Salary (₹)", type: "number", fmt: (v) => (v ? rupee(Number(v)) : "—") },
+  { key: "overtimeRate", label: "Overtime Rate (₹/hr)", type: "number", fmt: (v) => (v ? rupee(Number(v)) : "—") },
   { key: "exitDate", label: "Exit Date", type: "date", fmt: fmtDate },
   { key: "exitReason", label: "Exit Reason" },
 ];
@@ -54,6 +56,7 @@ export default function EmployeeDetail({ id }) {
   const [farms, setFarms] = useState([]);
   const [todayAtt, setTodayAtt] = useState(null);
   const [att, setAtt] = useState(null);      // month attendance summary
+  const [payments, setPayments] = useState([]);
   const [tab, setTab] = useState("Overview");
   const [editSection, setEditSection] = useState(null); // "personal" | "employment"
   const [form, setForm] = useState({});
@@ -65,6 +68,7 @@ export default function EmployeeDetail({ id }) {
     const today = new Date().toISOString().slice(0, 10);
     employeeService.getAttendance(id).then((rows) => setTodayAtt(rows.find((r) => r.date === today)?.status || null));
     employeeService.monthAttendance(id, today.slice(0, 7)).then(setAtt);
+    paymentService.forEmployee(id).then(setPayments);
   }, [id, tick]);
 
   const farmName = useMemo(() => farms.find((f) => f.id === emp?.farmId)?.name, [farms, emp]);
@@ -128,7 +132,7 @@ export default function EmployeeDetail({ id }) {
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 8, padding: "16px 16px 4px", overflowX: "auto" }}>
-        {["Overview", "Personal", "Employment", "Attendance"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
+        {["Overview", "Personal", "Employment", "Attendance", "Payments"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
       </div>
 
       <div style={{ padding: "8px 16px 32px" }}>
@@ -182,6 +186,34 @@ export default function EmployeeDetail({ id }) {
                         {(r.checkIn || r.checkOut) ? <span style={{ fontWeight: 400, color: T.inkSoft }}> · {r.checkIn || "—"}–{r.checkOut || "—"}</span> : ""}
                         {r.overtimeHours ? <span style={{ fontWeight: 400, color: T.inkSoft }}> · OT {r.overtimeHours}h</span> : ""}
                       </span>
+                    </div>
+                  ))}
+                </Card>}
+          </div>
+        )}
+
+        {tab === "Payments" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Card style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <InfoRow label="Daily wage" value={emp.dailyWage ? rupee(Number(emp.dailyWage)) : "—"} first />
+              <InfoRow label="Monthly salary" value={emp.monthlySalary ? rupee(Number(emp.monthlySalary)) : "—"} />
+              <InfoRow label="Overtime rate" value={emp.overtimeRate ? `${rupee(Number(emp.overtimeRate))}/hr` : "—"} />
+              <InfoRow label="Total paid" value={rupee(payments.filter((p) => p.status === "paid").reduce((s, p) => s + (Number(p.net) || 0), 0))} />
+            </Card>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Payment history</div>
+            {payments.length === 0
+              ? <div style={{ textAlign: "center", padding: "24px 0", color: T.inkFaint, fontSize: 13 }}>No payments recorded yet — use the Wages tab to pay.</div>
+              : <Card pad={6}>
+                  {payments.map((p, i) => (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 8px", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 700, color: T.ink }}>{rupee(Number(p.net))}</div>
+                        <div style={{ fontSize: 11.5, color: T.inkSoft }}>
+                          {fmtDate(p.date)} · {(p.method || "").toUpperCase()}{p.period ? ` · ${p.period}` : ""}
+                          {p.reference ? ` · ${p.reference}` : ""}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: p.status === "paid" ? T.primary : T.orange, background: p.status === "paid" ? T.primarySoft : T.orangeSoft, padding: "2px 8px", borderRadius: 6 }}>{(p.status || "paid").toUpperCase()}</span>
                     </div>
                   ))}
                 </Card>}

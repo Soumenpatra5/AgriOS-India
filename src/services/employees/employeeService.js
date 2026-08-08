@@ -238,8 +238,34 @@ export const employeeService = {
     for (const e of list) {
       const rows = (await attendance.getBy("employeeId", e.id)).filter((r) => r.date.startsWith(yearMonth));
       const days = rows.reduce((s, r) => s + this.workedValue(r.status), 0);
-      out.push({ employee: e, daysWorked: days, wage: days * (Number(e.dailyWage) || 0) });
+      const overtimeHours = rows.reduce((s, r) => s + (Number(r.overtimeHours) || 0), 0);
+      out.push({ employee: e, daysWorked: days, overtimeHours, ...this.computeGross(e, days, overtimeHours) });
     }
     return out;
   },
+
+  /* Gross pay for a month (spec §10). Daily-wage employees are paid per worked
+     day; monthly-salary employees get their salary. Overtime adds on both. */
+  computeGross(e, daysWorked, overtimeHours = 0) {
+    const daily = Number(e.dailyWage) || 0;
+    const salary = Number(e.monthlySalary) || 0;
+    const otRate = Number(e.overtimeRate) || 0;
+    const overtime = overtimeHours * otRate;
+    const monthly = e.type !== "daily_wage" && salary > 0;
+    const base = monthly ? salary : daysWorked * daily;
+    return { basis: monthly ? "monthly" : "daily", base, overtime, gross: base + overtime };
+  },
+
+  /* Net payable after per-payment adjustments. */
+  computeNet({ gross = 0, bonus = 0, allowance = 0, advance = 0, deduction = 0 }) {
+    return (Number(gross) || 0) + (Number(bonus) || 0) + (Number(allowance) || 0)
+      - (Number(advance) || 0) - (Number(deduction) || 0);
+  },
 };
+
+export const PAYMENT_METHODS = [
+  { id: "cash", label: "Cash" },
+  { id: "bank", label: "Bank Transfer" },
+  { id: "upi",  label: "UPI" },
+  { id: "other", label: "Other" },
+];

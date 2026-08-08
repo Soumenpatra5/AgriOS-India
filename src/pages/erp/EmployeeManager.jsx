@@ -4,7 +4,8 @@ import { AppBar, Button, Chip, Card } from "../../components/index.js";
 import Icon from "../../components/Icon.jsx";
 import { BottomSheet, Input, Dropdown, Dialog } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
-import { employeeService, EMPLOYEE_TYPES, DEPARTMENTS, ATTENDANCE_STATUSES } from "../../services/employees/employeeService.js";
+import { employeeService, EMPLOYEE_TYPES, DEPARTMENTS, ATTENDANCE_STATUSES, PAYMENT_METHODS } from "../../services/employees/employeeService.js";
+import { paymentService } from "../../services/employees/paymentService.js";
 import { rupee } from "../../utils/format.js";
 import StatTile from "../../components/erp/StatTile.jsx";
 import { EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
@@ -29,6 +30,9 @@ export default function EmployeeManager() {
   const [summary, setSummary] = useState(null);
   const [markEmp, setMarkEmp] = useState(null);      // employee being detail-marked
   const [markForm, setMarkForm] = useState({});
+  const [paid, setPaid] = useState({ paid: 0, pending: 0 });
+  const [payRow, setPayRow] = useState(null);        // wage row being paid
+  const [payForm, setPayForm] = useState({});
 
   const designationOpts = employeeService.designations().map((d) => ({ value: d.id, label: d.label }));
 
@@ -37,7 +41,21 @@ export default function EmployeeManager() {
     employeeService.todayStatus().then(setTodayMap);
     employeeService.monthWages(undefined, ymNow()).then(setWages);
     employeeService.attendanceSummary().then(setSummary);
+    paymentService.monthTotals(ymNow()).then(setPaid);
   }, [tick]);
+
+  const openPay = (w) => {
+    setPayForm({ bonus: "", allowance: "", advance: "", deduction: "", method: "cash", reference: "", notes: "", gross: w.gross });
+    setPayRow(w);
+  };
+  const payNet = employeeService.computeNet({ gross: payRow?.gross || 0, ...payForm });
+  const savePay = async () => {
+    await paymentService.add({
+      employeeId: payRow.employee.id, employeeName: payRow.employee.name,
+      period: ymNow(), gross: payRow.gross, ...payForm, net: payNet, status: "paid",
+    });
+    setPayRow(null); refresh(); toast("Payment recorded", "success");
+  };
 
   const openMark = async (e) => {
     const rows = await employeeService.getAttendance(e.id);
@@ -167,21 +185,32 @@ export default function EmployeeManager() {
           );
         })}
 
+        {tab === "Wages" && employees.length > 0 && (
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, marginBottom: 4 }}>
+            <AttPill label="Gross this month" value={rupee(wages.reduce((s, w) => s + w.gross, 0))} fg={T.ink} bg={T.surface2} />
+            <AttPill label="Paid" value={rupee(paid.paid)} fg={T.primary} bg={T.primarySoft} />
+          </div>
+        )}
         {tab === "Wages" && (
           wages.length === 0
             ? (employees.length > 0 && <EmptyHint icon="Banknote" text="Mark attendance to build this month's wage sheet" />)
             : wages.map((w) => (
               <Card key={w.employee.id} pad={13}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{w.employee.name}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.employee.name}</div>
                     <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
-                      {w.daysWorked} day{w.daysWorked !== 1 ? "s" : ""} worked this month
-                      {w.employee.dailyWage ? ` × ${rupee(Number(w.employee.dailyWage))}` : " · set daily wage to compute"}
+                      {w.basis === "monthly"
+                        ? `Monthly salary${w.employee.monthlySalary ? ` ${rupee(Number(w.employee.monthlySalary))}` : " · not set"}`
+                        : `${w.daysWorked} day${w.daysWorked !== 1 ? "s" : ""}${w.employee.dailyWage ? ` × ${rupee(Number(w.employee.dailyWage))}` : " · set wage"}`}
+                      {w.overtime ? ` · +${rupee(w.overtime)} OT` : ""}
                     </div>
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: T.primary, fontFamily: T.display }}>
-                    {rupee(w.wage)}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: T.primary, fontFamily: T.display }}>{rupee(w.gross)}</div>
+                    <button onClick={() => openPay(w)}
+                      style={{ background: T.primarySoft, border: "none", borderRadius: 10, padding: "7px 11px", cursor: "pointer",
+                        color: T.primary, fontSize: 12.5, fontWeight: 700, fontFamily: T.body }}>Pay</button>
                   </div>
                 </div>
               </Card>
@@ -217,6 +246,33 @@ export default function EmployeeManager() {
           <Input label="Remarks" placeholder="Optional" value={markForm.remarks} onChange={(v) => setMarkForm((f) => ({ ...f, remarks: v }))} />
           <Button full onClick={saveMark}>Save attendance</Button>
         </div>
+      </BottomSheet>
+
+      <BottomSheet open={!!payRow} onClose={() => setPayRow(null)} title={payRow ? `Pay · ${payRow.employee.name}` : ""}>
+        {payRow && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderRadius: T.rMd, background: T.surface2 }}>
+              <span style={{ fontSize: 13, color: T.inkSoft }}>Gross ({payRow.basis})</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{rupee(payRow.gross)}</span>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ flex: 1 }}><Input label="Bonus (₹)" type="number" placeholder="0" value={payForm.bonus} onChange={(v) => setPayForm((f) => ({ ...f, bonus: v }))} /></div>
+              <div style={{ flex: 1 }}><Input label="Allowance (₹)" type="number" placeholder="0" value={payForm.allowance} onChange={(v) => setPayForm((f) => ({ ...f, allowance: v }))} /></div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ flex: 1 }}><Input label="Advance (₹)" type="number" placeholder="0" value={payForm.advance} onChange={(v) => setPayForm((f) => ({ ...f, advance: v }))} /></div>
+              <div style={{ flex: 1 }}><Input label="Deduction (₹)" type="number" placeholder="0" value={payForm.deduction} onChange={(v) => setPayForm((f) => ({ ...f, deduction: v }))} /></div>
+            </div>
+            <Dropdown label="Payment method" value={payForm.method} onChange={(v) => setPayForm((f) => ({ ...f, method: v }))}
+              options={PAYMENT_METHODS.map((m) => ({ value: m.id, label: m.label }))} />
+            <Input label="Reference / notes" placeholder="Optional" value={payForm.reference} onChange={(v) => setPayForm((f) => ({ ...f, reference: v }))} />
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 12px", borderRadius: T.rMd, background: T.primarySoft }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.primary }}>Net payable</span>
+              <span style={{ fontFamily: T.display, fontSize: 18, fontWeight: 800, color: T.primary }}>{rupee(payNet)}</span>
+            </div>
+            <Button full onClick={savePay}>Record payment</Button>
+          </div>
+        )}
       </BottomSheet>
 
       <Dialog open={!!delId} title="Remove employee?" onClose={() => setDelId(null)}
