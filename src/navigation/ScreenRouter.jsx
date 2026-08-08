@@ -110,6 +110,7 @@ const MonitoringDashboard = lazy(() => import("../pages/mlops/MonitoringDashboar
 const ApiKeyManager       = lazy(() => import("../pages/ApiKeyManager.jsx"));
 const StorageManager      = lazy(() => import("../pages/StorageManager.jsx"));
 const Calculator          = lazy(() => import("../pages/Calculator.jsx"));
+const EmployeeDetail      = lazy(() => import("../pages/erp/EmployeeDetail.jsx"));
 
 const TAB_SCREENS = { home: Home, ai: AIHub, market: Market, services: Services, profile: Profile };
 
@@ -154,6 +155,7 @@ function StackScreen({ item }) {
   if (item.kind === "erpInventory")         return <InventoryManager />;
   if (item.kind === "erpAssets")            return <AssetManager />;
   if (item.kind === "erpEmployees")         return <EmployeeManager />;
+  if (item.kind === "employeeDetail")       return <EmployeeDetail {...(item.props || {})} />;
   if (item.kind === "erpCrm")               return <CRMManager />;
   if (item.kind === "erpProduction")        return <ProductionDashboard />;
   if (item.kind === "erpReports")           return <ReportsCenter />;
