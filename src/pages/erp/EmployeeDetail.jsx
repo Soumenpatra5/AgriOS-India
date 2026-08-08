@@ -8,6 +8,7 @@ import {
 } from "../../services/employees/employeeService.js";
 import { paymentService } from "../../services/employees/paymentService.js";
 import { leaveService, LEAVE_TYPES, leaveDays } from "../../services/employees/leaveService.js";
+import { documentService, DOC_TYPES } from "../../services/employees/documentService.js";
 import { taskService } from "../../services/tasks/taskService.js";
 import { farmService } from "../../services/farm/farmService.js";
 import { rupee } from "../../utils/format.js";
@@ -67,6 +68,11 @@ export default function EmployeeDetail({ id }) {
   const [form, setForm] = useState({});
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaveForm, setLeaveForm] = useState({ type: "casual", fromDate: "", toDate: "", reason: "" });
+  const [documents, setDocuments] = useState([]);
+  const [docOpen, setDocOpen] = useState(false);
+  const [docForm, setDocForm] = useState({ type: "id_proof", name: "", number: "", issueDate: "", expiryDate: "" });
+  const [docFile, setDocFile] = useState(null);
+  const [docBusy, setDocBusy] = useState(false);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -79,7 +85,20 @@ export default function EmployeeDetail({ id }) {
     leaveService.forEmployee(id).then(setLeaves);
     leaveService.balance(id).then(setBalance);
     taskService.forEmployee(id).then(setTasks);
+    documentService.forEmployee(id).then(setDocuments);
   }, [id, tick]);
+
+  const uploadDoc = async () => {
+    setDocBusy(true);
+    await documentService.add({ employeeId: id, ...docForm }, docFile);
+    setDocBusy(false); setDocOpen(false);
+    setDocForm({ type: "id_proof", name: "", number: "", issueDate: "", expiryDate: "" }); setDocFile(null);
+    setTick((n) => n + 1);
+  };
+  const openDoc = (d) => {
+    const url = d.fileUrl || d.fileData;
+    if (url) window.open(url, "_blank", "noopener");
+  };
 
   const applyLeave = async () => {
     if (!leaveForm.fromDate) return;
@@ -150,7 +169,7 @@ export default function EmployeeDetail({ id }) {
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 8, padding: "16px 16px 4px", overflowX: "auto" }}>
-        {["Overview", "Personal", "Employment", "Attendance", "Payments", "Leave", "Tasks"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
+        {["Overview", "Personal", "Employment", "Attendance", "Payments", "Leave", "Tasks", "Documents"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
       </div>
 
       <div style={{ padding: "8px 16px 32px" }}>
@@ -293,6 +312,49 @@ export default function EmployeeDetail({ id }) {
                 </Card>}
           </div>
         )}
+
+        {tab === "Documents" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{documents.length} document{documents.length !== 1 ? "s" : ""}</div>
+              <button onClick={() => setDocOpen(true)} style={{ background: T.primarySoft, border: "none", borderRadius: 10, padding: "7px 12px", cursor: "pointer", color: T.primary, fontSize: 12.5, fontWeight: 700, fontFamily: T.body, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <Icon name="Upload" size={14} /> Upload
+              </button>
+            </div>
+            {documents.length === 0
+              ? <div style={{ textAlign: "center", padding: "24px 0", color: T.inkFaint, fontSize: 13 }}>No documents yet. Upload IDs, certificates or agreements.</div>
+              : <Card pad={6}>
+                  {documents.map((d, i) => {
+                    const exp = documentService.expiryState(d);
+                    const [efg, ebg] = exp === "expired" ? [T.red, T.redSoft] : exp === "expiring_soon" ? [T.orange, T.orangeSoft] : [T.primary, T.primarySoft];
+                    return (
+                      <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 8px", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 9, background: T.surface2, color: T.inkSoft, display: "grid", placeItems: "center", flexShrink: 0 }}>
+                          <Icon name="FileText" size={16} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.name}</div>
+                          <div style={{ fontSize: 11.5, color: T.inkSoft }}>
+                            {documentService.typeLabel(d.type)}{d.number ? ` · ${d.number}` : ""}
+                            {d.expiryDate ? ` · exp ${fmtDate(d.expiryDate)}` : ""}
+                            {d.status === "verified" ? " · ✓ verified" : ""}
+                          </div>
+                        </div>
+                        {d.expiryDate && <span style={{ fontSize: 10.5, fontWeight: 700, color: efg, background: ebg, padding: "2px 7px", borderRadius: 6, flexShrink: 0 }}>{exp === "expiring_soon" ? "SOON" : exp.toUpperCase()}</span>}
+                        {(d.fileUrl || d.fileData) && (
+                          <button onClick={() => openDoc(d)} aria-label="View" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkSoft, padding: 4, display: "flex" }}><Icon name="Eye" size={16} /></button>
+                        )}
+                        {d.status !== "verified" && (
+                          <button onClick={async () => { await documentService.setStatus(d.id, "verified"); setTick((n) => n + 1); }} aria-label="Verify" style={{ background: "none", border: "none", cursor: "pointer", color: T.primary, padding: 4, display: "flex" }}><Icon name="Check" size={16} /></button>
+                        )}
+                        <button onClick={async () => { await documentService.remove(d.id); setTick((n) => n + 1); }} aria-label="Delete document" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, display: "flex" }}><Icon name="Trash2" size={15} /></button>
+                      </div>
+                    );
+                  })}
+                </Card>}
+            <div style={{ fontSize: 11, color: T.inkFaint, textAlign: "center", lineHeight: 1.5 }}>Files upload to secure cloud storage when online, else saved on this device and synced later.</div>
+          </div>
+        )}
       </div>
 
       {/* edit sheet */}
@@ -326,6 +388,25 @@ export default function EmployeeDetail({ id }) {
           {leaveForm.fromDate && <div style={{ fontSize: 12.5, color: T.inkSoft }}>{leaveDays(leaveForm.fromDate, leaveForm.toDate)} day(s)</div>}
           <Input label="Reason" placeholder="Optional" value={leaveForm.reason} onChange={(v) => setLeaveForm((f) => ({ ...f, reason: v }))} />
           <Button full onClick={applyLeave} disabled={!leaveForm.fromDate}>Submit request</Button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={docOpen} onClose={() => setDocOpen(false)} title="Upload document">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Dropdown label="Document type" value={docForm.type} onChange={(v) => setDocForm((f) => ({ ...f, type: v }))}
+            options={DOC_TYPES.map((t) => ({ value: t.id, label: t.label }))} />
+          <Input label="Name / title" placeholder="e.g. Aadhaar card" value={docForm.name} onChange={(v) => setDocForm((f) => ({ ...f, name: v }))} />
+          <Input label="Document number" placeholder="Optional" value={docForm.number} onChange={(v) => setDocForm((f) => ({ ...f, number: v }))} />
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}><Input label="Issue date" type="date" value={docForm.issueDate} onChange={(v) => setDocForm((f) => ({ ...f, issueDate: v }))} /></div>
+            <div style={{ flex: 1 }}><Input label="Expiry date" type="date" value={docForm.expiryDate} onChange={(v) => setDocForm((f) => ({ ...f, expiryDate: v }))} /></div>
+          </div>
+          <label style={{ display: "block" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft, marginBottom: 7 }}>File</div>
+            <input type="file" accept="image/*,application/pdf" onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+              style={{ width: "100%", fontSize: 13, color: T.ink }} />
+          </label>
+          <Button full onClick={uploadDoc} disabled={docBusy || (!docForm.name && !docFile)}>{docBusy ? "Uploading…" : "Save document"}</Button>
         </div>
       </BottomSheet>
     </>
