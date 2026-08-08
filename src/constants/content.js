@@ -129,7 +129,7 @@ export const SERVICES = [
   { id: "training", title: { en: "Training center", hi: "प्रशिक्षण केंद्र", bn: "প্রশিক্ষণ কেন্দ্র" }, desc: { en: "KVK & skill programs", hi: "KVK और कौशल कार्यक्रम", bn: "KVK ও দক্ষতা কর্মসূচি" }, icon: "GraduationCap", accent: "yellow", kind: "svcMarketplace", props: { category: "training" } },
   { id: "bank", title: { en: "Bank", hi: "बैंक", bn: "ব্যাংক" }, desc: { en: "Loans & accounts", hi: "ऋण और खाते", bn: "ঋণ ও অ্যাকাউন্ট" }, icon: "Building2", accent: "blue" },
   { id: "insurance", title: { en: "Insurance", hi: "बीमा", bn: "বীমা" }, desc: { en: "Crop & livestock cover", hi: "फसल और पशु कवर", bn: "ফসল ও পশু কভার" }, icon: "ShieldCheck", accent: "primary", kind: "svcMarketplace", props: { category: "insurance" } },
-  { id: "labor", title: { en: "Labor", hi: "श्रमिक", bn: "শ্রমিক" }, desc: { en: "Hire farm workers", hi: "खेत मजदूर रखें", bn: "খামার শ্রমিক নিয়োগ করুন" }, icon: "Users", accent: "orange", kind: "svcMarketplace", props: { category: "farmWorker" } },
+  { id: "labor", title: { en: "Labor", hi: "श्रमिक", bn: "শ্রমিক" }, desc: { en: "Workers, attendance & wages", hi: "श्रमिक, हाजिरी और मजदूरी", bn: "শ্রমিক, হাজিরা ও মজুরি" }, icon: "Users", accent: "orange", kind: "erpEmployees" },
   { id: "transport", title: { en: "Transport", hi: "परिवहन", bn: "পরিবহন" }, desc: { en: "Move produce to market", hi: "उपज मंडी पहुँचाएँ", bn: "ফসল বাজারে পৌঁছান" }, icon: "Truck", accent: "yellow", kind: "logisticsHub" },
 ];
 
