@@ -84,4 +84,66 @@ describe("employeeService — WF-1 profile logic", () => {
       await employeeService.remove(rec.id);
     });
   });
+
+  describe("attendance (WF-2)", () => {
+    const clearEmployees = async () => {
+      for (const e of await employeeService.getAll()) await employeeService.remove(e.id);
+    };
+
+    it("workedValue maps statuses to day fractions", () => {
+      expect(employeeService.workedValue("present")).toBe(1);
+      expect(employeeService.workedValue("late")).toBe(1);
+      expect(employeeService.workedValue("overtime")).toBe(1);
+      expect(employeeService.workedValue("halfday")).toBe(0.5);
+      expect(employeeService.workedValue("absent")).toBe(0);
+      expect(employeeService.workedValue("weekly_off")).toBe(0);
+    });
+
+    it("mark stores extra fields and upserts one row per day", async () => {
+      const e = await employeeService.add({ name: "AttTest" });
+      await employeeService.mark(e.id, { status: "present", checkIn: "09:00", overtimeHours: 2 }, "2026-08-10");
+      let rows = await employeeService.getAttendance(e.id);
+      expect(rows[0].checkIn).toBe("09:00");
+      expect(rows[0].overtimeHours).toBe(2);
+      await employeeService.mark(e.id, "absent", "2026-08-10"); // legacy string, same day
+      rows = await employeeService.getAttendance(e.id);
+      expect(rows.filter((r) => r.date === "2026-08-10")).toHaveLength(1);
+      expect(rows.find((r) => r.date === "2026-08-10").status).toBe("absent");
+      await employeeService.remove(e.id);
+    });
+
+    it("monthAttendance aggregates counts, overtime hours and percent", async () => {
+      const e = await employeeService.add({ name: "MonthTest" });
+      await employeeService.mark(e.id, { status: "present" }, "2026-09-01");
+      await employeeService.mark(e.id, { status: "present", overtimeHours: 3 }, "2026-09-02");
+      await employeeService.mark(e.id, { status: "halfday" }, "2026-09-03");
+      await employeeService.mark(e.id, { status: "absent" }, "2026-09-04");
+      await employeeService.mark(e.id, { status: "weekly_off" }, "2026-09-05");
+      const m = await employeeService.monthAttendance(e.id, "2026-09");
+      expect(m.counts.present).toBe(2);
+      expect(m.counts.halfday).toBe(1);
+      expect(m.counts.absent).toBe(1);
+      expect(m.overtimeHours).toBe(3);
+      expect(m.worked).toBe(2.5);        // 2 + 0.5
+      expect(m.workingDays).toBe(4);     // excludes the weekly_off
+      expect(m.percent).toBe(63);        // round(2.5 / 4 * 100)
+      await employeeService.remove(e.id);
+    });
+
+    it("attendanceSummary rolls up today's statuses", async () => {
+      await clearEmployees();
+      const a = await employeeService.add({ name: "SumA" });
+      const b = await employeeService.add({ name: "SumB" });
+      const c = await employeeService.add({ name: "SumC" });
+      await employeeService.mark(a.id, "present");
+      await employeeService.mark(b.id, "absent");
+      // c left unmarked
+      const s = await employeeService.attendanceSummary();
+      expect(s.total).toBe(3);
+      expect(s.present).toBe(1);
+      expect(s.absent).toBe(1);
+      expect(s.notMarked).toBe(1);
+      await clearEmployees();
+    });
+  });
 });

@@ -4,7 +4,7 @@ import { AppBar, Button, Chip, Card } from "../../components/index.js";
 import Icon from "../../components/Icon.jsx";
 import { BottomSheet, Input, Dropdown, Dialog } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
-import { employeeService, EMPLOYEE_TYPES, DEPARTMENTS } from "../../services/employees/employeeService.js";
+import { employeeService, EMPLOYEE_TYPES, DEPARTMENTS, ATTENDANCE_STATUSES } from "../../services/employees/employeeService.js";
 import { rupee } from "../../utils/format.js";
 import StatTile from "../../components/erp/StatTile.jsx";
 import { EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
@@ -26,6 +26,9 @@ export default function EmployeeManager() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(NEW_FORM);
   const [delId, setDelId] = useState(null);
+  const [summary, setSummary] = useState(null);
+  const [markEmp, setMarkEmp] = useState(null);      // employee being detail-marked
+  const [markForm, setMarkForm] = useState({});
 
   const designationOpts = employeeService.designations().map((d) => ({ value: d.id, label: d.label }));
 
@@ -33,7 +36,19 @@ export default function EmployeeManager() {
     employeeService.getAll().then(setEmployees);
     employeeService.todayStatus().then(setTodayMap);
     employeeService.monthWages(undefined, ymNow()).then(setWages);
+    employeeService.attendanceSummary().then(setSummary);
   }, [tick]);
+
+  const openMark = async (e) => {
+    const rows = await employeeService.getAttendance(e.id);
+    const today = rows.find((r) => r.date === new Date().toISOString().slice(0, 10)) || {};
+    setMarkForm({ status: today.status || "present", checkIn: today.checkIn || "", checkOut: today.checkOut || "", overtimeHours: today.overtimeHours || "", remarks: today.remarks || "" });
+    setMarkEmp(e);
+  };
+  const saveMark = async () => {
+    await employeeService.mark(markEmp.id, markForm);
+    setMarkEmp(null); refresh(); toast("Attendance saved", "success");
+  };
 
   const add = async () => {
     if (!form.name) return;
@@ -109,32 +124,48 @@ export default function EmployeeManager() {
           </Card>
         ))}
 
-        {tab === "Attendance" && employees.map((e) => (
-          <Card key={e.id} pad={13}>
-            <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: T.ink, display: "flex", alignItems: "center", gap: 6 }}>
-                  {e.name}
-                  {todayMap[e.id] === "present" && <Pill>PRESENT</Pill>}
-                  {todayMap[e.id] === "halfday" && <Pill fg={T.orange} bg={T.orangeSoft}>HALF DAY</Pill>}
-                  {todayMap[e.id] === "absent"  && <Pill fg={T.red} bg={T.redSoft}>ABSENT</Pill>}
+        {tab === "Attendance" && summary && employees.length > 0 && (
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, marginBottom: 4 }}>
+            <AttPill label="Present" value={summary.present + summary.late + summary.overtime} fg={T.primary} bg={T.primarySoft} />
+            <AttPill label="Absent" value={summary.absent} fg={T.red} bg={T.redSoft} />
+            <AttPill label="Leave" value={summary.leave} fg={T.blue} bg={T.blueSoft} />
+            <AttPill label="Half day" value={summary.halfday} fg={T.orange} bg={T.orangeSoft} />
+            <AttPill label="Not marked" value={summary.notMarked} fg={T.inkSoft} bg={T.surface2} />
+          </div>
+        )}
+
+        {tab === "Attendance" && employees.map((e) => {
+          const st = todayMap[e.id];
+          const meta = st ? ATTENDANCE_STATUSES.find((a) => a.id === st) : null;
+          return (
+            <Card key={e.id} pad={13}>
+              <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: T.ink, display: "flex", alignItems: "center", gap: 6 }}>
+                    {e.name}
+                    {meta && <Pill fg={T[meta.tone] || T.inkSoft} bg={meta.tone === "primary" ? T.primarySoft : meta.tone === "red" ? T.redSoft : meta.tone === "orange" ? T.orangeSoft : meta.tone === "blue" ? T.blueSoft : T.surface2}>{meta.label.toUpperCase()}</Pill>}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>Mark today · tap ⓘ for shift & overtime</div>
                 </div>
-                <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>Mark today's attendance</div>
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                {ATT_BTNS.map((b) => (
-                  <button key={b.status} onClick={() => mark(e.id, b.status)}
-                    style={{ width: 34, height: 34, borderRadius: 10, border: "none", cursor: "pointer",
-                      background: todayMap[e.id] === b.status ? b.fg : b.bg,
-                      color: todayMap[e.id] === b.status ? "#fff" : b.fg,
-                      fontWeight: 800, fontSize: 13, fontFamily: T.body }}>
-                    {b.label}
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {ATT_BTNS.map((b) => (
+                    <button key={b.status} onClick={() => mark(e.id, b.status)} aria-label={b.status}
+                      style={{ width: 34, height: 34, borderRadius: 10, border: "none", cursor: "pointer",
+                        background: st === b.status ? b.fg : b.bg, color: st === b.status ? "#fff" : b.fg,
+                        fontWeight: 800, fontSize: 13, fontFamily: T.body }}>
+                      {b.label}
+                    </button>
+                  ))}
+                  <button onClick={() => openMark(e)} aria-label="Attendance details"
+                    style={{ width: 34, height: 34, borderRadius: 10, border: `1px solid ${T.line}`, cursor: "pointer",
+                      background: T.surface, color: T.inkSoft, display: "grid", placeItems: "center" }}>
+                    <Icon name="Clock" size={16} />
                   </button>
-                ))}
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
 
         {tab === "Wages" && (
           wages.length === 0
@@ -174,6 +205,20 @@ export default function EmployeeManager() {
         </div>
       </BottomSheet>
 
+      <BottomSheet open={!!markEmp} onClose={() => setMarkEmp(null)} title={markEmp ? `Attendance · ${markEmp.name}` : ""}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Dropdown label="Status" value={markForm.status} onChange={(v) => setMarkForm((f) => ({ ...f, status: v }))}
+            options={ATTENDANCE_STATUSES.map((a) => ({ value: a.id, label: a.label }))} />
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}><Input label="Check-in" type="time" value={markForm.checkIn} onChange={(v) => setMarkForm((f) => ({ ...f, checkIn: v }))} /></div>
+            <div style={{ flex: 1 }}><Input label="Check-out" type="time" value={markForm.checkOut} onChange={(v) => setMarkForm((f) => ({ ...f, checkOut: v }))} /></div>
+          </div>
+          <Input label="Overtime hours" type="number" placeholder="0" value={markForm.overtimeHours} onChange={(v) => setMarkForm((f) => ({ ...f, overtimeHours: v }))} />
+          <Input label="Remarks" placeholder="Optional" value={markForm.remarks} onChange={(v) => setMarkForm((f) => ({ ...f, remarks: v }))} />
+          <Button full onClick={saveMark}>Save attendance</Button>
+        </div>
+      </BottomSheet>
+
       <Dialog open={!!delId} title="Remove employee?" onClose={() => setDelId(null)}
         actions={[
           { label: "Cancel", variant: "outline", onClick: () => setDelId(null) },
@@ -182,5 +227,14 @@ export default function EmployeeManager() {
         <div style={{ fontSize: 14, color: T.inkSoft }}>The profile and attendance history will be removed.</div>
       </Dialog>
     </>
+  );
+}
+
+function AttPill({ label, value, fg, bg }) {
+  return (
+    <div style={{ flexShrink: 0, minWidth: 78, background: bg, borderRadius: T.rLg, padding: "10px 12px" }}>
+      <div style={{ fontFamily: T.display, fontSize: 18, fontWeight: 800, color: fg }}>{value}</div>
+      <div style={{ fontSize: 11, color: fg, opacity: .85 }}>{label}</div>
+    </div>
   );
 }

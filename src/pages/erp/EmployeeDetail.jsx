@@ -53,6 +53,7 @@ export default function EmployeeDetail({ id }) {
   const [emp, setEmp] = useState(null);
   const [farms, setFarms] = useState([]);
   const [todayAtt, setTodayAtt] = useState(null);
+  const [att, setAtt] = useState(null);      // month attendance summary
   const [tab, setTab] = useState("Overview");
   const [editSection, setEditSection] = useState(null); // "personal" | "employment"
   const [form, setForm] = useState({});
@@ -63,6 +64,7 @@ export default function EmployeeDetail({ id }) {
     farmService.getAll().then(setFarms);
     const today = new Date().toISOString().slice(0, 10);
     employeeService.getAttendance(id).then((rows) => setTodayAtt(rows.find((r) => r.date === today)?.status || null));
+    employeeService.monthAttendance(id, today.slice(0, 7)).then(setAtt);
   }, [id, tick]);
 
   const farmName = useMemo(() => farms.find((f) => f.id === emp?.farmId)?.name, [farms, emp]);
@@ -126,7 +128,7 @@ export default function EmployeeDetail({ id }) {
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 8, padding: "16px 16px 4px", overflowX: "auto" }}>
-        {["Overview", "Personal", "Employment"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
+        {["Overview", "Personal", "Employment", "Attendance"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
       </div>
 
       <div style={{ padding: "8px 16px 32px" }}>
@@ -155,6 +157,35 @@ export default function EmployeeDetail({ id }) {
               <InfoRow key={f.key} label={f.label} value={displayVal(f)} first={i === 0} />
             ))}
           </Card>
+        )}
+
+        {tab === "Attendance" && att && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft }}>This month</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <MiniStat label="Present" value={att.counts.present + att.counts.late + att.counts.overtime} fg={T.primary} />
+              <MiniStat label="Half day" value={att.counts.halfday} fg={T.orange} />
+              <MiniStat label="Absent" value={att.counts.absent} fg={T.red} />
+              <MiniStat label="Leave" value={att.counts.leave} fg={T.blue} />
+              <MiniStat label="Overtime" value={`${att.overtimeHours}h`} fg={T.ink} />
+              <MiniStat label="Attendance" value={`${att.percent}%`} fg={att.percent >= 75 ? T.primary : T.orange} />
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft, marginTop: 4 }}>History</div>
+            {att.rows.length === 0
+              ? <div style={{ textAlign: "center", padding: "24px 0", color: T.inkFaint, fontSize: 13 }}>No attendance marked this month.</div>
+              : <Card pad={6}>
+                  {att.rows.map((r, i) => (
+                    <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 8px", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
+                      <span style={{ fontSize: 12.5, color: T.inkSoft, width: 76, flexShrink: 0 }}>{fmtDate(r.date)}</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: T.ink }}>
+                        {employeeService.attStatusLabel(r.status)}
+                        {(r.checkIn || r.checkOut) ? <span style={{ fontWeight: 400, color: T.inkSoft }}> · {r.checkIn || "—"}–{r.checkOut || "—"}</span> : ""}
+                        {r.overtimeHours ? <span style={{ fontWeight: 400, color: T.inkSoft }}> · OT {r.overtimeHours}h</span> : ""}
+                      </span>
+                    </div>
+                  ))}
+                </Card>}
+          </div>
         )}
       </div>
 

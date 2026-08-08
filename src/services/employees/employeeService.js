@@ -78,6 +78,21 @@ export const GENDERS = [
   { id: "male", label: "Male" }, { id: "female", label: "Female" }, { id: "other", label: "Other" },
 ];
 
+/* Attendance statuses (spec §6). `worked` = day-fraction paid; `nonWorking`
+   excludes the day from the attendance-% denominator. Legacy rows used only
+   present/halfday/absent — all still valid here. */
+export const ATTENDANCE_STATUSES = [
+  { id: "present",    label: "Present",    short: "P",  tone: "primary", worked: 1 },
+  { id: "halfday",    label: "Half Day",   short: "½",  tone: "orange",  worked: 0.5 },
+  { id: "late",       label: "Late",       short: "L",  tone: "orange",  worked: 1 },
+  { id: "overtime",   label: "Overtime",   short: "OT", tone: "primary", worked: 1 },
+  { id: "absent",     label: "Absent",     short: "A",  tone: "red",     worked: 0 },
+  { id: "leave",      label: "Leave",      short: "LV", tone: "blue",    worked: 0 },
+  { id: "weekly_off", label: "Weekly Off", short: "WO", tone: "faint",   worked: 0, nonWorking: true },
+  { id: "holiday",    label: "Holiday",    short: "H",  tone: "faint",   worked: 0, nonWorking: true },
+];
+const attMeta = (id) => ATTENDANCE_STATUSES.find((a) => a.id === id);
+
 /* Legacy roles kept so pre-WF-1 records and callers keep working. */
 export const ROLES = [
   { id: "manager",    label: "Farm Manager" },
@@ -160,12 +175,20 @@ export const employeeService = {
       || "Worker";
   },
 
-  /* ── Attendance (unchanged behaviour; extended fields land in later phases) ── */
-  async mark(employeeId, status, date = todayStr()) {
+  /* ── Attendance ──
+     `data` may be a status string (legacy) or an object with extra fields
+     (checkIn, checkOut, overtimeHours, remarks). One row per employee/day. */
+  attStatusLabel: (id) => attMeta(id)?.label ?? id ?? "",
+  attStatusShort: (id) => attMeta(id)?.short ?? "",
+  attStatusTone:  (id) => attMeta(id)?.tone ?? "faint",
+  workedValue:    (id) => attMeta(id)?.worked ?? 0,
+
+  async mark(employeeId, data, date = todayStr()) {
+    const fields = typeof data === "string" ? { status: data } : { ...data };
     const rows = await attendance.getBy("employeeId", employeeId);
     const existing = rows.find((r) => r.date === date);
-    if (existing) return attendance.update(existing.id, { status });
-    return attendance.add({ employeeId, date, status }); // present | absent | halfday
+    if (existing) return attendance.update(existing.id, fields);
+    return attendance.add({ employeeId, date, ...fields });
   },
 
   getAttendance: (employeeId) => attendance.getBy("employeeId", employeeId)
@@ -181,13 +204,40 @@ export const employeeService = {
     return map;
   },
 
-  /* Month wage summary from daily wage × days present (half days count 0.5). */
+  /* Today's roll-up for the attendance dashboard (spec §7). */
+  async attendanceSummary(farmId, date = todayStr()) {
+    const list = await this.getAll(farmId);
+    const c = { total: list.length, present: 0, absent: 0, halfday: 0, late: 0, overtime: 0, leave: 0, weekly_off: 0, holiday: 0, notMarked: 0 };
+    await Promise.all(list.map(async (e) => {
+      const rows = await attendance.getBy("employeeId", e.id);
+      const st = rows.find((r) => r.date === date)?.status;
+      if (!st) c.notMarked++;
+      else if (c[st] != null) c[st]++;
+    }));
+    return c;
+  },
+
+  /* One employee's month: status counts, overtime hours, worked days, %. */
+  async monthAttendance(employeeId, yearMonth) {
+    const rows = (await attendance.getBy("employeeId", employeeId))
+      .filter((r) => r.date.startsWith(yearMonth))
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const counts = { present: 0, halfday: 0, late: 0, overtime: 0, absent: 0, leave: 0, weekly_off: 0, holiday: 0 };
+    let overtimeHours = 0;
+    rows.forEach((r) => { if (counts[r.status] != null) counts[r.status]++; overtimeHours += Number(r.overtimeHours) || 0; });
+    const worked = rows.reduce((s, r) => s + this.workedValue(r.status), 0);
+    const workingDays = rows.filter((r) => !attMeta(r.status)?.nonWorking).length;
+    const percent = workingDays ? Math.round((worked / workingDays) * 100) : 0;
+    return { rows, counts, overtimeHours, worked, workingDays, percent };
+  },
+
+  /* Month wage summary. present/late/overtime = 1 day, half day = 0.5. */
   async monthWages(farmId, yearMonth /* "2026-07" */) {
     const list = await this.getAll(farmId);
     const out = [];
     for (const e of list) {
       const rows = (await attendance.getBy("employeeId", e.id)).filter((r) => r.date.startsWith(yearMonth));
-      const days = rows.reduce((s, r) => s + (r.status === "present" ? 1 : r.status === "halfday" ? 0.5 : 0), 0);
+      const days = rows.reduce((s, r) => s + this.workedValue(r.status), 0);
       out.push({ employee: e, daysWorked: days, wage: days * (Number(e.dailyWage) || 0) });
     }
     return out;
