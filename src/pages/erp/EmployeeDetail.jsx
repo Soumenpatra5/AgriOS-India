@@ -7,6 +7,8 @@ import {
   employeeService, EMPLOYEE_TYPES, DEPARTMENTS, STATUSES, GENDERS,
 } from "../../services/employees/employeeService.js";
 import { paymentService } from "../../services/employees/paymentService.js";
+import { leaveService, LEAVE_TYPES, leaveDays } from "../../services/employees/leaveService.js";
+import { taskService } from "../../services/tasks/taskService.js";
 import { farmService } from "../../services/farm/farmService.js";
 import { rupee } from "../../utils/format.js";
 
@@ -57,9 +59,14 @@ export default function EmployeeDetail({ id }) {
   const [todayAtt, setTodayAtt] = useState(null);
   const [att, setAtt] = useState(null);      // month attendance summary
   const [payments, setPayments] = useState([]);
+  const [leaves, setLeaves] = useState([]);
+  const [balance, setBalance] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [tab, setTab] = useState("Overview");
   const [editSection, setEditSection] = useState(null); // "personal" | "employment"
   const [form, setForm] = useState({});
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [leaveForm, setLeaveForm] = useState({ type: "casual", fromDate: "", toDate: "", reason: "" });
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -69,7 +76,18 @@ export default function EmployeeDetail({ id }) {
     employeeService.getAttendance(id).then((rows) => setTodayAtt(rows.find((r) => r.date === today)?.status || null));
     employeeService.monthAttendance(id, today.slice(0, 7)).then(setAtt);
     paymentService.forEmployee(id).then(setPayments);
+    leaveService.forEmployee(id).then(setLeaves);
+    leaveService.balance(id).then(setBalance);
+    taskService.forEmployee(id).then(setTasks);
   }, [id, tick]);
+
+  const applyLeave = async () => {
+    if (!leaveForm.fromDate) return;
+    await leaveService.apply({ employeeId: id, employeeName: emp?.name, ...leaveForm });
+    setLeaveOpen(false); setLeaveForm({ type: "casual", fromDate: "", toDate: "", reason: "" });
+    setTick((n) => n + 1);
+  };
+  const decideLeave = async (lid, status) => { await leaveService.decide(lid, status); setTick((n) => n + 1); };
 
   const farmName = useMemo(() => farms.find((f) => f.id === emp?.farmId)?.name, [farms, emp]);
   const designationOpts = useMemo(() => employeeService.designations().map((d) => ({ value: d.id, label: d.label })), [tick]);
@@ -132,7 +150,7 @@ export default function EmployeeDetail({ id }) {
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 8, padding: "16px 16px 4px", overflowX: "auto" }}>
-        {["Overview", "Personal", "Employment", "Attendance", "Payments"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
+        {["Overview", "Personal", "Employment", "Attendance", "Payments", "Leave", "Tasks"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
       </div>
 
       <div style={{ padding: "8px 16px 32px" }}>
@@ -219,6 +237,62 @@ export default function EmployeeDetail({ id }) {
                 </Card>}
           </div>
         )}
+
+        {tab === "Leave" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Balance ({new Date().getFullYear()})</div>
+              <button onClick={() => setLeaveOpen(true)} style={{ background: T.primarySoft, border: "none", borderRadius: 10, padding: "7px 12px", cursor: "pointer", color: T.primary, fontSize: 12.5, fontWeight: 700, fontFamily: T.body, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <Icon name="Plus" size={14} /> Apply leave
+              </button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {balance.map((b) => (
+                <div key={b.type} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 12, color: T.inkSoft }}>{b.label}</div>
+                  <div style={{ fontFamily: T.display, fontSize: 16, fontWeight: 700, color: b.remaining > 0 ? T.primary : T.orange, marginTop: 2 }}>{b.remaining}<span style={{ fontSize: 12, color: T.inkFaint, fontWeight: 500 }}> / {b.allowance} left</span></div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft, marginTop: 4 }}>Requests</div>
+            {leaves.length === 0
+              ? <div style={{ textAlign: "center", padding: "20px 0", color: T.inkFaint, fontSize: 13 }}>No leave requests.</div>
+              : <Card pad={6}>
+                  {leaves.map((l, i) => (
+                    <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 8px", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{leaveService.typeLabel(l.type)} · {l.days}d</div>
+                        <div style={{ fontSize: 11.5, color: T.inkSoft }}>{fmtDate(l.fromDate)} – {fmtDate(l.toDate)}{l.reason ? ` · ${l.reason}` : ""}</div>
+                      </div>
+                      {l.status === "pending"
+                        ? <div style={{ display: "flex", gap: 6 }}>
+                            <button onClick={() => decideLeave(l.id, "approved")} aria-label="Approve" style={{ background: T.primarySoft, border: "none", borderRadius: 8, padding: 6, cursor: "pointer", color: T.primary, display: "flex" }}><Icon name="Check" size={15} /></button>
+                            <button onClick={() => decideLeave(l.id, "rejected")} aria-label="Reject" style={{ background: T.redSoft, border: "none", borderRadius: 8, padding: 6, cursor: "pointer", color: T.red, display: "flex" }}><Icon name="X" size={15} /></button>
+                          </div>
+                        : <span style={{ fontSize: 11, fontWeight: 700, color: l.status === "approved" ? T.primary : T.red, background: l.status === "approved" ? T.primarySoft : T.redSoft, padding: "2px 8px", borderRadius: 6 }}>{l.status.toUpperCase()}</span>}
+                    </div>
+                  ))}
+                </Card>}
+          </div>
+        )}
+
+        {tab === "Tasks" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {tasks.length === 0
+              ? <div style={{ textAlign: "center", padding: "24px 0", color: T.inkFaint, fontSize: 13 }}>No tasks assigned. Assign tasks from the Task Manager.</div>
+              : <Card pad={6}>
+                  {tasks.map((t, i) => (
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 8px", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: t.status === "done" ? T.inkFaint : T.ink, textDecoration: t.status === "done" ? "line-through" : "none" }}>{t.title}</div>
+                        <div style={{ fontSize: 11.5, color: T.inkSoft }}>{t.dueDate ? `Due ${fmtDate(t.dueDate)}` : "No due date"}{t.priority ? ` · ${t.priority}` : ""}</div>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: t.status === "done" ? T.primary : T.orange, background: t.status === "done" ? T.primarySoft : T.orangeSoft, padding: "2px 8px", borderRadius: 6 }}>{(t.status || "open").toUpperCase()}</span>
+                    </div>
+                  ))}
+                </Card>}
+          </div>
+        )}
       </div>
 
       {/* edit sheet */}
@@ -238,6 +312,20 @@ export default function EmployeeDetail({ id }) {
             return <Input key={f.key} label={f.label} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} value={val} onChange={set} placeholder={f.type === "date" ? "" : "Optional"} />;
           })}
           <Button full onClick={save}>Save</Button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={leaveOpen} onClose={() => setLeaveOpen(false)} title="Apply leave">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Dropdown label="Leave type" value={leaveForm.type} onChange={(v) => setLeaveForm((f) => ({ ...f, type: v }))}
+            options={LEAVE_TYPES.map((t) => ({ value: t.id, label: t.label }))} />
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}><Input label="From" type="date" value={leaveForm.fromDate} onChange={(v) => setLeaveForm((f) => ({ ...f, fromDate: v }))} /></div>
+            <div style={{ flex: 1 }}><Input label="To" type="date" value={leaveForm.toDate} onChange={(v) => setLeaveForm((f) => ({ ...f, toDate: v }))} /></div>
+          </div>
+          {leaveForm.fromDate && <div style={{ fontSize: 12.5, color: T.inkSoft }}>{leaveDays(leaveForm.fromDate, leaveForm.toDate)} day(s)</div>}
+          <Input label="Reason" placeholder="Optional" value={leaveForm.reason} onChange={(v) => setLeaveForm((f) => ({ ...f, reason: v }))} />
+          <Button full onClick={applyLeave} disabled={!leaveForm.fromDate}>Submit request</Button>
         </div>
       </BottomSheet>
     </>

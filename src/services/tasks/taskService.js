@@ -30,6 +30,11 @@ function nextDate(dateStr, recurrence) {
 export const taskService = {
   add: (data) => tasks.add({ status: "open", ...data }),
   getAll: (farmId) => (farmId ? tasks.getBy("farmId", farmId) : tasks.getAll()),
+
+  /* Tasks assigned to one employee (WF-4), newest due first. */
+  forEmployee: (employeeId) => tasks.getAll()
+    .then((all) => all.filter((t) => t.assigneeId === employeeId)
+      .sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""))),
   update: (id, patch) => tasks.update(id, patch),
   remove: (id) => tasks.remove(id),
 
