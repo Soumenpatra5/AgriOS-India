@@ -11,6 +11,7 @@ import { leaveService, LEAVE_TYPES, leaveDays } from "../../services/employees/l
 import { documentService, DOC_TYPES } from "../../services/employees/documentService.js";
 import { recordsService, SKILL_LEVELS, TRAINING_STATUSES } from "../../services/employees/recordsService.js";
 import { assetService, ASSET_CATEGORIES } from "../../services/assets/assetService.js";
+import { auditService } from "../../services/employees/auditService.js";
 import { taskService } from "../../services/tasks/taskService.js";
 import { farmService } from "../../services/farm/farmService.js";
 import { rupee } from "../../utils/format.js";
@@ -109,6 +110,7 @@ export default function EmployeeDetail({ id }) {
   const [docBusy, setDocBusy] = useState(false);
   const [recs, setRecs] = useState({ skill: [], training: [], performance: [], asset: [] });
   const [recAdd, setRecAdd] = useState(null);   // { kind, form }
+  const [auditRows, setAuditRows] = useState([]);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -128,6 +130,7 @@ export default function EmployeeDetail({ id }) {
       recordsService.forEmployee(id, "performance"),
       assetService.forEmployee(id),
     ]).then(([skill, training, performance, asset]) => setRecs({ skill, training, performance, asset }));
+    auditService.forEmployee(id).then(setAuditRows);
   }, [id, tick]);
 
   const openRec = (kind) => {
@@ -183,6 +186,7 @@ export default function EmployeeDetail({ id }) {
     delete patch.customDesignation;
     if ("farmId" in patch) patch.farmName = farms.find((f) => f.id === patch.farmId)?.name || "";
     await employeeService.update(id, patch);
+    auditService.log(`employee.${editSection}_updated`, { employeeId: id, employeeName: emp?.name });
     setEditSection(null); setTick((n) => n + 1);
     toast("Saved", "success");
   };
@@ -227,7 +231,7 @@ export default function EmployeeDetail({ id }) {
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 8, padding: "16px 16px 4px", overflowX: "auto" }}>
-        {["Overview", "Personal", "Employment", "Attendance", "Payments", "Leave", "Tasks", "Documents", "Skills", "Training", "Performance", "Assets"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
+        {["Overview", "Personal", "Employment", "Attendance", "Payments", "Leave", "Tasks", "Documents", "Skills", "Training", "Performance", "Assets", "Audit"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
       </div>
 
       <div style={{ padding: "8px 16px 32px" }}>
@@ -403,9 +407,9 @@ export default function EmployeeDetail({ id }) {
                           <button onClick={() => openDoc(d)} aria-label="View" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkSoft, padding: 4, display: "flex" }}><Icon name="Eye" size={16} /></button>
                         )}
                         {d.status !== "verified" && (
-                          <button onClick={async () => { await documentService.setStatus(d.id, "verified"); setTick((n) => n + 1); }} aria-label="Verify" style={{ background: "none", border: "none", cursor: "pointer", color: T.primary, padding: 4, display: "flex" }}><Icon name="Check" size={16} /></button>
+                          <button onClick={async () => { await documentService.setStatus(d.id, "verified"); auditService.log("document.verified", { employeeId: id, employeeName: emp?.name, detail: d.name }); setTick((n) => n + 1); }} aria-label="Verify" style={{ background: "none", border: "none", cursor: "pointer", color: T.primary, padding: 4, display: "flex" }}><Icon name="Check" size={16} /></button>
                         )}
-                        <button onClick={async () => { await documentService.remove(d.id); setTick((n) => n + 1); }} aria-label="Delete document" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, display: "flex" }}><Icon name="Trash2" size={15} /></button>
+                        <button onClick={async () => { await documentService.remove(d.id); auditService.log("document.removed", { employeeId: id, employeeName: emp?.name, detail: d.name }); setTick((n) => n + 1); }} aria-label="Delete document" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, display: "flex" }}><Icon name="Trash2" size={15} /></button>
                       </div>
                     );
                   })}
@@ -429,6 +433,19 @@ export default function EmployeeDetail({ id }) {
         {tab === "Assets" && (
           <RecSection empty="No assets assigned." addLabel="Assign" onAdd={() => openRec("asset")} items={recs.asset}
             row={(r) => ({ title: r.name, sub: `${assetService.categoryLabel(r.category)}${r.condition ? ` · ${r.condition}` : ""}${r.assignedDate ? ` · from ${fmtDate(r.assignedDate)}` : ""}`, onDel: () => delRec("asset", r.id) })} />
+        )}
+
+        {tab === "Audit" && (
+          auditRows.length === 0
+            ? <div style={{ textAlign: "center", padding: "24px 0", color: T.inkFaint, fontSize: 13 }}>No history yet.</div>
+            : <Card pad={6}>
+                {auditRows.map((a, i) => (
+                  <div key={a.id} style={{ display: "flex", alignItems: "baseline", gap: 10, padding: "10px 8px", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
+                    <span style={{ flex: 1, fontSize: 13, color: T.ink }}>{a.action.replace(/\./g, " ")}{a.detail ? ` · ${a.detail}` : ""}</span>
+                    <span style={{ fontSize: 11, color: T.inkFaint, flexShrink: 0 }}>{a.at ? new Date(a.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}</span>
+                  </div>
+                ))}
+              </Card>
         )}
       </div>
 

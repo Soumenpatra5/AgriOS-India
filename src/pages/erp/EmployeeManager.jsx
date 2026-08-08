@@ -4,8 +4,11 @@ import { AppBar, Button, Chip, Card } from "../../components/index.js";
 import Icon from "../../components/Icon.jsx";
 import { BottomSheet, Input, Dropdown, Dialog } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
-import { employeeService, EMPLOYEE_TYPES, DEPARTMENTS, ATTENDANCE_STATUSES, PAYMENT_METHODS } from "../../services/employees/employeeService.js";
+import { employeeService, EMPLOYEE_TYPES, DEPARTMENTS, ATTENDANCE_STATUSES, PAYMENT_METHODS, STATUSES } from "../../services/employees/employeeService.js";
 import { paymentService } from "../../services/employees/paymentService.js";
+import { documentService } from "../../services/employees/documentService.js";
+import { auditService } from "../../services/employees/auditService.js";
+import { employeeReports } from "../../services/employees/employeeReports.js";
 import { rupee } from "../../utils/format.js";
 import StatTile from "../../components/erp/StatTile.jsx";
 import { EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
@@ -33,6 +36,9 @@ export default function EmployeeManager() {
   const [paid, setPaid] = useState({ paid: 0, pending: 0 });
   const [payRow, setPayRow] = useState(null);        // wage row being paid
   const [payForm, setPayForm] = useState({});
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [docsExpiring, setDocsExpiring] = useState(0);
 
   const designationOpts = employeeService.designations().map((d) => ({ value: d.id, label: d.label }));
 
@@ -42,7 +48,16 @@ export default function EmployeeManager() {
     employeeService.monthWages(undefined, ymNow()).then(setWages);
     employeeService.attendanceSummary().then(setSummary);
     paymentService.monthTotals(ymNow()).then(setPaid);
+    documentService.expirySummary().then((s) => setDocsExpiring(s.expired.length + s.expiringSoon.length));
   }, [tick]);
+
+  const filtered = employees.filter((e) => {
+    if (statusFilter !== "all" && (e.status || "active") !== statusFilter) return false;
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return [e.name, e.code, e.phone, employeeService.jobTitle(e), employeeService.deptLabel(e.department)]
+      .filter(Boolean).some((v) => String(v).toLowerCase().includes(q));
+  });
 
   const openPay = (w) => {
     setPayForm({ bonus: "", allowance: "", advance: "", deduction: "", method: "cash", reference: "", notes: "", gross: w.gross });
@@ -54,6 +69,7 @@ export default function EmployeeManager() {
       employeeId: payRow.employee.id, employeeName: payRow.employee.name,
       period: ymNow(), gross: payRow.gross, ...payForm, net: payNet, status: "paid",
     });
+    auditService.log("payment.recorded", { employeeId: payRow.employee.id, employeeName: payRow.employee.name, detail: rupee(payNet) });
     setPayRow(null); refresh(); toast("Payment recorded", "success");
   };
 
@@ -70,7 +86,8 @@ export default function EmployeeManager() {
 
   const add = async () => {
     if (!form.name) return;
-    await employeeService.add(form);
+    const rec = await employeeService.add(form);
+    auditService.log("employee.created", { employeeId: rec.id, employeeName: rec.name });
     setOpen(false); setForm(NEW_FORM);
     refresh(); toast("Employee added", "success");
   };
@@ -80,7 +97,12 @@ export default function EmployeeManager() {
     refresh(); toast(`Marked ${status}`, "success");
   };
 
-  const handleDelete = async () => { await employeeService.remove(delId); setDelId(null); refresh(); toast("Removed", "info"); };
+  const handleDelete = async () => {
+    const emp = employees.find((e) => e.id === delId);
+    await employeeService.remove(delId);
+    auditService.log("employee.removed", { employeeId: delId, employeeName: emp?.name });
+    setDelId(null); refresh(); toast("Removed", "info");
+  };
 
   const presentToday = Object.values(todayMap).filter((s) => s === "present" || s === "halfday").length;
   const totalWages = wages.reduce((s, w) => s + w.wage, 0);
@@ -106,6 +128,7 @@ export default function EmployeeManager() {
         <StatTile a="blue" label="Employees" value={employees.length} />
         <StatTile a="primary" label="Present Today" value={presentToday} />
         <StatTile a="orange" label="Wages This Month" value={rupee(totalWages)} minWidth={130} />
+        <StatTile a="red" label="Docs Expiring" value={docsExpiring} />
       </div>
 
       <div style={{ display: "flex", gap: 8, padding: "10px 16px 4px" }}>
@@ -115,7 +138,31 @@ export default function EmployeeManager() {
       <div style={{ padding: "8px 16px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
         {employees.length === 0 && <EmptyHint icon="Users" text="Add farm workers to track attendance and wages" />}
 
-        {tab === "Team" && employees.map((e) => (
+        {tab === "Team" && employees.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ flex: 1, position: "relative" }}>
+                <Icon name="Search" size={15} style={{ position: "absolute", left: 10, top: 11, color: T.inkFaint, pointerEvents: "none" }} />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, code, phone, role…"
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 10px 9px 32px", borderRadius: T.rMd, border: `1px solid ${T.line}`, background: T.surface2, color: T.ink, fontSize: 13, fontFamily: T.body, outline: "none" }} />
+              </div>
+              <button onClick={() => { const ok = employeeReports.exportRoster(employees); toast(ok ? "Roster exported" : "Nothing to export", ok ? "success" : "info"); }}
+                aria-label="Export CSV" style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 10, padding: 9, cursor: "pointer", color: T.ink, display: "flex" }}>
+                <Icon name="Download" size={17} />
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+              <Chip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>All</Chip>
+              {STATUSES.map((st) => <Chip key={st.id} active={statusFilter === st.id} onClick={() => setStatusFilter(st.id)}>{st.label}</Chip>)}
+            </div>
+          </div>
+        )}
+
+        {tab === "Team" && filtered.length === 0 && employees.length > 0 && (
+          <div style={{ textAlign: "center", padding: "24px 0", color: T.inkFaint, fontSize: 13 }}>No employees match.</div>
+        )}
+
+        {tab === "Team" && filtered.map((e) => (
           <Card key={e.id} pad={13} onClick={() => push({ kind: "employeeDetail", props: { id: e.id } })} style={{ cursor: "pointer" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
               {e.photo
