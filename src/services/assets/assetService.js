@@ -23,6 +23,21 @@ export const assetService = {
   update:  (id, patch) => assets.update(id, patch),
   remove:  (id) => assets.remove(id),
 
+  /* Asset assignment to employees (WF-6), reusing this store. */
+  forEmployee: (employeeId) => assets.getAll()
+    .then((all) => all.filter((a) => a.assigneeId === employeeId)
+      .sort((a, b) => (b.assignedDate || "").localeCompare(a.assignedDate || ""))),
+
+  assignToEmployee: ({ employeeId, name, category, condition, assignedDate }) => assets.add({
+    name, category: category || "other", assigneeId: employeeId,
+    assignStatus: "assigned", condition: condition || "good",
+    assignedDate: assignedDate || new Date().toISOString().slice(0, 10),
+  }),
+
+  returnFromEmployee: (id, returnDate) => assets.update(id, {
+    assignStatus: "returned", returnDate: returnDate || new Date().toISOString().slice(0, 10),
+  }),
+
   logMaintenance: (assetId, { date, kind, cost, note, nextDue }) =>
     maint.add({ assetId, date, kind, cost: Number(cost) || 0, note, nextDue }),
 

@@ -9,6 +9,8 @@ import {
 import { paymentService } from "../../services/employees/paymentService.js";
 import { leaveService, LEAVE_TYPES, leaveDays } from "../../services/employees/leaveService.js";
 import { documentService, DOC_TYPES } from "../../services/employees/documentService.js";
+import { recordsService, SKILL_LEVELS, TRAINING_STATUSES } from "../../services/employees/recordsService.js";
+import { assetService, ASSET_CATEGORIES } from "../../services/assets/assetService.js";
 import { taskService } from "../../services/tasks/taskService.js";
 import { farmService } from "../../services/farm/farmService.js";
 import { rupee } from "../../utils/format.js";
@@ -53,6 +55,38 @@ const EMPLOYMENT = [
   { key: "exitReason", label: "Exit Reason" },
 ];
 
+/* WF-6 add-record field configs, keyed by kind. */
+const REC_FIELDS = {
+  skill: [
+    { key: "name", label: "Skill" },
+    { key: "level", label: "Level", type: "select", options: SKILL_LEVELS, default: "beginner" },
+    { key: "experience", label: "Experience (years)", type: "number" },
+    { key: "certificate", label: "Certificate" },
+    { key: "expiryDate", label: "Certificate expiry", type: "date" },
+  ],
+  training: [
+    { key: "name", label: "Training" },
+    { key: "trainer", label: "Trainer" },
+    { key: "date", label: "Date", type: "date" },
+    { key: "duration", label: "Duration" },
+    { key: "status", label: "Status", type: "select", options: TRAINING_STATUSES, default: "completed" },
+    { key: "certExpiry", label: "Certificate expiry", type: "date" },
+  ],
+  performance: [
+    { key: "rating", label: "Rating", type: "select", options: [1, 2, 3, 4, 5].map((n) => ({ id: String(n), label: `${n} / 5` })), default: "3" },
+    { key: "reviewDate", label: "Review date", type: "date" },
+    { key: "reviewer", label: "Reviewer" },
+    { key: "remarks", label: "Remarks" },
+  ],
+  asset: [
+    { key: "name", label: "Asset" },
+    { key: "category", label: "Category", type: "select", options: ASSET_CATEGORIES, default: "tool" },
+    { key: "condition", label: "Condition" },
+    { key: "assignedDate", label: "Assigned date", type: "date" },
+  ],
+};
+const REC_TITLE = { skill: "Add skill", training: "Add training", performance: "Add review", asset: "Assign asset" };
+
 export default function EmployeeDetail({ id }) {
   const { pop, toast } = useApp();
   const [emp, setEmp] = useState(null);
@@ -73,6 +107,8 @@ export default function EmployeeDetail({ id }) {
   const [docForm, setDocForm] = useState({ type: "id_proof", name: "", number: "", issueDate: "", expiryDate: "" });
   const [docFile, setDocFile] = useState(null);
   const [docBusy, setDocBusy] = useState(false);
+  const [recs, setRecs] = useState({ skill: [], training: [], performance: [], asset: [] });
+  const [recAdd, setRecAdd] = useState(null);   // { kind, form }
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -86,7 +122,29 @@ export default function EmployeeDetail({ id }) {
     leaveService.balance(id).then(setBalance);
     taskService.forEmployee(id).then(setTasks);
     documentService.forEmployee(id).then(setDocuments);
+    Promise.all([
+      recordsService.forEmployee(id, "skill"),
+      recordsService.forEmployee(id, "training"),
+      recordsService.forEmployee(id, "performance"),
+      assetService.forEmployee(id),
+    ]).then(([skill, training, performance, asset]) => setRecs({ skill, training, performance, asset }));
   }, [id, tick]);
+
+  const openRec = (kind) => {
+    const form = {};
+    REC_FIELDS[kind].forEach((f) => { if (f.default) form[f.key] = f.default; });
+    setRecAdd({ kind, form });
+  };
+  const saveRec = async () => {
+    if (recAdd.kind === "asset") await assetService.assignToEmployee({ employeeId: id, ...recAdd.form });
+    else await recordsService.add(recAdd.kind, { employeeId: id, employeeName: emp?.name, ...recAdd.form });
+    setRecAdd(null); setTick((n) => n + 1);
+  };
+  const delRec = async (kind, rid) => {
+    if (kind === "asset") await assetService.returnFromEmployee(rid);
+    else await recordsService.remove(rid);
+    setTick((n) => n + 1);
+  };
 
   const uploadDoc = async () => {
     setDocBusy(true);
@@ -169,7 +227,7 @@ export default function EmployeeDetail({ id }) {
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 8, padding: "16px 16px 4px", overflowX: "auto" }}>
-        {["Overview", "Personal", "Employment", "Attendance", "Payments", "Leave", "Tasks", "Documents"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
+        {["Overview", "Personal", "Employment", "Attendance", "Payments", "Leave", "Tasks", "Documents", "Skills", "Training", "Performance", "Assets"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
       </div>
 
       <div style={{ padding: "8px 16px 32px" }}>
@@ -355,6 +413,23 @@ export default function EmployeeDetail({ id }) {
             <div style={{ fontSize: 11, color: T.inkFaint, textAlign: "center", lineHeight: 1.5 }}>Files upload to secure cloud storage when online, else saved on this device and synced later.</div>
           </div>
         )}
+
+        {tab === "Skills" && (
+          <RecSection empty="No skills recorded." onAdd={() => openRec("skill")} items={recs.skill}
+            row={(r) => ({ title: r.name, sub: `${recordsService.skillLevelLabel(r.level)}${r.experience ? ` · ${r.experience}y exp` : ""}${r.expiryDate ? ` · cert exp ${fmtDate(r.expiryDate)}` : ""}`, onDel: () => delRec("skill", r.id) })} />
+        )}
+        {tab === "Training" && (
+          <RecSection empty="No training recorded." onAdd={() => openRec("training")} items={recs.training}
+            row={(r) => ({ title: r.name, sub: `${r.trainer ? `${r.trainer} · ` : ""}${r.date ? fmtDate(r.date) : ""}${r.duration ? ` · ${r.duration}` : ""}`, badge: recordsService.trainingStatusLabel(r.status), onDel: () => delRec("training", r.id) })} />
+        )}
+        {tab === "Performance" && (
+          <RecSection empty="No reviews yet — supervisors add reviews here." onAdd={() => openRec("performance")} items={recs.performance}
+            row={(r) => ({ title: `${r.rating || "—"} / 5${r.reviewer ? ` · ${r.reviewer}` : ""}`, sub: `${r.reviewDate ? fmtDate(r.reviewDate) : ""}${r.remarks ? ` · ${r.remarks}` : ""}`, onDel: () => delRec("performance", r.id) })} />
+        )}
+        {tab === "Assets" && (
+          <RecSection empty="No assets assigned." addLabel="Assign" onAdd={() => openRec("asset")} items={recs.asset}
+            row={(r) => ({ title: r.name, sub: `${assetService.categoryLabel(r.category)}${r.condition ? ` · ${r.condition}` : ""}${r.assignedDate ? ` · from ${fmtDate(r.assignedDate)}` : ""}`, onDel: () => delRec("asset", r.id) })} />
+        )}
       </div>
 
       {/* edit sheet */}
@@ -409,7 +484,51 @@ export default function EmployeeDetail({ id }) {
           <Button full onClick={uploadDoc} disabled={docBusy || (!docForm.name && !docFile)}>{docBusy ? "Uploading…" : "Save document"}</Button>
         </div>
       </BottomSheet>
+
+      <BottomSheet open={!!recAdd} onClose={() => setRecAdd(null)} title={recAdd ? REC_TITLE[recAdd.kind] : ""}>
+        {recAdd && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {REC_FIELDS[recAdd.kind].map((f) => {
+              const val = recAdd.form[f.key] ?? "";
+              const set = (v) => setRecAdd((s) => ({ ...s, form: { ...s.form, [f.key]: v } }));
+              return f.type === "select"
+                ? <Dropdown key={f.key} label={f.label} value={val} onChange={set} options={f.options.map((o) => ({ value: o.id, label: o.label }))} />
+                : <Input key={f.key} label={f.label} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} value={val} onChange={set} placeholder={f.type === "date" ? "" : "Optional"} />;
+            })}
+            <Button full onClick={saveRec} disabled={!recAdd.form.name && recAdd.kind !== "performance"}>Save</Button>
+          </div>
+        )}
+      </BottomSheet>
     </>
+  );
+}
+
+function RecSection({ items, row, onAdd, onDel, empty, addLabel = "Add" }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button onClick={onAdd} style={{ background: T.primarySoft, border: "none", borderRadius: 10, padding: "7px 12px", cursor: "pointer", color: T.primary, fontSize: 12.5, fontWeight: 700, fontFamily: T.body, display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <Icon name="Plus" size={14} /> {addLabel}
+        </button>
+      </div>
+      {items.length === 0
+        ? <div style={{ textAlign: "center", padding: "24px 0", color: T.inkFaint, fontSize: 13 }}>{empty}</div>
+        : <Card pad={6}>
+            {items.map((r, i) => {
+              const d = row(r);
+              return (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 8px", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{d.title}</div>
+                    {d.sub && <div style={{ fontSize: 11.5, color: T.inkSoft }}>{d.sub}</div>}
+                  </div>
+                  {d.badge && <span style={{ fontSize: 10.5, fontWeight: 700, color: T.blue, background: T.blueSoft, padding: "2px 7px", borderRadius: 6, flexShrink: 0 }}>{String(d.badge).toUpperCase()}</span>}
+                  <button onClick={d.onDel} aria-label="Remove" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, display: "flex" }}><Icon name="Trash2" size={15} /></button>
+                </div>
+              );
+            })}
+          </Card>}
+    </div>
   );
 }
 
