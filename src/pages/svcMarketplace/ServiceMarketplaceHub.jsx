@@ -48,7 +48,9 @@ export default function ServiceMarketplaceHub({ category: initCat = "all" } = {}
 
   return (
     <>
-      <AppBar title={tc({en:"Service Marketplace", hi:"सेवा बाज़ार", bn:"পরিষেবা বাজার"})} onBack={pop} />
+      <AppBar title={cat === "all"
+        ? tc({en:"Service Marketplace", hi:"सेवा बाज़ार", bn:"পরিষেবা বাজার"})
+        : (categoryMeta(cat)?.label || tc({en:"Service Marketplace", hi:"सेवा बाज़ार", bn:"পরিষেবা বাজার"}))} onBack={pop} />
 
       <div style={{ padding: "4px 16px 32px", display: "flex", flexDirection: "column", gap: 16,
         animation: "ag-fade .25s var(--ag-ease)" }}>
