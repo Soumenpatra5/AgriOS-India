@@ -6,11 +6,8 @@
 import { feedConsumptionService } from "./feedConsumptionService.js";
 import { feedBatchService } from "./feedBatchService.js";
 import { feedInventory, LIVESTOCK_TYPES } from "./feedService.js";
+import { round2 } from "../../utils/num.js";
 
-function round2(n) {
-  const x = Number(n);
-  return Number.isFinite(x) ? Math.round((x + Number.EPSILON) * 100) / 100 : 0;
-}
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const daysAgoStr = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
 

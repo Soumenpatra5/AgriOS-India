@@ -6,17 +6,9 @@
 
 import { repo } from "../erp/erpDb.js";
 import { inventoryService } from "../inventory/inventoryService.js";
+import { safeNum, round2 } from "../../utils/num.js";
 
 const consumption = repo("feedConsumption");
-
-function safeNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-function round2(n) {
-  const x = Number(n);
-  return Number.isFinite(x) ? Math.round((x + Number.EPSILON) * 100) / 100 : 0;
-}
 
 export const feedConsumptionService = {
   /**

@@ -12,18 +12,11 @@
    is left at 0 and the UI is responsible for prompting the user. */
 
 import { acresToHectares } from "../../utils/units.js";
-
-/* Coerce to a finite, non-negative number. Bad input -> 0, never NaN/Infinity. */
-export function safeNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-export function round2(n) {
-  const x = Number(n);
-  if (!Number.isFinite(x)) return 0;
-  return Math.round((x + Number.EPSILON) * 100) / 100;
-}
+// safeNum (coerce to finite positive, else 0) and round2 are shared across the
+// financial calc services; re-exported here so existing importers/tests of
+// calcEngine keep working.
+import { safeNum, round2 } from "../../utils/num.js";
+export { safeNum, round2 };
 
 /* ---------------------------------------------------------------- seed -- */
 

@@ -16,6 +16,7 @@
 import { repo } from "../erp/erpDb.js";
 import { feedConsumptionService } from "./feedConsumptionService.js";
 import { productionService } from "../livestock/livestockService.js";
+import { safeNum, round2 } from "../../utils/num.js";
 
 const batches = repo("feedBatches");
 
@@ -23,15 +24,6 @@ export const BATCH_STATUSES = [
   { id: "active", label: "Active" },
   { id: "closed", label: "Closed" },
 ];
-
-function safeNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-function round2(n) {
-  const x = Number(n);
-  return Number.isFinite(x) ? Math.round((x + Number.EPSILON) * 100) / 100 : 0;
-}
 
 export const feedBatchService = {
   add: (data) => batches.add({ status: "active", ...data }),

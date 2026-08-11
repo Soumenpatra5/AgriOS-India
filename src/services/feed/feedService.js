@@ -16,6 +16,7 @@
 import { inventoryService } from "../inventory/inventoryService.js";
 import { orderService } from "../crm/orderService.js";
 import { ledgerService } from "../ledger/ledgerService.js";
+import { safeNum, round2 } from "../../utils/num.js";
 
 export const FEED_CATEGORY = "feed"; // matches inventoryService.ITEM_CATEGORIES id
 
@@ -52,16 +53,6 @@ export const LIVESTOCK_TYPES = [
 ];
 
 /* ------------------------------------------------------------ calc engine -- */
-
-function safeNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-function round2(n) {
-  const x = Number(n);
-  if (!Number.isFinite(x)) return 0;
-  return Math.round((x + Number.EPSILON) * 100) / 100;
-}
 
 /**
  * computeFeedCost — the upgraded Feed Calculator engine. Preserves the

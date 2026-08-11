@@ -4,11 +4,7 @@
    feed, this returns nothing rather than guessing. */
 
 import { orderService } from "../crm/orderService.js";
-
-function round2(n) {
-  const x = Number(n);
-  return Number.isFinite(x) ? Math.round((x + Number.EPSILON) * 100) / 100 : 0;
-}
+import { round2 } from "../../utils/num.js";
 
 async function feedPurchases() {
   const all = await orderService.getByKind("purchase");

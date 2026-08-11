@@ -5,6 +5,7 @@
 import { repo } from "../erp/erpDb.js";
 import { inventoryService } from "../inventory/inventoryService.js";
 import { feedConsumptionService } from "./feedConsumptionService.js";
+import { safeNum, round2 } from "../../utils/num.js";
 
 const wastage = repo("feedWastage");
 
@@ -16,15 +17,6 @@ export const WASTAGE_REASONS = [
   { id: "pest",      label: "Pest / rodent damage" },
   { id: "other",     label: "Other" },
 ];
-
-function safeNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-function round2(n) {
-  const x = Number(n);
-  return Number.isFinite(x) ? Math.round((x + Number.EPSILON) * 100) / 100 : 0;
-}
 
 export const feedWastageService = {
   async log({ date, farmId, batchId = null, feedItemId = null, feedType = "", quantity, reason = "other", unitPrice = 0, recordedBy = "" }) {
