@@ -124,6 +124,7 @@ const FeedBatchDetail     = lazy(() => import("../pages/feed/FeedBatchDetail.jsx
 const FeedWastage         = lazy(() => import("../pages/feed/FeedWastage.jsx"));
 const FeedDashboard       = lazy(() => import("../pages/feed/FeedDashboard.jsx"));
 const FeedReports         = lazy(() => import("../pages/feed/FeedReports.jsx"));
+const AlertsCenter        = lazy(() => import("../pages/AlertsCenter.jsx"));
 
 const TAB_SCREENS = { home: Home, ai: AIHub, market: Market, services: Services, profile: Profile };
 
@@ -242,6 +243,7 @@ function StackScreen({ item }) {
   if (item.kind === "feedWastage")          return <FeedWastage />;
   if (item.kind === "feedDashboard")        return <FeedDashboard />;
   if (item.kind === "feedReports")          return <FeedReports />;
+  if (item.kind === "alertsCenter")         return <AlertsCenter />;
   return null;
 }
 

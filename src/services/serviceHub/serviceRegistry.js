@@ -45,6 +45,8 @@ export const SERVICE_REGISTRY = [
     title: { en: "IoT devices", hi: "IoT डिवाइस", bn: "IoT ডিভাইস" }, desc: { en: "Sensors & smart equipment", hi: "सेंसर व स्मार्ट उपकरण", bn: "সেন্সর ও স্মার্ট যন্ত্র" }, keywords: "sensor iot smart feeder weight" },
   { id: "locations",    category: "farm", icon: "MapPin", accent: "blue", kind: "farmLocations",
     title: { en: "Farm locations", hi: "फार्म स्थान", bn: "খামার অবস্থান" }, desc: { en: "Map your farm & fields", hi: "फार्म व खेत मैप करें", bn: "খামার ও মাঠ ম্যাপ" }, keywords: "map gps boundary location" },
+  { id: "alerts",       category: "farm", icon: "BellRing", accent: "red", kind: "alertsCenter", badge: "new",
+    title: { en: "Alerts centre", hi: "अलर्ट केंद्र", bn: "সতর্কতা কেন্দ্র" }, desc: { en: "Stock, vaccination, docs, tasks & more", hi: "स्टॉक, टीका, दस्तावेज़, काम", bn: "স্টক, টিকা, নথি, কাজ" }, keywords: "alert notification reminder due expiry low stock overdue attention" },
 
   /* ── Crop & agriculture ── */
   { id: "cropCalendar", category: "crop", icon: "CalendarDays", accent: "primary", kind: "cropCalendar", types: ["crop"],

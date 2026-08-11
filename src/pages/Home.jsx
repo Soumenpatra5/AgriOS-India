@@ -19,6 +19,7 @@ import OnboardingTour from "../components/OnboardingTour.jsx";
 import { useLazySection } from "../hooks/useLazySection.js";
 import { serviceHubService } from "../services/serviceHub/serviceHubService.js";
 import { SERVICE_REGISTRY, serviceById } from "../services/serviceHub/serviceRegistry.js";
+import { farmAlertsService } from "../services/alerts/farmAlertsService.js";
 
 const H_PAD = 16;
 
@@ -68,6 +69,9 @@ export default function Home() {
   const [monthNet, setMonthNet] = useState(0);
   const [monthIn, setMonthIn]   = useState(0);
   const [monthOut, setMonthOut] = useState(0);
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(() => { farmAlertsService.summary().then((s) => setAlertCount(s.total)).catch(() => {}); }, []);
 
   useEffect(() => {
     let alive = true;
@@ -131,11 +135,16 @@ export default function Home() {
           <div style={{ fontSize: 12.5, color: T.inkSoft }}>{longDate(locale)}</div>
           <div style={{ fontFamily: T.display, fontSize: 20, fontWeight: 700, color: T.ink }}>{t(greetingKey())}, {name}</div>
         </div>
-        <button onClick={() => openFeature("Notifications", "Alerts, reminders and advisories.", "Bell", "orange")}
-          aria-label={tc({ en: "Notifications", hi: "सूचनाएँ", bn: "বিজ্ঞপ্তি" })}
+        <button onClick={() => push({ kind: "alertsCenter" })}
+          aria-label={tc({ en: "Alerts", hi: "अलर्ट", bn: "সতর্কতা" })}
           style={{ position: "relative", background: T.surface, border: `1px solid ${T.line}`, borderRadius: 13, padding: 9, cursor: "pointer", color: T.ink, display: "flex" }}>
           <Icon name="Bell" size={20} />
-          <span style={{ position: "absolute", top: 8, right: 9, width: 7, height: 7, borderRadius: "50%", background: T.red, border: `2px solid ${T.surface}` }} />
+          {alertCount > 0 && (
+            <span style={{ position: "absolute", top: -5, right: -5, minWidth: 17, height: 17, padding: "0 4px", boxSizing: "border-box",
+              borderRadius: 9, background: T.red, color: "#fff", fontSize: 10, fontWeight: 700, display: "grid", placeItems: "center", border: `2px solid ${T.surface}` }}>
+              {alertCount > 9 ? "9+" : alertCount}
+            </span>
+          )}
         </button>
       </div>
 

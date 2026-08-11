@@ -22,7 +22,7 @@ const ROUTABLE_KINDS = new Set([
   "modelRegistryPage", "experimentList", "trainingDashboard", "monitoringDashboard",
   "apiKeyManager", "storage", "calculator", "cropPlanner", "cropPlanList", "cropPlanDetail",
   "cropPlanCompare", "feedHub", "feedCalculator", "feedInventory", "feedPurchase", "feedBatchList",
-  "feedBatchDetail", "feedWastage", "feedDashboard", "feedReports",
+  "feedBatchDetail", "feedWastage", "feedDashboard", "feedReports", "alertsCenter",
 ]);
 
 const CATEGORY_IDS = new Set(SERVICE_CATEGORIES.map((c) => c.id));
