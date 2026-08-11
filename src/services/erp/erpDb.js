@@ -3,7 +3,7 @@
    tested CRUD implementation (Repository Pattern) instead of copying it. */
 
 const DB_NAME = "agrios-erp";
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 
 /* store name -> indexes created on upgrade. onupgradeneeded is additive: it
    only creates stores that don't yet exist, so bumping the version to add a
@@ -29,6 +29,9 @@ const STORES = {
   employeeRecords:   ["employeeId", "kind"], // WF-6 skills/training/performance
   employeeAudit:     ["employeeId"], // WF-7 audit/history
   cropPlans:   ["farmId", "fieldId", "cropId", "status"],
+  feedBatches:     ["farmId", "enterprise", "animalId", "status"],
+  feedConsumption: ["batchId", "farmId", "date"],
+  feedWastage:     ["batchId", "farmId", "date"],
 };
 
 let _db = null;

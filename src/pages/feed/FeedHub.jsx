@@ -10,10 +10,12 @@ const TILES = [
   { kind: "feedCalculator", label: "Feed Calculator", icon: "Calculator", a: "yellow", desc: "Quick feed cost estimate" },
   { kind: "feedInventory",  label: "Feed Inventory",  icon: "Package",    a: "orange", desc: "Stock, expiry, low-stock alerts" },
   { kind: "feedPurchase",   label: "Feed Purchase",   icon: "ShoppingCart", a: "primary", desc: "Record a purchase & restock" },
+  { kind: "feedBatchList",  label: "Feed Batches & FCR", icon: "Layers",   a: "red", desc: "Batch-wise consumption & feed conversion ratio" },
+  { kind: "feedWastage",    label: "Feed Wastage",    icon: "AlertTriangle", a: "red", desc: "Spoilage, spillage & damaged stock" },
 ];
 
-const FG = { primary: T.primary, orange: T.orange, yellow: T.yellow };
-const BG = { primary: T.primarySoft, orange: T.orangeSoft, yellow: T.yellowSoft };
+const FG = { primary: T.primary, orange: T.orange, yellow: T.yellow, red: T.red };
+const BG = { primary: T.primarySoft, orange: T.orangeSoft, yellow: T.yellowSoft, red: T.redSoft };
 
 export default function FeedHub() {
   const { pop, push } = useApp();

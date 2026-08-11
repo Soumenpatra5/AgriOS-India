@@ -13,7 +13,7 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 const fmtDate  = (d) => new Date(d + "T12:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
 export default function FishManager() {
-  const { pop, toast } = useApp();
+  const { pop, push, toast } = useApp();
   const [tab, setTab]       = useState("Ponds");
   const [ponds, setPonds]   = useState([]);
   const [prods, setProds]   = useState([]);
@@ -91,6 +91,15 @@ export default function FishManager() {
             <div style={{ fontSize: 11, color: T.inkSoft, marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
+      </div>
+
+      <div style={{ padding: "6px 16px 0" }}>
+        <button onClick={() => push({ kind: "feedBatchList", props: { enterprise: "fish" } })}
+          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: T.blueSoft,
+            border: "none", borderRadius: T.rMd, padding: "10px 12px", cursor: "pointer", color: T.blue,
+            fontFamily: T.body, fontSize: 12.5, fontWeight: 600 }}>
+          <Icon name="Package" size={15} /> Feed & FCR for this pond <Icon name="ChevronRight" size={15} style={{ marginLeft: "auto" }} />
+        </button>
       </div>
 
       <div style={{ display: "flex", gap: 8, padding: "10px 16px 4px" }}>

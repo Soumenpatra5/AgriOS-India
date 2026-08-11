@@ -13,7 +13,7 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 const fmtDate  = (d) => new Date(d + "T12:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
 export default function PoultryManager() {
-  const { pop, toast } = useApp();
+  const { pop, push, toast } = useApp();
   const [tab, setTab]         = useState("Flocks");
   const [flocks, setFlocks]   = useState([]);
   const [prods, setProds]     = useState([]);
@@ -103,6 +103,15 @@ export default function PoultryManager() {
             <div style={{ fontSize: 11, color: T.inkSoft, marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
+      </div>
+
+      <div style={{ padding: "6px 16px 0" }}>
+        <button onClick={() => push({ kind: "feedBatchList", props: { enterprise: "poultry" } })}
+          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: T.orangeSoft,
+            border: "none", borderRadius: T.rMd, padding: "10px 12px", cursor: "pointer", color: T.orange,
+            fontFamily: T.body, fontSize: 12.5, fontWeight: 600 }}>
+          <Icon name="Package" size={15} /> Feed & FCR for this flock <Icon name="ChevronRight" size={15} style={{ marginLeft: "auto" }} />
+        </button>
       </div>
 
       {/* Tabs */}

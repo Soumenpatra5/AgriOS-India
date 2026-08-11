@@ -19,7 +19,7 @@ const BG = { primary: T.primarySoft, blue: T.blueSoft, orange: T.orangeSoft, red
    with a config — identical workflows, zero duplicated screens. */
 export default function HerdManager({ config }) {
   const { enterprise, title, noun, icon, accent, breeds, female, male, eventTypes } = config;
-  const { pop, toast } = useApp();
+  const { pop, push, toast } = useApp();
   const fg = FG[accent] || T.primary;
   const bg = BG[accent] || T.primarySoft;
 
@@ -87,6 +87,15 @@ export default function HerdManager({ config }) {
         <StatTile a={accent} label={`Total ${title}`} value={animals.length} />
         <StatTile a={accent} label={`${female}s`} value={animals.filter((a) => a.gender === "female").length} />
         <StatTile a={accent} label={`${male}s`} value={animals.filter((a) => a.gender === "male").length} />
+      </div>
+
+      <div style={{ padding: "6px 16px 0" }}>
+        <button onClick={() => push({ kind: "feedBatchList", props: { enterprise } })}
+          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: T.orangeSoft,
+            border: "none", borderRadius: T.rMd, padding: "10px 12px", cursor: "pointer", color: T.orange,
+            fontFamily: T.body, fontSize: 12.5, fontWeight: 600 }}>
+          <Icon name="Package" size={15} /> Feed & FCR for this batch <Icon name="ChevronRight" size={15} style={{ marginLeft: "auto" }} />
+        </button>
       </div>
 
       <div style={{ display: "flex", gap: 8, padding: "10px 16px 4px" }}>
