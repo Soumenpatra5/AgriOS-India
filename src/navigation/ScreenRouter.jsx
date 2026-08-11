@@ -114,6 +114,7 @@ const EmployeeDetail      = lazy(() => import("../pages/erp/EmployeeDetail.jsx")
 const CropPlanner         = lazy(() => import("../pages/cropPlanner/CropPlanner.jsx"));
 const CropPlanList        = lazy(() => import("../pages/cropPlanner/CropPlanList.jsx"));
 const CropPlanDetail      = lazy(() => import("../pages/cropPlanner/CropPlanDetail.jsx"));
+const CropPlanCompare     = lazy(() => import("../pages/cropPlanner/CropPlanCompare.jsx"));
 
 const TAB_SCREENS = { home: Home, ai: AIHub, market: Market, services: Services, profile: Profile };
 
@@ -222,6 +223,7 @@ function StackScreen({ item }) {
   if (item.kind === "cropPlanner")          return <CropPlanner {...(item.props || {})} />;
   if (item.kind === "cropPlanList")         return <CropPlanList />;
   if (item.kind === "cropPlanDetail")       return <CropPlanDetail {...(item.props || {})} />;
+  if (item.kind === "cropPlanCompare")      return <CropPlanCompare {...(item.props || {})} />;
   return null;
 }
 

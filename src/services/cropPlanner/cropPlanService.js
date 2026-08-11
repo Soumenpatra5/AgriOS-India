@@ -136,6 +136,72 @@ export const cropPlanService = {
   },
 };
 
+/* Builds a { title, generatedAt, sections } report compatible with
+   reportService.toCsv/downloadCsv/print (src/services/reports/reportService.js)
+   — reused as-is rather than duplicating CSV/print export logic. */
+function buildReport(plan) {
+  const c = plan.computed;
+  return {
+    title: `Crop Plan — ${plan.cropName || "Unnamed crop"}`,
+    generatedAt: new Date().toLocaleString("en-IN"),
+    sections: [
+      { heading: "Plan Details", rows: [
+        { label: "Crop", value: plan.cropName || "" },
+        { label: "Variety", value: plan.variety || "" },
+        { label: "Season", value: plan.season || "" },
+        { label: "Area", value: `${plan.areaValue ?? plan.areaAcres} ${plan.areaUnit || "acre"}` },
+        { label: "Status", value: CROP_PLAN_STATUSES.find((s) => s.id === plan.status)?.label || plan.status },
+      ]},
+      { heading: "Cultivation Cost Breakdown", rows: [
+        { label: "Seed cost", value: `₹${c.seed.totalSeedCost.toLocaleString("en-IN")}` },
+        { label: "Fertilizer cost", value: `₹${c.fertilizer.total.toLocaleString("en-IN")}` },
+        { label: "Crop protection cost", value: `₹${c.protection.total.toLocaleString("en-IN")}` },
+        { label: "Organic input cost", value: `₹${c.organic.total.toLocaleString("en-IN")}` },
+        { label: "Irrigation cost", value: `₹${c.irrigation.total.toLocaleString("en-IN")}` },
+        { label: "Labour cost", value: `₹${c.labour.total.toLocaleString("en-IN")}` },
+        { label: "Machinery cost", value: `₹${c.machinery.total.toLocaleString("en-IN")}` },
+        { label: "Other cost", value: `₹${c.other.total.toLocaleString("en-IN")}` },
+        { label: "Total cultivation cost", value: `₹${c.totalCost.toLocaleString("en-IN")}` },
+        { label: "Cost / acre", value: `₹${c.costPerAcre.toLocaleString("en-IN")}` },
+        { label: "Cost / hectare", value: `₹${c.costPerHectare.toLocaleString("en-IN")}` },
+      ]},
+      { heading: "Estimated Profitability (planning estimate, not guaranteed)", rows: [
+        { label: "Estimated yield", value: c.yield.totalYield.toLocaleString("en-IN") },
+        { label: "Estimated revenue", value: `₹${c.revenue.total.toLocaleString("en-IN")}` },
+        { label: "Estimated profit", value: `₹${c.profit.gross.toLocaleString("en-IN")}` },
+        { label: "ROI", value: c.profit.roiPct === null ? "N/A" : `${c.profit.roiPct}%` },
+        { label: "Cost / kg (or unit)", value: c.costPerKg === null ? "N/A" : `₹${c.costPerKg.toLocaleString("en-IN")}` },
+        { label: "Break-even price", value: c.breakEven.breakEvenPrice === null ? "N/A" : `₹${c.breakEven.breakEvenPrice.toLocaleString("en-IN")}` },
+      ]},
+    ],
+  };
+}
+
+/* Side-by-side comparison across 2+ saved plans (spec item 22). */
+function buildComparisonReport(plans) {
+  const headers = ["Metric", ...plans.map((p) => p.cropName || "Unnamed crop")];
+  const row = (label, fn, prefix = "") => [label, ...plans.map((p) => `${prefix}${fn(p.computed).toLocaleString("en-IN")}`)];
+  return {
+    title: "Crop Plan Comparison",
+    generatedAt: new Date().toLocaleString("en-IN"),
+    sections: [
+      { heading: "Comparison", table: { headers, data: [
+        ["Area", ...plans.map((p) => `${p.areaValue ?? p.areaAcres} ${p.areaUnit || "acre"}`)],
+        row("Total cultivation cost", (c) => c.totalCost, "₹"),
+        row("Cost / acre", (c) => c.costPerAcre, "₹"),
+        row("Labour cost", (c) => c.labour.total, "₹"),
+        row("Estimated yield", (c) => c.yield.totalYield),
+        row("Estimated revenue", (c) => c.revenue.total, "₹"),
+        row("Estimated profit", (c) => c.profit.gross, "₹"),
+        ["ROI", ...plans.map((p) => p.computed.profit.roiPct === null ? "N/A" : `${p.computed.profit.roiPct}%`)],
+      ] } },
+    ],
+  };
+}
+
+cropPlanService.buildReport = buildReport;
+cropPlanService.buildComparisonReport = buildComparisonReport;
+
 function reconcileLine(label, required, unit, matchedItem, price) {
   const available = matchedItem ? Number(matchedItem.qty) || 0 : null;
   const shortfall = available === null ? required : Math.max(0, required - available);

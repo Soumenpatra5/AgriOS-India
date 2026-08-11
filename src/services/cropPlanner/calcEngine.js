@@ -213,3 +213,38 @@ export function computePlan(input = {}) {
     yield: yld, revenue, profit, costPerKg, breakEven: be,
   };
 }
+
+/* ------------------------------------------------- scenarios / sensitivity -- */
+
+/**
+ * applyScenario — recomputes yield/revenue/profit/ROI/cost-per-kg from an
+ * already-computed plan under a hypothetical %-adjustment to yield, selling
+ * price, and total cost. Percentages are whatever the caller/user types
+ * (e.g. "Conservative" = -15% yield) — this function invents no numbers of
+ * its own, it only does the arithmetic once given someone else's assumption.
+ * areaAcres is carried through unchanged (a scenario doesn't resize a field).
+ */
+export function applyScenario(plan, { yieldPct = 0, pricePct = 0, costPct = 0 } = {}) {
+  const yieldMult = 1 + safePct(yieldPct) / 100;
+  const priceMult = 1 + safePct(pricePct) / 100;
+  const costMult = 1 + safePct(costPct) / 100;
+
+  const totalYield = round2(Math.max(0, plan.yield.totalYield * yieldMult));
+  const effectivePrice = Math.max(0, (plan.revenue.total > 0 && plan.yield.totalYield > 0 ? plan.revenue.total / plan.yield.totalYield : 0) * priceMult);
+  const totalCost = round2(Math.max(0, plan.totalCost * costMult));
+
+  const revenue = revenueEstimate({ totalYield, sellingPrice: effectivePrice });
+  const profit = profitEstimate({ revenue: revenue.total, totalCost });
+  const costPerKg = totalYield > 0 ? round2(totalCost / totalYield) : null;
+  const costPerAcre = plan.areaAcres > 0 ? round2(totalCost / plan.areaAcres) : 0;
+
+  return { totalYield, sellingPrice: round2(effectivePrice), totalCost, costPerAcre, revenue: revenue.total, profit: profit.gross, roiPct: profit.roiPct, costPerKg };
+}
+
+/* Percentage deltas may be negative (e.g. "-15% yield" for a conservative
+   scenario), so this only guards against NaN/Infinity — it does not clamp
+   to positive like safeNum() does for absolute quantities. */
+function safePct(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}

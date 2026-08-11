@@ -115,6 +115,33 @@ describe("cropPlanService.postBucketToLedger", () => {
   });
 });
 
+describe("cropPlanService.buildReport / buildComparisonReport", () => {
+  it("builds a CSV/print-compatible report shape for a single plan", () => {
+    const plan = { cropName: "Wheat", variety: "HD-2967", season: "rabi", areaValue: 3, areaUnit: "acre", status: "draft",
+      computed: {
+        seed: { totalSeedCost: 8250 }, fertilizer: { total: 720 }, protection: { total: 0 }, organic: { total: 0 },
+        irrigation: { total: 0 }, labour: { total: 800 }, machinery: { total: 0 }, other: { total: 0 },
+        totalCost: 9770, costPerAcre: 3256.67, costPerHectare: 1318,
+        yield: { totalYield: 60 }, revenue: { total: 120000 }, profit: { gross: 110230, roiPct: 1128.35 },
+        costPerKg: 162.83, breakEven: { breakEvenPrice: 162.83 },
+      } };
+    const report = cropPlanService.buildReport(plan);
+    expect(report.title).toContain("Wheat");
+    expect(report.sections.length).toBe(3);
+    expect(report.sections[1].rows.find((r) => r.label === "Total cultivation cost").value).toContain("9,770");
+  });
+
+  it("builds a side-by-side comparison table across multiple plans", () => {
+    const mk = (name, cost, roi) => ({ cropName: name, areaValue: 2, areaUnit: "acre",
+      computed: { totalCost: cost, costPerAcre: cost / 2, labour: { total: 0 }, yield: { totalYield: 40 },
+        revenue: { total: cost * 2 }, profit: { gross: cost, roiPct: roi } } });
+    const report = cropPlanService.buildComparisonReport([mk("Rice", 10000, 100), mk("Maize", 8000, 50)]);
+    expect(report.sections[0].table.headers).toEqual(["Metric", "Rice", "Maize"]);
+    const costRow = report.sections[0].table.data.find((r) => r[0] === "Total cultivation cost");
+    expect(costRow).toEqual(["Total cultivation cost", "₹10,000", "₹8,000"]);
+  });
+});
+
 describe("cropPlanService.createPurchaseRequest", () => {
   it("creates an open CRM purchase order without a pre-assigned supplier", async () => {
     const order = await cropPlanService.createPurchaseRequest({ item: "Urea", qty: 50, unit: "kg", rate: 6 });

@@ -2,13 +2,21 @@ import { useEffect, useState } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import { AppBar, Screen, Card, Chip } from "../../components/index.js";
-import { Dropdown } from "../../components/inputs.jsx";
+import { Dropdown, Input } from "../../components/inputs.jsx";
 import { Button } from "../../components/primitives.jsx";
 import { Dialog } from "../../components/overlays.jsx";
 import { useApp } from "../../store/AppStore.jsx";
 import { cropPlanService, CROP_PLAN_STATUSES } from "../../services/cropPlanner/cropPlanService.js";
+import { applyScenario } from "../../services/cropPlanner/calcEngine.js";
+import { reportService } from "../../services/reports/reportService.js";
 import PlanSummary from "../../components/cropPlanner/PlanSummary.jsx";
 import { rupee } from "../../utils/format.js";
+
+const SCENARIOS = [
+  { key: "conservative", label: "Conservative" },
+  { key: "expected", label: "Expected" },
+  { key: "optimistic", label: "Optimistic" },
+];
 
 const LEDGER_BUCKETS = [
   { key: "seed", label: "Seed" }, { key: "fertilizer", label: "Fertilizer" },
@@ -41,6 +49,11 @@ export default function CropPlanDetail({ id }) {
   const [inventory, setInventory] = useState(null);
   const [delOpen, setDelOpen] = useState(false);
   const [checkingInventory, setCheckingInventory] = useState(false);
+  const [scenarios, setScenarios] = useState({
+    conservative: { yieldPct: "", pricePct: "", costPct: "" },
+    expected: { yieldPct: 0, pricePct: 0, costPct: 0 },
+    optimistic: { yieldPct: "", pricePct: "", costPct: "" },
+  });
 
   const refresh = () => cropPlanService.getById(id).then(setPlan);
   useEffect(() => { refresh(); }, [id]);
@@ -72,6 +85,9 @@ export default function CropPlanDetail({ id }) {
   };
 
   const statusOptions = CROP_PLAN_STATUSES.map((s) => ({ value: s.id, label: s.label }));
+
+  const setScenarioField = (key, field, v) => setScenarios((s) => ({ ...s, [key]: { ...s[key], [field]: v } }));
+  const n2 = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
 
   return (
     <>
@@ -165,6 +181,40 @@ export default function CropPlanDetail({ id }) {
                 </div>
               );
             })}
+          </div>
+        </Section>
+
+        <Section title="What-if scenarios" icon="GitBranch">
+          <div style={{ fontSize: 11.5, color: T.inkFaint, marginBottom: 10 }}>
+            Adjust % yield, price and cost for each scenario yourself — these are your own assumptions, not a prediction. Leave a scenario at 0% to match the plan as saved.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {SCENARIOS.map(({ key, label }) => {
+              const adj = scenarios[key];
+              const result = applyScenario(plan.computed, { yieldPct: n2(adj.yieldPct), pricePct: n2(adj.pricePct), costPct: n2(adj.costPct) });
+              return (
+                <Card key={key} pad={12}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 8 }}>{label}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                    <Input label="Yield %" value={adj.yieldPct} onChange={(v) => setScenarioField(key, "yieldPct", v)} type="number" inputMode="decimal" placeholder="0" />
+                    <Input label="Price %" value={adj.pricePct} onChange={(v) => setScenarioField(key, "pricePct", v)} type="number" inputMode="decimal" placeholder="0" />
+                    <Input label="Cost %" value={adj.costPct} onChange={(v) => setScenarioField(key, "costPct", v)} type="number" inputMode="decimal" placeholder="0" />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10, fontSize: 12 }}>
+                    <div><div style={{ color: T.inkSoft }}>Revenue</div><div style={{ fontWeight: 700 }}>{rupee(result.revenue)}</div></div>
+                    <div><div style={{ color: T.inkSoft }}>Profit</div><div style={{ fontWeight: 700, color: result.profit >= 0 ? T.primary : T.red }}>{rupee(result.profit)}</div></div>
+                    <div><div style={{ color: T.inkSoft }}>ROI</div><div style={{ fontWeight: 700 }}>{result.roiPct === null ? "—" : `${result.roiPct}%`}</div></div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </Section>
+
+        <Section title="Export" icon="Download">
+          <div style={{ display: "flex", gap: 10 }}>
+            <Button variant="outline" full onClick={() => reportService.downloadCsv(cropPlanService.buildReport(plan))} icon="FileDown">CSV</Button>
+            <Button variant="outline" full onClick={() => reportService.print(cropPlanService.buildReport(plan))} icon="Printer">Print / PDF</Button>
           </div>
         </Section>
       </Screen>

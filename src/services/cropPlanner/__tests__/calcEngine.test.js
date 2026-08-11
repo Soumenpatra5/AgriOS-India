@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   safeNum, round2, seedCalc, fertilizerCalc, protectionCalc, organicCalc,
   irrigationCalc, labourCalc, machineryCalc, otherCostsCalc,
-  yieldEstimate, revenueEstimate, profitEstimate, breakEven, computePlan,
+  yieldEstimate, revenueEstimate, profitEstimate, breakEven, computePlan, applyScenario,
 } from "../calcEngine.js";
 
 describe("safeNum", () => {
@@ -220,5 +220,67 @@ describe("computePlan — full composition", () => {
     expect(plan.profit.roiPct).toBeNull();
     expect(plan.costPerKg).toBeNull();
     expect(Number.isFinite(plan.totalCost)).toBe(true);
+  });
+});
+
+describe("applyScenario — scenario planning / price sensitivity", () => {
+  const basePlan = computePlan({
+    areaAcres: 1, seed: { seedRate: 10, seedPrice: 10 },
+    yieldPerAcre: 20, sellingPrice: 100,
+  }); // totalCost=100, totalYield=20, revenue=2000, profit=1900, roi=1900%
+
+  it("a 0/0/0 scenario reproduces the base numbers", () => {
+    const s = applyScenario(basePlan, { yieldPct: 0, pricePct: 0, costPct: 0 });
+    expect(s.totalYield).toBe(20);
+    expect(s.totalCost).toBe(100);
+    expect(s.revenue).toBe(2000);
+    expect(s.profit).toBe(1900);
+  });
+
+  it("reduces yield and revenue for a negative yield adjustment", () => {
+    const s = applyScenario(basePlan, { yieldPct: -15 });
+    expect(s.totalYield).toBe(17); // 20 * 0.85
+    expect(s.revenue).toBe(1700); // 17 * 100
+  });
+
+  it("increases revenue for a positive price adjustment without changing yield", () => {
+    const s = applyScenario(basePlan, { pricePct: 10 });
+    expect(s.totalYield).toBe(20);
+    expect(s.sellingPrice).toBe(110);
+    expect(s.revenue).toBe(2200);
+  });
+
+  it("increases cost for a positive cost adjustment", () => {
+    const s = applyScenario(basePlan, { costPct: 20 });
+    expect(s.totalCost).toBe(120);
+    expect(s.profit).toBe(2000 - 120);
+  });
+
+  it("combines all three adjustments together", () => {
+    const s = applyScenario(basePlan, { yieldPct: -15, pricePct: -10, costPct: 10 });
+    expect(s.totalYield).toBe(17);
+    expect(s.sellingPrice).toBe(90);
+    expect(s.revenue).toBe(1530); // 17 * 90
+    expect(s.totalCost).toBe(110);
+    expect(s.profit).toBe(1530 - 110);
+  });
+
+  it("never produces a negative yield or cost even with a -200% adjustment", () => {
+    const s = applyScenario(basePlan, { yieldPct: -200, costPct: -200 });
+    expect(s.totalYield).toBeGreaterThanOrEqual(0);
+    expect(s.totalCost).toBeGreaterThanOrEqual(0);
+  });
+
+  it("returns null ROI when the scenario cost is zero", () => {
+    const zeroCostPlan = computePlan({ areaAcres: 1, yieldPerAcre: 10, sellingPrice: 50 });
+    const s = applyScenario(zeroCostPlan, {});
+    expect(s.totalCost).toBe(0);
+    expect(s.roiPct).toBeNull();
+  });
+
+  it("ignores NaN/undefined percentage inputs as 0% (no throw)", () => {
+    const s = applyScenario(basePlan, { yieldPct: NaN, pricePct: undefined, costPct: "abc" });
+    expect(s.totalYield).toBe(20);
+    expect(s.totalCost).toBe(100);
   });
 });
