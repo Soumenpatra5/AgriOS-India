@@ -31,6 +31,22 @@ describe("feedConsumptionService.log", () => {
   });
 });
 
+describe("feedConsumptionService.remove — reverses the inventory deduction", () => {
+  it("restores stock when a linked consumption log is deleted", async () => {
+    const item = await feedInventory.add({ name: "ReversalTestFeed", feedType: "grower", unit: "kg", qty: 300, unitPrice: 20 });
+    const rec = await feedConsumptionService.log({ date: "2026-01-01", batchId: "b4", feedItemId: item.id, quantityUsed: 40, unitPrice: 20 });
+    expect((await inventoryService.getById(item.id)).qty).toBe(260);
+
+    await feedConsumptionService.remove(rec.id);
+    expect((await inventoryService.getById(item.id)).qty).toBe(300);
+  });
+
+  it("does nothing to inventory when removing a log that wasn't linked to an item", async () => {
+    const rec = await feedConsumptionService.log({ date: "2026-01-01", batchId: "b5", quantityUsed: 10, unitPrice: 20 });
+    await expect(feedConsumptionService.remove(rec.id)).resolves.not.toThrow();
+  });
+});
+
 describe("feedConsumptionService.totalsForBatch / forBatch", () => {
   it("aggregates all log entries for a batch", async () => {
     const batchId = "batch-totals-test";

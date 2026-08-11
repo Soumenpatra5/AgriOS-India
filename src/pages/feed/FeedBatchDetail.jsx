@@ -10,6 +10,7 @@ import { feedBatchService } from "../../services/feed/feedBatchService.js";
 import { feedConsumptionService } from "../../services/feed/feedConsumptionService.js";
 import { feedWastageService, WASTAGE_REASONS } from "../../services/feed/feedWastageService.js";
 import { feedInventory, LIVESTOCK_TYPES } from "../../services/feed/feedService.js";
+import { latestFeedReadings } from "../../services/feed/feedIotService.js";
 import { rupee } from "../../utils/format.js";
 
 function StatBox({ label, value, sub, fg }) {
@@ -45,6 +46,8 @@ export default function FeedBatchDetail({ id }) {
   const [wastage, setWastage] = useState(null);
   const [entries, setEntries] = useState([]);
   const [feedItems, setFeedItems] = useState([]);
+  const [insights, setInsights] = useState(null);
+  const [sensors, setSensors] = useState([]);
   const [consOpen, setConsOpen] = useState(false);
   const [wasteOpen, setWasteOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
@@ -60,10 +63,15 @@ export default function FeedBatchDetail({ id }) {
     if (s) {
       setWastage(await feedWastageService.summaryForBatch(id));
       setEntries(await feedConsumptionService.forBatch(id));
+      setInsights(await feedBatchService.speciesInsights(id));
       setUpdateForm({ currentCount: s.batch.currentCount ?? s.batch.initialCount ?? "", currentWeight: s.batch.currentWeight ?? "" });
     }
   };
-  useEffect(() => { refresh(); feedInventory.getAll().then(setFeedItems); }, [id]);
+  useEffect(() => {
+    refresh();
+    feedInventory.getAll().then(setFeedItems);
+    latestFeedReadings().then(setSensors);
+  }, [id]);
 
   if (!summary) {
     return (<><AppBar title="Feed batch" onBack={pop} /><div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>Loading…</div></>);
@@ -74,6 +82,12 @@ export default function FeedBatchDetail({ id }) {
   const feedItemOptions = [{ value: "", label: "Not linked to inventory" }, ...feedItems.map((i) => ({ value: i.id, label: `${i.name} (${i.qty} ${i.unit || "kg"} in stock)` }))];
 
   const onSelectFeedItem = (setForm) => (id2) => setForm((f) => ({ ...f, feedItemId: id2, unitPrice: feedItems.find((i) => i.id === id2)?.unitPrice ?? f.unitPrice }));
+
+  const useSensorReading = (reading) => {
+    if (!reading.latest) return;
+    if (reading.device.type === "feed") setConsForm((f) => ({ ...f, quantityUsed: String(reading.latest.value) }));
+    else if (reading.device.type === "weight") setConsForm((f) => ({ ...f, avgWeight: String(reading.latest.value) }));
+  };
 
   const saveConsumption = async () => {
     if (!consForm.quantityUsed) return;
@@ -152,6 +166,27 @@ export default function FeedBatchDetail({ id }) {
           </Card>
         </Section>
 
+        {insights && (
+          <Section title={insights.kind === "dairy" ? "Dairy insights" : insights.kind === "poultry" ? "Poultry insights" : "Fish insights"} icon="Sparkles">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {insights.kind === "dairy" && (<>
+                <StatBox label="Milk yield" value={`${insights.milkYield.toLocaleString("en-IN")} L`} />
+                <StatBox label="Cost / litre milk" value={insights.costPerLitre === null ? "—" : rupee(insights.costPerLitre)} fg={T.primary} />
+              </>)}
+              {insights.kind === "poultry" && (<>
+                <StatBox label="Eggs" value={insights.eggs.toLocaleString("en-IN")} />
+                <StatBox label="Cost / egg" value={insights.costPerEgg === null ? "—" : rupee(insights.costPerEgg)} fg={T.primary} />
+                <StatBox label="Mortality" value={insights.mortality.toLocaleString("en-IN")} />
+              </>)}
+              {insights.kind === "fish" && (<>
+                <StatBox label="Biomass" value={`${insights.biomass.toLocaleString("en-IN")} kg`} />
+                <StatBox label="Mortality" value={insights.mortality.toLocaleString("en-IN")} />
+                <StatBox label="Latest water quality" value={insights.waterQuality || "—"} />
+              </>)}
+            </div>
+          </Section>
+        )}
+
         <Section title="Feed cost summary" icon="Calculator">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <StatBox label="Total feed" value={`${summary.totalFeed.toLocaleString("en-IN")} kg`} />
@@ -192,6 +227,22 @@ export default function FeedBatchDetail({ id }) {
 
       <BottomSheet open={consOpen} onClose={() => setConsOpen(false)} title="Add Feed Consumption">
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {sensors.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: T.inkSoft, marginBottom: 6 }}>Sensor readings</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {sensors.map((r) => (
+                  <button key={r.device.id} onClick={() => useSensorReading(r)} disabled={!r.latest}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%",
+                      background: T.surface2, border: "none", borderRadius: T.rMd, padding: "8px 12px",
+                      cursor: r.latest ? "pointer" : "default", opacity: r.latest ? 1 : .5 }}>
+                    <span style={{ fontSize: 12.5, color: T.ink }}>{r.device.name} ({r.device.type})</span>
+                    <span style={{ fontSize: 12, color: T.inkSoft }}>{r.latest ? `${r.latest.value} — tap to use` : "no reading yet"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <Input label="Date" type="date" value={consForm.date} onChange={(v) => setConsForm((f) => ({ ...f, date: v }))} />
           <Dropdown label="Feed item (optional)" value={consForm.feedItemId} onChange={onSelectFeedItem(setConsForm)} options={feedItemOptions} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

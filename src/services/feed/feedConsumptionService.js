@@ -53,7 +53,17 @@ export const feedConsumptionService = {
     return record;
   },
 
-  remove: (id) => consumption.remove(id),
+  /* Deleting a log must not leave inventory permanently short by the
+     quantity that was deducted when it was logged — reverse the stock
+     movement first, same audit-trailed inventoryService.move() used to
+     make the original deduction. */
+  async remove(id) {
+    const rec = await consumption.getById(id);
+    if (rec?.feedItemId && Number(rec.quantityUsed) > 0) {
+      await inventoryService.move(rec.feedItemId, "in", rec.quantityUsed, "Reversal — consumption log deleted");
+    }
+    return consumption.remove(id);
+  },
 
   forBatch: (batchId) => consumption.getBy("batchId", batchId)
     .then((l) => l.sort((a, b) => (b.date || "").localeCompare(a.date || ""))),

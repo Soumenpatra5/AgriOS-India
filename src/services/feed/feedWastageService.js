@@ -44,7 +44,14 @@ export const feedWastageService = {
     return record;
   },
 
-  remove: (id) => wastage.remove(id),
+  /* Same reversal principle as feedConsumptionService.remove(). */
+  async remove(id) {
+    const rec = await wastage.getById(id);
+    if (rec?.feedItemId && Number(rec.quantity) > 0) {
+      await inventoryService.move(rec.feedItemId, "in", rec.quantity, "Reversal — wastage log deleted");
+    }
+    return wastage.remove(id);
+  },
 
   forBatch: (batchId) => wastage.getBy("batchId", batchId)
     .then((l) => l.sort((a, b) => (b.date || "").localeCompare(a.date || ""))),

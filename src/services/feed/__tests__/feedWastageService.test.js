@@ -24,6 +24,17 @@ describe("feedWastageService.log", () => {
   });
 });
 
+describe("feedWastageService.remove — reverses the inventory deduction", () => {
+  it("restores stock when a linked wastage log is deleted", async () => {
+    const item = await feedInventory.add({ name: "WastageReversalFeed", feedType: "grower", unit: "kg", qty: 100, unitPrice: 25 });
+    const rec = await feedWastageService.log({ date: "2026-01-01", feedItemId: item.id, quantity: 20, reason: "spoilage", unitPrice: 25 });
+    expect((await inventoryService.getById(item.id)).qty).toBe(80);
+
+    await feedWastageService.remove(rec.id);
+    expect((await inventoryService.getById(item.id)).qty).toBe(100);
+  });
+});
+
 describe("feedWastageService.summaryForBatch", () => {
   it("computes wastage % relative to total feed handled (consumed + wasted)", async () => {
     const batchId = "wastage-summary-batch";

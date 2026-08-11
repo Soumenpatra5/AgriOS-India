@@ -9,8 +9,9 @@ import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx"
 import { useApp } from "../../store/AppStore.jsx";
 import { feedBatchService, BATCH_STATUSES } from "../../services/feed/feedBatchService.js";
 import { LIVESTOCK_TYPES } from "../../services/feed/feedService.js";
+import { animalService } from "../../services/livestock/livestockService.js";
 
-const emptyForm = { enterprise: "poultry", label: "", initialCount: "", initialWeight: "", startDate: new Date().toISOString().slice(0, 10), targetFCR: "" };
+const emptyForm = { enterprise: "poultry", label: "", animalId: "", initialCount: "", initialWeight: "", startDate: new Date().toISOString().slice(0, 10), targetFCR: "" };
 
 export default function FeedBatchList({ enterprise } = {}) {
   const { pop, push, toast } = useApp();
@@ -18,9 +19,11 @@ export default function FeedBatchList({ enterprise } = {}) {
   const [filter, setFilter] = useState(enterprise || "all");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...emptyForm, enterprise: enterprise || "poultry" });
+  const [animals, setAnimals] = useState([]);
 
   const refresh = () => feedBatchService.getAll().then(setBatches);
   useEffect(() => { refresh(); }, []);
+  useEffect(() => { animalService.getAll(form.enterprise).then(setAnimals); }, [form.enterprise]);
 
   if (batches === null) {
     return (<><AppBar title="Feed batches" onBack={pop} /><div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>Loading…</div></>);
@@ -40,6 +43,7 @@ export default function FeedBatchList({ enterprise } = {}) {
   };
 
   const enterpriseOptions = LIVESTOCK_TYPES.map((t) => ({ value: t.id, label: t.label }));
+  const animalOptions = [{ value: "", label: "Not linked — general batch" }, ...animals.map((a) => ({ value: a.id, label: a.name || "Unnamed" }))];
 
   return (
     <>
@@ -77,8 +81,14 @@ export default function FeedBatchList({ enterprise } = {}) {
 
       <BottomSheet open={open} onClose={() => setOpen(false)} title="New Feed Batch">
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Dropdown label="Livestock type" value={form.enterprise} onChange={(v) => setForm((f) => ({ ...f, enterprise: v }))} options={enterpriseOptions} />
+          <Dropdown label="Livestock type" value={form.enterprise} onChange={(v) => setForm((f) => ({ ...f, enterprise: v, animalId: "" }))} options={enterpriseOptions} />
           <Input label="Batch / pond label" value={form.label} onChange={(v) => setForm((f) => ({ ...f, label: v }))} placeholder="e.g. Batch #001" />
+          <Dropdown label="Link to existing animal / flock / pond (optional)" value={form.animalId} onChange={(v) => setForm((f) => ({ ...f, animalId: v }))} options={animalOptions} />
+          {form.animalId && (
+            <div style={{ fontSize: 11.5, color: T.inkFaint }}>
+              Linking enables species-specific insights (milk yield, eggs, biomass) once your existing production logs for this {form.enterprise === "dairy" ? "animal" : form.enterprise === "fish" ? "pond" : "flock"} are recorded.
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <Input label="Initial count" type="number" value={form.initialCount} onChange={(v) => setForm((f) => ({ ...f, initialCount: v }))} />
             <Input label="Initial avg weight (kg)" type="number" value={form.initialWeight} onChange={(v) => setForm((f) => ({ ...f, initialWeight: v }))} placeholder="0" />

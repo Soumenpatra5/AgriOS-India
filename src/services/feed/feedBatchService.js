@@ -15,6 +15,7 @@
 
 import { repo } from "../erp/erpDb.js";
 import { feedConsumptionService } from "./feedConsumptionService.js";
+import { productionService } from "../livestock/livestockService.js";
 
 const batches = repo("feedBatches");
 
@@ -91,5 +92,57 @@ export const feedBatchService = {
       feedCostPerKgGain: fcr.weightGain > 0 ? round2(totals.totalCost / fcr.weightGain) : null,
       ...fcr,
     };
+  },
+
+  /* Species-specific view on top of the generic FCR/cost summary — same
+     precedent as HerdManager.jsx (one generic component + per-enterprise
+     config) rather than three separate near-duplicate pages. Only
+     available when the batch is linked to a real animal/flock/pond record
+     (batch.animalId) via the "Link to existing animal/flock/pond" field on
+     batch creation, since without that link there's no production data to
+     cross-reference.
+
+     Livestock production records use inconsistent id field names per
+     enterprise (dairy: animalId, poultry: flockId, fish: pondId — verified
+     directly in PoultryManager.jsx/FishManager.jsx/DairyManager.jsx rather
+     than assumed), so this reads the whole enterprise's records and
+     filters client-side by whichever field that enterprise actually uses,
+     rather than relying on productionService.getForAnimal()'s animalId-only
+     index (which would silently return nothing for poultry/fish). */
+  async speciesInsights(batchId) {
+    const batch = await batches.getById(batchId);
+    if (!batch || !batch.animalId) return null;
+
+    const idField = batch.enterprise === "dairy" ? "animalId"
+      : batch.enterprise === "poultry" ? "flockId"
+      : batch.enterprise === "fish" ? "pondId"
+      : null;
+    if (!idField) return null;
+
+    const start = batch.startDate || "0000-01-01";
+    const end = batch.endDate || new Date().toISOString().slice(0, 10);
+    const records = (await productionService.getForEnterprise(batch.enterprise, 10000))
+      .filter((r) => r[idField] === batch.animalId && r.date >= start && r.date <= end);
+
+    const summary = await this.summary(batchId);
+    if (!summary) return null;
+
+    if (batch.enterprise === "dairy") {
+      const milkYield = round2(records.reduce((s, r) => s + (Number(r.amLitres) || 0) + (Number(r.pmLitres) || 0), 0));
+      return { kind: "dairy", milkYield, costPerLitre: milkYield > 0 ? round2(summary.totalFeedCost / milkYield) : null };
+    }
+    if (batch.enterprise === "poultry") {
+      const eggs = records.reduce((s, r) => s + (Number(r.eggs) || 0), 0);
+      const mortality = records.reduce((s, r) => s + (Number(r.mortality) || 0), 0);
+      return { kind: "poultry", eggs, costPerEgg: eggs > 0 ? round2(summary.totalFeedCost / eggs) : null, mortality };
+    }
+    if (batch.enterprise === "fish") {
+      const currentCount = batch.currentCount != null ? safeNum(batch.currentCount) : safeNum(batch.initialCount);
+      const biomass = round2(safeNum(batch.currentWeight) * currentCount);
+      const mortality = Math.max(0, safeNum(batch.initialCount) - currentCount);
+      const latest = [...records].sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
+      return { kind: "fish", biomass, mortality, waterQuality: latest?.waterQuality || null };
+    }
+    return null;
   },
 };
