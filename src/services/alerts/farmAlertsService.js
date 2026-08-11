@@ -20,6 +20,10 @@ import { documentService } from "../employees/documentService.js";
 import { cropCalendarService } from "../calendar/cropCalendarService.js";
 import { feedAlertsService } from "../feed/feedAlertsService.js";
 import { priceAlertService } from "../market/priceAlerts.js";
+import { notificationService } from "../notifications/notificationService.js";
+import { storage } from "../../utils/storage.js";
+
+const NOTIFY_KEY = "alerts:notified"; // { date, keys[] } — one browser notification per urgent alert per day
 
 /* severity weight for sorting: higher = more urgent */
 const SEV_WEIGHT = { high: 3, medium: 2, low: 1 };
@@ -68,6 +72,34 @@ export const farmAlertsService = {
       out.push(alert("price", "medium", "Price alert", `${a.cropName || "Crop"} ${a.direction === "above" ? "≥" : "≤"} ₹${a.targetPrice}`, "mandiPrices")));
 
     return out.sort((a, b) => (SEV_WEIGHT[b.severity] || 0) - (SEV_WEIGHT[a.severity] || 0));
+  },
+
+  /* Opportunistic browser notification for urgent (high-severity) alerts.
+     Called on app open — NOT a background scheduler (this PWA has no push
+     backend). Honest guarantees: fires only if the user has enabled
+     notifications, only for high-severity alerts, and at most once per
+     distinct alert per day (deduped via NOTIFY_KEY) so opening the app
+     repeatedly never re-nags. Returns a result object describing what
+     happened, which also makes it testable without a real Notification API. */
+  async notifyHighPriority(farmId) {
+    if (!notificationService.isEnabled()) return { dispatched: false, reason: "disabled" };
+
+    const high = (await this.getAll(farmId)).filter((a) => a.severity === "high");
+    if (high.length === 0) return { dispatched: false, reason: "none" };
+
+    const today = new Date().toISOString().slice(0, 10);
+    const rec = storage.get(NOTIFY_KEY, {}) || {};
+    const seen = rec.date === today ? (rec.keys || []) : [];
+    const sig = (a) => `${a.source}:${a.title}:${a.message}`;
+    const fresh = high.filter((a) => !seen.includes(sig(a)));
+    if (fresh.length === 0) return { dispatched: false, reason: "already_notified" };
+
+    const body = fresh.length === 1
+      ? `${fresh[0].title} — ${fresh[0].message}`
+      : `${fresh.length} urgent items need your attention`;
+    notificationService.dispatch("AgriOS — urgent farm alerts", body, "agrios-alerts");
+    storage.set(NOTIFY_KEY, { date: today, keys: [...seen, ...fresh.map(sig)] });
+    return { dispatched: true, count: fresh.length };
   },
 
   /* Count by severity + total, for a badge. */

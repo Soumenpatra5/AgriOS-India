@@ -71,7 +71,12 @@ export default function Home() {
   const [monthOut, setMonthOut] = useState(0);
   const [alertCount, setAlertCount] = useState(0);
 
-  useEffect(() => { farmAlertsService.summary().then((s) => setAlertCount(s.total)).catch(() => {}); }, []);
+  useEffect(() => {
+    farmAlertsService.summary().then((s) => setAlertCount(s.total)).catch(() => {});
+    // Opportunistic — fires a browser notification for urgent alerts only if
+    // the user enabled notifications, deduped per day. Not a background job.
+    farmAlertsService.notifyHighPriority().catch(() => {});
+  }, []);
 
   useEffect(() => {
     let alive = true;

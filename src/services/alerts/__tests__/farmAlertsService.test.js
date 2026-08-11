@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { farmAlertsService } from "../farmAlertsService.js";
 import { inventoryService } from "../../inventory/inventoryService.js";
+import { notificationService } from "../../notifications/notificationService.js";
 
 /* priceAlerts / cropCalendar read localStorage, absent in the node test env. */
 class MemLS { constructor(){this.m=new Map();} getItem(k){return this.m.has(k)?this.m.get(k):null;} setItem(k,v){this.m.set(k,String(v));} removeItem(k){this.m.delete(k);} clear(){this.m.clear();} }
@@ -54,6 +55,39 @@ describe("farmAlertsService.getAll", () => {
   it("does not throw for a farm with no data", async () => {
     const alerts = await farmAlertsService.getAll("totally-empty-farm-xyz");
     expect(Array.isArray(alerts)).toBe(true);
+  });
+});
+
+describe("farmAlertsService.notifyHighPriority", () => {
+  it("does nothing when notifications are disabled", async () => {
+    vi.spyOn(notificationService, "isEnabled").mockReturnValue(false);
+    const res = await farmAlertsService.notifyHighPriority("notify-farm-disabled");
+    expect(res).toEqual({ dispatched: false, reason: "disabled" });
+    vi.restoreAllMocks();
+  });
+
+  it("dispatches once for a fresh urgent alert, then dedupes on the next open", async () => {
+    const farmId = "notify-farm-fresh";
+    await inventoryService.addItem({ name: "NotifyExpired", category: "feed", qty: 1, unit: "kg", farmId, expiryDate: "2000-01-01" });
+    vi.spyOn(notificationService, "isEnabled").mockReturnValue(true);
+    const dispatch = vi.spyOn(notificationService, "dispatch").mockImplementation(() => {});
+
+    const first = await farmAlertsService.notifyHighPriority(farmId);
+    expect(first.dispatched).toBe(true);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+
+    const second = await farmAlertsService.notifyHighPriority(farmId);
+    expect(second).toEqual({ dispatched: false, reason: "already_notified" });
+    expect(dispatch).toHaveBeenCalledTimes(1); // not called again
+    vi.restoreAllMocks();
+  });
+
+  it("reports 'none' when there are no urgent alerts", async () => {
+    vi.spyOn(notificationService, "isEnabled").mockReturnValue(true);
+    vi.spyOn(notificationService, "dispatch").mockImplementation(() => {});
+    const res = await farmAlertsService.notifyHighPriority("notify-farm-clean-xyz");
+    expect(res.reason).toBe("none");
+    vi.restoreAllMocks();
   });
 });
 
