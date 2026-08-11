@@ -1,6 +1,4 @@
-/* Feed Management hub — landing page for the feed submodules. Phase 1 ships
-   Calculator, Inventory and Purchase; later phases add Consumption,
-   Batches/FCR, Analytics, Alerts and Reports as their own tiles here. */
+/* Feed Management hub — landing page for the feed submodules. */
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import { AppBar, Screen } from "../../components/index.js";
@@ -12,10 +10,12 @@ const TILES = [
   { kind: "feedPurchase",   label: "Feed Purchase",   icon: "ShoppingCart", a: "primary", desc: "Record a purchase & restock" },
   { kind: "feedBatchList",  label: "Feed Batches & FCR", icon: "Layers",   a: "red", desc: "Batch-wise consumption & feed conversion ratio" },
   { kind: "feedWastage",    label: "Feed Wastage",    icon: "AlertTriangle", a: "red", desc: "Spoilage, spillage & damaged stock" },
+  { kind: "feedDashboard",  label: "Feed Cost Analytics", icon: "BarChart3", a: "blue", desc: "Cost trends, FCR & livestock comparison, alerts" },
+  { kind: "feedReports",    label: "Feed Reports",    icon: "FileText",   a: "blue", desc: "Cost, inventory, FCR, wastage, purchase & supplier reports" },
 ];
 
-const FG = { primary: T.primary, orange: T.orange, yellow: T.yellow, red: T.red };
-const BG = { primary: T.primarySoft, orange: T.orangeSoft, yellow: T.yellowSoft, red: T.redSoft };
+const FG = { primary: T.primary, orange: T.orange, yellow: T.yellow, red: T.red, blue: T.blue };
+const BG = { primary: T.primarySoft, orange: T.orangeSoft, yellow: T.yellowSoft, red: T.redSoft, blue: T.blueSoft };
 
 export default function FeedHub() {
   const { pop, push } = useApp();

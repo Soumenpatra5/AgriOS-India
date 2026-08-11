@@ -68,7 +68,12 @@ export const feedConsumptionService = {
   },
 
   async recent(farmId, limit = 20) {
-    const all = farmId ? await consumption.getBy("farmId", farmId) : await consumption.getAll();
-    return all.sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, limit);
+    const all = await this.all(farmId);
+    return all.slice(0, limit);
+  },
+
+  async all(farmId) {
+    const list = farmId ? await consumption.getBy("farmId", farmId) : await consumption.getAll();
+    return list.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   },
 };

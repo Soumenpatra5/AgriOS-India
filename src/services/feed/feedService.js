@@ -15,6 +15,7 @@
 
 import { inventoryService } from "../inventory/inventoryService.js";
 import { orderService } from "../crm/orderService.js";
+import { ledgerService } from "../ledger/ledgerService.js";
 
 export const FEED_CATEGORY = "feed"; // matches inventoryService.ITEM_CATEGORIES id
 
@@ -134,15 +135,20 @@ export const feedInventory = {
  * other charges) stored alongside orderService's own `amount` (qty x rate,
  * its existing invariant — left untouched rather than fought). Then, as an
  * explicit consequence of the user confirming this purchase (not a hidden
- * side effect), updates feed inventory: stock-in an existing item, or
- * create a new one if this is the first purchase of that feed.
+ * side effect):
+ *   1. updates feed inventory: stock-in an existing item, or create a new
+ *      one if this is the first purchase of that feed.
+ *   2. posts an expense to the existing Farm Ledger (category "feed",
+ *      already defined there) so this purchase is reflected in P&L, cash
+ *      flow and cost-per-unit the same way every other farm expense is —
+ *      no second finance system.
  */
 export const feedPurchase = {
   async record({
     contactId = null, supplierName = "", feedItemId = null, feedName, feedType,
     quantity, unit = "kg", unitPrice, gst = 0, discount = 0, transportCost = 0, otherCharges = 0,
     invoiceNumber = "", purchaseDate, paymentStatus = "open", paymentMethod = "", dueDate = "",
-    storageLocation = "", farmId,
+    storageLocation = "", farmId, enterprise = "other",
   }) {
     const qty = safeNum(quantity);
     const rate = safeNum(unitPrice);
@@ -155,7 +161,7 @@ export const feedPurchase = {
       date, status: paymentStatus, paymentMethod, dueDate,
       invoiceNumber, supplierName, gst: safeNum(gst), discount: safeNum(discount),
       transportCost: safeNum(transportCost), otherCharges: safeNum(otherCharges), totalCost,
-      feedType, storageLocation, farmId,
+      feedType, storageLocation, farmId, enterprise,
     });
 
     const item = feedItemId
@@ -165,6 +171,12 @@ export const feedPurchase = {
           supplierName, storageLocation, farmId,
         });
 
-    return { order, item };
+    const ledgerTxnId = totalCost > 0 ? await ledgerService.add({
+      kind: "expense", categoryId: "feed", enterpriseId: enterprise, amount: totalCost, date,
+      note: `Feed purchase: ${feedName}${supplierName ? ` — ${supplierName}` : ""}`,
+      sourceOrderId: order.id,
+    }) : null;
+
+    return { order, item, ledgerTxnId };
   },
 };

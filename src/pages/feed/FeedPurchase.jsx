@@ -9,7 +9,7 @@ import { AppBar, Screen, Card } from "../../components/index.js";
 import { Input, Dropdown } from "../../components/inputs.jsx";
 import { Button } from "../../components/primitives.jsx";
 import { useApp } from "../../store/AppStore.jsx";
-import { feedInventory, feedPurchase, FEED_TYPES } from "../../services/feed/feedService.js";
+import { feedInventory, feedPurchase, FEED_TYPES, LIVESTOCK_TYPES } from "../../services/feed/feedService.js";
 import { contactService } from "../../services/crm/contactService.js";
 import { rupee } from "../../utils/format.js";
 
@@ -40,6 +40,7 @@ export default function FeedPurchase() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [storageLocation, setStorageLocation] = useState("");
+  const [enterprise, setEnterprise] = useState("other");
 
   useEffect(() => {
     contactService.getSuppliers().then(setSuppliers);
@@ -68,9 +69,9 @@ export default function FeedPurchase() {
         feedItemId: feedItemId || null, feedName, feedType,
         quantity: n2(quantity), unit, unitPrice: n2(unitPrice),
         gst: n2(gst), discount: n2(discount), transportCost: n2(transportCost), otherCharges: n2(otherCharges),
-        invoiceNumber, purchaseDate, paymentStatus, paymentMethod, dueDate, storageLocation,
+        invoiceNumber, purchaseDate, paymentStatus, paymentMethod, dueDate, storageLocation, enterprise,
       });
-      toast("Feed purchase recorded and inventory updated", "success");
+      toast("Feed purchase recorded, inventory updated & posted to Farm Ledger", "success");
       pop();
     } finally {
       setSaving(false);
@@ -99,6 +100,8 @@ export default function FeedPurchase() {
                 <Dropdown label="Feed type" value={feedType} onChange={setFeedType} options={FEED_TYPES.map((t) => ({ value: t.id, label: t.label }))} />
               </>
             )}
+            <Dropdown label="Livestock (for ledger/cost tracking)" value={enterprise} onChange={setEnterprise}
+              options={LIVESTOCK_TYPES.map((t) => ({ value: t.id, label: t.label }))} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <Input label="Quantity" value={num(quantity)} onChange={setQuantity} type="number" inputMode="decimal" />
               <Input label="Unit" value={unit} onChange={setUnit} placeholder="kg / bags" />

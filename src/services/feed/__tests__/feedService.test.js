@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { computeFeedCost, feedInventory, feedPurchase, FEED_TYPES, LIVESTOCK_TYPES } from "../feedService.js";
 import { inventoryService } from "../../inventory/inventoryService.js";
 import { orderService } from "../../crm/orderService.js";
+import { ledgerService } from "../../ledger/ledgerService.js";
 
 describe("computeFeedCost — spec worked example", () => {
   it("80 animals x 1.5 kg/day x 45 days @ ₹36/kg = 5,400 kg, ₹1,94,400", () => {
@@ -133,5 +134,24 @@ describe("feedPurchase.record — purchase -> inventory + order integration", ()
     });
     expect(Number.isFinite(order.totalCost)).toBe(true);
     expect(order.totalCost).toBeGreaterThanOrEqual(0);
+  });
+
+  it("posts the purchase as a Farm Ledger expense (category=feed) tagged to the given enterprise", async () => {
+    const before = await ledgerService.all();
+    const { order, ledgerTxnId } = await feedPurchase.record({
+      feedName: "LedgerCheckFeed", feedType: "layer", quantity: 100, unitPrice: 30, enterprise: "poultry",
+    });
+    expect(ledgerTxnId).toBeTruthy();
+    const after = await ledgerService.all();
+    expect(after.length).toBe(before.length + 1);
+    const entry = after.find((t) => t.id === ledgerTxnId);
+    expect(entry.categoryId).toBe("feed");
+    expect(entry.enterpriseId).toBe("poultry");
+    expect(entry.amount).toBe(order.totalCost);
+  });
+
+  it("does not post a zero-value ledger entry when total cost is zero", async () => {
+    const { ledgerTxnId } = await feedPurchase.record({ feedName: "ZeroCostFeed", feedType: "custom", quantity: 0, unitPrice: 0 });
+    expect(ledgerTxnId).toBeNull();
   });
 });
