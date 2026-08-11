@@ -16,7 +16,7 @@ const MODULES = [
   { kind: "farmProfiles",       label: "Farms",       icon: "House",         a: "primary" },
   { kind: "landManager",        label: "Land",        icon: "Map",           a: "orange"  },
   { kind: "cropCalendar",       label: "Crops",       icon: "Wheat",         a: "primary" },
-  { kind: "cropPlanner",        label: "Crop Planner", icon: "Calculator",   a: "yellow"  },
+  { kind: "cropPlanList",       label: "Crop Planner", icon: "Calculator",   a: "yellow"  },
   { kind: "livestockHub",       label: "Livestock",   icon: "Rabbit",        a: "red"     },
   { kind: "erpTasks",           label: "Tasks",       icon: "ListChecks",    a: "blue"    },
   { kind: "erpInventory",       label: "Inventory",   icon: "Warehouse",     a: "orange"  },

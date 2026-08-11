@@ -1,34 +1,40 @@
 /* Crop Input & Cultivation Cost Planner.
-   Phase 1: quick seed calculator (the original Home "Seed rate" tile) plus
-   an optional "Advanced Crop Planning" section covering fertilizer, crop
+   Quick seed calculator (the original Home "Seed rate" tile) plus an
+   optional "Advanced Crop Planning" section covering fertilizer, crop
    protection, organic inputs, irrigation, labour, machinery, other costs,
    yield, revenue, profit, ROI and break-even — all computed by the shared,
    unit-tested calcEngine. This is a planning/estimation tool: nothing here
    invents a rate, dose, or price — every number is either typed by the
    farmer or clearly labelled as an MSP/seasonal-band reference.
 
-   Saving a plan, comparing plans, and inventory/ledger integration land in
-   a later phase — this screen is calculation-only for now. */
-import { useMemo, useState } from "react";
+   Also doubles as the create/edit form for a saved Crop Plan — pass
+   `planId` in props to load and edit an existing plan. */
+import { useEffect, useMemo, useState } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import { AppBar, Screen, Card } from "../../components/index.js";
 import { Input, Dropdown } from "../../components/inputs.jsx";
+import { Button } from "../../components/primitives.jsx";
 import { useApp } from "../../store/AppStore.jsx";
 import { AREA_UNITS, AREA_UNIT_OPTIONS, toAcres } from "../../utils/units.js";
 import { computePlan } from "../../services/cropPlanner/calcEngine.js";
+import { cropPlanService } from "../../services/cropPlanner/cropPlanService.js";
 import { CROPS } from "../../services/market/cropData.js";
-import { rupee } from "../../utils/format.js";
+import { farmService } from "../../services/farm/farmService.js";
+import { landService } from "../../services/land/landService.js";
+import PlanSummary from "../../components/cropPlanner/PlanSummary.jsx";
 
 const num = (v) => (v === "" || v === null || v === undefined ? "" : v);
 const n2 = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
 
-function StatBox({ label, value, sub, fg }) {
+function Section({ title, icon, children }) {
   return (
-    <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg, padding: "13px 12px" }}>
-      <div style={{ fontSize: 11.5, color: T.inkSoft }}>{label}</div>
-      <div style={{ fontFamily: T.display, fontSize: 17, fontWeight: 700, color: fg || T.ink, marginTop: 2 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 2 }}>{sub}</div>}
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, color: T.inkSoft,
+        textTransform: "uppercase", letterSpacing: .4, marginBottom: 10, padding: "0 2px" }}>
+        {icon && <Icon name={icon} size={14} />} {title}
+      </div>
+      {children}
     </div>
   );
 }
@@ -79,35 +85,34 @@ function RowEditor({ title, icon, rows, setRows, fields, addLabel }) {
   );
 }
 
-function Section({ title, icon, children }) {
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, color: T.inkSoft,
-        textTransform: "uppercase", letterSpacing: .4, marginBottom: 10, padding: "0 2px" }}>
-        {icon && <Icon name={icon} size={14} />} {title}
-      </div>
-      {children}
-    </div>
-  );
-}
+export default function CropPlanner({ planId }) {
+  const { pop, push, tc, toast } = useApp();
+  const editing = !!planId;
 
-export default function CropPlanner() {
-  const { pop, tc } = useApp();
+  const [loaded, setLoaded] = useState(!editing);
+  const [saving, setSaving] = useState(false);
 
-  /* Step 1-3: crop / area (the original simple workflow) */
+  /* Farm / field */
+  const [farms, setFarms] = useState([]);
+  const [fields, setFields] = useState([]);
+  const [farmId, setFarmId] = useState("");
+  const [fieldId, setFieldId] = useState("");
+
+  /* Crop / area */
   const [cropId, setCropId] = useState("");
+  const [customCropName, setCustomCropName] = useState("");
+  const [variety, setVariety] = useState("");
   const [areaValue, setAreaValue] = useState("");
   const [areaUnit, setAreaUnit] = useState("acre");
 
-  /* Step 4: seed */
+  /* Seed */
   const [seedRate, setSeedRate] = useState("");
   const [seedPrice, setSeedPrice] = useState("");
   const [seedTreatmentCost, setSeedTreatmentCost] = useState("");
   const [wastagePct, setWastagePct] = useState("");
 
-  const [advanced, setAdvanced] = useState(false);
+  const [advanced, setAdvanced] = useState(editing);
 
-  /* Steps 5-10: advanced inputs */
   const [fertilizer, setFertilizer] = useState([]);
   const [protection, setProtection] = useState([]);
   const [organic, setOrganic] = useState([]);
@@ -116,15 +121,61 @@ export default function CropPlanner() {
   const [machinery, setMachinery] = useState([]);
   const [other, setOther] = useState([]);
 
-  /* Steps 11: yield & selling price */
   const [yieldPerAcre, setYieldPerAcre] = useState("");
   const [sellingPrice, setSellingPrice] = useState("");
+  const [notes, setNotes] = useState("");
+
+  /* Load farms once; default to the active farm. */
+  useEffect(() => {
+    farmService.getAll().then(setFarms);
+    farmService.getActiveId() && setFarmId(farmService.getActiveId());
+  }, []);
+
+  /* Load fields whenever the selected farm changes. */
+  useEffect(() => {
+    if (!farmId) { setFields([]); return; }
+    landService.getAll(farmId).then(setFields);
+  }, [farmId]);
+
+  /* Editing an existing plan: load it once and populate every field. */
+  useEffect(() => {
+    if (!editing) return;
+    cropPlanService.getById(planId).then((plan) => {
+      if (!plan) { toast("Crop plan not found", "error"); pop(); return; }
+      setFarmId(plan.farmId || ""); setFieldId(plan.fieldId || "");
+      setCropId(plan.cropId || ""); setCustomCropName(plan.cropId ? "" : (plan.cropName || ""));
+      setVariety(plan.variety || "");
+      setAreaValue(plan.areaValue ?? ""); setAreaUnit(plan.areaUnit || "acre");
+      setSeedRate(plan.seed?.seedRate ?? ""); setSeedPrice(plan.seed?.seedPrice ?? "");
+      setSeedTreatmentCost(plan.seed?.seedTreatmentCost ?? ""); setWastagePct(plan.seed?.wastagePct ?? "");
+      setFertilizer(plan.fertilizer || []); setProtection(plan.protection || []); setOrganic(plan.organic || []);
+      setIrrigation(plan.irrigation || { numIrrigations: "", waterCostPerIrrigation: "", electricityCost: "", dieselCost: "" });
+      setLabour(plan.labour || []); setMachinery(plan.machinery || []); setOther(plan.other || []);
+      setYieldPerAcre(plan.yieldPerAcre ?? ""); setSellingPrice(plan.sellingPrice ?? "");
+      setNotes(plan.notes || "");
+      setLoaded(true);
+    });
+  }, [editing, planId]);
+
+  const field = fields.find((f) => f.id === fieldId);
+
+  /* Selecting a field auto-fills area + current crop, matching item-3 of the
+     spec ("automatically retrieve area, unit, previous crop"). Only fires on
+     an actual field pick, so it never fights with manual edits afterward. */
+  const onSelectField = (id) => {
+    setFieldId(id);
+    const f = fields.find((x) => x.id === id);
+    if (!f) return;
+    if (f.areaAcres) { setAreaValue(f.areaAcres); setAreaUnit("acre"); }
+  };
 
   const crop = CROPS.find((c) => c.id === cropId);
+  const cropName = crop ? crop.name : customCropName;
   const areaAcres = toAcres(n2(areaValue), areaUnit);
 
-  const plan = useMemo(() => computePlan({
-    areaAcres,
+  const formInput = useMemo(() => ({
+    farmId, fieldId, cropId, cropName, variety, season: crop?.season || "",
+    areaValue: n2(areaValue), areaUnit, areaAcres,
     seed: { seedRate: n2(seedRate), seedPrice: n2(seedPrice), seedTreatmentCost: n2(seedTreatmentCost), wastagePct: n2(wastagePct) },
     fertilizer: fertilizer.map((r) => ({ ...r, rate: n2(r.rate), price: n2(r.price), applications: n2(r.applications) || 1 })),
     protection: protection.map((r) => ({ ...r, rate: n2(r.rate), price: n2(r.price), applications: n2(r.applications) || 1 })),
@@ -136,23 +187,68 @@ export default function CropPlanner() {
     labour: labour.map((r) => ({ ...r, workers: n2(r.workers), days: n2(r.days), wage: n2(r.wage) })),
     machinery: machinery.map((r) => ({ ...r, hours: n2(r.hours), ratePerHour: n2(r.ratePerHour), fuelCost: n2(r.fuelCost), operatorCost: n2(r.operatorCost) })),
     other: other.map((r) => ({ ...r, amount: n2(r.amount) })),
-    yieldPerAcre: n2(yieldPerAcre),
-    sellingPrice: n2(sellingPrice),
-  }), [areaAcres, seedRate, seedPrice, seedTreatmentCost, wastagePct, fertilizer, protection, organic, irrigation, labour, machinery, other, yieldPerAcre, sellingPrice]);
+    yieldPerAcre: n2(yieldPerAcre), sellingPrice: n2(sellingPrice),
+    notes,
+  }), [farmId, fieldId, cropId, cropName, variety, crop, areaValue, areaUnit, areaAcres, seedRate, seedPrice, seedTreatmentCost, wastagePct,
+       fertilizer, protection, organic, irrigation, labour, machinery, other, yieldPerAcre, sellingPrice, notes]);
+
+  const plan = useMemo(() => computePlan(formInput), [formInput]);
 
   const cropOptions = [{ value: "", label: "Other / not listed" }, ...CROPS.map((c) => ({ value: c.id, label: c.name }))];
   const areaUnitOptions = AREA_UNIT_OPTIONS.map((u) => ({ value: u, label: tc(AREA_UNITS[u].label) }));
+  const farmOptions = [{ value: "", label: "No farm selected — manual entry" }, ...farms.map((f) => ({ value: f.id, label: f.name || "Unnamed farm" }))];
+  const fieldOptions = [{ value: "", label: "No field selected — manual entry" }, ...fields.map((f) => ({ value: f.id, label: f.name || "Unnamed field" }))];
 
   const usingMspFallback = !sellingPrice && crop && crop.msp;
+  const canSave = areaAcres > 0 && (cropId || customCropName.trim());
+
+  const save = async () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    try {
+      if (editing) {
+        await cropPlanService.update(planId, formInput);
+        toast("Crop plan updated", "success");
+        pop();
+      } else {
+        const saved = await cropPlanService.add(formInput);
+        toast("Crop plan saved", "success");
+        push({ kind: "cropPlanDetail", props: { id: saved.id } });
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!loaded) {
+    return (
+      <>
+        <AppBar title="Crop plan" onBack={pop} />
+        <div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>Loading…</div>
+      </>
+    );
+  }
 
   return (
     <>
-      <AppBar title={tc({ en: "Crop input & cost planner", hi: "फसल इनपुट व लागत योजना", bn: "ফসল ইনপুট ও খরচ পরিকল্পনা" })} onBack={pop} />
+      <AppBar title={tc({ en: editing ? "Edit crop plan" : "Crop input & cost planner", hi: editing ? "फसल योजना संपादित करें" : "फसल इनपुट व लागत योजना", bn: editing ? "ফসল পরিকল্পনা সম্পাদনা" : "ফসল ইনপুট ও খরচ পরিকল্পনা" })} onBack={pop} />
       <Screen gap={20}>
+
+        <Section title="Farm & field (optional)" icon="Map">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Dropdown label="Farm" value={farmId} onChange={(v) => { setFarmId(v); setFieldId(""); }} options={farmOptions} />
+            {farmId && <Dropdown label="Field" value={fieldId} onChange={onSelectField} options={fieldOptions} />}
+            {field?.currentCrop && (
+              <div style={{ fontSize: 12, color: T.inkFaint }}>Previous crop on this field: {field.currentCrop}</div>
+            )}
+          </div>
+        </Section>
 
         <Section title="Crop & area" icon="Sprout">
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Dropdown label="Crop (optional — for a reference selling price)" value={cropId} onChange={setCropId} options={cropOptions} />
+            <Dropdown label="Crop" value={cropId} onChange={setCropId} options={cropOptions} />
+            {!cropId && <Input label="Crop name" value={customCropName} onChange={setCustomCropName} placeholder="e.g. Cauliflower" />}
+            <Input label="Variety / seed type (optional)" value={variety} onChange={setVariety} placeholder="e.g. Hybrid, Certified" />
             <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 10 }}>
               <Input label="Area" value={num(areaValue)} onChange={setAreaValue} type="number" inputMode="decimal" placeholder="0" />
               <Dropdown label="Unit" value={areaUnit} onChange={setAreaUnit} options={areaUnitOptions} />
@@ -180,9 +276,15 @@ export default function CropPlanner() {
           </Card>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
-            <StatBox label="Seed required (final)" value={`${plan.seed.finalRequiredKg.toLocaleString("en-IN")} kg`}
-              sub={plan.seed.wastageKg > 0 ? `incl. ${plan.seed.wastageKg} kg wastage` : undefined} />
-            <StatBox label="Total seed cost" value={rupee(plan.seed.totalSeedCost)} fg={T.primary} />
+            <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg, padding: "13px 12px" }}>
+              <div style={{ fontSize: 11.5, color: T.inkSoft }}>Seed required (final)</div>
+              <div style={{ fontFamily: T.display, fontSize: 17, fontWeight: 700, marginTop: 2 }}>{plan.seed.finalRequiredKg.toLocaleString("en-IN")} kg</div>
+              {plan.seed.wastageKg > 0 && <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 2 }}>incl. {plan.seed.wastageKg} kg wastage</div>}
+            </div>
+            <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg, padding: "13px 12px" }}>
+              <div style={{ fontSize: 11.5, color: T.inkSoft }}>Total seed cost</div>
+              <div style={{ fontFamily: T.display, fontSize: 17, fontWeight: 700, color: T.primary, marginTop: 2 }}>₹{plan.seed.totalSeedCost.toLocaleString("en-IN")}</div>
+            </div>
           </div>
         </Section>
 
@@ -280,63 +382,24 @@ export default function CropPlanner() {
                 </div>
               </Card>
             </Section>
+
+            <Section title="Notes" icon="FileText">
+              <Input value={notes} onChange={setNotes} placeholder="Optional notes about this plan" />
+            </Section>
           </>
         )}
 
-        {/* Summary */}
-        <Section title="Cultivation cost summary" icon="Calculator">
-          <Card pad={14}>
-            <SummaryRow label="Seed cost" value={plan.seed.totalSeedCost} />
-            {plan.fertilizer.total > 0 && <SummaryRow label="Fertilizer cost" value={plan.fertilizer.total} />}
-            {plan.protection.total > 0 && <SummaryRow label="Crop protection cost" value={plan.protection.total} />}
-            {plan.organic.total > 0 && <SummaryRow label="Organic input cost" value={plan.organic.total} />}
-            {plan.irrigation.total > 0 && <SummaryRow label="Irrigation cost" value={plan.irrigation.total} />}
-            {plan.labour.total > 0 && <SummaryRow label="Labour cost" value={plan.labour.total} />}
-            {plan.machinery.total > 0 && <SummaryRow label="Machinery cost" value={plan.machinery.total} />}
-            {plan.other.total > 0 && <SummaryRow label="Other cost" value={plan.other.total} />}
-            <div style={{ height: 1, background: T.lineSoft, margin: "10px 0" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontSize: 14.5, fontWeight: 700, color: T.ink }}>Total cultivation cost</span>
-              <span style={{ fontFamily: T.display, fontSize: 19, fontWeight: 800, color: T.primary }}>{rupee(plan.totalCost)}</span>
-            </div>
-          </Card>
+        <PlanSummary plan={plan} showProfitability={n2(yieldPerAcre) > 0 || n2(sellingPrice) > 0} />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
-            <StatBox label="Cost / acre" value={rupee(plan.costPerAcre)} />
-            <StatBox label="Cost / hectare" value={rupee(plan.costPerHectare)} />
-          </div>
-        </Section>
-
-        {(n2(yieldPerAcre) > 0 || n2(sellingPrice) > 0) && (
-          <Section title="Estimated profitability" icon="TrendingUp">
-            <div style={{ fontSize: 11.5, color: T.inkFaint, marginBottom: 10, display: "flex", gap: 6 }}>
-              <Icon name="Info" size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-              Planning estimate only — not a guaranteed yield, price, or profit.
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <StatBox label="Estimated yield" value={`${plan.yield.totalYield.toLocaleString("en-IN")}`} sub="total, this area" />
-              <StatBox label="Estimated revenue" value={rupee(plan.revenue.total)} />
-              <StatBox label="Estimated profit" value={rupee(plan.profit.gross)} fg={plan.profit.gross >= 0 ? T.primary : T.red} />
-              <StatBox label="ROI" value={plan.profit.roiPct === null ? "—" : `${plan.profit.roiPct}%`} fg={plan.profit.roiPct !== null && plan.profit.roiPct >= 0 ? T.primary : plan.profit.roiPct === null ? T.ink : T.red} />
-              <StatBox label="Cost / kg (or unit)" value={plan.costPerKg === null ? "—" : rupee(plan.costPerKg)} />
-              <StatBox label="Break-even price" value={plan.breakEven.breakEvenPrice === null ? "—" : rupee(plan.breakEven.breakEvenPrice)} sub="₹ needed / unit to cover cost" />
-            </div>
-          </Section>
-        )}
+        <Button full onClick={save} disabled={!canSave || saving} icon="Save">
+          {saving ? "Saving…" : editing ? "Update crop plan" : "Save crop plan"}
+        </Button>
+        {!canSave && <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center" }}>Enter a crop name and area to save.</div>}
 
         <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center", lineHeight: 1.6 }}>
-          This is a planning and estimation tool. Rates, doses, yields, and prices are what you enter — verify locally before purchase or sale. Saving and comparing plans is coming in a future update.
+          This is a planning and estimation tool. Rates, doses, yields, and prices are what you enter — verify locally before purchase or sale.
         </div>
       </Screen>
     </>
-  );
-}
-
-function SummaryRow({ label, value }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
-      <span style={{ color: T.inkSoft }}>{label}</span>
-      <span style={{ color: T.ink, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{rupee(value)}</span>
-    </div>
   );
 }

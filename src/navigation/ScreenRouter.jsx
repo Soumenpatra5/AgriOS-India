@@ -112,6 +112,8 @@ const StorageManager      = lazy(() => import("../pages/StorageManager.jsx"));
 const Calculator          = lazy(() => import("../pages/Calculator.jsx"));
 const EmployeeDetail      = lazy(() => import("../pages/erp/EmployeeDetail.jsx"));
 const CropPlanner         = lazy(() => import("../pages/cropPlanner/CropPlanner.jsx"));
+const CropPlanList        = lazy(() => import("../pages/cropPlanner/CropPlanList.jsx"));
+const CropPlanDetail      = lazy(() => import("../pages/cropPlanner/CropPlanDetail.jsx"));
 
 const TAB_SCREENS = { home: Home, ai: AIHub, market: Market, services: Services, profile: Profile };
 
@@ -217,7 +219,9 @@ function StackScreen({ item }) {
   if (item.kind === "apiKeyManager")        return <ApiKeyManager />;
   if (item.kind === "storage")              return <StorageManager />;
   if (item.kind === "calculator")           return <Calculator {...(item.props || {})} />;
-  if (item.kind === "cropPlanner")          return <CropPlanner />;
+  if (item.kind === "cropPlanner")          return <CropPlanner {...(item.props || {})} />;
+  if (item.kind === "cropPlanList")         return <CropPlanList />;
+  if (item.kind === "cropPlanDetail")       return <CropPlanDetail {...(item.props || {})} />;
   return null;
 }
 

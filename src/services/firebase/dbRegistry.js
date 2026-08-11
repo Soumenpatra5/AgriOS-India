@@ -6,7 +6,7 @@ export const CORE_DBS = [
       "assets", "maintenance", "employees", "attendance",
       "contacts", "orders", "devices", "telemetry", "ledgerTxns",
       "employeePayments", "employeeLeaves", "employeeDocuments", "employeeRecords",
-      "employeeAudit",
+      "employeeAudit", "cropPlans",
     ],
   },
   {
