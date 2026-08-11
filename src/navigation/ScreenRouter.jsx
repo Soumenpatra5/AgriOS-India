@@ -111,6 +111,7 @@ const ApiKeyManager       = lazy(() => import("../pages/ApiKeyManager.jsx"));
 const StorageManager      = lazy(() => import("../pages/StorageManager.jsx"));
 const Calculator          = lazy(() => import("../pages/Calculator.jsx"));
 const EmployeeDetail      = lazy(() => import("../pages/erp/EmployeeDetail.jsx"));
+const CropPlanner         = lazy(() => import("../pages/cropPlanner/CropPlanner.jsx"));
 
 const TAB_SCREENS = { home: Home, ai: AIHub, market: Market, services: Services, profile: Profile };
 
@@ -216,6 +217,7 @@ function StackScreen({ item }) {
   if (item.kind === "apiKeyManager")        return <ApiKeyManager />;
   if (item.kind === "storage")              return <StorageManager />;
   if (item.kind === "calculator")           return <Calculator {...(item.props || {})} />;
+  if (item.kind === "cropPlanner")          return <CropPlanner />;
   return null;
 }
 
