@@ -12,6 +12,7 @@ const WIDGET_LABELS = {
   weather:      { en: "Weather", hi: "मौसम", bn: "আবহাওয়া" },
   summary:      { en: "Farm summary", hi: "खेत सारांश", bn: "খামার সারসংক্ষেপ" },
   quickActions: { en: "AI quick actions", hi: "AI त्वरित क्रियाएँ", bn: "AI দ্রুত ক্রিয়া" },
+  services:     { en: "My services", hi: "मेरी सेवाएँ", bn: "আমার সেবা" },
   tasks:        { en: "Today's tasks", hi: "आज के काम", bn: "আজকের কাজ" },
   diagnostics:  { en: "AI diagnostics", hi: "AI निदान", bn: "AI রোগ নির্ণয়" },
   schemes:      { en: "Govt schemes", hi: "सरकारी योजनाएँ", bn: "সরকারি স্কিম" },

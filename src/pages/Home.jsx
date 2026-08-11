@@ -17,6 +17,8 @@ import {
 import { accent } from "../components/primitives.jsx";
 import OnboardingTour from "../components/OnboardingTour.jsx";
 import { useLazySection } from "../hooks/useLazySection.js";
+import { serviceHubService } from "../services/serviceHub/serviceHubService.js";
+import { SERVICE_REGISTRY, serviceById } from "../services/serviceHub/serviceRegistry.js";
 
 const H_PAD = 16;
 
@@ -47,6 +49,20 @@ export default function Home() {
   const openAI = (id) => {
     const x = AI_TOOLS.find((k) => k.id === id);
     push({ kind: "chat", props: { agentId: x?.agentId ?? null } });
+  };
+
+  // "My services" widget — favorites first, then farm-type suggestions to fill,
+  // sourced from the same Service Hub the Services tab uses (no duplicate list).
+  const myServices = useMemo(() => {
+    const favs = serviceHubService.getFavorites().map(serviceById).filter(Boolean);
+    const favIds = new Set(favs.map((s) => s.id));
+    const enabledType = (ty) => prefs?.farmerProfile?.types?.[ty] !== false;
+    const suggested = SERVICE_REGISTRY.filter((s) => !s.coming && s.types && s.types.some(enabledType) && !favIds.has(s.id));
+    return [...favs, ...suggested].slice(0, 8);
+  }, [prefs, calTick]);
+  const openService = (s) => {
+    serviceHubService.recordUse(s.id);
+    push({ kind: s.kind, props: s.props });
   };
 
   const [monthNet, setMonthNet] = useState(0);
@@ -199,6 +215,24 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {/* my services — favorites + farm-type suggestions (Service Hub) */}
+      {myServices.length > 0 && (
+        <div style={{ paddingTop: 20, ...wStyle("services") }}>
+          <div style={{ padding: `0 ${H_PAD}px` }}>
+            <SectionHeader title={tc({ en: "My services", hi: "मेरी सेवाएँ", bn: "আমার সেবা" })} action={t("seeAll")} onAction={() => switchTab("services")} />
+          </div>
+          <HScroll>
+            {myServices.map((s) => (
+              <button key={s.id} onClick={() => openService(s)}
+                style={{ background: "none", border: "none", cursor: "pointer", display: "grid", justifyItems: "center", gap: 7, padding: 0, minWidth: 72, scrollSnapAlign: "start" }}>
+                <IconTile name={s.icon} a={s.accent} size={54} iconSize={24} />
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: T.inkSoft, textAlign: "center", maxWidth: 76, lineHeight: 1.2 }}>{tc(s.title)}</span>
+              </button>
+            ))}
+          </HScroll>
+        </div>
+      )}
 
       {/* tasks */}
       <div style={{ padding: `20px ${H_PAD}px 0`, ...wStyle("tasks") }}>

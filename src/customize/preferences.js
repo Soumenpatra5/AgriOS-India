@@ -30,10 +30,10 @@ export const DEFAULTS = {
   dashboard: {
     // which Home widgets are shown, and in what order (top → bottom)
     widgets: {
-      weather: true, summary: true, quickActions: true, tasks: true,
+      weather: true, summary: true, quickActions: true, services: true, tasks: true,
       diagnostics: true, schemes: true, disease: true, calculators: true, news: true,
     },
-    order: ["weather", "summary", "quickActions", "tasks", "diagnostics", "schemes", "disease", "calculators", "news"],
+    order: ["weather", "summary", "quickActions", "services", "tasks", "diagnostics", "schemes", "disease", "calculators", "news"],
   },
 
   nav: {
