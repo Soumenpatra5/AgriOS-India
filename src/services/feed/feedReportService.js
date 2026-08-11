@@ -123,11 +123,10 @@ export const feedReportService = {
   },
 
   async _supplier() {
-    const history = await feedPriceHistoryService.all();
+    // Single fetch of the purchase table, grouped per feed+supplier in memory.
     const rows = [];
-    for (const h of history) {
-      const cmp = await feedPriceHistoryService.supplierComparison(h.feedName);
-      cmp.forEach((c) => rows.push([h.feedName, c.supplier, c.average, c.lowest, c.purchases]));
+    for (const { feedName, suppliers } of await feedPriceHistoryService.allWithSuppliers()) {
+      suppliers.forEach((c) => rows.push([feedName, c.supplier, c.average, c.lowest, c.purchases]));
     }
     return {
       title: "Supplier Feed Report", generatedAt: generatedAt(),

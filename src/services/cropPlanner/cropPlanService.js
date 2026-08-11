@@ -12,6 +12,7 @@ import { computePlan } from "./calcEngine.js";
 import { inventoryService } from "../inventory/inventoryService.js";
 import { ledgerService } from "../ledger/ledgerService.js";
 import { orderService } from "../crm/orderService.js";
+import { rupee } from "../../utils/format.js";
 
 const plans = repo("cropPlans");
 
@@ -104,9 +105,8 @@ export const cropPlanService = {
      postedCategories, so re-opening a plan can't double-post the same cost. */
   async postBucketToLedger(plan, bucket, enterpriseId = "crop") {
     if (plan.postedCategories?.[bucket]) return { alreadyPosted: true };
-    const amount = bucket === "seed" ? plan.computed.seed.totalSeedCost
-      : bucket === "irrigation" ? plan.computed.irrigation.total
-      : plan.computed[bucket]?.total;
+    // Every computed bucket (incl. seed, via its `total` alias) exposes `.total`.
+    const amount = plan.computed[bucket]?.total;
     if (!amount || amount <= 0) return { skipped: true, reason: "zero_amount" };
 
     const categoryId = LEDGER_CATEGORY_BY_BUCKET[bucket] || "other_exp";
@@ -153,25 +153,25 @@ function buildReport(plan) {
         { label: "Status", value: CROP_PLAN_STATUSES.find((s) => s.id === plan.status)?.label || plan.status },
       ]},
       { heading: "Cultivation Cost Breakdown", rows: [
-        { label: "Seed cost", value: `₹${c.seed.totalSeedCost.toLocaleString("en-IN")}` },
-        { label: "Fertilizer cost", value: `₹${c.fertilizer.total.toLocaleString("en-IN")}` },
-        { label: "Crop protection cost", value: `₹${c.protection.total.toLocaleString("en-IN")}` },
-        { label: "Organic input cost", value: `₹${c.organic.total.toLocaleString("en-IN")}` },
-        { label: "Irrigation cost", value: `₹${c.irrigation.total.toLocaleString("en-IN")}` },
-        { label: "Labour cost", value: `₹${c.labour.total.toLocaleString("en-IN")}` },
-        { label: "Machinery cost", value: `₹${c.machinery.total.toLocaleString("en-IN")}` },
-        { label: "Other cost", value: `₹${c.other.total.toLocaleString("en-IN")}` },
-        { label: "Total cultivation cost", value: `₹${c.totalCost.toLocaleString("en-IN")}` },
-        { label: "Cost / acre", value: `₹${c.costPerAcre.toLocaleString("en-IN")}` },
-        { label: "Cost / hectare", value: `₹${c.costPerHectare.toLocaleString("en-IN")}` },
+        { label: "Seed cost", value: rupee(c.seed.totalSeedCost) },
+        { label: "Fertilizer cost", value: rupee(c.fertilizer.total) },
+        { label: "Crop protection cost", value: rupee(c.protection.total) },
+        { label: "Organic input cost", value: rupee(c.organic.total) },
+        { label: "Irrigation cost", value: rupee(c.irrigation.total) },
+        { label: "Labour cost", value: rupee(c.labour.total) },
+        { label: "Machinery cost", value: rupee(c.machinery.total) },
+        { label: "Other cost", value: rupee(c.other.total) },
+        { label: "Total cultivation cost", value: rupee(c.totalCost) },
+        { label: "Cost / acre", value: rupee(c.costPerAcre) },
+        { label: "Cost / hectare", value: rupee(c.costPerHectare) },
       ]},
       { heading: "Estimated Profitability (planning estimate, not guaranteed)", rows: [
         { label: "Estimated yield", value: c.yield.totalYield.toLocaleString("en-IN") },
-        { label: "Estimated revenue", value: `₹${c.revenue.total.toLocaleString("en-IN")}` },
-        { label: "Estimated profit", value: `₹${c.profit.gross.toLocaleString("en-IN")}` },
+        { label: "Estimated revenue", value: rupee(c.revenue.total) },
+        { label: "Estimated profit", value: rupee(c.profit.gross) },
         { label: "ROI", value: c.profit.roiPct === null ? "N/A" : `${c.profit.roiPct}%` },
-        { label: "Cost / kg (or unit)", value: c.costPerKg === null ? "N/A" : `₹${c.costPerKg.toLocaleString("en-IN")}` },
-        { label: "Break-even price", value: c.breakEven.breakEvenPrice === null ? "N/A" : `₹${c.breakEven.breakEvenPrice.toLocaleString("en-IN")}` },
+        { label: "Cost / kg (or unit)", value: c.costPerKg === null ? "N/A" : rupee(c.costPerKg) },
+        { label: "Break-even price", value: c.breakEven.breakEvenPrice === null ? "N/A" : rupee(c.breakEven.breakEvenPrice) },
       ]},
     ],
   };
@@ -180,19 +180,19 @@ function buildReport(plan) {
 /* Side-by-side comparison across 2+ saved plans (spec item 22). */
 function buildComparisonReport(plans) {
   const headers = ["Metric", ...plans.map((p) => p.cropName || "Unnamed crop")];
-  const row = (label, fn, prefix = "") => [label, ...plans.map((p) => `${prefix}${fn(p.computed).toLocaleString("en-IN")}`)];
+  const row = (label, fn, money = false) => [label, ...plans.map((p) => money ? rupee(fn(p.computed)) : fn(p.computed).toLocaleString("en-IN"))];
   return {
     title: "Crop Plan Comparison",
     generatedAt: new Date().toLocaleString("en-IN"),
     sections: [
       { heading: "Comparison", table: { headers, data: [
         ["Area", ...plans.map((p) => `${p.areaValue ?? p.areaAcres} ${p.areaUnit || "acre"}`)],
-        row("Total cultivation cost", (c) => c.totalCost, "₹"),
-        row("Cost / acre", (c) => c.costPerAcre, "₹"),
-        row("Labour cost", (c) => c.labour.total, "₹"),
+        row("Total cultivation cost", (c) => c.totalCost, true),
+        row("Cost / acre", (c) => c.costPerAcre, true),
+        row("Labour cost", (c) => c.labour.total, true),
         row("Estimated yield", (c) => c.yield.totalYield),
-        row("Estimated revenue", (c) => c.revenue.total, "₹"),
-        row("Estimated profit", (c) => c.profit.gross, "₹"),
+        row("Estimated revenue", (c) => c.revenue.total, true),
+        row("Estimated profit", (c) => c.profit.gross, true),
         ["ROI", ...plans.map((p) => p.computed.profit.roiPct === null ? "N/A" : `${p.computed.profit.roiPct}%`)],
       ] } },
     ],

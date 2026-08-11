@@ -36,7 +36,10 @@ export function seedCalc({ areaAcres, seedRate, seedPrice, seedTreatmentCost = 0
   const seedCost = round2(finalRequiredKg * price);
   const totalSeedCost = round2(seedCost + treatment);
 
-  return { baseRequiredKg, wastageKg, finalRequiredKg, seedCost, seedTreatmentCost: treatment, totalSeedCost };
+  // `total` aliases totalSeedCost so every bucket in a computed plan exposes a
+  // uniform `.total` — callers (postBucketToLedger, buildReport) can then treat
+  // seed like any other bucket instead of special-casing its field name.
+  return { baseRequiredKg, wastageKg, finalRequiredKg, seedCost, seedTreatmentCost: treatment, totalSeedCost, total: totalSeedCost };
 }
 
 /* ------------------------------------------------------- repeatable rows -- */
@@ -50,35 +53,24 @@ function sumRows(rows, computeRow) {
   return { rows: computed, total };
 }
 
-/* row: { name, rate, price, applications } ; rate is per-acre per application */
-export function fertilizerCalc(rows, areaAcres) {
+/* rows of { rate, price, applications } — qty = area × rate × applications,
+   cost = qty × price. Shared by fertilizer / crop-protection / organic inputs,
+   which are identical today. Kept as three named exports so a future
+   input-specific field (e.g. a protection category) can split one back out
+   without touching call sites. (safeNum already floors negatives to 0, so
+   Math.max(1, …) alone clamps applications to at least 1.) */
+function rateAreaRowCalc(rows, areaAcres) {
   const area = safeNum(areaAcres);
   return sumRows(rows, (r) => {
-    const qty = round2(area * safeNum(r.rate) * Math.max(1, safeNum(r.applications) || 1));
+    const qty = round2(area * safeNum(r.rate) * Math.max(1, safeNum(r.applications)));
     const cost = round2(qty * safeNum(r.price));
     return { ...r, qty, cost };
   });
 }
 
-/* row: { product, rate, price, applications } — same shape as fertilizer;
-   kept separate so protection-specific fields (e.g. category) can diverge later. */
-export function protectionCalc(rows, areaAcres) {
-  const area = safeNum(areaAcres);
-  return sumRows(rows, (r) => {
-    const qty = round2(area * safeNum(r.rate) * Math.max(1, safeNum(r.applications) || 1));
-    const cost = round2(qty * safeNum(r.price));
-    return { ...r, qty, cost };
-  });
-}
-
-export function organicCalc(rows, areaAcres) {
-  const area = safeNum(areaAcres);
-  return sumRows(rows, (r) => {
-    const qty = round2(area * safeNum(r.rate) * Math.max(1, safeNum(r.applications) || 1));
-    const cost = round2(qty * safeNum(r.price));
-    return { ...r, qty, cost };
-  });
-}
+export const fertilizerCalc = rateAreaRowCalc;
+export const protectionCalc = rateAreaRowCalc;
+export const organicCalc = rateAreaRowCalc;
 
 /* Irrigation has no repeatable "rows" in v1 — a single cost block. */
 export function irrigationCalc({ numIrrigations = 0, waterCostPerIrrigation = 0, electricityCost = 0, dieselCost = 0 } = {}) {
@@ -204,6 +196,7 @@ export function computePlan(input = {}) {
     seed, fertilizer, protection, organic, irrigation, labour, machinery, other,
     totalCost,
     yield: yld, revenue, profit, costPerKg, breakEven: be,
+    sellingPrice: safeNum(input.sellingPrice), // carried through so scenarios don't re-derive it
   };
 }
 
@@ -223,7 +216,9 @@ export function applyScenario(plan, { yieldPct = 0, pricePct = 0, costPct = 0 } 
   const costMult = 1 + safePct(costPct) / 100;
 
   const totalYield = round2(Math.max(0, plan.yield.totalYield * yieldMult));
-  const effectivePrice = Math.max(0, (plan.revenue.total > 0 && plan.yield.totalYield > 0 ? plan.revenue.total / plan.yield.totalYield : 0) * priceMult);
+  // computePlan carries the base selling price through, so read it directly
+  // rather than reconstructing it from revenue/yield (lossy + breaks at yield 0).
+  const effectivePrice = Math.max(0, safeNum(plan.sellingPrice) * priceMult);
   const totalCost = round2(Math.max(0, plan.totalCost * costMult));
 
   const revenue = revenueEstimate({ totalYield, sellingPrice: effectivePrice });

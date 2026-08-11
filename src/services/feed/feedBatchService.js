@@ -64,10 +64,15 @@ export const feedBatchService = {
   },
 
   /* Full batch-level summary: consumption totals + FCR, in one call. */
-  async summary(batchId) {
-    const batch = await batches.getById(batchId);
+  /* `preBatch` lets a caller that already loaded the batch row (e.g.
+     speciesInsights) skip re-fetching it. */
+  async summary(batchId, preBatch = null) {
+    const [batchRow, totals] = await Promise.all([
+      preBatch ? Promise.resolve(preBatch) : batches.getById(batchId),
+      feedConsumptionService.totalsForBatch(batchId),
+    ]);
+    const batch = batchRow;
     if (!batch) return null;
-    const totals = await feedConsumptionService.totalsForBatch(batchId);
     const fcr = this.computeFCR(batch, totals.totalQty);
 
     const days = batch.startDate
@@ -113,26 +118,27 @@ export const feedBatchService = {
 
     const start = batch.startDate || "0000-01-01";
     const end = batch.endDate || new Date().toISOString().slice(0, 10);
-    const records = (await productionService.getForEnterprise(batch.enterprise, 10000))
-      .filter((r) => r[idField] === batch.animalId && r.date >= start && r.date <= end);
-
-    const summary = await this.summary(batchId);
+    const [records, summary] = await Promise.all([
+      productionService.getForEnterprise(batch.enterprise, 10000),
+      this.summary(batchId, batch), // reuse the batch row we already loaded
+    ]);
     if (!summary) return null;
+    const inRange = records.filter((r) => r[idField] === batch.animalId && r.date >= start && r.date <= end);
 
     if (batch.enterprise === "dairy") {
-      const milkYield = round2(records.reduce((s, r) => s + (Number(r.amLitres) || 0) + (Number(r.pmLitres) || 0), 0));
+      const milkYield = round2(inRange.reduce((s, r) => s + (Number(r.amLitres) || 0) + (Number(r.pmLitres) || 0), 0));
       return { kind: "dairy", milkYield, costPerLitre: milkYield > 0 ? round2(summary.totalFeedCost / milkYield) : null };
     }
     if (batch.enterprise === "poultry") {
-      const eggs = records.reduce((s, r) => s + (Number(r.eggs) || 0), 0);
-      const mortality = records.reduce((s, r) => s + (Number(r.mortality) || 0), 0);
+      const eggs = inRange.reduce((s, r) => s + (Number(r.eggs) || 0), 0);
+      const mortality = inRange.reduce((s, r) => s + (Number(r.mortality) || 0), 0);
       return { kind: "poultry", eggs, costPerEgg: eggs > 0 ? round2(summary.totalFeedCost / eggs) : null, mortality };
     }
     if (batch.enterprise === "fish") {
       const currentCount = batch.currentCount != null ? safeNum(batch.currentCount) : safeNum(batch.initialCount);
       const biomass = round2(safeNum(batch.currentWeight) * currentCount);
       const mortality = Math.max(0, safeNum(batch.initialCount) - currentCount);
-      const latest = [...records].sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
+      const latest = [...inRange].sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
       return { kind: "fish", biomass, mortality, waterQuality: latest?.waterQuality || null };
     }
     return null;

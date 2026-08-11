@@ -22,12 +22,19 @@ export const feedAlertsService = {
   async getAll(farmId) {
     const alerts = [];
 
-    const inv = await feedInventory.alerts(farmId);
+    // The five sources are independent — fetch them concurrently.
+    const [inv, trend, summary, batches, prices] = await Promise.all([
+      feedInventory.alerts(farmId),
+      feedAnalyticsService.monthlyTrend(farmId, 2),
+      feedAnalyticsService.summary(farmId),
+      feedBatchService.getAll(farmId),
+      feedPriceHistoryService.all(),
+    ]);
+
     inv.lowStock.forEach((i) => alerts.push({ type: "low_stock", severity: "medium", title: "Low stock", message: `${i.name} is at ${i.qty} ${i.unit || "kg"} (min ${i.minQty})`, itemId: i.id }));
     inv.expired.forEach((i) => alerts.push({ type: "expired", severity: "high", title: "Expired feed", message: `${i.name} expired on ${i.expiryDate}`, itemId: i.id }));
     inv.expiring.forEach((i) => alerts.push({ type: "expiring", severity: "medium", title: "Expiring soon", message: `${i.name} expires on ${i.expiryDate}`, itemId: i.id }));
 
-    const trend = await feedAnalyticsService.monthlyTrend(farmId, 2);
     if (trend.length === 2 && trend[0].cost > 0) {
       const changePct = Math.round(((trend[1].cost - trend[0].cost) / trend[0].cost) * 100);
       if (changePct >= HIGH_COST_INCREASE_PCT) {
@@ -35,7 +42,6 @@ export const feedAlertsService = {
       }
     }
 
-    const summary = await feedAnalyticsService.summary(farmId);
     if (summary.weekQty > 0) {
       const trailingDailyAvg = (summary.weekQty - summary.todayQty) / 6 || 0;
       if (trailingDailyAvg > 0 && summary.todayQty > trailingDailyAvg * UNUSUAL_CONSUMPTION_MULTIPLIER) {
@@ -43,15 +49,14 @@ export const feedAlertsService = {
       }
     }
 
-    const batches = await feedBatchService.getAll(farmId);
-    for (const b of batches) {
-      const w = await feedWastageService.summaryForBatch(b.id);
-      if (w.wastagePct > HIGH_WASTAGE_PCT) {
-        alerts.push({ type: "wastage", severity: "medium", title: "High feed wastage", message: `${b.label || "Batch"}: ${w.wastagePct}% wastage`, batchId: b.id });
+    // Per-batch wastage — one Promise.all instead of an await-in-loop.
+    const wastages = await Promise.all(batches.map((b) => feedWastageService.summaryForBatch(b.id)));
+    batches.forEach((b, i) => {
+      if (wastages[i].wastagePct > HIGH_WASTAGE_PCT) {
+        alerts.push({ type: "wastage", severity: "medium", title: "High feed wastage", message: `${b.label || "Batch"}: ${wastages[i].wastagePct}% wastage`, batchId: b.id });
       }
-    }
+    });
 
-    const prices = await feedPriceHistoryService.all();
     prices.filter((p) => p.changePct !== null && p.changePct >= PRICE_JUMP_PCT)
       .forEach((p) => alerts.push({ type: "price_increase", severity: "low", title: "Price increase", message: `${p.feedName} price up ${p.changePct}% (₹${p.previous} → ₹${p.current})` }));
 
