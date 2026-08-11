@@ -18,6 +18,7 @@ const MODULES = [
   { kind: "cropCalendar",       label: "Crops",       icon: "Wheat",         a: "primary" },
   { kind: "cropPlanList",       label: "Crop Planner", icon: "Calculator",   a: "yellow"  },
   { kind: "livestockHub",       label: "Livestock",   icon: "Rabbit",        a: "red"     },
+  { kind: "feedHub",            label: "Feed Mgmt",   icon: "Package",       a: "orange"  },
   { kind: "erpTasks",           label: "Tasks",       icon: "ListChecks",    a: "blue"    },
   { kind: "erpInventory",       label: "Inventory",   icon: "Warehouse",     a: "orange"  },
   { kind: "erpAssets",          label: "Assets",      icon: "Tractor",       a: "yellow"  },

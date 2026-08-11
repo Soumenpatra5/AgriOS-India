@@ -115,6 +115,10 @@ const CropPlanner         = lazy(() => import("../pages/cropPlanner/CropPlanner.
 const CropPlanList        = lazy(() => import("../pages/cropPlanner/CropPlanList.jsx"));
 const CropPlanDetail      = lazy(() => import("../pages/cropPlanner/CropPlanDetail.jsx"));
 const CropPlanCompare     = lazy(() => import("../pages/cropPlanner/CropPlanCompare.jsx"));
+const FeedHub             = lazy(() => import("../pages/feed/FeedHub.jsx"));
+const FeedCalculator      = lazy(() => import("../pages/feed/FeedCalculator.jsx"));
+const FeedInventory       = lazy(() => import("../pages/feed/FeedInventory.jsx"));
+const FeedPurchase        = lazy(() => import("../pages/feed/FeedPurchase.jsx"));
 
 const TAB_SCREENS = { home: Home, ai: AIHub, market: Market, services: Services, profile: Profile };
 
@@ -224,6 +228,10 @@ function StackScreen({ item }) {
   if (item.kind === "cropPlanList")         return <CropPlanList />;
   if (item.kind === "cropPlanDetail")       return <CropPlanDetail {...(item.props || {})} />;
   if (item.kind === "cropPlanCompare")      return <CropPlanCompare {...(item.props || {})} />;
+  if (item.kind === "feedHub")              return <FeedHub />;
+  if (item.kind === "feedCalculator")       return <FeedCalculator />;
+  if (item.kind === "feedInventory")        return <FeedInventory />;
+  if (item.kind === "feedPurchase")         return <FeedPurchase />;
   return null;
 }
 

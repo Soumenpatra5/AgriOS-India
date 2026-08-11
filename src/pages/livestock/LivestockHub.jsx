@@ -72,6 +72,21 @@ export default function LivestockHub() {
           </div>
         </div>
 
+        <Card onClick={() => push({ kind: "feedHub" })} pad={0}
+          style={{ display: "flex", alignItems: "center", gap: 0, overflow: "hidden" }}>
+          <div style={{ width: 4, alignSelf: "stretch", background: T.orange, flexShrink: 0 }} />
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 13, padding: "14px 14px" }}>
+            <div style={{ width: 46, height: 46, borderRadius: 12, background: T.orangeSoft, display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <Icon name="Package" size={22} color={T.orange} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: T.display, fontSize: 15, fontWeight: 700, color: T.ink }}>Feed Management</div>
+              <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>Calculator, inventory, purchases</div>
+            </div>
+            <Icon name="ChevronRight" size={18} color={T.inkFaint} />
+          </div>
+        </Card>
+
         <SectionHeader title="Your Enterprises" />
 
         {enterprises.map((e) => {
