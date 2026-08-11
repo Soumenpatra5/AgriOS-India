@@ -76,6 +76,36 @@ describe("serviceHubService — recents", () => {
   });
 });
 
+describe("serviceHubService — suggestedFor", () => {
+  it("returns only non-coming services whose types match the farmer profile", () => {
+    const prefs = { farmerProfile: { types: { poultry: true, crop: true } } };
+    const list = serviceHubService.suggestedFor(prefs);
+    expect(list.length).toBeGreaterThan(0);
+    expect(list.every((s) => !s.coming && s.types)).toBe(true);
+  });
+
+  it("excludes ids passed in excludeIds (e.g. already-favorited)", () => {
+    const prefs = { farmerProfile: { types: {} } };
+    const all = serviceHubService.suggestedFor(prefs);
+    const dropId = all[0].id;
+    const filtered = serviceHubService.suggestedFor(prefs, { excludeIds: [dropId] });
+    expect(filtered.find((s) => s.id === dropId)).toBeUndefined();
+  });
+
+  it("hides services for an explicitly-disabled farmer type", () => {
+    const enabled = serviceHubService.suggestedFor({ farmerProfile: { types: { poultry: true } } });
+    const disabled = serviceHubService.suggestedFor({ farmerProfile: { types: { poultry: false } } });
+    const poultryOnly = (list) => list.filter((s) => s.types && s.types.length === 1 && s.types[0] === "poultry");
+    expect(poultryOnly(enabled).length).toBeGreaterThan(0);
+    expect(poultryOnly(disabled).length).toBe(0);
+  });
+
+  it("respects the limit", () => {
+    const list = serviceHubService.suggestedFor({ farmerProfile: { types: {} } }, { limit: 3 });
+    expect(list.length).toBeLessThanOrEqual(3);
+  });
+});
+
 describe("serviceHubService — usage / frequentlyUsed", () => {
   it("counts uses and ranks by frequency", () => {
     serviceHubService.recordUse("a");

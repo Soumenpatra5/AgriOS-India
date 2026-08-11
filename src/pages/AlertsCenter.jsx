@@ -5,8 +5,8 @@
 import { useEffect, useState } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
-import { AppBar, Screen, Card, Chip } from "../components/index.js";
-import { EmptyState } from "../components/index.js";
+import { AppBar, Screen, Chip, EmptyState } from "../components/index.js";
+import { RecordRow, Pill } from "../components/erp/RecordList.jsx";
 import { useApp } from "../store/AppStore.jsx";
 import { farmAlertsService } from "../services/alerts/farmAlertsService.js";
 
@@ -66,22 +66,12 @@ export default function AlertsCenter() {
                 const sev = SEV[a.severity] || SEV.low;
                 const tappable = !!a.kind;
                 return (
-                  <Card key={a.id} pad={13} onClick={tappable ? () => push({ kind: a.kind, props: a.props }) : undefined}
-                    style={{ cursor: tappable ? "pointer" : "default" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 10, background: sev.bg, color: sev.fg, display: "grid", placeItems: "center", flexShrink: 0 }}>
-                        <Icon name={SOURCE_ICON[a.source] || sev.icon} size={18} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                          <span style={{ fontWeight: 700, fontSize: 13.5, color: T.ink }}>{a.title}</span>
-                          <span style={{ fontSize: 9.5, fontWeight: 700, color: sev.fg, background: sev.bg, padding: "1px 6px", borderRadius: 5 }}>{tc(sev.label)}</span>
-                        </div>
-                        <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 2 }}>{a.message}</div>
-                      </div>
-                      {tappable && <Icon name="ChevronRight" size={17} style={{ color: T.inkFaint, flexShrink: 0, marginTop: 8 }} />}
-                    </div>
-                  </Card>
+                  <RecordRow key={a.id}
+                    icon={SOURCE_ICON[a.source] || sev.icon} iconColor={sev.fg} iconBg={sev.bg}
+                    title={a.title} subtitle={a.message}
+                    badge={<Pill fg={sev.fg} bg={sev.bg}>{tc(sev.label)}</Pill>}
+                    onClick={tappable ? () => push({ kind: a.kind, props: a.props }) : undefined}
+                    right={tappable ? <Icon name="ChevronRight" size={17} style={{ color: T.inkFaint, flexShrink: 0 }} /> : undefined} />
                 );
               })}
             </div>

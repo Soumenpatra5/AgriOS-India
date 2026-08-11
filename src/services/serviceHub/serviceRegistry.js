@@ -215,10 +215,20 @@ export const SERVICE_REGISTRY = [
     title: { en: "About", hi: "बारे में", bn: "সম্পর্কে" }, desc: { en: "App info & version", hi: "ऐप जानकारी व संस्करण", bn: "অ্যাপ তথ্য ও সংস্করণ" }, keywords: "about version help info" },
 ];
 
+/* Precomputed category → services grouping. The registry is a static import
+   that never changes at runtime, so this is built once at module load rather
+   than re-filtered on every render. */
+export const SERVICES_BY_CATEGORY = SERVICE_CATEGORIES.reduce((map, c) => {
+  map[c.id] = SERVICE_REGISTRY.filter((s) => s.category === c.id);
+  return map;
+}, {});
+
+const SERVICE_BY_ID = new Map(SERVICE_REGISTRY.map((s) => [s.id, s]));
+
 export function serviceById(id) {
-  return SERVICE_REGISTRY.find((s) => s.id === id) || null;
+  return SERVICE_BY_ID.get(id) || null;
 }
 
 export function servicesByCategory(categoryId) {
-  return SERVICE_REGISTRY.filter((s) => s.category === categoryId);
+  return SERVICES_BY_CATEGORY[categoryId] || [];
 }

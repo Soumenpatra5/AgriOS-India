@@ -9,6 +9,8 @@
    renamed/re-routed without losing a user's favorites. */
 
 import { storage } from "../../utils/storage.js";
+import { SERVICE_REGISTRY } from "./serviceRegistry.js";
+import { isTypeEnabled } from "../../customize/farmerTypes.js";
 
 const FAV_KEY = "svc:favorites";     // ordered array of service ids
 const RECENT_KEY = "svc:recents";    // most-recent-first array of service ids
@@ -73,5 +75,17 @@ export const serviceHubService = {
     return Object.keys(usage)
       .sort((a, b) => (usage[b] || 0) - (usage[a] || 0))
       .slice(0, limit);
+  },
+
+  /* Farmer-type-personalized service suggestions: non-coming services whose
+     `types` match the enabled farmer profile (via farmerTypes.isTypeEnabled —
+     the one place that opt-out gate lives), excluding the given ids. Single
+     source of truth for both the Services tab and Home's "My services" widget
+     so the personalization rule can't drift between the two. */
+  suggestedFor(prefs, { excludeIds = [], limit } = {}) {
+    const exclude = new Set(excludeIds);
+    const list = SERVICE_REGISTRY.filter((s) =>
+      !s.coming && s.types && s.types.some((ty) => isTypeEnabled(prefs, ty)) && !exclude.has(s.id));
+    return typeof limit === "number" ? list.slice(0, limit) : list;
   },
 };

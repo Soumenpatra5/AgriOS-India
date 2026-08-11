@@ -18,7 +18,7 @@ import { accent } from "../components/primitives.jsx";
 import OnboardingTour from "../components/OnboardingTour.jsx";
 import { useLazySection } from "../hooks/useLazySection.js";
 import { serviceHubService } from "../services/serviceHub/serviceHubService.js";
-import { SERVICE_REGISTRY, serviceById } from "../services/serviceHub/serviceRegistry.js";
+import { serviceById } from "../services/serviceHub/serviceRegistry.js";
 import { farmAlertsService } from "../services/alerts/farmAlertsService.js";
 
 const H_PAD = 16;
@@ -56,9 +56,7 @@ export default function Home() {
   // sourced from the same Service Hub the Services tab uses (no duplicate list).
   const myServices = useMemo(() => {
     const favs = serviceHubService.getFavorites().map(serviceById).filter(Boolean);
-    const favIds = new Set(favs.map((s) => s.id));
-    const enabledType = (ty) => prefs?.farmerProfile?.types?.[ty] !== false;
-    const suggested = SERVICE_REGISTRY.filter((s) => !s.coming && s.types && s.types.some(enabledType) && !favIds.has(s.id));
+    const suggested = serviceHubService.suggestedFor(prefs, { excludeIds: favs.map((s) => s.id) });
     return [...favs, ...suggested].slice(0, 8);
   }, [prefs, calTick]);
   const openService = (s) => {
@@ -72,10 +70,13 @@ export default function Home() {
   const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
-    farmAlertsService.summary().then((s) => setAlertCount(s.total)).catch(() => {});
-    // Opportunistic — fires a browser notification for urgent alerts only if
-    // the user enabled notifications, deduped per day. Not a background job.
-    farmAlertsService.notifyHighPriority().catch(() => {});
+    // Aggregate once, then derive both the badge count and the opportunistic
+    // urgent-alert notification from the same result (rather than computing
+    // the whole 8-source aggregation twice on every Home mount).
+    farmAlertsService.getAll().then((all) => {
+      setAlertCount(all.length);
+      return farmAlertsService.notifyHighPriority(undefined, all);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {

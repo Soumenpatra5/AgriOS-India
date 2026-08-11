@@ -4,14 +4,14 @@
    serviceHubService. Reuses the existing SearchBar + fuzzyMatch (incl.
    Hindi/Bengali transliteration), prefs.layout.view (grid/list), and the
    farmer-profile personalization the rest of the app already uses. */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import { AppBar, SearchBar, Card, IconTile, EmptyState } from "../components/index.js";
 import Icon from "../components/Icon.jsx";
 import { useApp } from "../store/AppStore.jsx";
 import { usePrefs } from "../customize/PreferencesProvider.jsx";
 import { fuzzyMatch } from "../utils/fuzzySearch.js";
-import { SERVICE_CATEGORIES, SERVICE_REGISTRY, serviceById } from "../services/serviceHub/serviceRegistry.js";
+import { SERVICE_CATEGORIES, SERVICE_REGISTRY, SERVICES_BY_CATEGORY, serviceById } from "../services/serviceHub/serviceRegistry.js";
 import { serviceHubService } from "../services/serviceHub/serviceHubService.js";
 
 const BADGES = {
@@ -29,8 +29,11 @@ export default function Services() {
   const [tick, setTick] = useState(0); // bump to re-read favorites/recents after a change
   const refresh = () => setTick((n) => n + 1);
 
-  const favIds = serviceHubService.getFavorites();
-  const recentIds = serviceHubService.getRecents();
+  // Favorites/recents live in localStorage; re-read only when `tick` bumps
+  // (a favorite toggle or service open), not on every keystroke in search.
+  const favIds = useMemo(() => serviceHubService.getFavorites(), [tick]);
+  const recentIds = useMemo(() => serviceHubService.getRecents(), [tick]);
+  const favSet = useMemo(() => new Set(favIds), [favIds]);
 
   const open = (s) => {
     serviceHubService.recordUse(s.id);
@@ -45,16 +48,10 @@ export default function Services() {
   const toggleFav = (e, id) => { e.stopPropagation(); serviceHubService.toggleFavorite(id); refresh(); };
 
   const searching = q.trim().length > 0;
-  const results = searching ? fuzzyMatch(SERVICE_REGISTRY, q) : [];
-
-  const enabledType = (ty) => prefs?.farmerProfile?.types?.[ty] !== false;
-  const favSet = new Set(favIds);
-  const suggested = searching ? [] : SERVICE_REGISTRY
-    .filter((s) => !s.coming && s.types && s.types.some(enabledType) && !favSet.has(s.id))
-    .slice(0, 6);
-
-  const favServices = favIds.map(serviceById).filter(Boolean);
-  const recentServices = recentIds.map(serviceById).filter(Boolean).filter((s) => !favSet.has(s.id));
+  const results = useMemo(() => (searching ? fuzzyMatch(SERVICE_REGISTRY, q) : []), [searching, q]);
+  const suggested = useMemo(() => (searching ? [] : serviceHubService.suggestedFor(prefs, { excludeIds: favIds, limit: 6 })), [searching, prefs, favIds]);
+  const favServices = useMemo(() => favIds.map(serviceById).filter(Boolean), [favIds]);
+  const recentServices = useMemo(() => recentIds.map(serviceById).filter(Boolean).filter((s) => !favSet.has(s.id)), [recentIds, favSet]);
 
   return (
     <>
@@ -91,7 +88,7 @@ export default function Services() {
             )}
 
             {SERVICE_CATEGORIES.map((cat) => {
-              const items = SERVICE_REGISTRY.filter((s) => s.category === cat.id);
+              const items = SERVICES_BY_CATEGORY[cat.id] || [];
               if (items.length === 0) return null;
               return (
                 <Section key={cat.id} title={tc(cat.label)} icon={cat.icon}>
