@@ -43,19 +43,25 @@ role is **Owner**, so nothing is hidden until someone restricts the device.
 
 ## Gated so far
 
-- **Home** hides the farm-finance summary unless `can("finance.view")`.
+- **Home** — hides the farm-finance summary unless `can("finance.view")`.
+- **FarmLedger** and **Business Dashboard** — restricted state unless `can("finance.view")`.
+- **EmployeeDetail** — salary figures (Overview + Payments tab) hidden unless
+  `can("salary.view")`; the Documents tab hidden unless `can("documents.view")`.
+- **Settings** — API Key Manager / Security / Permissions rows hidden unless
+  `can("settings.manage")`.
 
-## Rollout — screens still to gate (next increments)
+The reusable `src/components/Restricted.jsx` renders the "limited by access mode"
+state for page-level gates.
+
+## Rollout — still to gate (next increments)
 
 | Screen / area | Capability |
 |---|---|
-| `pages/erp/EmployeeManager`, `EmployeeDetail` — salary/wage fields | `salary.view` |
-| Employee **Documents** section | `documents.view` |
-| `pages/erp/EmployeeManager` add/edit/delete, payroll actions | `team.manage`, `payroll.manage` |
-| `FarmLedger`, `pages/business/*` (P&L, cash flow) | `finance.view` |
+| `EmployeeManager` — add/edit/remove employees, salary column | `team.manage`, `salary.view` |
+| Payroll actions (record payment / advance / bonus) | `payroll.manage` |
+| `pages/business/PLReport`, `CashFlowPage` (defense-in-depth beyond the gated hub) | `finance.view` |
 | Delete controls on farms/employees/ledger/inventory | `records.delete` |
-| `Settings` → Security / Privacy / API keys / Subscription | `settings.manage` |
 
-Each is a small `{can(cap) && …}` (or an early "restricted" state) using the
+Each is a small `{can(cap) && …}` (or an early `Restricted` state) using the
 `can` already on `useApp()`. Owner is unaffected (all `can()` true), so gating
-can be rolled out screen-by-screen with no risk to the default experience.
+rolls out screen-by-screen with no risk to the default experience.

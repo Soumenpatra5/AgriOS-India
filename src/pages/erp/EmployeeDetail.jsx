@@ -89,7 +89,7 @@ const REC_FIELDS = {
 const REC_TITLE = { skill: "Add skill", training: "Add training", performance: "Add review", asset: "Assign asset" };
 
 export default function EmployeeDetail({ id }) {
-  const { pop, toast } = useApp();
+  const { pop, toast, can } = useApp();
   const [emp, setEmp] = useState(null);
   const [farms, setFarms] = useState([]);
   const [todayAtt, setTodayAtt] = useState(null);
@@ -231,7 +231,9 @@ export default function EmployeeDetail({ id }) {
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 8, padding: "16px 16px 4px", overflowX: "auto" }}>
-        {["Overview", "Personal", "Employment", "Attendance", "Payments", "Leave", "Tasks", "Documents", "Skills", "Training", "Performance", "Assets", "Audit"].map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
+        {["Overview", "Personal", "Employment", "Attendance", "Payments", "Leave", "Tasks", "Documents", "Skills", "Training", "Performance", "Assets", "Audit"]
+          .filter((t) => (t !== "Payments" || can("salary.view")) && (t !== "Documents" || can("documents.view")))
+          .map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
       </div>
 
       <div style={{ padding: "8px 16px 32px" }}>
@@ -239,7 +241,7 @@ export default function EmployeeDetail({ id }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", gap: 10 }}>
               <MiniStat label="Today" value={todayAtt ? todayAtt[0].toUpperCase() + todayAtt.slice(1) : "Not marked"} fg={todayAtt === "present" ? T.primary : todayAtt === "absent" ? T.red : T.inkSoft} />
-              <MiniStat label={emp.type === "daily_wage" || emp.dailyWage ? "Daily wage" : "Salary"} value={emp.dailyWage ? rupee(Number(emp.dailyWage)) : emp.monthlySalary ? rupee(Number(emp.monthlySalary)) : "—"} fg={T.ink} />
+              {can("salary.view") && <MiniStat label={emp.type === "daily_wage" || emp.dailyWage ? "Daily wage" : "Salary"} value={emp.dailyWage ? rupee(Number(emp.dailyWage)) : emp.monthlySalary ? rupee(Number(emp.monthlySalary)) : "—"} fg={T.ink} />}
             </div>
             <Card style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <InfoRow label="Type" value={employeeService.typeLabel(emp.type)} first />
@@ -291,7 +293,7 @@ export default function EmployeeDetail({ id }) {
           </div>
         )}
 
-        {tab === "Payments" && (
+        {tab === "Payments" && can("salary.view") && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <Card style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <InfoRow label="Daily wage" value={emp.dailyWage ? rupee(Number(emp.dailyWage)) : "—"} first />
@@ -375,7 +377,7 @@ export default function EmployeeDetail({ id }) {
           </div>
         )}
 
-        {tab === "Documents" && (
+        {tab === "Documents" && can("documents.view") && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{documents.length} document{documents.length !== 1 ? "s" : ""}</div>

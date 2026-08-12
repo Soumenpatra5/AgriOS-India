@@ -3,6 +3,7 @@ import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, SectionHeader } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
+import Restricted from "../../components/Restricted.jsx";
 import { kpiService } from "../../services/business/kpiService.js";
 import { plService } from "../../services/business/plService.js";
 import { rupee, compact } from "../../utils/format.js";
@@ -31,7 +32,7 @@ function Sparkline({ data, color, height = 36 }) {
 }
 
 export default function BusinessDashboard() {
-  const { pop, push, tc } = useApp();
+  const { pop, push, tc, can } = useApp();
   const [year, setYear]   = useState(new Date().getFullYear());
   const [kpi, setKpi]     = useState(null);
   const [byEnt, setByEnt] = useState([]);
@@ -49,6 +50,13 @@ export default function BusinessDashboard() {
   }, [year]);
 
   const profitColor = kpi?.netProfit >= 0 ? T.primary : T.red;
+
+  if (!can("finance.view")) return (
+    <>
+      <AppBar title={tc({en: "Business Dashboard", hi: "व्यापार डैशबोर्ड", bn: "ব্যবসা ড্যাশবোর্ড"})} onBack={pop} />
+      <Restricted tc={tc} />
+    </>
+  );
 
   return (
     <>

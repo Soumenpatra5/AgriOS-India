@@ -5,6 +5,7 @@ import {
   AppBar, Screen, Card, Chip, IconTile, Button, Dialog, Dropdown, Input, BottomSheet,
 } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
+import Restricted from "../components/Restricted.jsx";
 import {
   ledgerService, INCOME_CATEGORIES, EXPENSE_CATEGORIES, ENTERPRISES,
 } from "../services/ledger/ledgerService.js";
@@ -23,7 +24,7 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 const fmtDate  = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
 export default function FarmLedger() {
-  const { pop, toast, tc, t, lang } = useApp();
+  const { pop, toast, tc, t, lang, can } = useApp();
   const now = new Date();
   const [year, setYear]   = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-indexed
@@ -94,6 +95,13 @@ export default function FarmLedger() {
     downloadCsv(rows, fn);
     toast(tc({en:"Ledger exported",hi:"खाता निर्यात हो गया",bn:"খাতা রপ্তানি হয়েছে"}), "success");
   };
+
+  if (!can("finance.view")) return (
+    <>
+      <AppBar title={tc({en:"Farm ledger",hi:"खेत का हिसाब",bn:"খামারের হিসাব"})} onBack={pop} />
+      <Restricted tc={tc} />
+    </>
+  );
 
   return (
     <>
