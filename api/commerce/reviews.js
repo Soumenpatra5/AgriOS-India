@@ -15,8 +15,8 @@ export default async function handler(req, res) {
     const user = await requireUser(req, res, sql);
     if (!user) return;
 
-    if (req.method === "GET") return list(req, res, sql);
-    if (req.method === "POST") return create(req, res, sql, user);
+    if (req.method === "GET") return await list(req, res, sql);
+    if (req.method === "POST") return await create(req, res, sql, user);
     return res.status(405).json({ error: { message: "GET or POST only" } });
   } catch (err) {
     return sendError(res, err, "commerce/reviews");

@@ -10,7 +10,8 @@
     "test": "vitest run",
     "lint": "eslint .",
     "check:bundle": "node scripts/check-bundle-size.mjs",
-    "migrate": "node scripts/migrate.mjs"
+    "migrate": "node scripts/migrate.mjs",
+    "check:db": "node scripts/check-db.mjs"
   },
   "dependencies": {
     "firebase": "^12.16.0",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
+    "@electric-sql/pglite-socket": "^0.2.7",
     "@eslint/js": "^10.0.1",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^10.8.1",

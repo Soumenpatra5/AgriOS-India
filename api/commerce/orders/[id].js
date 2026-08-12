@@ -21,8 +21,8 @@ export default async function handler(req, res) {
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: { message: "id required" } });
 
-    if (req.method === "GET") return getOne(res, sql, user, id);
-    if (req.method === "PATCH") return transition(req, res, sql, user, id);
+    if (req.method === "GET") return await getOne(res, sql, user, id);
+    if (req.method === "PATCH") return await transition(req, res, sql, user, id);
     return res.status(405).json({ error: { message: "GET or PATCH only" } });
   } catch (err) {
     if (err instanceof HttpError) return res.status(err.status).json({ error: { message: err.message } });
