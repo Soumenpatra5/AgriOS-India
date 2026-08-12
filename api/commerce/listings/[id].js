@@ -18,9 +18,9 @@ export default async function handler(req, res) {
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: { message: "id required" } });
 
-    if (req.method === "GET")    return getOne(res, sql, user, id);
-    if (req.method === "PATCH")  return update(req, res, sql, user, id);
-    if (req.method === "DELETE") return remove(res, sql, user, id);
+    if (req.method === "GET")    return await getOne(res, sql, user, id);
+    if (req.method === "PATCH")  return await update(req, res, sql, user, id);
+    if (req.method === "DELETE") return await remove(res, sql, user, id);
     return res.status(405).json({ error: { message: "GET, PATCH or DELETE only" } });
   } catch (err) {
     return sendError(res, err, "commerce/listings/[id]");
