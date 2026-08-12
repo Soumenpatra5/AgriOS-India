@@ -33,7 +33,7 @@ function Toggle({ on, onChange }) {
 }
 
 export default function Settings() {
-  const { t, tc, pop, push, lang, setLang, toast } = useApp();
+  const { t, tc, pop, push, lang, setLang, toast, can } = useApp();
   const { mode, setTheme } = useTheme();
   const [notif, setNotif] = useState(() => notificationService.isEnabled());
   const [topicPrefs, setTopicPrefs] = useState(() => fcmService.getTopicPrefs());
@@ -130,6 +130,7 @@ export default function Settings() {
           <Row icon="Languages" label={t("language")} onClick={() => setLangSheet(true)}>
             <span style={{ fontSize: 13, color: T.inkSoft, fontWeight: 600 }}>{current?.native} <Icon name="ChevronRight" size={16} style={{ verticalAlign: -3, color: T.inkFaint }} /></span>
           </Row>
+          {can("settings.manage") && (<>
           {devMode && (
             <Row icon="Key" label={tc({ en: "API Key Manager", hi: "API कुंजी प्रबंधक", bn: "API কী ম্যানেজার" })} onClick={() => push({ kind: "apiKeyManager" })}>
               <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
@@ -141,6 +142,7 @@ export default function Settings() {
           <Row icon="SlidersHorizontal" label={t("permissions")} onClick={() => push({ kind: "permissions" })} last>
             <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
           </Row>
+          </>)}
         </Card>
 
         <Card pad={6}>
