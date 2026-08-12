@@ -5,6 +5,9 @@
 
 import { repo } from "./marketDb.js";
 import { categoryMeta } from "./constantsMp.js";
+import { commerceEnabled } from "../commerce/config.js";
+import { commerceApi } from "../commerce/commerceApi.js";
+import { listingToProduct } from "../commerce/mappers.js";
 
 const products = repo("products");
 
@@ -23,10 +26,20 @@ export const productService = {
   }),
   update: (id, patch) => products.update(id, patch),
   remove: (id) => products.remove(id),
-  getById: (id) => products.getById(id),
+  async getById(id) {
+    if (commerceEnabled()) {
+      try { const { listing } = await commerceApi.listing(id); return listingToProduct(listing); }
+      catch (e) { if (e.status === 404) return null; throw e; }
+    }
+    return products.getById(id);
+  },
   getAll: () => products.getAll(),
   bySeller: (sellerId) => products.getBy("sellerId", sellerId),
-  published: () => products.getBy("status", "published"),
+  published() {
+    // Server exposes only active listings via search; local keeps the store.
+    if (commerceEnabled()) return this.search({});
+    return products.getBy("status", "published");
+  },
 
   setStatus: (id, status) => products.update(id, { status }),
 
@@ -66,8 +79,17 @@ export const productService = {
     return products.update(id, { stock: num(p.stock) + num(qty) });
   },
 
-  /* Client-side search over published listings. */
+  /* Search over published/active listings. Server-backed when enabled (server
+     applies q + category and returns active, newest-first); otherwise local. */
   async search({ q = "", category = "all", sellerId = null, sort = "new" } = {}) {
+    if (commerceEnabled()) {
+      const { items } = await commerceApi.listings({ q, category: category !== "all" ? category : undefined });
+      let mapped = items.map(listingToProduct);
+      if (sellerId) mapped = mapped.filter((p) => p.sellerId === sellerId);
+      if (sort === "priceAsc") mapped.sort((a, b) => this.unitPrice(a) - this.unitPrice(b));
+      else if (sort === "priceDesc") mapped.sort((a, b) => this.unitPrice(b) - this.unitPrice(a));
+      return mapped;
+    }
     let list = await this.published();
     if (sellerId) list = list.filter((p) => p.sellerId === sellerId);
     if (category !== "all") list = list.filter((p) => p.category === category);
