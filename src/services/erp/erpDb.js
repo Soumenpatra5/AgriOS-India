@@ -94,8 +94,10 @@ function _localRepo(storeName) {
     },
     async remove(id) {
       const existing = await rawGet(id);
-      if (!existing || existing.deletedAt) return;
-      await run("readwrite", (s) => s.put({ ...existing, deletedAt: new Date().toISOString() }));
+      if (!existing || existing.deletedAt) return null;
+      const tombstone = { ...existing, deletedAt: new Date().toISOString() };
+      await run("readwrite", (s) => s.put(tombstone));
+      return tombstone; // let the sync layer propagate a tombstone (see wrapWithSync)
     },
     async restore(id) {
       const existing = await rawGet(id);

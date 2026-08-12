@@ -2,18 +2,29 @@ import { repo as cloudRepo } from "./firestoreRepo.js";
 import { fbEnabled, auth } from "./config.js";
 import { CORE_DBS, firestoreName } from "./dbRegistry.js";
 import { storage } from "../../utils/storage.js";
+import { reconcile } from "./syncReconcile.js";
 
 function pullFlag(uid) { return `fb:pulled:${uid}`; }
 
-async function putLocal(dbName, storeName, record) {
+/* Merge a cloud record into local by last-write-wins instead of blindly
+   overwriting: a newer cloud copy (incl. a tombstone) is written; a newer local
+   edit is left untouched. Resolves true if it actually wrote. */
+async function putLocal(dbName, storeName, cloud) {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(dbName);
     req.onsuccess = (e) => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains(storeName)) { db.close(); resolve(); return; }
+      if (!db.objectStoreNames.contains(storeName)) { db.close(); resolve(false); return; }
       const tx = db.transaction(storeName, "readwrite");
-      tx.objectStore(storeName).put(record);
-      tx.oncomplete = () => { db.close(); resolve(); };
+      const store = tx.objectStore(storeName);
+      let wrote = false;
+      const getReq = store.get(cloud.id);
+      getReq.onsuccess = () => {
+        const local = getReq.result || null;
+        const merged = reconcile(local, cloud);
+        if (merged && merged !== local) { store.put(merged); wrote = true; }
+      };
+      tx.oncomplete = () => { db.close(); resolve(wrote); };
       tx.onerror = () => { db.close(); reject(tx.error); };
     };
     req.onerror = () => reject(req.error);
@@ -34,8 +45,7 @@ export async function pullFromCloud() {
         const records = await cloudRepo(fsName).getAll();
         for (const record of records) {
           if (!record.id) continue;
-          await putLocal(db.name, store, record);
-          total++;
+          if (await putLocal(db.name, store, record)) total++;
         }
       } catch {}
     }

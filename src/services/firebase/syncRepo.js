@@ -50,10 +50,22 @@ export function wrapWithSync(storeName, local, options = {}) {
     },
 
     async remove(id) {
-      await local.remove(id);
-      pushToCloud((cloud) =>
-        cloud.remove(id).catch(() => enqueue(storeName, "remove", { id }))
-      );
+      const result = await local.remove(id);
+      const tombstone = result && result.deletedAt ? result : null;
+      if (tombstone) {
+        // Soft-delete: propagate a tombstone (deletedAt) rather than hard-deleting
+        // the cloud doc, so peers learn of the deletion and it doesn't resurrect
+        // (H2). The timestamp drives last-write-wins on the next pull (H3).
+        const patch = { deletedAt: tombstone.deletedAt, updatedAt: tombstone.deletedAt };
+        pushToCloud((cloud) =>
+          cloud.update(id, patch).catch(() => enqueue(storeName, "update", { id, ...patch }))
+        );
+      } else {
+        // Hard-delete repos (no local soft-delete): remove the cloud doc.
+        pushToCloud((cloud) =>
+          cloud.remove(id).catch(() => enqueue(storeName, "remove", { id }))
+        );
+      }
     },
 
     // Undo a soft delete (no-op on stores whose local repo lacks soft-delete).
