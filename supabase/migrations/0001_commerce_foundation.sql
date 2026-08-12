@@ -7,7 +7,7 @@
 -- created_at/updated_at (updated_at kept fresh by a trigger), soft-delete via
 -- deleted_at to mirror the app's local data convention.
 
-create extension if not exists pgcrypto;   -- gen_random_uuid()
+-- gen_random_uuid() is in core Postgres (>= 13) — no pgcrypto extension needed.
 
 -- updated_at trigger ---------------------------------------------------------
 create or replace function set_updated_at() returns trigger as $$
