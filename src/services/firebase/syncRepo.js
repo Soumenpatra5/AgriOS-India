@@ -7,7 +7,19 @@ async function cloudRepo(storeName) {
   return repo(storeName);
 }
 
-export function wrapWithSync(storeName, local) {
+export function wrapWithSync(storeName, local, options = {}) {
+  // Fields that must never leave the device — e.g. base64 file blobs, which
+  // would blow past Firestore's 1 MB document limit and put sensitive data
+  // (ID/bank/medical scans) in the cloud. Stripped from every record and patch
+  // before it is pushed; the full value stays in local IndexedDB.
+  const strip = options.stripForSync || [];
+  const forCloud = (obj) => {
+    if (!strip.length || !obj) return obj;
+    const copy = { ...obj };
+    for (const k of strip) delete copy[k];
+    return copy;
+  };
+
   function pushToCloud(op) {
     cloudRepo(storeName).then(op).catch(() => {});
   }
@@ -15,8 +27,9 @@ export function wrapWithSync(storeName, local) {
   return {
     async add(data) {
       const record = await local.add(data);
+      const cloudRecord = forCloud(record);
       pushToCloud((cloud) =>
-        cloud.add(record).catch(() => enqueue(storeName, "add", record))
+        cloud.add(cloudRecord).catch(() => enqueue(storeName, "add", cloudRecord))
       );
       return record;
     },
@@ -28,8 +41,9 @@ export function wrapWithSync(storeName, local) {
     async update(id, patch) {
       const updated = await local.update(id, patch);
       if (updated) {
+        const cloudPatch = forCloud(patch);
         pushToCloud((cloud) =>
-          cloud.update(id, patch).catch(() => enqueue(storeName, "update", { id, ...patch }))
+          cloud.update(id, cloudPatch).catch(() => enqueue(storeName, "update", { id, ...cloudPatch }))
         );
       }
       return updated;
@@ -37,6 +51,24 @@ export function wrapWithSync(storeName, local) {
 
     async remove(id) {
       await local.remove(id);
+      pushToCloud((cloud) =>
+        cloud.remove(id).catch(() => enqueue(storeName, "remove", { id }))
+      );
+    },
+
+    // Undo a soft delete (no-op on stores whose local repo lacks soft-delete).
+    restore(id) {
+      if (!local.restore) return Promise.resolve(null);
+      const p = local.restore(id);
+      pushToCloud((cloud) =>
+        cloud.update(id, { deletedAt: null }).catch(() => enqueue(storeName, "update", { id, deletedAt: null }))
+      );
+      return p;
+    },
+
+    // Irreversible physical delete (falls back to remove where unsupported).
+    async purge(id) {
+      if (local.purge) await local.purge(id); else await local.remove(id);
       pushToCloud((cloud) =>
         cloud.remove(id).catch(() => enqueue(storeName, "remove", { id }))
       );

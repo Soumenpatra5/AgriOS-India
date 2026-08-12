@@ -1,0 +1,23 @@
+rules_version = '2';
+
+/* AgriOS India — Firebase Storage security rules.
+
+   Employee documents (ID proof, bank proof, medical, agreements) and any other
+   user files live ONLY under users/{uid}/… and are readable/writable solely by
+   their owner. Everything else is denied. Uploads are capped at 15 MB to bound
+   abuse. Access control is enforced here (server-side), never in the client. */
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 15 * 1024 * 1024;
+    }
+    // Deny everything outside a user's own namespace.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
