@@ -23,7 +23,7 @@ import { serviceById } from "../services/serviceHub/serviceRegistry.js";
 const H_PAD = 16;
 
 export default function Home() {
-  const { t, tc, locale, user, push, switchTab, toast } = useApp();
+  const { t, tc, locale, user, push, switchTab, toast, can } = useApp();
   const { prefs } = usePrefs();
   // Dashboard widget visibility + order (Personalize → Dashboard). CSS `order`
   // reorders without moving JSX; `display:none` hides.
@@ -215,7 +215,8 @@ export default function Home() {
       {/* today — needs attention */}
       <TodayCard items={todayItems} tc={tc} push={push} />
 
-      {/* farm summary */}
+      {/* farm summary — finances gated by access role (M7) */}
+      {can("finance.view") && (
       <div style={{ padding: `18px ${H_PAD}px 0`, ...wStyle("summary") }}>
         <SectionHeader title={t("farmSummary")} action={t("seeAll")} onAction={() => push({ kind: "farmLedger" })} />
         <div style={{ display: "flex", gap: 10 }}>
@@ -224,6 +225,7 @@ export default function Home() {
           <StatTile label={t("expense")} value={compact(monthOut)} accentColor={T.orange} icon="ArrowUpRight" bg={T.orangeSoft} />
         </div>
       </div>
+      )}
 
       {/* AI quick actions */}
       <div style={{ padding: `20px ${H_PAD}px 0`, ...wStyle("quickActions") }}>
