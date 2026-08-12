@@ -56,16 +56,16 @@ EmployeeManager (Wages tab, "Wages this month" stat, inline per-day wage).
 
 **Settings (`settings.manage`)** — API Key Manager / Security / Permissions rows.
 
-**Deletes (`records.delete`)** — employee delete (EmployeeManager), ledger-entry
-delete (FarmLedger), farm delete (FarmProfiles).
+**Deletes (`records.delete`, owner-only)** — every ERP delete control: employees
+(EmployeeManager), ledger entries (FarmLedger), farms (FarmProfiles), land
+parcels (LandManager), inventory items (InventoryManager), assets (AssetManager),
+tasks (TaskManager), devices (DeviceManager), and CRM contacts + orders
+(CRMManager). Where a `RecordRow` is used, passing `onDelete={undefined}` hides
+its delete affordance; raw delete buttons are wrapped in `{can("records.delete") && …}`.
 
 The reusable `src/components/Restricted.jsx` renders the "limited by access mode"
 state for page-level gates. Sensitive tabs/chips are filtered out too, so a
 restricted role can't navigate to the gated content.
 
-## Optional further hardening
-
-Lower-risk delete controls (inventory / assets / tasks / CRM contacts) aren't yet
-behind `records.delete` — a worker could remove a task or stock item. Each is a
-one-line `{can("records.delete") && …}` when wanted. Owner is unaffected
-throughout (all `can()` true), so this stays risk-free to extend.
+All the audit's sensitive surfaces are now gated; Owner is unaffected throughout
+(all `can()` true).

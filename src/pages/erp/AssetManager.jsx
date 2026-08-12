@@ -12,7 +12,7 @@ import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx"
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export default function AssetManager() {
-  const { pop, toast } = useApp();
+  const { pop, toast, can } = useApp();
   const [assets, setAssets] = useState([]);
   const [value, setValue]   = useState(0);
   const [due, setDue]       = useState([]);
@@ -82,7 +82,7 @@ export default function AssetManager() {
                   Service
                 </button>
               }
-              onDelete={() => setDelId(a.id)} />
+              onDelete={can("records.delete") ? () => setDelId(a.id) : undefined} />
           ))}
       </div>
 
