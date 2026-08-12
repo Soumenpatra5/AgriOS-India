@@ -41,27 +41,31 @@ role is **Owner**, so nothing is hidden until someone restricts the device.
 - `src/components/AccessModeCard.jsx` — the switcher (in **Profile**): role chips,
   set/change PIN, PIN-on-elevate.
 
-## Gated so far
+## Gated
 
-- **Home** — hides the farm-finance summary unless `can("finance.view")`.
-- **FarmLedger** and **Business Dashboard** — restricted state unless `can("finance.view")`.
-- **EmployeeDetail** — salary figures (Overview + Payments tab) hidden unless
-  `can("salary.view")`; the Documents tab hidden unless `can("documents.view")`.
-- **Settings** — API Key Manager / Security / Permissions rows hidden unless
-  `can("settings.manage")`.
+**Finance (`finance.view`)** — Home summary, FarmLedger, Business Dashboard,
+P&L Report, Cash Flow (restricted state / hidden).
+
+**Salary (`salary.view`)** — EmployeeDetail (Overview stat + Payments tab),
+EmployeeManager (Wages tab, "Wages this month" stat, inline per-day wage).
+
+**Documents (`documents.view`)** — EmployeeDetail Documents tab.
+
+**Team & payroll** — EmployeeManager "Add" (`team.manage`), the "Pay" action
+(`payroll.manage`).
+
+**Settings (`settings.manage`)** — API Key Manager / Security / Permissions rows.
+
+**Deletes (`records.delete`)** — employee delete (EmployeeManager), ledger-entry
+delete (FarmLedger), farm delete (FarmProfiles).
 
 The reusable `src/components/Restricted.jsx` renders the "limited by access mode"
-state for page-level gates.
+state for page-level gates. Sensitive tabs/chips are filtered out too, so a
+restricted role can't navigate to the gated content.
 
-## Rollout — still to gate (next increments)
+## Optional further hardening
 
-| Screen / area | Capability |
-|---|---|
-| `EmployeeManager` — add/edit/remove employees, salary column | `team.manage`, `salary.view` |
-| Payroll actions (record payment / advance / bonus) | `payroll.manage` |
-| `pages/business/PLReport`, `CashFlowPage` (defense-in-depth beyond the gated hub) | `finance.view` |
-| Delete controls on farms/employees/ledger/inventory | `records.delete` |
-
-Each is a small `{can(cap) && …}` (or an early `Restricted` state) using the
-`can` already on `useApp()`. Owner is unaffected (all `can()` true), so gating
-rolls out screen-by-screen with no risk to the default experience.
+Lower-risk delete controls (inventory / assets / tasks / CRM contacts) aren't yet
+behind `records.delete` — a worker could remove a task or stock item. Each is a
+one-line `{can("records.delete") && …}` when wanted. Owner is unaffected
+throughout (all `can()` true), so this stays risk-free to extend.

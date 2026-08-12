@@ -210,10 +210,12 @@ export default function FarmLedger() {
                   <div style={{ fontSize: 15, fontWeight: 700, color: isInc ? T.primary : T.red, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
                     {isInc ? "+" : "-"}{rupee(t.amount)}
                   </div>
+                  {can("records.delete") && (
                   <button onClick={() => setDelTarget(t)} aria-label="Delete"
                     style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4, flexShrink: 0 }}>
                     <Icon name="Trash2" size={16} />
                   </button>
+                  )}
                 </div>
               );
             })}

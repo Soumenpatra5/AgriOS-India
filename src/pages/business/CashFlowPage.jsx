@@ -3,6 +3,7 @@ import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, SectionHeader } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
+import Restricted from "../../components/Restricted.jsx";
 import { cashFlowService } from "../../services/business/cashFlowService.js";
 import { plService } from "../../services/business/plService.js";
 import { rupee } from "../../utils/format.js";
@@ -37,7 +38,7 @@ function WaterfallChart({ data }) {
 }
 
 export default function CashFlowPage() {
-  const { pop, tc } = useApp();
+  const { pop, tc, can } = useApp();
   const [year, setYear]   = useState(new Date().getFullYear());
   const [flow, setFlow]   = useState([]);
   const [peaks, setPeaks] = useState({});
@@ -56,6 +57,13 @@ export default function CashFlowPage() {
 
   const activeFlow = flow.filter((m) => m.income > 0 || m.expense > 0 || m.opening !== 0);
   const negativeMths = flow.filter((m) => m.closing < 0);
+
+  if (!can("finance.view")) return (
+    <>
+      <AppBar title={tc({en: "Cash Flow", hi: "नकदी प्रवाह", bn: "নগদ প্রবাহ"})} onBack={pop} />
+      <Restricted tc={tc} />
+    </>
+  );
 
   return (
     <>

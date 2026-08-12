@@ -3,6 +3,7 @@ import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, Chip, SectionHeader } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
+import Restricted from "../../components/Restricted.jsx";
 import { plService } from "../../services/business/plService.js";
 import { rupee } from "../../utils/format.js";
 
@@ -27,7 +28,7 @@ function BarChart({ data, maxVal, color, bg }) {
 }
 
 export default function PLReport() {
-  const { pop, tc } = useApp();
+  const { pop, tc, can } = useApp();
   const [year, setYear]     = useState(new Date().getFullYear());
   const [view, setView]     = useState("monthly"); // monthly | enterprise
   const [monthly, setMonthly]   = useState([]);
@@ -50,6 +51,13 @@ export default function PLReport() {
 
   const maxIncome  = Math.max(...monthly.map((m) => m.income),  1);
   const maxExpense = Math.max(...monthly.map((m) => m.expense), 1);
+
+  if (!can("finance.view")) return (
+    <>
+      <AppBar title={tc({en: "P&L Report", hi: "लाभ-हानि रिपोर्ट", bn: "লাভ-ক্ষতি রিপোর্ট"})} onBack={pop} />
+      <Restricted tc={tc} />
+    </>
+  );
 
   return (
     <>
