@@ -103,29 +103,44 @@ export default function Login() {
 
   const disabled = !!socialLoading || loading;
 
+  /* Token-driven styles so the whole screen follows light/dark like the rest of
+     the app (previously this screen was hardcoded to a light palette). */
   const btnStyle = {
     width: "100%", display: "flex", alignItems: "center", gap: 12,
     padding: "13px 16px", borderRadius: 12, cursor: "pointer",
     fontFamily: "inherit", fontSize: 15, fontWeight: 500,
-    background: "#f5f5f5", border: "1px solid #e5e5e5", color: "#1a1a1a",
+    background: T.surface2, border: `1px solid ${T.line}`, color: T.ink,
     transition: "background 0.15s",
   };
+  const inputStyle = {
+    width: "100%", padding: "13px 16px", borderRadius: 12, fontSize: 15,
+    border: `1px solid ${T.line}`, background: T.surface2, color: T.ink,
+    fontFamily: "inherit", outline: "none", boxSizing: "border-box",
+  };
+  const focusGreen = (e) => { e.target.style.borderColor = T.primary; };
+  const blurLine = (e) => { e.target.style.borderColor = T.line; };
+  const primaryBtn = (enabled) => ({
+    width: "100%", padding: "13px 16px", borderRadius: 12, border: "none",
+    background: T.primary, color: T.onPrimary, fontSize: 15, fontWeight: 600,
+    fontFamily: "inherit", cursor: "pointer", opacity: enabled ? 1 : 0.35,
+  });
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 20, background: "#1a1a1a" }}>
+      padding: 20, background: T.bg }}>
       <div id="recaptcha-container" />
 
-      <div style={{ width: "100%", maxWidth: 400, background: "#fff", borderRadius: 20,
+      <div style={{ width: "100%", maxWidth: 400, background: T.surface, borderRadius: 20,
+        border: `1px solid ${T.line}`, boxShadow: T.shadowLg,
         padding: "32px 28px", position: "relative" }}>
 
         {step === "main" && (
           <>
-            <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 10px", color: "#1a1a1a",
+            <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 10px", color: T.ink,
               textAlign: "center", fontFamily: "inherit" }}>
               {tc({ en: "Log in or sign up", hi: "लॉग इन या साइन अप करें", bn: "লগ ইন বা সাইন আপ করুন" })}
             </h1>
-            <p style={{ fontSize: 14, color: "#6b6b6b", margin: "0 0 28px", textAlign: "center", lineHeight: 1.5 }}>
+            <p style={{ fontSize: 14, color: T.inkSoft, margin: "0 0 28px", textAlign: "center", lineHeight: 1.5 }}>
               {tc({ en: "Smart farming tools, market prices, AI advice, and more.", hi: "स्मार्ट खेती उपकरण, बाज़ार भाव, AI सलाह, और भी बहुत कुछ।", bn: "স্মার্ট কৃষি সরঞ্জাম, বাজার দর, AI পরামর্শ, এবং আরও অনেক কিছু।" })}
             </p>
 
@@ -138,34 +153,27 @@ export default function Login() {
 
               <button onClick={() => handleSocial("apple", signInWithApple)} disabled={disabled}
                 style={{ ...btnStyle, opacity: disabled && socialLoading !== "apple" ? 0.5 : 1 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="#1a1a1a"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.51-3.23 0-1.44.64-2.2.45-3.06-.4C3.79 16.17 4.36 9.53 8.7 9.28c1.23.06 2.08.72 2.8.75.99-.2 1.94-.78 3-.66 1.28.15 2.24.69 2.87 1.7-2.63 1.58-2.01 5.05.36 6.02-.5 1.32-.93 2.61-1.68 3.19zM12.03 9.22c-.13-2.62 2.08-4.88 4.47-5.08.32 2.95-2.67 5.16-4.47 5.08z"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill={T.ink}><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.51-3.23 0-1.44.64-2.2.45-3.06-.4C3.79 16.17 4.36 9.53 8.7 9.28c1.23.06 2.08.72 2.8.75.99-.2 1.94-.78 3-.66 1.28.15 2.24.69 2.87 1.7-2.63 1.58-2.01 5.05.36 6.02-.5 1.32-.93 2.61-1.68 3.19zM12.03 9.22c-.13-2.62 2.08-4.88 4.47-5.08.32 2.95-2.67 5.16-4.47 5.08z"/></svg>
                 {socialLoading === "apple" ? tc({ en: "Signing in…", hi: "साइन इन हो रहा है…", bn: "সাইন ইন হচ্ছে…" }) : tc({ en: "Continue with Apple", hi: "Apple से जारी रखें", bn: "Apple দিয়ে চালিয়ে যান" })}
               </button>
 
               <button onClick={() => setStep("phone")} disabled={disabled} style={btnStyle}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={T.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                 {tc({ en: "Continue with phone", hi: "फ़ोन से जारी रखें", bn: "ফোন দিয়ে চালিয়ে যান" })}
               </button>
 
               <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "6px 0" }}>
-                <div style={{ flex: 1, height: 1, background: "#e5e5e5" }} />
-                <span style={{ fontSize: 12, color: "#999", fontWeight: 400 }}>{tc({ en: "OR", hi: "या", bn: "অথবা" })}</span>
-                <div style={{ flex: 1, height: 1, background: "#e5e5e5" }} />
+                <div style={{ flex: 1, height: 1, background: T.line }} />
+                <span style={{ fontSize: 12, color: T.inkFaint, fontWeight: 400 }}>{tc({ en: "OR", hi: "या", bn: "অথবা" })}</span>
+                <div style={{ flex: 1, height: 1, background: T.line }} />
               </div>
 
               <input value={email} onChange={(e) => { setEmail(e.target.value.trim()); setError(""); }}
                 placeholder={tc({ en: "Email address", hi: "ईमेल पता", bn: "ইমেইল ঠিকানা" })} type="email"
-                style={{ width: "100%", padding: "13px 16px", borderRadius: 12, fontSize: 15,
-                  border: "1px solid #e5e5e5", background: "#f5f5f5", color: "#1a1a1a",
-                  fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
-                onFocus={(e) => e.target.style.borderColor = "#10a37f"}
-                onBlur={(e) => e.target.style.borderColor = "#e5e5e5"} />
+                style={inputStyle} onFocus={focusGreen} onBlur={blurLine} />
 
               <button onClick={handleEmailSubmit} disabled={!email.includes("@")}
-                style={{ width: "100%", padding: "13px 16px", borderRadius: 12, border: "none",
-                  background: "#1a1a1a", color: "#fff", fontSize: 15, fontWeight: 600,
-                  fontFamily: "inherit", cursor: "pointer",
-                  opacity: email.includes("@") ? 1 : 0.35 }}>
+                style={primaryBtn(email.includes("@"))}>
                 {t("continue")}
               </button>
 
@@ -177,7 +185,7 @@ export default function Login() {
                 </button>
                 <button onClick={() => handleSocial("twitter", signInWithTwitter)} disabled={disabled}
                   style={{ ...btnStyle, flex: 1, justifyContent: "center", padding: "12px 0" }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#1a1a1a"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill={T.ink}><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                   {tc({ en: "X", hi: "X", bn: "X" })}
                 </button>
               </div>
@@ -189,8 +197,8 @@ export default function Login() {
           <>
             <button onClick={() => { setStep("main"); setError(""); setMode("login"); }}
               style={{ position: "absolute", top: 16, left: 16, background: "none", border: "none",
-                cursor: "pointer", fontSize: 20, color: "#999", padding: 4 }}>←</button>
-            <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 8px", color: "#1a1a1a",
+                cursor: "pointer", fontSize: 20, color: T.inkFaint, padding: 4 }}>←</button>
+            <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 8px", color: T.ink,
               textAlign: "center", fontFamily: "inherit" }}>
               {mode === "signup"
                 ? tc({ en: "Create account", hi: "खाता बनाएँ", bn: "অ্যাকাউন্ট তৈরি করুন" })
@@ -201,8 +209,8 @@ export default function Login() {
             <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 22 }}>
               {["login", "signup"].map((m) => (
                 <button key={m} onClick={() => { setMode(m); setError(""); setNotice(""); }}
-                  style={{ padding: "6px 18px", borderRadius: 99, border: `1.5px solid ${mode === m ? "#1a1a1a" : "#e5e5e5"}`,
-                    background: mode === m ? "#1a1a1a" : "#fff", color: mode === m ? "#fff" : "#6b6b6b",
+                  style={{ padding: "6px 18px", borderRadius: 99, border: `1.5px solid ${mode === m ? T.primary : T.line}`,
+                    background: mode === m ? T.primary : T.surface, color: mode === m ? T.onPrimary : T.inkSoft,
                     fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                   {m === "login"
                     ? tc({ en: "Log In", hi: "लॉग इन", bn: "লগ ইন" })
@@ -214,39 +222,29 @@ export default function Login() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <input value={email} onChange={(e) => { setEmail(e.target.value.trim()); setError(""); }}
                 placeholder={tc({ en: "Email address", hi: "ईमेल पता", bn: "ইমেইল ঠিকানা" })} type="email" autoFocus
-                style={{ width: "100%", padding: "13px 16px", borderRadius: 12, fontSize: 15,
-                  border: "1px solid #e5e5e5", background: "#f5f5f5", color: "#1a1a1a",
-                  fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
-                onFocus={(e) => e.target.style.borderColor = "#10a37f"}
-                onBlur={(e) => e.target.style.borderColor = "#e5e5e5"} />
+                style={inputStyle} onFocus={focusGreen} onBlur={blurLine} />
 
               <div style={{ position: "relative", width: "100%" }}>
                 <input value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }}
                   placeholder={mode === "signup"
                     ? tc({ en: "Create password (min 6 characters)", hi: "पासवर्ड बनाएँ (कम से कम 6 अक्षर)", bn: "পাসওয়ার্ড তৈরি করুন (কমপক্ষে ৬ অক্ষর)" })
                     : tc({ en: "Password", hi: "पासवर्ड", bn: "পাসওয়ার্ড" })} type={showPassword ? "text" : "password"}
-                  style={{ width: "100%", padding: "13px 44px 13px 16px", borderRadius: 12, fontSize: 15,
-                    border: "1px solid #e5e5e5", background: "#f5f5f5", color: "#1a1a1a",
-                    fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
-                  onFocus={(e) => e.target.style.borderColor = "#10a37f"}
-                  onBlur={(e) => e.target.style.borderColor = "#e5e5e5"} />
+                  style={{ ...inputStyle, padding: "13px 44px 13px 16px" }}
+                  onFocus={focusGreen} onBlur={blurLine} />
                 <button type="button" onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword
                     ? tc({ en: "Hide password", hi: "पासवर्ड छिपाएँ", bn: "পাসওয়ার্ড লুকান" })
                     : tc({ en: "Show password", hi: "पासवर्ड दिखाएँ", bn: "পাসওয়ার্ড দেখান" })}
                   style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
                     width: 34, height: 34, display: "grid", placeItems: "center", padding: 0,
-                    background: "transparent", border: "none", cursor: "pointer", color: "#8a8a8a" }}>
+                    background: "transparent", border: "none", cursor: "pointer", color: T.inkFaint }}>
                   <Icon name={showPassword ? "EyeOff" : "Eye"} size={19} />
                 </button>
               </div>
 
               <button onClick={handleEmailSubmit}
                 disabled={!email.includes("@") || password.length < 6 || loading}
-                style={{ width: "100%", padding: "13px 16px", borderRadius: 12, border: "none",
-                  background: "#1a1a1a", color: "#fff", fontSize: 15, fontWeight: 600,
-                  fontFamily: "inherit", cursor: "pointer",
-                  opacity: email.includes("@") && password.length >= 6 && !loading ? 1 : 0.35 }}>
+                style={primaryBtn(email.includes("@") && password.length >= 6 && !loading)}>
                 {loading
                   ? tc({ en: "Please wait…", hi: "कृपया प्रतीक्षा करें…", bn: "অনুগ্রহ করে অপেক্ষা করুন…" })
                   : mode === "signup"
@@ -257,15 +255,15 @@ export default function Login() {
               {mode === "login" && (
                 <button type="button" onClick={handleReset} disabled={loading}
                   style={{ background: "none", border: "none", cursor: "pointer", padding: 4,
-                    color: "#10a37f", fontSize: 13.5, fontWeight: 600, fontFamily: "inherit",
+                    color: T.primary, fontSize: 13.5, fontWeight: 600, fontFamily: "inherit",
                     alignSelf: "center" }}>
                   {tc({ en: "Forgot password?", hi: "पासवर्ड भूल गए?", bn: "পাসওয়ার্ড ভুলে গেছেন?" })}
                 </button>
               )}
 
               {notice && (
-                <div style={{ padding: "10px 12px", borderRadius: 10, background: "#e7f6ef",
-                  color: "#0d7a4f", fontSize: 13, fontFamily: "inherit", textAlign: "center" }}>
+                <div style={{ padding: "10px 12px", borderRadius: 10, background: T.primarySoft,
+                  color: T.primary, fontSize: 13, fontFamily: "inherit", textAlign: "center" }}>
                   {notice}
                 </div>
               )}
@@ -277,26 +275,23 @@ export default function Login() {
           <>
             <button onClick={() => { setStep("main"); setError(""); }}
               style={{ position: "absolute", top: 16, left: 16, background: "none", border: "none",
-                cursor: "pointer", fontSize: 20, color: "#999", padding: 4 }}>←</button>
-            <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 28px", color: "#1a1a1a",
+                cursor: "pointer", fontSize: 20, color: T.inkFaint, padding: 4 }}>←</button>
+            <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 28px", color: T.ink,
               textAlign: "center", fontFamily: "inherit" }}>{tc({ en: "Phone login", hi: "फ़ोन लॉगिन", bn: "ফোন লগইন" })}</h1>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", gap: 8 }}>
-                <div style={{ padding: "13px 14px", borderRadius: 12, border: "1px solid #e5e5e5",
-                  background: "#f5f5f5", color: "#6b6b6b", fontSize: 15, fontFamily: "inherit", flexShrink: 0 }}>
+                <div style={{ padding: "13px 14px", borderRadius: 12, border: `1px solid ${T.line}`,
+                  background: T.surface2, color: T.inkSoft, fontSize: 15, fontFamily: "inherit", flexShrink: 0 }}>
                   +91
                 </div>
                 <input placeholder={tc({ en: "Mobile number", hi: "मोबाइल नंबर", bn: "মোবাইল নম্বর" })} autoFocus
-                  style={{ flex: 1, padding: "13px 16px", borderRadius: 12, fontSize: 15,
-                    border: "1px solid #e5e5e5", background: "#f5f5f5", color: "#1a1a1a",
-                    fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
-                  onFocus={(e) => e.target.style.borderColor = "#10a37f"}
-                  onBlur={(e) => e.target.style.borderColor = "#e5e5e5"} />
+                  style={{ ...inputStyle, flex: 1, width: "auto" }}
+                  onFocus={focusGreen} onBlur={blurLine} />
               </div>
 
-              <div style={{ padding: "10px 14px", borderRadius: 10, background: "#fff8ed",
-                fontSize: 13, color: "#b25e00", textAlign: "center" }}>
+              <div style={{ padding: "10px 14px", borderRadius: 10, background: T.orangeSoft,
+                fontSize: 13, color: T.orange, textAlign: "center" }}>
                 {tc({ en: "Phone login requires Firebase Blaze plan — use Google or Email instead", hi: "फ़ोन लॉगिन के लिए Firebase Blaze प्लान चाहिए — Google या ईमेल से लॉगिन करें", bn: "ফোন লগইনের জন্য Firebase Blaze প্ল্যান দরকার — Google বা ইমেইল ব্যবহার করুন" })}
               </div>
             </div>
@@ -305,9 +300,9 @@ export default function Login() {
 
         {error && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14,
-            padding: "12px 14px", borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca" }}>
-            <Icon name="AlertCircle" size={16} style={{ color: "#dc2626", flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: "#dc2626" }}>{error}</span>
+            padding: "12px 14px", borderRadius: 10, background: T.redSoft, border: `1px solid ${T.red}` }}>
+            <Icon name="AlertCircle" size={16} style={{ color: T.red, flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: T.red }}>{error}</span>
           </div>
         )}
       </div>
