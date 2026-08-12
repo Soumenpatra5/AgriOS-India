@@ -1,7 +1,8 @@
-import { createContext, useContext, useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { storage } from "../utils/storage.js";
 import { makeT, pickLang } from "../i18n/strings.js";
 import { LOCALES } from "../constants/languages.js";
+import { backDepth, resolveBack } from "../navigation/backNav.js";
 
 /* Firebase is loaded lazily so its ~900kB of SDK stays off the initial render
    path — splash, language and onboarding screens never touch it. */
@@ -103,6 +104,51 @@ export function AppProvider({ children }) {
   const push = useCallback((screen) => setStack((s) => [...s, screen]), []);
   const pop = useCallback(() => setStack((s) => s.slice(0, -1)), []);
   const switchTab = useCallback((tk) => { setStack([]); setTab(tk); }, []);
+
+  /* ── Browser/hardware Back integration (H5) ───────────────────────────────
+     Mirror the app's back-able depth into the History API so the Back button
+     pops a pushed screen (or returns to Home from a tab) instead of leaving the
+     PWA. Pure decisions live in navigation/backNav.js; the refs below keep the
+     browser history and the app stack in sync without feedback loops:
+       - a forward nav pushes history entries;
+       - an app-initiated back (an in-app Back button / switchTab / logout)
+         consumes them via history.go, suppressing the popstate it triggers;
+       - a browser/hardware Back runs the in-app back and skips re-consuming,
+         since the browser already moved. */
+  const navRef = useRef({ stage, tab, stack });
+  const depthRef = useRef(0);
+  const ignorePopRef = useRef(false);   // true while consuming our own history.go
+  const browserBackRef = useRef(false); // true when a decrease came from a Back press
+  useEffect(() => { navRef.current = { stage, tab, stack }; });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPopState = () => {
+      if (ignorePopRef.current) { ignorePopRef.current = false; return; }
+      const action = resolveBack(navRef.current);
+      if (action === "pop") { browserBackRef.current = true; pop(); }
+      else if (action === "home") { browserBackRef.current = true; switchTab("home"); }
+      // "exit": nothing to intercept — let the browser navigate away.
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [pop, switchTab]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const depth = backDepth({ stage, tab, stack });
+    const prev = depthRef.current;
+    if (depth === prev) return;
+    depthRef.current = depth;
+    if (depth > prev) {
+      for (let i = prev; i < depth; i++) window.history.pushState({ agDepth: i + 1 }, "");
+    } else if (browserBackRef.current) {
+      browserBackRef.current = false; // Back already consumed the entry
+    } else {
+      ignorePopRef.current = true;    // app-initiated back: consume the browser entries
+      window.history.go(depth - prev);
+    }
+  }, [stage, tab, stack]);
 
   const toast = useCallback((message, kind = "info") => {
     const id = Date.now() + Math.random();
