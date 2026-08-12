@@ -30,10 +30,16 @@ export const inventoryService = {
   async move(itemId, kind, qty, note = "") {
     const item = await items.getById(itemId);
     if (!item) return null;
-    const delta = kind === "in" ? Number(qty) : -Number(qty);
-    const newQty = Math.max(0, (Number(item.qty) || 0) + delta);
+    const oldQty = Number(item.qty) || 0;
+    const requested = Math.max(0, Number(qty) || 0);
+    const delta = kind === "in" ? requested : -requested;
+    const newQty = Math.max(0, oldQty + delta);
+    // Log the qty actually applied (after the 0-clamp), so the movement history
+    // reconciles with on-hand stock even when an "out" would overdraw. `requested`
+    // is kept for audit when the two differ.
+    const applied = Math.abs(newQty - oldQty);
     await items.update(itemId, { qty: newQty });
-    return moves.add({ itemId, kind, qty: Number(qty), note, date: new Date().toISOString().slice(0, 10) });
+    return moves.add({ itemId, kind, qty: applied, requested, note, date: new Date().toISOString().slice(0, 10) });
   },
 
   getMoves: (itemId) => moves.getBy("itemId", itemId)
