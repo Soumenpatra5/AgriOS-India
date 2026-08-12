@@ -209,3 +209,67 @@ describe("reviews: one per (order, reviewer, subject)", () => {
     await expect(insert()).rejects.toThrow(); // unique_violation
   });
 });
+
+describe("B4: reservation-timeout sweep", () => {
+  it("cancels stale unpaid orders and returns their stock, leaving fresh ones", async () => {
+    const seller = await seedUser("s1", "Asha", true);
+    const buyer = await seedUser("b1", "Ravi");
+    const listing = await seedListing(seller, { qty_available: 8 }); // 2 already reserved
+
+    const stale = (await db.query(
+      `insert into orders (buyer_id,seller_id,status,subtotal_paise,total_paise,created_at)
+       values ($1,$2,'pending_payment',460000,460000, now() - interval '40 minutes') returning *`,
+      [buyer, seller])).rows[0];
+    await db.query(`insert into order_items (order_id,listing_id,title_snapshot,unit_price_paise,quantity,line_total_paise)
+       values ($1,$2,'Fresh Paddy',230000,2,460000)`, [stale.id, listing.id]);
+    const fresh = (await db.query(
+      `insert into orders (buyer_id,seller_id,status,subtotal_paise,total_paise) values ($1,$2,'pending_payment',100,100) returning *`,
+      [buyer, seller])).rows[0];
+
+    // mirrors releaseStaleOrders(sql, 30) in api/commerce/cron/release-stale.js
+    const doomed = await db.query(`select id from orders where status='pending_payment' and created_at < now() - (30 * interval '1 minute')`);
+    for (const { id } of doomed.rows) {
+      await db.transaction(async (tx) => {
+        const moved = await tx.query(`update orders set status='cancelled' where id=$1 and status='pending_payment' returning id`, [id]);
+        if (!moved.rows.length) return;
+        for (const it of (await tx.query(`select listing_id, quantity from order_items where order_id=$1`, [id])).rows) {
+          await tx.query(`update listings set qty_available = qty_available + $2 where id=$1`, [it.listing_id, it.quantity]);
+        }
+      });
+    }
+
+    expect(doomed.rows.map((r) => r.id)).toEqual([stale.id]); // only the stale order
+    expect((await db.query(`select status from orders where id=$1`, [stale.id])).rows[0].status).toBe("cancelled");
+    expect(Number((await db.query(`select qty_available from listings where id=$1`, [listing.id])).rows[0].qty_available)).toBe(10);
+    expect((await db.query(`select status from orders where id=$1`, [fresh.id])).rows[0].status).toBe("pending_payment"); // untouched
+  });
+});
+
+describe("B4: refund restocks and marks refunded", () => {
+  it("refunding a confirmed order returns stock and marks the payment refunded", async () => {
+    const seller = await seedUser("s1", "Asha", true);
+    const buyer = await seedUser("b1", "Ravi");
+    const listing = await seedListing(seller, { qty_available: 8 });
+    const order = (await db.query(
+      `insert into orders (buyer_id,seller_id,status,subtotal_paise,total_paise) values ($1,$2,'confirmed',460000,460000) returning *`,
+      [buyer, seller])).rows[0];
+    await db.query(`insert into order_items (order_id,listing_id,title_snapshot,unit_price_paise,quantity,line_total_paise)
+       values ($1,$2,'Fresh Paddy',230000,2,460000)`, [order.id, listing.id]);
+    await db.query(`insert into payments (order_id,provider,provider_payment_id,amount_paise,status) values ($1,'razorpay','pay_1',460000,'captured')`, [order.id]);
+
+    // mirrors the DB half of the refund path in api/commerce/orders/[id].js
+    // (after the external Razorpay refund has succeeded).
+    await db.transaction(async (tx) => {
+      const moved = await tx.query(`update orders set status='refunded' where id=$1 and status='confirmed' returning id`, [order.id]);
+      expect(moved.rows.length).toBe(1);
+      await tx.query(`update payments set status='refunded' where order_id=$1`, [order.id]);
+      for (const it of (await tx.query(`select listing_id, quantity from order_items where order_id=$1`, [order.id])).rows) {
+        await tx.query(`update listings set qty_available = qty_available + $2 where id=$1`, [it.listing_id, it.quantity]);
+      }
+    });
+
+    expect((await db.query(`select status from orders where id=$1`, [order.id])).rows[0].status).toBe("refunded");
+    expect((await db.query(`select status from payments where order_id=$1`, [order.id])).rows[0].status).toBe("refunded");
+    expect(Number((await db.query(`select qty_available from listings where id=$1`, [listing.id])).rows[0].qty_available)).toBe(10);
+  });
+});
