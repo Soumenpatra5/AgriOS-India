@@ -3,6 +3,7 @@
 import { useApp } from "../store/AppStore.jsx";
 export { useTheme } from "../theme/ThemeProvider.jsx";
 export { useApp };
+export { useToasts, useOnline } from "../store/AppStore.jsx";
 
 export const useToast = () => useApp().toast;
 export const useNav = () => {

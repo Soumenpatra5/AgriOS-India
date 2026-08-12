@@ -111,7 +111,7 @@ DATAGOV_API_KEY, DATAGOV_RESOURCE_ID   # live mandi prices (Agmarknet)
 npm run dev            # dev server on :5199
 npm run build          # production build → dist/
 npm run preview        # preview the build
-npm run test           # run the Vitest suite (197 tests)
+npm run test           # run the full Vitest suite (unit + PGlite integration)
 npm run check:bundle   # enforce initial-JS budget + no eager Firebase (post-build)
 ```
 

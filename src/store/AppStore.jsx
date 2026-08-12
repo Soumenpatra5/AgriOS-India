@@ -13,6 +13,16 @@ const loadFcm = () => import("../services/notifications/fcmService.js");
 const AppCtx = createContext(null);
 export const useApp = () => useContext(AppCtx);
 
+/* Volatile UI state lives in its own contexts so a toast (every action, and an
+   auto-dismiss every 2.6s) or a network flip doesn't re-render all ~120
+   useApp() consumers — only the toast host / offline bar (M5). The stable
+   toast()/dismissToast() functions stay in useApp so their many callers are
+   untouched. */
+const ToastsCtx = createContext([]);
+const OnlineCtx = createContext(true);
+export const useToasts = () => useContext(ToastsCtx);
+export const useOnline = () => useContext(OnlineCtx);
+
 export const nextAfterSplash = () => {
   if (!storage.get("lang")) return "language";
   if (!storage.get("onboarded")) return "onboarding";
@@ -167,14 +177,25 @@ export function AppProvider({ children }) {
     }).catch(() => {});
   }, [user, toast]);
 
+  // `toasts` and `online` are deliberately NOT in this value (nor its deps), so
+  // it stays referentially stable across toast/network changes — they flow
+  // through the dedicated contexts below instead.
   const value = useMemo(() => ({
     lang, setLang, t, tc, locale,
     user, login, logout, updateUser,
     stage, setStage: setStageP, finishOnboarding,
     tab, switchTab, stack, push, pop,
-    toasts, toast, dismissToast, online,
+    toast, dismissToast,
   }), [lang, setLang, t, tc, locale, user, login, logout, updateUser, stage, setStageP, finishOnboarding,
-      tab, switchTab, stack, push, pop, toasts, toast, dismissToast, online]);
+      tab, switchTab, stack, push, pop, toast, dismissToast]);
 
-  return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
+  return (
+    <AppCtx.Provider value={value}>
+      <OnlineCtx.Provider value={online}>
+        <ToastsCtx.Provider value={toasts}>
+          {children}
+        </ToastsCtx.Provider>
+      </OnlineCtx.Provider>
+    </AppCtx.Provider>
+  );
 }

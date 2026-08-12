@@ -1,112 +1,117 @@
 # AgriOS India — Architecture
 
-**Phase 1:** complete UI/UX foundation (design system, screens, navigation, i18n).
-**Phase 3A:** AI Engine — multi-agent framework, AI router, prompt/memory/context
-engines, tool calling, streaming chat, voice + image pipelines, plus one serverless
-gateway (`api/ai/chat.js`) that holds the Anthropic API key. See **AI Engine** below.
-**Phase 2** (real backend: DB, auth, sync) is still pending — AI memory is
-local-first and swaps to the backend later without changing callers.
+An offline-first, multilingual farm-management PWA for Indian farmers. Started as
+a UI shell; it now spans a full local-first farm ERP, livestock/crop/feed tools,
+AI assistants, vision diagnostics, and a server-authoritative commerce backend.
 
-Stack: **React 18 + Vite**, plain JS + JSX, `lucide-react` icons. No CSS framework —
-a token-driven design system using CSS custom properties (full light/dark support).
+Stack: **React 18 + Vite**, plain JS + JSX, `lucide-react` icons. No CSS
+framework — a token-driven design system using CSS custom properties (full
+light/dark). Data is **local-first** (localStorage + IndexedDB) with a lazy
+Firebase/Firestore sync layer. Serverless functions in `api/` (Vercel) hold all
+secret keys. Tests: **Vitest** (+ `fake-indexeddb`, + PGlite for DB integration).
 
 ## Folder structure
 
 ```
+api/                    Vercel serverless functions (secrets never reach the client)
+├── ai/chat.js          LLM gateway (multi-provider failover)
+├── auth/               phone OTP (send/verify)
+├── prices.js weather.js  live mandi prices (Agmarknet) + weather
+├── commerce/           commerce backend (listings, orders, payments/webhook, reviews, cron)
+└── _lib/ _middleware/  Postgres client, auth (Firebase JWKS), rate limit, shared helpers
+
 src/
-├── main.jsx                # entry
-├── App.jsx                 # composition root (providers → router)
-├── theme/                  # design system
-│   ├── tokens.js           # palette (light/dark), radius, spacing, type, motion
-│   └── ThemeProvider.jsx   # injects CSS vars, dark mode, global styles + keyframes
-├── store/
-│   └── AppStore.jsx        # app state: language, auth flow, navigation, toasts
-├── navigation/
-│   ├── ScreenRouter.jsx    # renders the current stage / tab / pushed screen
-│   └── BottomNav.jsx       # 5-tab bottom navigation
-├── hooks/
-│   └── index.js            # useApp, useTheme, useToast, useNav, useI18n
-├── components/             # reusable UI library
-│   ├── Icon.jsx            # curated icon registry (bundle-friendly)
-│   ├── primitives.jsx      # Button (ripple), Card, Chip, IconTile, SectionHeader
-│   ├── inputs.jsx          # Input, SearchBar, Dropdown, OtpInput
-│   ├── feedback.jsx        # Skeleton, EmptyState, ErrorState, Spinner, ToastHost
-│   ├── overlays.jsx        # BottomSheet, Dialog
-│   ├── layout.jsx          # AppBar, Screen
-│   └── index.js            # barrel export
-├── pages/                  # screens
-│   ├── Splash · LanguageSelect · Onboarding · AuthFlow (Login + OtpVerify)
-│   ├── Home · AIHub · Market · Services · Profile · Settings
-│   └── FeatureDetail       # generic premium "coming soon" detail screen
-├── constants/
-│   ├── content.js          # all mock content (schemes, prices, tools, services…)
-│   └── languages.js        # 8 languages + locales
-├── i18n/
-│   └── strings.js          # shell dictionaries (en / hi / bn), English fallback
-└── utils/
-    ├── storage.js          # namespaced localStorage wrapper (prefs only)
-    └── format.js           # ₹ formatting, dates, greetings
+├── main.jsx App.jsx        entry + composition root (providers → router)
+├── theme/                  design tokens + ThemeProvider (light/dark/system)
+├── store/AppStore.jsx      language, auth flow, navigation stack, toasts, online
+├── navigation/             ScreenRouter (stage/tab/pushed screen), BottomNav, backNav
+├── hooks/  customize/      selector hooks; user preferences + appearance
+├── components/             shared UI (primitives, inputs, feedback, overlays, layout,
+│                           ErrorBoundary, charts, camera, per-domain component folders)
+├── pages/                  ~40 screens + domain folders: erp/ livestock/ feed/ cropPlanner/
+│                           business/ marketplace/ svcMarketplace/ logistics/ aiCommerce/ mlops/
+├── services/              domain logic, one folder per area:
+│   ├── erp/erpDb.js        shared IndexedDB repository (soft-delete, timestamps) — most ERP
+│   │                       services build on repo(store)
+│   ├── farm land inventory assets tasks crm ledger employees production   (farm ERP)
+│   ├── livestock feed cropPlanner diagnostics calendar schemes weather market
+│   ├── commerce/           client wiring to the api/commerce backend (flag-gated)
+│   ├── firebase/           lazy auth + Firestore sync (syncRepo, pullFromCloud, reconcile)
+│   ├── alerts serviceHub notifications reports insights nearby location maps iot pwa
+│   └── marketplace svcMarketplace logistics aiCommerce mlops   (local-first modules)
+├── ai/                     AI engine (see below)
+├── admin/                  separate PIN-gated admin console (admin.html entry)
+├── constants/ i18n/ utils/ content, string dictionaries (en/hi/bn), storage/format helpers
 ```
 
 ## Design system
 
 - **Tokens → CSS variables.** `ThemeProvider` renders `--ag-*` variables for the
-  active theme onto `:root[data-theme]`. Components read them via the `T` helper
-  (`T.primary`, `T.surface`, …), so **dark mode is instant and global** with zero
-  per-component logic. Theme = light / dark / system (follows OS).
-- **Motion.** All animations are pure CSS keyframes (fade, rise, pop, sheet,
-  push-in, ripple, shimmer, toast) — no animation library, and they respect
-  `prefers-reduced-motion`.
-- **Accessibility.** Focus-visible rings, `aria-label`s, `role="dialog"`/
-  `alertdialog`, large tap targets, high-contrast dark theme, screen-reader text.
-- **Bundle.** Icons are a curated registry (only used icons imported) so the
-  gzipped bundle stays ~72 KB — deliberate, for users on slow rural networks.
+  active theme onto `:root[data-theme]`; components read them via the `T` helper
+  (`T.primary`, `T.surface`, …), so dark mode is instant and global. Theme =
+  light / dark / system.
+- **Motion.** Pure CSS keyframes; respects `prefers-reduced-motion`.
+- **Accessibility.** Focus-visible rings, `aria-label`s, dialog roles, large tap
+  targets, screen-reader text.
+- **Bundle.** Icons are a curated registry; a CI budget (`npm run check:bundle`)
+  keeps initial JS under 450 KB and Firebase off the eager path.
 
 ## State & navigation
 
-`AppStore` is a single, well-scoped context holding: `language`, `user` (UI-only
-auth), the flow `stage` (splash → language → onboarding → auth → app), the active
-`tab`, a `stack` of pushed detail screens, and the `toast` queue. `ScreenRouter`
-maps that state to screens with page transitions. Feature cards push a
-`FeatureDetail` screen (the "designed but not yet built" placeholder).
+`AppStore` holds `language`, `user` (UI auth mirror), the flow `stage`
+(splash → language → onboarding → auth → app), the active `tab`, and a `stack`
+of pushed detail screens. Navigation is a **custom stack router**
+(`push({kind, props})` / `pop()` / `switchTab()`); `ScreenRouter` maps state to
+lazily-loaded screens. The **History API is integrated** (`navigation/backNav.js`)
+so the browser/hardware Back button pops a screen or returns to Home instead of
+leaving the PWA. Volatile UI state (`toasts`, `online`) lives in separate
+contexts so it doesn't re-render every `useApp()` consumer.
 
-## What's intentionally NOT here (future phases)
+## Data layer
 
-Weather feed, AI inference, market/price APIs, real OTP/auth, payments, database.
-Every screen is shaped to drop these in without structural change.
+- **Local-first.** Reads never touch the network. Most farm data lives in one
+  IndexedDB (`agrios-erp`) behind a shared, tested repository (`erpDb.repo`):
+  timestamps, **soft-delete** (`deletedAt` + `restore`/`purge`), and reads that
+  hide soft-deleted rows. Livestock/marketplace/etc. have parallel DBs.
+- **Sync.** `wrapWithSync` writes local, then pushes to Firestore under
+  `users/{uid}/…` (lazy SDK, off the eager path), enqueuing on failure.
+  Deletes propagate as **tombstones**; the pull **reconciles by last-write-wins**
+  (`syncReconcile.js`) so nothing resurrects or clobbers a newer local edit.
+- **Secrets.** Firestore rules restrict data to its owner; `storage.rules`
+  scope files to `users/{uid}`. API keys live only in `api/` (Vercel env).
 
-## AI Engine (Phase 3A)
+## AI Engine
 
 ```
 src/ai/
-├── index.js               # public surface: useAI() hook + engine exports (UI imports ONLY this)
-├── config.js              # models (opus-4-8 answers, haiku-4-5 routing), limits, dev-key fallback
-├── gateway/aiGateway.js   # the pipeline: validate → rate-limit → route → context → prompt
-│                          #   → streaming LLM call → tool loop → persist → analytics
-├── router/intentRouter.js # tier-1 keyword scoring → tier-2 LLM classification; sticky per convo
-├── agents/                # baseAgent contract + registry + 12 isolated definitions
-│   └── definitions/       # each: persona, tools whitelist, triggers, suggested questions
-├── prompts/               # versioned library, safety preamble, dynamic system-prompt builder
-├── memory/                # conversationStore (CRUD/search/pin/export, pruned), profileMemory,
-│                          #   memoryEngine (history window sent to the model)
-├── context/contextEngine.js  # date, kharif/rabi/zaid season, farm profile, prior-advice summary
-├── tools/                 # toolRegistry + executor; calculator live; weather/market/schemes/pdf
-│                          #   registered but honestly report "not connected yet" (no fake data)
-├── services/              # llmClient (provider abstraction: /api proxy or dev direct), streamParser
-├── voice/speech.js        # Web Speech STT/TTS, 11 Indian locales, graceful fallback
-├── vision/imagePipeline.js # pick/capture → canvas compression → Anthropic image block
-├── middleware/validation.js # input caps, Aadhaar/OTP detection, client rate limit
-└── analytics/aiAnalytics.js # local turn metrics (agent, latency, tokens) — never content
-
-api/ai/chat.js             # Vercel serverless: holds ANTHROPIC_API_KEY, validates, rate-limits,
-                           # streams Anthropic SSE through. Set the env var in Vercel settings.
+├── index.js               public surface: useAI() hook + engine exports (UI imports ONLY this)
+├── gateway/aiGateway.js   validate → rate-limit → route → context → prompt → stream → tools → persist
+├── router/  agents/       intent routing; baseAgent contract + registry + specialist definitions
+├── prompts/ memory/       versioned prompts + safety preamble; conversation store, profile memory
+├── context/ tools/        season/farm context; tool registry (calculator live; others honest "n/a")
+├── services/ voice/ vision/  llmClient provider abstraction; Web Speech STT/TTS; image pipeline
+├── middleware/ analytics/ input caps + Aadhaar/OTP detection; local turn metrics (never content)
+api/ai/chat.js             serverless gateway holding the LLM keys (multi-provider failover)
 ```
 
-Dev without Vercel: `localStorage.setItem("agrios:devApiKey", JSON.stringify("sk-ant-…"))`
-makes the client call Anthropic directly (dev builds only). Remove it to test the proxy path
-via `vercel dev`.
+## Commerce backend (server-authoritative)
 
-UI entry points: AI tab (agent grid → chat), Home quick actions and the disease
-banner → `push({ kind: "chat", props: { agentId } })`. `AIChat.jsx` renders
-streaming bubbles, markdown, history sheet (pin/export/delete), voice input,
-photo attach, and the safety disclaimer.
+The inherently multi-party modules (marketplace, service-marketplace, logistics,
+payments) get a **Supabase Postgres backend behind `api/commerce/*`**,
+authenticated by the Firebase tokens `api/_middleware/verifyAuth.js` already
+verifies, with **Razorpay** payments. Phases B0–B4 (foundation → listings →
+orders+payments → lifecycle+reviews → hardening) are implemented and covered by
+unit + PGlite integration tests; the client is wired behind `VITE_COMMERCE_API`.
+See **COMMERCE-BACKEND-SPEC.md** for the full design.
+
+## What's still pending / dormant
+
+- **Commerce is code-complete but dormant** until Supabase + Razorpay are
+  provisioned (env vars) and `VITE_COMMERCE_API=1`; it degrades gracefully
+  (local marketplace) until then. True end-to-end (deployed handlers + live DB +
+  a login) is unverified.
+- **No RBAC** — the app assumes a single user per device (team/payroll/document
+  data isn't role-gated).
+- **Model gaps** — bulk/tier pricing, discounts, and low-stock thresholds have no
+  server counterpart yet; `pullFromCloud` is a one-time initial pull (made safe
+  with reconciliation, not yet continuous bidirectional sync).
