@@ -19,7 +19,6 @@ import OnboardingTour from "../components/OnboardingTour.jsx";
 import { useLazySection } from "../hooks/useLazySection.js";
 import { serviceHubService } from "../services/serviceHub/serviceHubService.js";
 import { serviceById } from "../services/serviceHub/serviceRegistry.js";
-import { farmAlertsService } from "../services/alerts/farmAlertsService.js";
 
 const H_PAD = 16;
 
@@ -70,13 +69,21 @@ export default function Home() {
   const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
-    // Aggregate once, then derive both the badge count and the opportunistic
-    // urgent-alert notification from the same result (rather than computing
-    // the whole 8-source aggregation twice on every Home mount).
-    farmAlertsService.getAll().then((all) => {
-      setAlertCount(all.length);
-      return farmAlertsService.notifyHighPriority(undefined, all);
-    }).catch(() => {});
+    // The alerts aggregator pulls in the livestock/feed/inventory service graph,
+    // so it is lazy-loaded here (not statically imported) to keep that ~240 KB
+    // off the initial bundle — Home's first paint doesn't need it. Aggregate
+    // once, then derive both the badge count and the opportunistic urgent-alert
+    // notification from the same result.
+    let alive = true;
+    import("../services/alerts/farmAlertsService.js")
+      .then(({ farmAlertsService }) =>
+        farmAlertsService.getAll().then((all) => {
+          if (alive) setAlertCount(all.length);
+          return farmAlertsService.notifyHighPriority(undefined, all);
+        }),
+      )
+      .catch(() => {});
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
