@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  listingToProduct, productToListingPayload, serverOrderToClient,
+  listingToProduct, productToListingPayload, productPatchToListingPayload,
+  serverOrderToClient, serverReviewToClient,
   clientStatusToAction, cartLinesToOrderItems, sellersInCart,
 } from "../mappers.js";
 
@@ -36,6 +37,30 @@ describe("productToListingPayload", () => {
       qty_available: 40, min_order: 2, status: "active", state: "WB",
     });
     expect(payload).not.toHaveProperty("district"); // omitted when absent
+  });
+});
+
+describe("productPatchToListingPayload", () => {
+  it("maps only supplied fields (partial PATCH)", () => {
+    expect(productPatchToListingPayload({ price: 99, stock: 5, status: "published" }))
+      .toEqual({ price: 99, qty_available: 5, status: "active" });
+  });
+  it("maps name->title and is empty for an empty patch", () => {
+    expect(productPatchToListingPayload({ name: "Wheat" })).toEqual({ title: "Wheat" });
+    expect(productPatchToListingPayload({})).toEqual({});
+  });
+});
+
+describe("serverReviewToClient", () => {
+  it("maps a listing review (verified, comment->text)", () => {
+    const r = serverReviewToClient({ id: "r1", subjectType: "listing", subjectId: "l1", rating: "5", comment: "Nice", reviewerName: "Ravi", createdAt: "t" });
+    expect(r).toMatchObject({ id: "r1", productId: "l1", rating: 5, text: "Nice", author: "Ravi", verified: true });
+    expect(r.sellerId).toBeUndefined();
+  });
+  it("maps a seller review and defaults the author", () => {
+    const r = serverReviewToClient({ subjectType: "seller", subjectId: "s1", rating: 4, comment: "" });
+    expect(r).toMatchObject({ sellerId: "s1", rating: 4, text: "", author: "Buyer", verified: true });
+    expect(r.productId).toBeUndefined();
   });
 });
 

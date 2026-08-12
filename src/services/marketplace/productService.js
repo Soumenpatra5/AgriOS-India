@@ -7,25 +7,40 @@ import { repo } from "./marketDb.js";
 import { categoryMeta } from "./constantsMp.js";
 import { commerceEnabled } from "../commerce/config.js";
 import { commerceApi } from "../commerce/commerceApi.js";
-import { listingToProduct } from "../commerce/mappers.js";
+import { listingToProduct, productToListingPayload, productPatchToListingPayload } from "../commerce/mappers.js";
 
 const products = repo("products");
 
 const num = (v) => Number(v) || 0;
 
 export const productService = {
-  add: (data) => products.add({
-    ...data,
-    price: num(data.price),
-    discountPrice: data.discountPrice ? num(data.discountPrice) : null,
-    stock: num(data.stock),
-    reserved: 0,
-    lowStockAt: num(data.lowStockAt),
-    status: data.status || "draft",
-    featured: !!data.featured,
-  }),
-  update: (id, patch) => products.update(id, patch),
-  remove: (id) => products.remove(id),
+  async add(data) {
+    if (commerceEnabled()) {
+      const { listing } = await commerceApi.createListing(productToListingPayload(data));
+      return listingToProduct(listing);
+    }
+    return products.add({
+      ...data,
+      price: num(data.price),
+      discountPrice: data.discountPrice ? num(data.discountPrice) : null,
+      stock: num(data.stock),
+      reserved: 0,
+      lowStockAt: num(data.lowStockAt),
+      status: data.status || "draft",
+      featured: !!data.featured,
+    });
+  },
+  async update(id, patch) {
+    if (commerceEnabled()) {
+      const { listing } = await commerceApi.updateListing(id, productPatchToListingPayload(patch));
+      return listingToProduct(listing);
+    }
+    return products.update(id, patch);
+  },
+  async remove(id) {
+    if (commerceEnabled()) { await commerceApi.deleteListing(id); return; }
+    return products.remove(id);
+  },
   async getById(id) {
     if (commerceEnabled()) {
       try { const { listing } = await commerceApi.listing(id); return listingToProduct(listing); }
@@ -34,14 +49,27 @@ export const productService = {
     return products.getById(id);
   },
   getAll: () => products.getAll(),
-  bySeller: (sellerId) => products.getBy("sellerId", sellerId),
+  async bySeller(sellerId) {
+    // The server scopes "my listings" to the authenticated seller (all statuses).
+    if (commerceEnabled()) {
+      const { items } = await commerceApi.listings({ mine: 1 });
+      return items.map(listingToProduct);
+    }
+    return products.getBy("sellerId", sellerId);
+  },
   published() {
     // Server exposes only active listings via search; local keeps the store.
     if (commerceEnabled()) return this.search({});
     return products.getBy("status", "published");
   },
 
-  setStatus: (id, status) => products.update(id, { status }),
+  async setStatus(id, status) {
+    if (commerceEnabled()) {
+      const { listing } = await commerceApi.updateListing(id, productPatchToListingPayload({ status }));
+      return listingToProduct(listing);
+    }
+    return products.update(id, { status });
+  },
 
   available: (p) => Math.max(0, num(p?.stock) - num(p?.reserved)),
 
