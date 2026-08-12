@@ -4,12 +4,20 @@ import { validateReviewInput, publicReview } from "../reviews.js";
 
 describe("order state machine", () => {
   it("lets the seller ship a confirmed order and deliver a shipped one", () => {
-    expect(resolveTransition("ship", "confirmed", "seller")).toEqual({ to: "shipped", releaseStock: false });
-    expect(resolveTransition("deliver", "shipped", "seller")).toEqual({ to: "delivered", releaseStock: false });
+    expect(resolveTransition("ship", "confirmed", "seller")).toEqual({ to: "shipped", releaseStock: false, refund: false });
+    expect(resolveTransition("deliver", "shipped", "seller")).toEqual({ to: "delivered", releaseStock: false, refund: false });
   });
 
   it("lets the buyer cancel an unpaid order and flags stock release", () => {
-    expect(resolveTransition("cancel", "pending_payment", "buyer")).toEqual({ to: "cancelled", releaseStock: true });
+    expect(resolveTransition("cancel", "pending_payment", "buyer")).toEqual({ to: "cancelled", releaseStock: true, refund: false });
+  });
+
+  it("lets the seller refund a paid order (confirmed or shipped) and flags refund + stock release", () => {
+    expect(resolveTransition("refund", "confirmed", "seller")).toEqual({ to: "refunded", releaseStock: true, refund: true });
+    expect(resolveTransition("refund", "shipped", "seller")).toEqual({ to: "refunded", releaseStock: true, refund: true });
+    // buyer can't refund; unpaid orders can't be refunded
+    expect(resolveTransition("refund", "confirmed", "buyer").error).toMatch(/seller/);
+    expect(resolveTransition("refund", "pending_payment", "seller").error).toMatch(/Cannot refund/);
   });
 
   it("rejects the wrong role", () => {
@@ -25,7 +33,7 @@ describe("order state machine", () => {
 
   it("rejects unknown actions", () => {
     expect(resolveTransition("teleport", "confirmed", "seller").error).toMatch(/Unknown action/);
-    expect(ORDER_ACTIONS).toEqual(["ship", "deliver", "cancel"]);
+    expect(ORDER_ACTIONS).toEqual(["ship", "deliver", "cancel", "refund"]);
   });
 });
 

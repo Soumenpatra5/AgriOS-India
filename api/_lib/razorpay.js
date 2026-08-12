@@ -34,6 +34,28 @@ export async function createRazorpayOrder({ amountPaise, receipt, currency = "IN
   return resp.json();
 }
 
+/* Refund a captured payment (full refund by default). Returns Razorpay's refund
+   object. Throws on misconfiguration or a non-2xx response. */
+export async function refundPayment(providerPaymentId, { amountPaise } = {}) {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) throw new Error("RAZORPAY not configured");
+  if (!providerPaymentId) throw new Error("no payment to refund");
+
+  const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+  const resp = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(providerPaymentId)}/refund`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Basic ${auth}` },
+    body: JSON.stringify(amountPaise ? { amount: amountPaise } : {}),
+  });
+  if (!resp.ok) {
+    let detail = `razorpay refund failed (${resp.status})`;
+    try { detail = (await resp.json())?.error?.description || detail; } catch { /* opaque */ }
+    throw new Error(detail);
+  }
+  return resp.json();
+}
+
 /* Verify a Razorpay webhook: HMAC-SHA256(rawBody, webhookSecret) as hex must
    equal the X-Razorpay-Signature header, compared in constant time. rawBody
    MUST be the exact bytes received (hence bodyParser is disabled on the route). */

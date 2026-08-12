@@ -10,6 +10,7 @@ import { requireUser } from "../../_lib/requireUser.js";
 import { sendError, HttpError } from "../../_lib/http.js";
 import { publicOrder } from "../../_lib/orders.js";
 import { resolveTransition } from "../../_lib/orderTransitions.js";
+import { refundPayment } from "../../_lib/razorpay.js";
 
 export default async function handler(req, res) {
   try {
@@ -54,22 +55,41 @@ async function transition(req, res, sql, user, id) {
   const t = resolveTransition(action, order.status, role);
   if (t.error) return res.status(409).json({ error: { message: t.error } });
 
-  await sql.begin(async (tx) => {
-    // Guarded update: only transitions if the status is still what we checked,
-    // so a racing transition can't cause a double stock release.
-    const [moved] = await tx`
-      update orders set status = ${t.to}
-      where id = ${id} and status = ${order.status}
-      returning id`;
-    if (!moved) throw new HttpError(409, "Order changed, please retry");
-
-    if (t.releaseStock) {
+  // A refund moves money, so issue the Razorpay refund BEFORE the DB write. If
+  // it fails we abort and leave the order untouched.
+  if (t.refund) {
+    const [payment] = await sql`select * from payments where order_id = ${id}`;
+    if (!payment || payment.status !== "captured") {
+      return res.status(409).json({ error: { message: "No captured payment to refund" } });
+    }
+    await refundPayment(payment.provider_payment_id, { amountPaise: Number(payment.amount_paise) });
+    await sql.begin(async (tx) => {
+      const [moved] = await tx`update orders set status = ${t.to} where id = ${id} and status = ${order.status} returning id`;
+      if (!moved) throw new HttpError(409, "Order changed, please retry");
+      await tx`update payments set status = 'refunded' where id = ${payment.id}`;
       const items = await tx`select listing_id, quantity from order_items where order_id = ${id}`;
       for (const it of items) {
         await tx`update listings set qty_available = qty_available + ${it.quantity} where id = ${it.listing_id}`;
       }
-    }
-  });
+    });
+  } else {
+    await sql.begin(async (tx) => {
+      // Guarded update: only transitions if the status is still what we checked,
+      // so a racing transition can't cause a double stock release.
+      const [moved] = await tx`
+        update orders set status = ${t.to}
+        where id = ${id} and status = ${order.status}
+        returning id`;
+      if (!moved) throw new HttpError(409, "Order changed, please retry");
+
+      if (t.releaseStock) {
+        const items = await tx`select listing_id, quantity from order_items where order_id = ${id}`;
+        for (const it of items) {
+          await tx`update listings set qty_available = qty_available + ${it.quantity} where id = ${it.listing_id}`;
+        }
+      }
+    });
+  }
 
   const [updated] = await sql`select * from orders where id = ${id}`;
   const items = await sql`select * from order_items where order_id = ${id}`;

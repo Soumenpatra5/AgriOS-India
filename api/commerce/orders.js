@@ -13,6 +13,7 @@ import { requireUser } from "../_lib/requireUser.js";
 import { sendError, HttpError } from "../_lib/http.js";
 import { validateOrderInput, computeOrderTotals, publicOrder } from "../_lib/orders.js";
 import { createRazorpayOrder, razorpayConfigured } from "../_lib/razorpay.js";
+import { rateLimit } from "../_lib/rateLimit.js";
 
 export default async function handler(req, res) {
   try {
@@ -38,6 +39,10 @@ async function list(req, res, sql, user) {
 }
 
 async function create(req, res, sql, user) {
+  // Fleet-wide when Upstash is configured; best-effort in-memory otherwise.
+  if (await rateLimit({ key: `orders:create:${user.id}`, max: 10, windowMs: 60_000 })) {
+    return res.status(429).json({ error: { message: "Too many orders — please wait a minute." } });
+  }
   const { value, error } = validateOrderInput(req.body);
   if (error) return res.status(400).json({ error: { message: error } });
   if (!razorpayConfigured()) {
