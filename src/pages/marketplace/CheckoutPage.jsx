@@ -6,6 +6,10 @@ import { cartService } from "../../services/marketplace/cartService.js";
 import { mpOrderService } from "../../services/marketplace/mpOrderService.js";
 import { PAYMENT_METHODS } from "../../services/marketplace/constantsMp.js";
 import { rupee } from "../../utils/format.js";
+import { commerceEnabled } from "../../services/commerce/config.js";
+import { commerceApi } from "../../services/commerce/commerceApi.js";
+import { cartLinesToOrderItems, sellersInCart } from "../../services/commerce/mappers.js";
+import { openCheckout } from "../../services/commerce/razorpayCheckout.js";
 
 export default function CheckoutPage() {
   const { pop, push, toast, tc, user } = useApp();
@@ -28,11 +32,46 @@ export default function CheckoutPage() {
     if (placing) return;
     setPlacing(true);
     mpOrderService.saveAddress(address);
-    const created = await mpOrderService.createFromCart(valid, { paymentMethod: payment, address });
-    await cartService.clearActive();
-    toast(tc({en:`${created.length} order${created.length > 1 ? "s" : ""} placed`,hi:`${created.length} ऑर्डर दिए गए`,bn:`${created.length}টি অর্ডার দেওয়া হয়েছে`}), "success");
-    pop(); pop();                        // drop checkout + cart from the stack
-    push({ kind: "mpOrders" });
+    try {
+      // Server-backed checkout: create the order and pay via Razorpay. Server
+      // orders are single-seller, so a mixed-seller cart is checked out one
+      // seller at a time. Fulfilment is confirmed by the server webhook.
+      if (commerceEnabled()) {
+        if (sellersInCart(valid).length > 1) {
+          toast(tc({en:"Please check out one seller at a time",hi:"कृपया एक बार में एक विक्रेता से चेकआउट करें",bn:"একবারে একজন বিক্রেতার সাথে চেকআউট করুন"}), "info");
+          setPlacing(false);
+          return;
+        }
+        const { payment: paymentHandle } = await commerceApi.createOrder({
+          items: cartLinesToOrderItems(valid),
+          deliveryAddr: address,
+        });
+        await openCheckout(paymentHandle, {
+          description: tc({en:"Marketplace order",hi:"मार्केटप्लेस ऑर्डर",bn:"মার্কেটপ্লেস অর্ডার"}),
+          prefill: { name: address.name, contact: address.phone },
+          onSuccess: async () => {
+            await cartService.clearActive();
+            toast(tc({en:"Payment received — order confirmed",hi:"भुगतान प्राप्त — ऑर्डर पुष्ट",bn:"পেমেন্ট পাওয়া গেছে — অর্ডার নিশ্চিত"}), "success");
+            pop(); pop();
+            push({ kind: "mpOrders" });
+          },
+          onDismiss: () => {
+            toast(tc({en:"Payment cancelled",hi:"भुगतान रद्द",bn:"পেমেন্ট বাতিল"}), "info");
+            setPlacing(false);
+          },
+        });
+        return; // stay on checkout until Razorpay resolves
+      }
+
+      const created = await mpOrderService.createFromCart(valid, { paymentMethod: payment, address });
+      await cartService.clearActive();
+      toast(tc({en:`${created.length} order${created.length > 1 ? "s" : ""} placed`,hi:`${created.length} ऑर्डर दिए गए`,bn:`${created.length}টি অর্ডার দেওয়া হয়েছে`}), "success");
+      pop(); pop();                        // drop checkout + cart from the stack
+      push({ kind: "mpOrders" });
+    } catch (e) {
+      toast(e?.message || tc({en:"Could not place the order",hi:"ऑर्डर नहीं दिया जा सका",bn:"অর্ডার দেওয়া যায়নি"}), "info");
+      setPlacing(false);
+    }
   };
 
   const set = (k) => (v) => setAddress((a) => ({ ...a, [k]: v }));

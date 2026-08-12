@@ -12,6 +12,9 @@ import { repo } from "./marketDb.js";
 import { productService } from "./productService.js";
 import { ORDER_FLOW } from "./constantsMp.js";
 import { storage } from "../../utils/storage.js";
+import { commerceEnabled } from "../commerce/config.js";
+import { commerceApi } from "../commerce/commerceApi.js";
+import { serverOrderToClient, clientStatusToAction } from "../commerce/mappers.js";
 
 const orders = repo("orders");
 const num = (v) => Number(v) || 0;
@@ -46,13 +49,35 @@ export const mpOrderService = {
     return created;
   },
 
-  getAll: () => orders.getAll().then((l) =>
-    l.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))),
-  getById: (id) => orders.getById(id),
-  bySeller: (sellerId) => orders.getBy("sellerId", sellerId).then((l) =>
-    l.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))),
+  async getAll() {
+    if (commerceEnabled()) {
+      const { orders: rows } = await commerceApi.orders("buyer");
+      return rows.map(serverOrderToClient);
+    }
+    return orders.getAll().then((l) => l.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")));
+  },
+  async getById(id) {
+    if (commerceEnabled()) {
+      try { const { order } = await commerceApi.order(id); return serverOrderToClient(order); }
+      catch (e) { if (e.status === 404) return null; throw e; }
+    }
+    return orders.getById(id);
+  },
+  async bySeller(sellerId) {
+    if (commerceEnabled()) {
+      const { orders: rows } = await commerceApi.orders("seller");
+      return rows.map(serverOrderToClient);
+    }
+    return orders.getBy("sellerId", sellerId).then((l) => l.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")));
+  },
 
   async setStatus(id, status) {
+    if (commerceEnabled()) {
+      const action = clientStatusToAction(status);
+      if (!action) return this.getById(id);   // no server transition for this status
+      const { order } = await commerceApi.orderAction(id, action);
+      return serverOrderToClient(order);
+    }
     const order = await orders.getById(id);
     if (!order || order.status === status) return order;
 
