@@ -11,6 +11,7 @@
    Metadata + expiry tracking work regardless of where the file lives. */
 
 import { repo } from "../erp/erpDb.js";
+import { storage } from "../../utils/storage.js";
 
 export const DOC_TYPES = [
   { id: "profile_photo",  label: "Profile Photo" },
@@ -27,7 +28,11 @@ export const DOC_TYPES = [
   { id: "other",          label: "Other Document" },
 ];
 
-const docs = repo("employeeDocuments");
+/* `fileData` (base64 blob) is stripped before cloud sync — it would exceed
+   Firestore's 1 MB doc limit and would place sensitive scans in the cloud. It
+   stays in local IndexedDB for offline access; the cloud path uses a Storage
+   URL instead. */
+const docs = repo("employeeDocuments", { stripForSync: ["fileData"] });
 const today = () => new Date().toISOString().slice(0, 10);
 const EXPIRY_WINDOW_DAYS = 30;
 
@@ -68,10 +73,15 @@ export const documentService = {
       fileName: file?.name || "", mimeType: file?.type || "",
     };
     if (file) {
-      if (cloudAvailable()) {
+      // Cloud upload requires an authenticated owner so the file lands under
+      // users/{uid}/… where the Storage rules grant owner-only access. Without
+      // a uid we keep it local (base64) so nothing sensitive lands in a path
+      // the rules would reject anyway.
+      const ownerId = storage.get("user")?.uid;
+      if (cloudAvailable() && ownerId) {
         try {
           const { uploadImage } = await import("../firebase/storage.js");
-          const path = `employees/${employeeId}/${Date.now()}-${file.name}`;
+          const path = `users/${ownerId}/employees/${employeeId}/${Date.now()}-${file.name}`;
           rec.fileUrl = await uploadImage(path, file);
           rec.storagePath = path;
           rec.storage = "cloud";

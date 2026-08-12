@@ -57,7 +57,13 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 
 import { wrapWithSync } from "../firebase/syncRepo.js";
 
-/* Generic repository over one store. All ERP services build on this. */
+/* Generic repository over one store. All ERP services build on this.
+
+   Deletes are SOFT: remove() stamps a `deletedAt` and physically retains the
+   row, so records are recoverable (restore), auditable, and never silently
+   orphan related data. Every normal read below hides soft-deleted rows, so
+   callers and tests see unchanged behaviour. purge() is the explicit,
+   irreversible physical delete for cleanup. */
 function _localRepo(storeName) {
   const run = (mode, fn) => openDb().then((db) => new Promise((res, rej) => {
     const store = db.transaction(storeName, mode).objectStore(storeName);
@@ -66,16 +72,19 @@ function _localRepo(storeName) {
     req.onerror = () => rej(req.error);
   }));
 
+  const live = (r) => r && !r.deletedAt;
+  const rawGet = (id) => run("readonly", (s) => s.get(id)).then((r) => r || null);
+
   return {
     async add(data) {
       const record = { ...data, id: uid(), createdAt: new Date().toISOString() };
       await run("readwrite", (s) => s.add(record));
       return record;
     },
-    getAll: () => run("readonly", (s) => s.getAll()).then((r) => r || []),
+    getAll: () => run("readonly", (s) => s.getAll()).then((r) => (r || []).filter(live)),
     getBy: (index, value) =>
-      run("readonly", (s) => s.index(index).getAll(value)).then((r) => r || []),
-    getById: (id) => run("readonly", (s) => s.get(id)).then((r) => r || null),
+      run("readonly", (s) => s.index(index).getAll(value)).then((r) => (r || []).filter(live)),
+    getById: (id) => rawGet(id).then((r) => (live(r) ? r : null)),
     async update(id, patch) {
       const existing = await this.getById(id);
       if (!existing) return null;
@@ -83,11 +92,24 @@ function _localRepo(storeName) {
       await run("readwrite", (s) => s.put(updated));
       return updated;
     },
-    remove: (id) => run("readwrite", (s) => s.delete(id)),
-    count: () => run("readonly", (s) => s.count()),
+    async remove(id) {
+      const existing = await rawGet(id);
+      if (!existing || existing.deletedAt) return;
+      await run("readwrite", (s) => s.put({ ...existing, deletedAt: new Date().toISOString() }));
+    },
+    async restore(id) {
+      const existing = await rawGet(id);
+      if (!existing || !existing.deletedAt) return null;
+      const { deletedAt, ...rest } = existing;
+      const restored = { ...rest, updatedAt: new Date().toISOString() };
+      await run("readwrite", (s) => s.put(restored));
+      return restored;
+    },
+    purge: (id) => run("readwrite", (s) => s.delete(id)),
+    count: () => run("readonly", (s) => s.getAll()).then((r) => (r || []).filter(live).length),
   };
 }
 
-export function repo(storeName) {
-  return wrapWithSync(storeName, _localRepo(storeName));
+export function repo(storeName, syncOptions) {
+  return wrapWithSync(storeName, _localRepo(storeName), syncOptions);
 }

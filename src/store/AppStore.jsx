@@ -61,6 +61,13 @@ export function AppProvider({ children }) {
         } else {
           storage.remove("user");
           setUser(null);
+          // If auth drops while we're already inside the app (sign-out on
+          // another tab, revoked/expired token, or a uid mismatch), don't leave
+          // the shell rendering with a null user — clear the stack and return to
+          // the auth screen. Pre-app stages (splash/language/onboarding) are
+          // left untouched so first-run users aren't bounced.
+          setStack([]);
+          setStage((s) => (s === "app" ? "auth" : s));
         }
       });
     })();

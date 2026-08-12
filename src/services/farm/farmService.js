@@ -20,12 +20,27 @@ export const FARM_TYPES = [
 
 const farms = repo("farms");
 
+/* ERP stores that carry a `farmId` index and therefore belong to a farm.
+   When a farm is deleted these children are soft-deleted too, so nothing is
+   left orphaned pointing at a farm that no longer exists. Soft-delete keeps
+   them recoverable if the farm is later restored. */
+const CHILD_STORES = ["parcels", "tasks", "inventory", "assets", "employees", "devices", "cropPlans", "feedBatches"];
+
+async function cascadeSoftDelete(farmId) {
+  await Promise.all(CHILD_STORES.map(async (name) => {
+    const r = repo(name);
+    const children = await r.getBy("farmId", farmId);
+    await Promise.all(children.map((c) => r.remove(c.id)));
+  }));
+}
+
 export const farmService = {
   add:    (data) => farms.add(data),
   getAll: ()     => farms.getAll(),
   getById:(id)   => farms.getById(id),
   update: (id, patch) => farms.update(id, patch),
   remove: async (id) => {
+    await cascadeSoftDelete(id);
     await farms.remove(id);
     if (storage.get(ACTIVE_KEY) === id) storage.remove(ACTIVE_KEY);
   },
