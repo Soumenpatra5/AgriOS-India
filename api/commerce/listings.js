@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     const user = await requireUser(req, res, sql);
     if (!user) return;
 
-    if (req.method === "GET") return list(req, res, sql);
+    if (req.method === "GET") return list(req, res, sql, user);
     if (req.method === "POST") return create(req, res, sql, user);
     return res.status(405).json({ error: { message: "GET or POST only" } });
   } catch (err) {
@@ -27,11 +27,15 @@ export default async function handler(req, res) {
   }
 }
 
-async function list(req, res, sql) {
-  const { q, category, state, price_max, cursor } = req.query;
+async function list(req, res, sql, user) {
+  const { q, category, state, price_max, cursor, mine } = req.query;
   const limit = clampLimit(req.query.limit);
 
-  const conds = [sql`l.status = 'active'`, sql`l.deleted_at is null`];
+  // `mine=1` -> the caller's own listings across ALL statuses (seller dashboard);
+  // otherwise the public feed of active listings.
+  const conds = mine
+    ? [sql`l.seller_id = ${user.id}`, sql`l.deleted_at is null`]
+    : [sql`l.status = 'active'`, sql`l.deleted_at is null`];
   if (category)  conds.push(sql`l.category = ${category}`);
   if (state)     conds.push(sql`l.state = ${state}`);
   if (price_max && Number.isFinite(Number(price_max)))

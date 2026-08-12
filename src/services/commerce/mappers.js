@@ -63,6 +63,25 @@ export function productToListingPayload(p) {
   };
 }
 
+/* Partial product patch -> API update payload (only the supplied, server-known
+   fields; bulk/discount/lowStock etc. have no server counterpart yet). */
+export function productPatchToListingPayload(patch) {
+  const p = patch || {};
+  const out = {};
+  if (p.name !== undefined) out.title = p.name;
+  if (p.description !== undefined) out.description = p.description || "";
+  if (p.category !== undefined) out.category = p.category;
+  if (p.unit !== undefined) out.unit = p.unit;
+  if (p.price !== undefined) out.price = num(p.price);
+  if (p.stock !== undefined) out.qty_available = num(p.stock);
+  if (p.minOrder !== undefined) out.min_order = num(p.minOrder) || 1;
+  if (p.state !== undefined) out.state = p.state;
+  if (p.district !== undefined) out.district = p.district;
+  if (p.status !== undefined) out.status = PRODUCT_TO_LISTING_STATUS[p.status] || p.status;
+  if (p.media !== undefined) out.media = Array.isArray(p.media) ? p.media : [];
+  return out;
+}
+
 /* API order -> client order shape. Keeps `serverStatus` for exact transitions. */
 export function serverOrderToClient(o) {
   return {
@@ -87,6 +106,21 @@ export function serverOrderToClient(o) {
     address: o.deliveryAddr || null,
     timeline: [],
     createdAt: o.createdAt,
+  };
+}
+
+/* API review -> client review shape (used by ProductDetail / StoreView / Hub).
+   Server reviews only exist for delivered-order buyers, so they're all verified. */
+export function serverReviewToClient(r) {
+  return {
+    id: r.id,
+    productId: r.subjectType === "listing" ? r.subjectId : undefined,
+    sellerId: r.subjectType === "seller" ? r.subjectId : undefined,
+    rating: num(r.rating),
+    text: r.comment || "",
+    author: r.reviewerName || "Buyer",
+    verified: true,
+    createdAt: r.createdAt,
   };
 }
 

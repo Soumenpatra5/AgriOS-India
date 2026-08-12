@@ -76,6 +76,23 @@ describe("listings: search + soft-delete", () => {
   });
 });
 
+describe("listings: mine filter (seller dashboard)", () => {
+  it("returns the seller's own listings across all statuses; the public feed shows only active", async () => {
+    const seller = await seedUser("s1", "Asha", true);
+    await seedListing(seller, { title: "Live One", status: "active" });
+    await seedListing(seller, { title: "Draft One", status: "draft" });
+
+    // mine=1 -> own listings, all statuses (mirrors listings.js list())
+    const mine = await db.query(
+      `select title, status from listings where seller_id = $1 and deleted_at is null order by title`, [seller]);
+    expect(mine.rows.map((r) => r.title)).toEqual(["Draft One", "Live One"]);
+
+    // public feed -> active only
+    const pub = await db.query(`select title from listings where status='active' and deleted_at is null order by title`);
+    expect(pub.rows.map((r) => r.title)).toEqual(["Live One"]);
+  });
+});
+
 describe("orders: atomic stock guard", () => {
   it("never oversells — the WHERE qty>=n guard admits exactly one buyer of the last unit", async () => {
     const s = await seedUser("s1", "Asha", true);
