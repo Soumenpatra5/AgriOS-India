@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
-import { useApp } from "../store/AppStore.jsx";
+import { useApp, useOnline } from "../store/AppStore.jsx";
 import BottomNav from "./BottomNav.jsx";
 import { ToastHost, Spinner } from "../components/index.js";
 import Icon from "../components/Icon.jsx";
@@ -258,7 +258,8 @@ function OfflineBar({ tc }) {
 }
 
 export default function ScreenRouter() {
-  const { stage, tab, stack, online, tc, pop, switchTab } = useApp();
+  const { stage, tab, stack, tc, pop, switchTab } = useApp();
+  const online = useOnline();
 
   if (stage !== "app") {
     const Flow = { splash: Splash, language: LanguageSelect, onboarding: Onboarding, auth: AuthFlow }[stage] || Splash;

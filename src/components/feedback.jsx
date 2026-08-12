@@ -1,7 +1,7 @@
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "./Icon.jsx";
 import { Button } from "./primitives.jsx";
-import { useApp } from "../store/AppStore.jsx";
+import { useApp, useToasts } from "../store/AppStore.jsx";
 
 export function Skeleton({ w = "100%", h = 14, r = 8, style }) {
   return (
@@ -70,7 +70,8 @@ export function LoadingScreen({ label = "Loading…" }) {
 
 /* Toast host — reads the queue from the store and renders stacked snackbars. */
 export function ToastHost() {
-  const { toasts, dismissToast } = useApp();
+  const { dismissToast } = useApp();
+  const toasts = useToasts();
   const tone = { info: T.ink, success: T.primary, error: T.red };
   const iconOf = { info: "Info", success: "CheckCircle2", error: "AlertCircle" };
   return (

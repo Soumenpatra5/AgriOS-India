@@ -1,7 +1,7 @@
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, Card, Dialog } from "../components/index.js";
-import { useApp } from "../store/AppStore.jsx";
+import { useApp, useOnline } from "../store/AppStore.jsx";
 import { PROFILE_ITEMS } from "../constants/content.js";
 import { initials } from "../utils/format.js";
 import { useState, useEffect } from "react";
@@ -21,7 +21,8 @@ const PROVIDER_LABELS = {
 };
 
 export default function Profile() {
-  const { t, tc, user, push, logout, online, toast } = useApp();
+  const { t, tc, user, push, logout, toast } = useApp();
+  const online = useOnline();
   const [confirm, setConfirm] = useState(false);
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
