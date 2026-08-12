@@ -8,7 +8,7 @@ import { farmService, FARM_TYPES } from "../../services/farm/farmService.js";
 import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
 
 export default function FarmProfiles() {
-  const { pop, toast } = useApp();
+  const { pop, toast, can } = useApp();
   const [farms, setFarms]   = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [tick, setTick]     = useState(0);
@@ -60,7 +60,7 @@ export default function FarmProfiles() {
               right={f.id !== activeId ? (
                 <span style={{ fontSize: 11.5, color: T.primary, fontWeight: 600, flexShrink: 0 }}>Set active</span>
               ) : null}
-              onDelete={() => setDelId(f.id)} />
+              onDelete={can("records.delete") ? () => setDelId(f.id) : undefined} />
           ))}
       </div>
 

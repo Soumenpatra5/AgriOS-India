@@ -19,7 +19,7 @@ const initials = (n) => (n || "?").split(" ").filter(Boolean).slice(0, 2).map((w
 const NEW_FORM = { name: "", designation: "field_worker", department: "", type: "permanent", phone: "", dailyWage: "", joiningDate: new Date().toISOString().slice(0, 10) };
 
 export default function EmployeeManager() {
-  const { pop, toast, push } = useApp();
+  const { pop, toast, push, can } = useApp();
   const [tab, setTab]         = useState("Team");
   const [employees, setEmployees] = useState([]);
   const [todayMap, setTodayMap]   = useState({});
@@ -115,24 +115,24 @@ export default function EmployeeManager() {
 
   return (
     <>
-      <AppBar title="Team" onBack={pop} action={
+      <AppBar title="Team" onBack={pop} action={can("team.manage") && (
         <button onClick={() => setOpen(true)}
           style={{ background: T.blue, border: "none", borderRadius: 12, padding: "8px 13px",
             cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6,
             fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
           <Icon name="Plus" size={15} color="#fff" /> Add
         </button>
-      } />
+      )} />
 
       <div style={{ display: "flex", gap: 10, padding: "8px 16px 4px", overflowX: "auto" }}>
         <StatTile a="blue" label="Employees" value={employees.length} />
         <StatTile a="primary" label="Present Today" value={presentToday} />
-        <StatTile a="orange" label="Wages This Month" value={rupee(totalWages)} minWidth={130} />
+        {can("salary.view") && <StatTile a="orange" label="Wages This Month" value={rupee(totalWages)} minWidth={130} />}
         <StatTile a="red" label="Docs Expiring" value={docsExpiring} />
       </div>
 
       <div style={{ display: "flex", gap: 8, padding: "10px 16px 4px" }}>
-        {TABS.map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
+        {TABS.filter((t) => t !== "Wages" || can("salary.view")).map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
       </div>
 
       <div style={{ padding: "8px 16px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -176,14 +176,16 @@ export default function EmployeeManager() {
                 <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {employeeService.jobTitle(e)}
                   {e.department ? ` · ${employeeService.deptLabel(e.department)}` : ""}
-                  {e.dailyWage ? ` · ${rupee(Number(e.dailyWage))}/day` : ""}
+                  {can("salary.view") && e.dailyWage ? ` · ${rupee(Number(e.dailyWage))}/day` : ""}
                 </div>
                 <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 1 }}>{e.code || ""}</div>
               </div>
+              {can("records.delete") && (
               <button onClick={(ev) => { ev.stopPropagation(); setDelId(e.id); }} aria-label="Remove employee"
                 style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}>
                 <Icon name="Trash2" size={15} />
               </button>
+              )}
               <Icon name="ChevronRight" size={16} style={{ color: T.inkFaint }} />
             </div>
           </Card>
@@ -255,9 +257,11 @@ export default function EmployeeManager() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: T.primary, fontFamily: T.display }}>{rupee(w.gross)}</div>
+                    {can("payroll.manage") && (
                     <button onClick={() => openPay(w)}
                       style={{ background: T.primarySoft, border: "none", borderRadius: 10, padding: "7px 11px", cursor: "pointer",
                         color: T.primary, fontSize: 12.5, fontWeight: 700, fontFamily: T.body }}>Pay</button>
+                    )}
                   </div>
                 </div>
               </Card>
