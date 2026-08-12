@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "lint": "eslint .",
     "check:bundle": "node scripts/check-bundle-size.mjs",
     "migrate": "node scripts/migrate.mjs"
   },
@@ -21,8 +22,12 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
+    "@eslint/js": "^10.0.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^10.8.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "fake-indexeddb": "^6.2.5",
+    "globals": "^17.10.0",
     "vite": "^5.4.11",
     "vitest": "^4.1.10"
   }

@@ -11,7 +11,7 @@ import { galleryService } from "../../services/vision/galleryService.js";
 const QUICK_LABELS = ["Healthy", "Disease", "Pest", "Deficiency", "Stress", "Unknown"];
 
 export default function AnnotationWorkspace({ datasetId }) {
-  const { pop, tc } = useApp();
+  const { pop, tc, toast } = useApp();
   const [imageUrl, setImageUrl] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [annotations, setAnnotations] = useState([]);
@@ -29,7 +29,7 @@ export default function AnnotationWorkspace({ datasetId }) {
       setImageUrl(URL.createObjectURL(file));
       setAnnotations([]);
     } catch (err) {
-      alert(err.message);
+      toast(err.message, "info");
     }
   };
 
@@ -88,7 +88,7 @@ export default function AnnotationWorkspace({ datasetId }) {
       setImageUrl(null);
       setImageFile(null);
     } catch (err) {
-      alert(tc({ en: "Save failed: ", hi: "सहेजना विफल: ", bn: "সংরক্ষণ ব্যর্থ হয়েছে: " }) + err.message);
+      toast(tc({ en: "Save failed: ", hi: "सहेजना विफल: ", bn: "সংরক্ষণ ব্যর্থ হয়েছে: " }) + err.message, "info");
     } finally {
       setSaving(false);
     }

@@ -53,7 +53,10 @@ export function openDb() {
   });
 }
 
-export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+/* Prefer a collision-free UUID; fall back to time+random where crypto.randomUUID
+   is unavailable (older WebViews). IDs are opaque, so the format may vary. */
+export const uid = () =>
+  (globalThis.crypto?.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2, 9));
 
 import { wrapWithSync } from "../firebase/syncRepo.js";
 
