@@ -13,7 +13,7 @@ import { complianceChecker } from "../../services/mlops/governance/complianceChe
 const STAGE_FILTERS = ["all", ...Object.values(MODEL_STAGES)];
 
 export default function ModelRegistryPage() {
-  const { pop, push, tc } = useApp();
+  const { pop, push, tc, toast } = useApp();
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stageFilter, setStageFilter] = useState("all");
@@ -41,7 +41,7 @@ export default function ModelRegistryPage() {
       await promotionEngine.requestPromotion(modelId);
       await load();
     } catch (err) {
-      alert(err.message);
+      toast(err.message, "info");
     } finally {
       setPromotingId(null);
     }

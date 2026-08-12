@@ -6,7 +6,7 @@ import { useApp, nextAfterSplash } from "../store/AppStore.jsx";
 export default function Splash() {
   const { setStage, t } = useApp();
   useEffect(() => {
-    const id = setTimeout(() => setStage(nextAfterSplash()), 1900);
+    const id = setTimeout(() => setStage(nextAfterSplash()), 1200);
     return () => clearTimeout(id);
   }, [setStage]);
 

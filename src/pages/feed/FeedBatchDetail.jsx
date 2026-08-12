@@ -83,7 +83,7 @@ export default function FeedBatchDetail({ id }) {
 
   const onSelectFeedItem = (setForm) => (id2) => setForm((f) => ({ ...f, feedItemId: id2, unitPrice: feedItems.find((i) => i.id === id2)?.unitPrice ?? f.unitPrice }));
 
-  const useSensorReading = (reading) => {
+  const applySensorReading = (reading) => {
     if (!reading.latest) return;
     if (reading.device.type === "feed") setConsForm((f) => ({ ...f, quantityUsed: String(reading.latest.value) }));
     else if (reading.device.type === "weight") setConsForm((f) => ({ ...f, avgWeight: String(reading.latest.value) }));
@@ -232,7 +232,7 @@ export default function FeedBatchDetail({ id }) {
               <div style={{ fontSize: 12, fontWeight: 600, color: T.inkSoft, marginBottom: 6 }}>Sensor readings</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {sensors.map((r) => (
-                  <button key={r.device.id} onClick={() => useSensorReading(r)} disabled={!r.latest}
+                  <button key={r.device.id} onClick={() => applySensorReading(r)} disabled={!r.latest}
                     style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%",
                       background: T.surface2, border: "none", borderRadius: T.rMd, padding: "8px 12px",
                       cursor: r.latest ? "pointer" : "default", opacity: r.latest ? 1 : .5 }}>
