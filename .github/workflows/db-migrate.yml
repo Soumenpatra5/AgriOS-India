@@ -1,0 +1,31 @@
+name: DB Migrate
+
+# Applies commerce-backend SQL migrations to Supabase Postgres.
+# Runs on pushes to main that touch migrations, and on demand. The runner
+# no-ops (exit 0) when the DATABASE_URL secret is absent, so this never blocks
+# CI before the Supabase project is provisioned.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/migrate.mjs"
+
+jobs:
+  migrate:
+    name: Apply migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - name: Run migrations
+        run: npm run migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
