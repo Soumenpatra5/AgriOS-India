@@ -3,6 +3,8 @@ import { storage } from "../utils/storage.js";
 import { makeT, pickLang } from "../i18n/strings.js";
 import { LOCALES } from "../constants/languages.js";
 import { backDepth, resolveBack } from "../navigation/backNav.js";
+import { roleService } from "../services/rbac/roleService.js";
+import { can as rbacCan } from "../services/rbac/permissions.js";
 
 /* Firebase is loaded lazily so its ~900kB of SDK stays off the initial render
    path — splash, language and onboarding screens never touch it. */
@@ -38,6 +40,7 @@ export function AppProvider({ children }) {
   const [stack, setStack] = useState([]);
   const [toasts, setToasts] = useState([]);
   const [online, setOnline] = useState(() => navigator.onLine);
+  const [role, setRoleState] = useState(() => roleService.getRole()); // device-local access role (M7)
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -110,6 +113,11 @@ export function AppProvider({ children }) {
   const updateUser = useCallback((patch) => {
     setUser((prev) => { const next = { ...(prev || {}), ...patch }; storage.set("user", next); return next; });
   }, []);
+
+  /* Device-local access role (M7). `can(cap)` gates sensitive UI; `setRole`
+     persists. Elevation is PIN-checked by callers via roleService.switchNeedsPin. */
+  const setRole = useCallback((r) => setRoleState(roleService.setRole(r)), []);
+  const can = useCallback((cap) => rbacCan(role, cap), [role]);
 
   const push = useCallback((screen) => setStack((s) => [...s, screen]), []);
   const pop = useCallback(() => setStack((s) => s.slice(0, -1)), []);
@@ -186,8 +194,9 @@ export function AppProvider({ children }) {
     stage, setStage: setStageP, finishOnboarding,
     tab, switchTab, stack, push, pop,
     toast, dismissToast,
+    role, setRole, can,
   }), [lang, setLang, t, tc, locale, user, login, logout, updateUser, stage, setStageP, finishOnboarding,
-      tab, switchTab, stack, push, pop, toast, dismissToast]);
+      tab, switchTab, stack, push, pop, toast, dismissToast, role, setRole, can]);
 
   return (
     <AppCtx.Provider value={value}>
