@@ -9,7 +9,7 @@ import StatTile from "../../components/erp/StatTile.jsx";
 import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
 
 export default function InventoryManager() {
-  const { pop, toast } = useApp();
+  const { pop, toast, can } = useApp();
   const [items, setItems]   = useState([]);
   const [alerts, setAlerts] = useState({ lowStock: [], expired: [], expiring: [] });
   const [catFilter, setCatFilter] = useState("all");
@@ -94,7 +94,7 @@ export default function InventoryManager() {
                   In / Out
                 </button>
               }
-              onDelete={() => setDelId(i.id)} />
+              onDelete={can("records.delete") ? () => setDelId(i.id) : undefined} />
           ))}
       </div>
 

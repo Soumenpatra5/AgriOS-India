@@ -14,7 +14,7 @@ const TABS = ["Customers", "Suppliers", "Orders"];
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export default function CRMManager() {
-  const { pop, toast } = useApp();
+  const { pop, toast, can } = useApp();
   const [tab, setTab]         = useState("Customers");
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -83,7 +83,7 @@ export default function CRMManager() {
         title={c.name}
         badge={<Pill fg={T.blue} bg={T.blueSoft}>{contactService.typeLabel(c.type)}</Pill>}
         subtitle={`${c.phone || "No phone"}${c.village ? ` · ${c.village}` : ""}${c.gst ? ` · GST ${c.gst}` : ""}`}
-        onDelete={() => setDelTarget({ id: c.id, kind: "contact" })} />
+        onDelete={can("records.delete") ? () => setDelTarget({ id: c.id, kind: "contact" }) : undefined} />
     ));
 
   return (
@@ -144,10 +144,12 @@ export default function CRMManager() {
                       Payment
                     </button>
                   )}
+                  {can("records.delete") && (
                   <button onClick={() => setDelTarget({ id: o.id, kind: "order" })}
                     style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, flexShrink: 0 }}>
                     <Icon name="Trash2" size={15} />
                   </button>
+                  )}
                 </div>
               </Card>
             );

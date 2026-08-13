@@ -9,7 +9,7 @@ import StatTile from "../../components/erp/StatTile.jsx";
 import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
 
 export default function DeviceManager() {
-  const { pop, toast } = useApp();
+  const { pop, toast, can } = useApp();
   const [readings, setReadings] = useState([]);
   const [tick, setTick] = useState(0);
   const refresh = () => setTick((n) => n + 1);
@@ -78,7 +78,7 @@ export default function DeviceManager() {
                     Reading
                   </button>
                 }
-                onDelete={() => setDelId(device.id)} />
+                onDelete={can("records.delete") ? () => setDelId(device.id) : undefined} />
             );
           })}
       </div>

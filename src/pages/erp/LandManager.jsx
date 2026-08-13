@@ -10,7 +10,7 @@ import StatTile from "../../components/erp/StatTile.jsx";
 import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
 
 export default function LandManager() {
-  const { pop, toast } = useApp();
+  const { pop, toast, can } = useApp();
   const [parcels, setParcels] = useState([]);
   const [util, setUtil]       = useState(null);
   const [farmId, setFarmId]   = useState(null);
@@ -83,7 +83,7 @@ export default function LandManager() {
                   Set crop
                 </button>
               }
-              onDelete={() => setDelId(p.id)} />
+              onDelete={can("records.delete") ? () => setDelId(p.id) : undefined} />
           ))}
       </div>
 

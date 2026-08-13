@@ -19,7 +19,7 @@ const PRIORITY_STYLE = {
 };
 
 export default function TaskManager() {
-  const { pop, toast } = useApp();
+  const { pop, toast, can } = useApp();
   const [filter, setFilter]   = useState("Today");
   const [buckets, setBuckets] = useState({ overdue: [], today: [], upcoming: [], done: [] });
   const [employees, setEmployees] = useState([]);
@@ -114,10 +114,12 @@ export default function TaskManager() {
                       {t.note ? ` · ${t.note}` : ""}
                     </div>
                   </div>
+                  {can("records.delete") && (
                   <button onClick={() => setDelId(t.id)}
                     style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, flexShrink: 0 }}>
                     <Icon name="Trash2" size={15} />
                   </button>
+                  )}
                 </div>
               </Card>
             );
