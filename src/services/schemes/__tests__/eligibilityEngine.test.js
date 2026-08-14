@@ -106,19 +106,17 @@ describe("checkEligibility — land-unit parsing (via public behaviour)", () => 
     expect(r.note).toContain("Maximum land holding");
   });
 
-  // KNOWN BUG (surfaced by this QA pass): parseAcres checks `includes("ha")`
-  // before the bigha branch, and "bigha" contains the substring "ha", so a
-  // bigha holding is wrongly converted as hectares (x2.47) instead of x0.62.
-  // 2 bigha is ~1.24 acres (marginal) but is parsed as ~4.94 acres (large).
-  // This it.fails guard passes while the bug exists and flips red once the
-  // parser is fixed — delete it then. Impacts West Bengal farmers, who
-  // commonly measure land in bigha.
-  it.fails("'2 bigha' should parse as ~1.24 acres (marginal) — currently misparsed as hectares", () => {
+  // Regression guard for a parser bug this QA pass surfaced: "bigha" contains
+  // the substring "ha", so parseAcres used to hit the hectare branch first and
+  // convert 2 bigha as ~4.94 acres (large) instead of ~1.24 acres (marginal).
+  // Fixed by matching specific units before the loose "ha" check. Impacts
+  // West Bengal farmers, who commonly measure land in bigha.
+  it("treats '2 bigha' as ~1.24 acres → marginal farmer (not hectares)", () => {
     const r = checkEligibility(
       { landSize: "2 bigha", farmType: ["crop"], location: "West Bengal" },
       scheme({ categories: ["marginal"] }),
     );
-    expect(r.status).toBe("eligible"); // correct behaviour: 1.24 acres = marginal
+    expect(r.status).toBe("eligible"); // 1.24 acres = marginal
   });
 });
 

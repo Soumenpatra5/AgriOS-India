@@ -12,9 +12,11 @@ function parseAcres(landSize) {
   const s = String(landSize).toLowerCase().trim();
   const n = parseFloat(s);
   if (isNaN(n)) return null;
-  if (s.includes("hectare") || s.includes("ha")) return n * 2.47;
+  // Specific units first: "bigha" and "guntha" both contain the substring
+  // "ha", so they must be matched before the loose hectare/"ha" check below.
   if (s.includes("bigha")) return n * 0.62; // Pucca bigha (approx)
-  if (s.includes("gunta") || s.includes("guntha")) return n * 0.025;
+  if (s.includes("gunta")) return n * 0.025; // matches gunta / guntha
+  if (s.includes("hectare") || s.includes("ha")) return n * 2.47;
   return n; // assume acres
 }
 
