@@ -15,7 +15,6 @@ import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import postgres from "postgres";
 
-const PORT = 54329;
 const WEBHOOK_SECRET = "whsec_e2e_test";
 const held = vi.hoisted(() => ({ sql: null }));
 
@@ -47,9 +46,11 @@ beforeAll(async () => {
   process.env.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
   pglite = await PGlite.create();
   await pglite.exec(await readFile(new URL("../../../supabase/migrations/0001_commerce_foundation.sql", import.meta.url), "utf8"));
-  server = new PGLiteSocketServer({ db: pglite, port: PORT, host: "127.0.0.1" });
+  // Bind to an OS-assigned ephemeral port (port 0) so parallel vitest workers
+  // never collide on a fixed port; getServerConn() reports the resolved host:port.
+  server = new PGLiteSocketServer({ db: pglite, port: 0, host: "127.0.0.1" });
   await server.start();
-  held.sql = postgres(`postgres://postgres@127.0.0.1:${PORT}/postgres`, { prepare: false, ssl: false, max: 1 });
+  held.sql = postgres(`postgres://postgres@${server.getServerConn()}/postgres`, { prepare: false, ssl: false, max: 1 });
 }, 30000);
 
 afterAll(async () => {
