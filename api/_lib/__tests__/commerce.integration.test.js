@@ -21,7 +21,7 @@ const migrationUrl = new URL("../../../supabase/migrations/0001_commerce_foundat
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(await readFile(migrationUrl, "utf8"));
-});
+}, 30000); // PGlite WASM init + migration can exceed the default 10s hook timeout under parallel load
 
 beforeEach(async () => {
   await db.exec(`truncate reviews, payments, order_items, orders, listing_media, listings, users, webhook_events restart identity cascade`);
