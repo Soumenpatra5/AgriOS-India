@@ -67,6 +67,23 @@ describe("assetService — employee assignment (WF-6)", () => {
     await assetService.assignToEmployee({ employeeId: "e2", name: "Ladder" });
     expect((await assetService.forEmployee("e1")).map((a) => a.name)).toEqual(["Saw", "Drill"]);
   });
+
+  it("forEmployee hides returned assets (review fix)", async () => {
+    const a = await assetService.assignToEmployee({ employeeId: "e1", name: "Tablet" });
+    await assetService.assignToEmployee({ employeeId: "e1", name: "Boots" });
+    expect(await assetService.forEmployee("e1")).toHaveLength(2);
+    await assetService.returnFromEmployee(a.id);
+    const left = await assetService.forEmployee("e1");
+    expect(left.map((x) => x.name)).toEqual(["Boots"]);
+  });
+
+  it("farmAssets excludes employee-assigned items so the Asset Manager stays clean (review fix)", async () => {
+    await assetService.add({ name: "Tractor", farmId: "F1", purchasePrice: 500000 });
+    await assetService.assignToEmployee({ employeeId: "E1", name: "Phone" });
+    const farm = await assetService.farmAssets();
+    expect(farm).toHaveLength(1);
+    expect(farm[0].name).toBe("Tractor");
+  });
 });
 
 describe("assetService — maintenance", () => {

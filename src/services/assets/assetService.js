@@ -23,9 +23,14 @@ export const assetService = {
   update:  (id, patch) => assets.update(id, patch),
   remove:  (id) => assets.remove(id),
 
-  /* Asset assignment to employees (WF-6), reusing this store. */
+  /* Farm inventory only — excludes items assigned to an employee so those
+     don't pollute the Asset Manager (WF-6). */
+  farmAssets: (farmId) => (farmId ? assets.getBy("farmId", farmId) : assets.getAll())
+    .then((all) => all.filter((a) => !a.assigneeId)),
+
+  /* Assets currently assigned to one employee (returned ones are hidden). */
   forEmployee: (employeeId) => assets.getAll()
-    .then((all) => all.filter((a) => a.assigneeId === employeeId)
+    .then((all) => all.filter((a) => a.assigneeId === employeeId && a.assignStatus !== "returned")
       .sort((a, b) => (b.assignedDate || "").localeCompare(a.assignedDate || ""))),
 
   assignToEmployee: ({ employeeId, name, category, condition, assignedDate }) => assets.add({

@@ -26,7 +26,7 @@ export default function AssetManager() {
   const [delId, setDelId] = useState(null);
 
   useEffect(() => {
-    assetService.getAll().then(setAssets);
+    assetService.farmAssets().then(setAssets); // exclude employee-assigned items
     assetService.totalValue().then(setValue);
     assetService.dueSoon().then(setDue);
   }, [tick]);

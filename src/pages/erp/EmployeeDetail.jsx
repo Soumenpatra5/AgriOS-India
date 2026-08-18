@@ -156,9 +156,17 @@ export default function EmployeeDetail({ id }) {
     setDocForm({ type: "id_proof", name: "", number: "", issueDate: "", expiryDate: "" }); setDocFile(null);
     setTick((n) => n + 1);
   };
-  const openDoc = (d) => {
-    const url = d.fileUrl || d.fileData;
-    if (url) window.open(url, "_blank", "noopener");
+  const openDoc = async (d) => {
+    if (d.fileUrl) { window.open(d.fileUrl, "_blank", "noopener"); return; }
+    if (!d.fileData) return;
+    // Browsers block top-frame navigation to data: URLs, so turn the locally
+    // stored base64 into a blob URL and open that instead.
+    try {
+      const blob = await (await fetch(d.fileData)).blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch { /* unreadable file */ }
   };
 
   const applyLeave = async () => {

@@ -104,8 +104,10 @@ export default function EmployeeManager() {
     setDelId(null); refresh(); toast("Removed", "info");
   };
 
-  const presentToday = Object.values(todayMap).filter((s) => s === "present" || s === "halfday").length;
-  const totalWages = wages.reduce((s, w) => s + w.wage, 0);
+  // Anyone with a positive worked-value today counts as present (present/half/late/overtime).
+  const presentToday = Object.values(todayMap).filter((s) => employeeService.workedValue(s) > 0).length;
+  // WF-3 monthWages returns `gross` (not the old `wage`).
+  const totalWages = wages.reduce((s, w) => s + (w.gross || 0), 0);
 
   const ATT_BTNS = [
     { status: "present", label: "P", fg: T.primary, bg: T.primarySoft },
