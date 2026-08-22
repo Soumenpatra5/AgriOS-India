@@ -29,7 +29,7 @@ export function Input({ value, onChange, placeholder, label, type = "text", inpu
   const showMic = mic && voice.sttSupported && type === "text";
 
   return (
-    <label style={{ display: "block" }}>
+    <label style={{ display: "block", minWidth: 0 }}>
       {label && <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft, marginBottom: 7 }}>{label}</div>}
       <div style={{ display: "flex", alignItems: "center", gap: 10, ...base, padding: 0,
         border: `1px solid ${focus ? T.primary : listening ? T.danger : "transparent"}`, background: T.surface2 }}>
@@ -92,7 +92,7 @@ export function SearchBar({ value, onChange, placeholder = "Search…", onFocusC
 
 export function Dropdown({ value, onChange, options, label }) {
   return (
-    <label style={{ display: "block" }}>
+    <label style={{ display: "block", minWidth: 0 }}>
       {label && <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft, marginBottom: 7 }}>{label}</div>}
       <div style={{ position: "relative" }}>
         <select value={value} onChange={(e) => onChange?.(e.target.value)}
