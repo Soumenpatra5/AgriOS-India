@@ -169,6 +169,7 @@ export default function BusinessDashboard() {
           {[
             { label: tc({en: "P&L Report", hi: "लाभ-हानि रिपोर्ट", bn: "লাভ-ক্ষতি রিপোর্ট"}),    icon: "FileText", kind: "plReport",    color: T.primary, bg: T.primarySoft },
             { label: tc({en: "Cash Flow", hi: "नकदी प्रवाह", bn: "নগদ প্রবাহ"}),     icon: "ArrowLeftRight", kind: "cashFlow", color: T.blue, bg: T.blueSoft },
+            { label: tc({en: "DPR Generator", hi: "डीपीआर जनरेटर", bn: "ডিপিআর জেনারেটর"}), icon: "Landmark", kind: "dprGenerator", color: T.orange, bg: T.orangeSoft },
           ].map((r) => (
             <Card key={r.label} onClick={() => push({ kind: r.kind })} pad={14}
               style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, background: r.bg, border: "none" }}>

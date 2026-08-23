@@ -36,7 +36,8 @@ The daily loop = morning (weather + tasks + advice) → evening (record activiti
 
 ## Phase 3 — Premium anchors
 
-- 🟡 **Business/advisory AI**: business-advisor agent shipped (project reports, scaling). A dedicated **bank-format DPR generator** (strongest willingness-to-pay) is still to build.
+- ✅ **Business/advisory AI**: business-advisor agent shipped (project reports, scaling).
+- ✅ **Bank-format DPR generator** (strongest willingness-to-pay): Detailed Project Reports for a term loan — promoter profile, cost of project, means of finance, repayment ladder, year-wise profitability, and the viability ratios a lending officer reads (NPV, IRR, BCR, DSCR, payback, break-even). Six starting templates (dairy, broiler, goat, fishery, mango orchard, custom) with **indicative** unit economics that are fully editable; exports to a printable A4 document (browser Save-as-PDF) or CSV. Every report carries a disclaimer that it is a planning aid, not a bank appraisal — figures must be checked against the financing bank's current unit-cost norms.
 - ✅ **Livestock modules**: managers for poultry, dairy, goat, pig, sheep, fish, bee — profiles, production, events.
 - 🟡 Cash-flow view ✅, loan EMI calculator ✅; season-over-season comparison ⬜.
 - ⬜ B2B channel: FPO/dealer dashboards sponsoring premium for member farmers.

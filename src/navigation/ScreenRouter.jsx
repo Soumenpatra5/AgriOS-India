@@ -68,6 +68,9 @@ const BeeManager         = lazy(() => import("../pages/livestock/BeeManager.jsx"
 const BusinessDashboard  = lazy(() => import("../pages/business/BusinessDashboard.jsx"));
 const PLReport           = lazy(() => import("../pages/business/PLReport.jsx"));
 const CashFlowPage       = lazy(() => import("../pages/business/CashFlowPage.jsx"));
+const DprGenerator       = lazy(() => import("../pages/business/DprGenerator.jsx"));
+const DprEditor          = lazy(() => import("../pages/business/DprEditor.jsx"));
+const DprPreview         = lazy(() => import("../pages/business/DprPreview.jsx"));
 const MarketplaceHub     = lazy(() => import("../pages/marketplace/MarketplaceHub.jsx"));
 const ProductDetail      = lazy(() => import("../pages/marketplace/ProductDetail.jsx"));
 const StoreView          = lazy(() => import("../pages/marketplace/StoreView.jsx"));
@@ -188,6 +191,9 @@ function StackScreen({ item }) {
   if (item.kind === "businessDashboard")    return <BusinessDashboard />;
   if (item.kind === "plReport")             return <PLReport />;
   if (item.kind === "cashFlow")             return <CashFlowPage />;
+  if (item.kind === "dprGenerator")         return <DprGenerator />;
+  if (item.kind === "dprEditor")            return <DprEditor  {...(item.props || {})} />;
+  if (item.kind === "dprPreview")           return <DprPreview {...(item.props || {})} />;
   if (item.kind === "marketplace")          return <MarketplaceHub      {...(item.props || {})} />;
   if (item.kind === "mpProduct")            return <ProductDetail       {...(item.props || {})} />;
   if (item.kind === "mpStore")              return <StoreView           {...(item.props || {})} />;
