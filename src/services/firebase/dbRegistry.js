@@ -7,7 +7,7 @@ export const CORE_DBS = [
       "contacts", "orders", "devices", "telemetry", "ledgerTxns",
       "employeePayments", "employeeLeaves", "employeeDocuments", "employeeRecords",
       "employeeAudit", "cropPlans",
-      "feedBatches", "feedConsumption", "feedWastage",
+      "feedBatches", "feedConsumption", "feedWastage", "dprProjects",
     ],
   },
   {
