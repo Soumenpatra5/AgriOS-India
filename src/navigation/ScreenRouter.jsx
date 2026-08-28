@@ -43,6 +43,7 @@ const DiagnosticsHome    = lazy(() => import("../pages/DiagnosticsHome.jsx"));
 const DiagnosticFlow     = lazy(() => import("../pages/DiagnosticFlow.jsx"));
 const DiagnosticResult   = lazy(() => import("../pages/DiagnosticResult.jsx"));
 const DiagnosticHistory  = lazy(() => import("../pages/DiagnosticHistory.jsx"));
+const DiagnosticConsent  = lazy(() => import("../pages/DiagnosticConsent.jsx"));
 const FarmERPHub         = lazy(() => import("../pages/erp/FarmERPHub.jsx"));
 const FarmProfiles       = lazy(() => import("../pages/erp/FarmProfiles.jsx"));
 const LandManager        = lazy(() => import("../pages/erp/LandManager.jsx"));
@@ -164,7 +165,7 @@ function StackScreen({ item }) {
   if (item.kind === "diagnosticFlow")    return <DiagnosticFlow    {...(item.props || {})} />;
   if (item.kind === "diagnosticResult")  return <DiagnosticResult  {...(item.props || {})} />;
   if (item.kind === "diagnosticHistory") return <DiagnosticHistory />;
-  if (item.kind === "diagnosticConsent")    return <DiagnosticsHome />;
+  if (item.kind === "diagnosticConsent")  return <DiagnosticConsent {...(item.props || {})} />;
   if (item.kind === "farmErp")              return <FarmERPHub />;
   if (item.kind === "farmProfiles")         return <FarmProfiles />;
   if (item.kind === "landManager")          return <LandManager />;
