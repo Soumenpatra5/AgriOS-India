@@ -6,7 +6,9 @@ import reactHooks from "eslint-plugin-react-hooks";
    errors and fail CI; stylistic noise is off or warn so the gate flags real
    problems, not formatting. */
 export default [
-  { ignores: ["dist/**", "node_modules/**", "coverage/**", "public/**", "*.min.js"] },
+  // .claude/** holds agent worktrees — full checkouts of this repo, so without
+  // it every file is linted twice and the warning count doubles.
+  { ignores: ["dist/**", "node_modules/**", "coverage/**", "public/**", "*.min.js", ".claude/**"] },
 
   js.configs.recommended,
 

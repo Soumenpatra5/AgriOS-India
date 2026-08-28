@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
@@ -27,5 +28,9 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["fake-indexeddb/auto"],
+    /* Agent worktrees under .claude/ are full checkouts of this repo, so
+       without this every test file is collected twice — the suite reported
+       222 files / 1646 tests and took 4x as long while one was open. */
+    exclude: [...configDefaults.exclude, "**/.claude/**"],
   },
 });
