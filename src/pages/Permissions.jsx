@@ -26,11 +26,13 @@ export default function Permissions() {
   const [notif, setNotif] = useState(typeof Notification !== "undefined" ? Notification.permission : "unknown");
   const [loc, setLoc] = useState("unknown");
   const [cam, setCam] = useState("unknown");
+  const [mic, setMic] = useState("unknown");
 
   const refresh = async () => {
     setNotif(typeof Notification !== "undefined" ? Notification.permission : "unknown");
     setLoc(await queryPerm("geolocation"));
     setCam(await queryPerm("camera"));
+    setMic(await queryPerm("microphone"));
   };
   useEffect(() => { refresh(); }, []);
 
@@ -44,11 +46,30 @@ export default function Permissions() {
     navigator.geolocation.getCurrentPosition(() => { setLoc("granted"); toast(tc({ en: "Location allowed", hi: "स्थान अनुमत", bn: "অবস্থান অনুমোদিত" }), "success"); },
       () => { setLoc("denied"); toast(tc({ en: "Location blocked", hi: "स्थान अवरुद्ध", bn: "অবস্থান অবরুদ্ধ" }), "info"); });
   };
+  /* The only way to raise the microphone prompt is to actually open a stream,
+     so stop every track the moment it is granted — otherwise the browser's
+     "recording" indicator stays lit after a visit to this screen. */
+  const askMic = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      setMic("granted");
+      toast(tc({ en: "Microphone allowed", hi: "माइक्रोफ़ोन अनुमत", bn: "মাইক্রোফোন অনুমোদিত" }), "success");
+    } catch {
+      setMic("denied");
+      toast(tc({ en: "Microphone blocked", hi: "माइक्रोफ़ोन अवरुद्ध", bn: "মাইক্রোফোন অবরুদ্ধ" }), "info");
+    }
+  };
 
   const PERMS = [
     { icon: "Bell", label: { en: "Notifications", hi: "सूचनाएँ", bn: "বিজ্ঞপ্তি" }, sub: { en: "Weather, price & reminder alerts", hi: "मौसम, मूल्य और रिमाइंडर अलर्ट", bn: "আবহাওয়া, দাম ও রিমাইন্ডার সতর্কতা" }, state: notif, ask: notif !== "granted" ? askNotif : null },
     { icon: "MapPin", label: { en: "Location", hi: "स्थान", bn: "অবস্থান" }, sub: { en: "Local weather & nearby services", hi: "स्थानीय मौसम और आस-पास सेवाएँ", bn: "স্থানীয় আবহাওয়া ও কাছাকাছি সেবা" }, state: loc, ask: loc !== "granted" ? askLoc : null },
     { icon: "Camera", label: { en: "Camera", hi: "कैमरा", bn: "ক্যামেরা" }, sub: { en: "Photos for disease diagnosis", hi: "रोग निदान के लिए फ़ोटो", bn: "রোগ নির্ণয়ের জন্য ছবি" }, state: cam, ask: null },
+    /* Offer "Allow" only while the browser will still raise a prompt. Once the
+       permission is denied the prompt never reappears, so a button there would
+       do nothing but contradict the note at the foot of this screen. */
+    { icon: "Mic", label: { en: "Microphone", hi: "माइक्रोफ़ोन", bn: "মাইক্রোফোন" }, sub: { en: "Voice input for AI questions", hi: "AI प्रश्नों के लिए आवाज़ इनपुट", bn: "AI প্রশ্নের জন্য ভয়েস ইনপুট" }, state: mic, ask: (mic === "prompt" || mic === "unknown") ? askMic : null },
   ];
 
   return (
