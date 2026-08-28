@@ -243,7 +243,7 @@ describe("B4: reservation-timeout sweep", () => {
       `insert into orders (buyer_id,seller_id,status,subtotal_paise,total_paise) values ($1,$2,'pending_payment',100,100) returning *`,
       [buyer, seller])).rows[0];
 
-    // mirrors releaseStaleOrders(sql, 30) in api/commerce/cron/release-stale.js
+    // mirrors releaseStaleOrders(sql, 30) in api/_lib/releaseStale.js
     const doomed = await db.query(`select id from orders where status='pending_payment' and created_at < now() - (30 * interval '1 minute')`);
     for (const { id } of doomed.rows) {
       await db.transaction(async (tx) => {

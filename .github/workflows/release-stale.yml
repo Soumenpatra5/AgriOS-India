@@ -1,21 +1,24 @@
 name: Release stale orders
 
-# Sweeps abandoned (unpaid) checkouts and returns their reserved stock, by
-# calling the same endpoint Vercel Cron used to call.
+# Sweeps abandoned (unpaid) checkouts and returns their reserved stock.
 #
 # Why it lives here and not in vercel.json: Hobby plans allow only DAILY cron
 # jobs, so the "*/15 * * * *" entry made Vercel reject every deployment at
-# validation — no build, no logs, just a silently stale site. Running the sweep
-# from Actions keeps the 15-minute cadence without a plan upgrade.
+# validation — no build, no logs, just a silently stale site.
+#
+# Why it talks to Postgres directly instead of calling an endpoint: Hobby also
+# caps a deployment at 12 Serverless Functions, and the commerce backend had
+# grown to 13. Running the sweep here removes the HTTP route entirely, which
+# both frees the slot and leaves no public endpoint to secure.
 #
 # Caveats worth knowing: GitHub's scheduler is best-effort and can run late
 # under load, and it disables scheduled workflows after 60 days of repository
-# inactivity. Neither matters much for a stock sweep whose TTL is 30 minutes,
-# but this is not a hard real-time guarantee.
+# inactivity. Neither matters much for a 30-minute reservation TTL, but this is
+# not the hard guarantee Vercel Cron gave.
 #
-# No-ops (exit 0) while CRON_SECRET is absent, matching db-migrate.yml: the
-# commerce backend is not provisioned on every environment yet, and a job that
-# failed every 15 minutes would bury real failures in a wall of red.
+# No-ops (exit 0) while DATABASE_URL is absent, matching db-migrate.yml — the
+# Supabase project is not wired up on every environment yet, and a job failing
+# every 15 minutes would bury real failures in a wall of red.
 
 on:
   schedule:
@@ -34,24 +37,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Call release-stale
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - name: Run reservation sweep
+        run: npm run release-stale
         env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          ENDPOINT: https://agrios-india.vercel.app/api/commerce/cron/release-stale
-        run: |
-          if [ -z "$CRON_SECRET" ]; then
-            echo "CRON_SECRET is not set — skipping."
-            echo "Set it as a GitHub secret AND as a Vercel env var (same value) to enable the sweep."
-            exit 0
-          fi
-          code=$(curl -sS -o response.json -w '%{http_code}' \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            --max-time 60 --retry 2 --retry-delay 10 \
-            "$ENDPOINT")
-          echo "HTTP $code"
-          cat response.json || true
-          echo
-          if [ "$code" != "200" ]; then
-            echo "::error::release-stale returned HTTP $code"
-            exit 1
-          fi
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ORDER_RESERVATION_TTL_MIN: ${{ vars.ORDER_RESERVATION_TTL_MIN }}
