@@ -95,8 +95,13 @@ export function Dropdown({ value, onChange, options, label }) {
     <label style={{ display: "block", minWidth: 0 }}>
       {label && <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft, marginBottom: 7 }}>{label}</div>}
       <div style={{ position: "relative" }}>
+        {/* A select is only as narrow as its longest option unless the text is
+            allowed to truncate. In a 1fr column a label like "Livestock type
+            (optional)" was being cut mid-word against the chevron; ellipsis
+            makes the overflow read as deliberate. */}
         <select value={value} onChange={(e) => onChange?.(e.target.value)}
-          style={{ ...base, appearance: "none", cursor: "pointer", paddingRight: 42, border: `1px solid ${T.line}`, background: T.surface }}>
+          style={{ ...base, appearance: "none", cursor: "pointer", paddingRight: 42, border: `1px solid ${T.line}`, background: T.surface,
+            overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
           {options.map((o) => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}
         </select>
         <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: T.inkSoft, display: "flex" }}>

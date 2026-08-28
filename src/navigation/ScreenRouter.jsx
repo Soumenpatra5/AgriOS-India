@@ -288,7 +288,13 @@ export default function ScreenRouter() {
   return (
     <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg, position: "relative" }}>
       {!online && <OfflineBar tc={tc} />}
-      <div style={{ paddingBottom: 84 }}>
+      {/* ag-push-in starts a pushed screen at translateX(24px), and a transform
+          extends the scrollable area rather than being clipped by it. With the
+          scrollbars hidden globally, that left every screen silently scrollable
+          24px to the right — content then sat shifted under the right edge and
+          read as "cut off". `clip` (not `hidden`) contains it without turning
+          this into a scroll container, so sticky and fixed children still work. */}
+      <div style={{ paddingBottom: 84, overflowX: "clip" }}>
         <ErrorBoundary variant="screen" resetKey={`${tab}:${stack.length}`} onReset={recover}>
           <Suspense fallback={<LazyFallback />}>
             {top
