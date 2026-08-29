@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
+import { useApp } from "../store/AppStore.jsx";
 import Icon from "./Icon.jsx";
 import { voice } from "../ai/voice/speech.js";
 
@@ -10,6 +11,7 @@ const base = {
 };
 
 export function Input({ value, onChange, placeholder, label, type = "text", inputMode, icon, prefix, maxLength, style, mic, lang }) {
+  const { tc } = useApp();
   const [focus, setFocus] = useState(false);
   const [listening, setListening] = useState(false);
   const sttRef = useRef(null);
@@ -40,7 +42,7 @@ export function Input({ value, onChange, placeholder, label, type = "text", inpu
           style={{ flex: 1, padding: "14px 15px", paddingLeft: icon || prefix ? 4 : 15, border: "none", outline: "none",
             background: "transparent", fontFamily: T.body, fontSize: 15, color: T.ink, minWidth: 0, ...style }} />
         {showMic && (
-          <button type="button" onClick={toggleMic} aria-label="Voice input"
+          <button type="button" onClick={toggleMic} aria-label={tc({ en: "Voice input", hi: "आवाज़ से लिखें", bn: "কণ্ঠে লিখুন" })}
             style={{ background: "none", border: "none", cursor: "pointer", padding: "8px 12px", display: "flex",
               color: listening ? T.danger : T.inkFaint, animation: listening ? "ag-pulse 1s infinite" : "none" }}>
             <Icon name={listening ? "MicOff" : "Mic"} size={18} />
@@ -52,6 +54,7 @@ export function Input({ value, onChange, placeholder, label, type = "text", inpu
 }
 
 export function SearchBar({ value, onChange, placeholder = "Search…", onFocusChange, mic, lang }) {
+  const { tc } = useApp();
   const [focus, setFocus] = useState(false);
   const [listening, setListening] = useState(false);
   const sttRef = useRef(null);
@@ -78,9 +81,9 @@ export function SearchBar({ value, onChange, placeholder = "Search…", onFocusC
         onFocus={() => { setFocus(true); onFocusChange?.(true); }} onBlur={() => { setFocus(false); onFocusChange?.(false); }}
         style={{ flex: 1, padding: "12px 0", border: "none", outline: "none", background: "transparent",
           fontFamily: T.body, fontSize: 14.5, color: T.ink, minWidth: 0 }} />
-      {value && <button onClick={() => onChange?.("")} aria-label="Clear" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 2 }}><Icon name="X" size={16} /></button>}
+      {value && <button onClick={() => onChange?.("")} aria-label={tc({ en: "Clear", hi: "साफ़ करें", bn: "মুছুন" })} style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 2 }}><Icon name="X" size={16} /></button>}
       {showMic && !value && (
-        <button type="button" onClick={toggleMic} aria-label="Voice search"
+        <button type="button" onClick={toggleMic} aria-label={tc({ en: "Voice search", hi: "आवाज़ से खोजें", bn: "কণ্ঠে খুঁজুন" })}
           style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex",
             color: listening ? T.danger : T.inkFaint, animation: listening ? "ag-pulse 1s infinite" : "none" }}>
           <Icon name={listening ? "MicOff" : "Mic"} size={17} />

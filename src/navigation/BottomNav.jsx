@@ -14,12 +14,12 @@ const TABS = [
 const ALWAYS = new Set(["home", "profile"]);
 
 export default function BottomNav() {
-  const { tab, switchTab, stack, t } = useApp();
+  const { tab, switchTab, stack, t, tc } = useApp();
   const { prefs } = usePrefs();
   const onTab = stack.length === 0;
   const visible = TABS.filter((x) => ALWAYS.has(x.k) || prefs.nav.tabs[x.k] !== false);
   return (
-    <nav aria-label="Main navigation" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, display: "flex", justifyContent: "center" }}>
+    <nav aria-label={tc({ en: "Main navigation", hi: "मुख्य नेविगेशन", bn: "প্রধান নেভিগেশন" })} style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, display: "flex", justifyContent: "center" }}>
       <div role="tablist" style={{ width: "100%", maxWidth: 460, background: T.surface, borderTop: `1px solid ${T.line}`,
         display: "flex", padding: "8px 6px calc(10px + env(safe-area-inset-bottom))" }}>
         {visible.map(({ k, label, icon }) => {

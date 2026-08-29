@@ -3,11 +3,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
+import { useApp } from "../store/AppStore.jsx";
 import Icon from "./Icon.jsx";
 import { cameraService, FACING } from "../services/vision/cameraService.js";
 import { galleryService }         from "../services/vision/galleryService.js";
 
 export default function CameraCapture({ onCapture, onCancel }) {
+  const { tc } = useApp();
   const videoRef      = useRef(null);
   const [mode,        setMode]        = useState("choose"); // "choose" | "camera" | "preview"
   const [flash,       setFlash]       = useState(false);
@@ -115,7 +117,7 @@ export default function CameraCapture({ onCapture, onCancel }) {
           <button onClick={retake}      style={btnSecondary}>Retake</button>
           <button onClick={confirmCapture} style={btnPrimary}>Use Photo</button>
         </div>
-        <button onClick={cancel} aria-label="Close" style={closeBtn}>
+        <button onClick={cancel} aria-label={tc({ en: "Close", hi: "बंद करें", bn: "বন্ধ করুন" })} style={closeBtn}>
           <Icon name="X" size={20} />
         </button>
       </div>
@@ -132,11 +134,11 @@ export default function CameraCapture({ onCapture, onCancel }) {
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex",
           justifyContent: "space-between", padding: "20px",
           background: "linear-gradient(to bottom, rgba(0,0,0,.6), transparent)" }}>
-          <button onClick={cancel} aria-label="Close" style={camBtn}>
+          <button onClick={cancel} aria-label={tc({ en: "Close", hi: "बंद करें", bn: "বন্ধ করুন" })} style={camBtn}>
             <Icon name="X" size={22} />
           </button>
           {flashCap && (
-            <button onClick={toggleFlash} aria-label="Flash"
+            <button onClick={toggleFlash} aria-label={tc({ en: "Flash", hi: "फ़्लैश", bn: "ফ্ল্যাশ" })}
               style={{ ...camBtn, background: flash ? "rgba(255,220,0,.85)" : "rgba(0,0,0,.4)",
                 color: flash ? "#000" : "#fff" }}>
               <Icon name="Zap" size={22} />
@@ -149,17 +151,17 @@ export default function CameraCapture({ onCapture, onCancel }) {
           display: "flex", alignItems: "center", justifyContent: "space-around",
           padding: "30px 40px calc(40px + env(safe-area-inset-bottom))",
           background: "linear-gradient(to top, rgba(0,0,0,.7), transparent)" }}>
-          <button onClick={openGallery} aria-label="Gallery" style={camBtn}>
+          <button onClick={openGallery} aria-label={tc({ en: "Gallery", hi: "गैलरी", bn: "গ্যালারি" })} style={camBtn}>
             <Icon name="ImagePlus" size={26} />
           </button>
-          <button onClick={captureFrame} disabled={capturing || !cameraReady} aria-label="Capture"
+          <button onClick={captureFrame} disabled={capturing || !cameraReady} aria-label={tc({ en: "Take photo", hi: "फ़ोटो लें", bn: "ছবি তুলুন" })}
             style={{ width: 72, height: 72, borderRadius: "50%", border: "4px solid #fff",
               background: capturing ? "rgba(255,255,255,.5)" : "#fff", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
               transform: capturing ? "scale(.92)" : "scale(1)", transition: "transform .1s" }}>
             <div style={{ width: 56, height: 56, borderRadius: "50%", background: capturing ? T.primary : "#e0e0e0" }} />
           </button>
-          <button onClick={switchCam} aria-label="Switch camera" style={camBtn}>
+          <button onClick={switchCam} aria-label={tc({ en: "Switch camera", hi: "कैमरा बदलें", bn: "ক্যামেরা বদলান" })} style={camBtn}>
             <Icon name="FlipHorizontal2" size={26} />
           </button>
         </div>

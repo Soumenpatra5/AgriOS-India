@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "./Icon.jsx";
 import { Button } from "./primitives.jsx";
+import { useApp } from "../store/AppStore.jsx";
 
 function useLockScroll(open) {
   useEffect(() => {
@@ -34,6 +35,7 @@ function useFocusTrap(open) {
 }
 
 export function BottomSheet({ open, onClose, title, children, footer }) {
+  const { tc } = useApp();
   useLockScroll(open);
   useEscClose(open, onClose);
   const trapRef = useFocusTrap(open);
@@ -48,7 +50,7 @@ export function BottomSheet({ open, onClose, title, children, footer }) {
         {title && (
           <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}>
             <span style={{ fontFamily: T.display, fontSize: 19, fontWeight: 700 }}>{title}</span>
-            <button onClick={onClose} aria-label="Close" style={{ marginLeft: "auto", background: T.surface2, border: "none", borderRadius: 10, padding: 7, cursor: "pointer", color: T.ink, display: "flex" }}>
+            <button onClick={onClose} aria-label={tc({ en: "Close", hi: "बंद करें", bn: "বন্ধ করুন" })} style={{ marginLeft: "auto", background: T.surface2, border: "none", borderRadius: 10, padding: 7, cursor: "pointer", color: T.ink, display: "flex" }}>
               <Icon name="X" size={18} />
             </button>
           </div>

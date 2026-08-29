@@ -61,7 +61,7 @@ export default function ProductDetail({ id }) {
     <>
       <AppBar title={meta.label} onBack={pop} action={
         <button onClick={async () => { const on = await wishlistService.toggle("product", p.id); setWished(on); toast(on ? tc({ en: "Added to wishlist", hi: "विशलिस्ट में जोड़ा गया", bn: "উইশলিস্টে যোগ করা হয়েছে" }) : tc({ en: "Removed", hi: "हटाया गया", bn: "সরানো হয়েছে" }), "info"); }}
-          aria-label="wishlist" style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8, cursor: "pointer", display: "flex" }}>
+          aria-label={tc({ en: "Add to wishlist", hi: "इच्छा-सूची में जोड़ें", bn: "পছন্দের তালিকায় যোগ করুন" })} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8, cursor: "pointer", display: "flex" }}>
           <Icon name="Heart" size={19} color={wished ? T.red : T.ink} style={{ fill: wished ? T.red : "none" }} />
         </button>
       } />

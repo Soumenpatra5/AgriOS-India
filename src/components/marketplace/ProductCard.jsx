@@ -4,10 +4,12 @@ import { Card, accent } from "../primitives.jsx";
 import { productService } from "../../services/marketplace/productService.js";
 import { categoryMeta } from "../../services/marketplace/constantsMp.js";
 import { rupee } from "../../utils/format.js";
+import { useApp } from "../../store/AppStore.jsx";
 
 /* Grid card for one listing. Icon-tile stands in for product photos until
    image upload exists (backend phase). */
 export default function ProductCard({ product, onClick, wished, onToggleWish }) {
+  const { tc } = useApp();
   const meta = categoryMeta(product.category);
   const c = accent(meta.accent);
   const available = productService.available(product);
@@ -20,7 +22,7 @@ export default function ProductCard({ product, onClick, wished, onToggleWish }) 
       <div style={{ position: "relative", background: c.bg, height: 96, display: "grid", placeItems: "center" }}>
         <Icon name={meta.icon} size={40} color={c.fg} strokeWidth={1.6} />
         {onToggleWish && (
-          <button onClick={(e) => { e.stopPropagation(); onToggleWish(); }} aria-label="wishlist"
+          <button onClick={(e) => { e.stopPropagation(); onToggleWish(); }} aria-label={tc({ en: "Add to wishlist", hi: "इच्छा-सूची में जोड़ें", bn: "পছন্দের তালিকায় যোগ করুন" })}
             style={{ position: "absolute", top: 8, right: 8, width: 30, height: 30, borderRadius: 10,
               background: T.surface, border: `1px solid ${T.line}`, cursor: "pointer",
               display: "grid", placeItems: "center" }}>

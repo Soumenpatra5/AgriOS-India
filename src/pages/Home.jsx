@@ -281,7 +281,7 @@ export default function Home() {
                     if (tk.done) cropCalendarService.markUndone(tk.taskKey);
                     else cropCalendarService.markDone(tk.taskKey);
                     setCalTick((n) => n + 1);
-                  }} aria-label="toggle"
+                  }} aria-label={tc({ en: "Mark done", hi: "पूरा करें", bn: "সম্পন্ন করুন" })}
                     style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, cursor: "pointer", display: "grid", placeItems: "center",
                       border: `1.5px solid ${tk.done ? T.primary : T.line}`, background: tk.done ? T.primary : "transparent", transition: "all .15s" }}>
                     {tk.done && <Icon name="Check" size={14} color="#fff" strokeWidth={3} />}
@@ -298,7 +298,7 @@ export default function Home() {
           <Card pad={6}>
             {tasks.map((tk, i) => (
               <div key={tk.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 12px", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
-                <button onClick={() => setTasks(tasks.map((x) => x.id === tk.id ? { ...x, done: !x.done } : x))} aria-label="toggle"
+                <button onClick={() => setTasks(tasks.map((x) => x.id === tk.id ? { ...x, done: !x.done } : x))} aria-label={tc({ en: "Mark done", hi: "पूरा करें", bn: "সম্পন্ন করুন" })}
                   style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, cursor: "pointer", display: "grid", placeItems: "center",
                     border: `1.5px solid ${tk.done ? T.primary : T.line}`, background: tk.done ? T.primary : "transparent", transition: "all .15s" }}>
                   {tk.done && <Icon name="Check" size={14} color="#fff" strokeWidth={3} />}

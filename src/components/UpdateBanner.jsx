@@ -31,7 +31,7 @@ export default function UpdateBanner() {
             padding: "8px 15px", cursor: "pointer", fontFamily: T.body, fontSize: 13, fontWeight: 700 }}>
           {tc({ en: "Update", hi: "अपडेट", bn: "আপডেট" })}
         </button>
-        <button onClick={() => setShow(false)} aria-label="Dismiss"
+        <button onClick={() => setShow(false)} aria-label={tc({ en: "Dismiss", hi: "हटाएँ", bn: "সরান" })}
           style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: T.bg, opacity: .6, display: "flex", padding: 4 }}>
           <Icon name="X" size={16} />
         </button>
