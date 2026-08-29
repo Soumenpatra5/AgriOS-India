@@ -46,7 +46,10 @@ export default function FarmProfiles() {
           style={{ background: T.primary, border: "none", borderRadius: 12, padding: "8px 13px",
             cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6,
             fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
-          <Icon name="Plus" size={15} color="#fff" /> {tc({ en: "Add", hi: "जोड़ें", bn: "যোগ" })} Farm
+          {/* One translated phrase, not a translated verb with an English noun
+              bolted on — that rendered as "যোগ Farm", and the split cannot
+              work anyway: Bengali and Hindi put the verb after the noun. */}
+          <Icon name="Plus" size={15} color="#fff" /> {tc({ en: "Add Farm", hi: "फार्म जोड़ें", bn: "খামার যোগ" })}
         </button>
       } />
 
@@ -93,7 +96,11 @@ export default function FarmProfiles() {
           { label: tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger",  onClick: handleDelete },
         ]}>
         <div style={{ fontSize: 14, color: T.inkSoft }}>
-          The farm profile will be removed. Records tagged to it are kept.
+          {tc({
+            en: "The farm profile will be removed. Records tagged to it are kept.",
+            hi: "फार्म प्रोफ़ाइल हटा दी जाएगी। इससे जुड़े रिकॉर्ड बने रहेंगे।",
+            bn: "খামার প্রোফাইল মুছে যাবে। এর সঙ্গে যুক্ত রেকর্ড থেকে যাবে।",
+          })}
         </div>
       </Dialog>
     </>
