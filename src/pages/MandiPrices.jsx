@@ -299,7 +299,7 @@ function CropSheet({ crop, onClose, bookmarks, onToggle }) {
                     ? tc({ en: `Above ₹${a.targetPrice}`, hi: `₹${a.targetPrice} से ऊपर`, bn: `₹${a.targetPrice}-এর উপরে` })
                     : tc({ en: `Below ₹${a.targetPrice}`, hi: `₹${a.targetPrice} से नीचे`, bn: `₹${a.targetPrice}-এর নিচে` })}
                 </span>
-                <button onClick={() => removeAlert(a.id)} aria-label="Remove alert"
+                <button onClick={() => removeAlert(a.id)} aria-label={tc({ en: "Remove alert", hi: "अलर्ट हटाएँ", bn: "সতর্কতা সরান" })}
                   style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
                   <Icon name="X" size={14} />
                 </button>

@@ -57,7 +57,7 @@ export default function Support() {
             <div style={{ borderTop: `1px solid ${T.lineSoft}` }} />
             <ContactRow icon="Send" label={tc({ en: "Email us", hi: "ईमेल करें", bn: "ইমেইল করুন" })} sub="support@agrios.example" href="mailto:support@agrios.example?subject=AgriOS%20Support" />
             <div style={{ borderTop: `1px solid ${T.lineSoft}` }} />
-            <ContactRow icon="Landmark" label={tc({ en: "Find your KVK", hi: "अपना KVK खोजें", bn: "আপনার KVK খুঁজুন" })} sub="krishi vigyan kendra" href="https://kvk.icar.gov.in" />
+            <ContactRow icon="Landmark" label={tc({ en: "Find your KVK", hi: "अपना KVK खोजें", bn: "আপনার KVK খুঁজুন" })} sub={tc({ en: "krishi vigyan kendra", hi: "कृषि विज्ञान केंद्र", bn: "কৃষি বিজ্ঞান কেন্দ্র" })} href="https://kvk.icar.gov.in" />
           </Card>
         </div>
 

@@ -137,7 +137,7 @@ export default function DiagnosticFlow({ domainId }) {
             {imagePreview ? (
               <div style={{ position: "relative" }}>
                 <img src={imagePreview} alt="Captured" style={{ width: "100%", borderRadius: T.rLg, maxHeight: 260, objectFit: "cover" }} />
-                <button onClick={removeImage} aria-label="Remove photo" style={{ position: "absolute", top: 8, right: 8,
+                <button onClick={removeImage} aria-label={tc({ en: "Remove photo", hi: "फ़ोटो हटाएँ", bn: "ছবি সরান" })} style={{ position: "absolute", top: 8, right: 8,
                   background: "rgba(0,0,0,.6)", border: "none", borderRadius: 999,
                   padding: 8, cursor: "pointer", color: "#fff", display: "flex" }}>
                   <Icon name="X" size={16} />

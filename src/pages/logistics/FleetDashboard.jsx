@@ -269,7 +269,7 @@ export default function FleetDashboard() {
           <Input label={tc({en:"Phone", hi:"फोन", bn:"ফোন"})} value={drvForm.phone} onChange={(v) => setDrvForm({ ...drvForm, phone: v })} icon="Phone" />
           <Input label={tc({en:"License Number", hi:"लाइसेंस संख्या", bn:"লাইসেন্স নম্বর"})} value={drvForm.licenseNumber} onChange={(v) => setDrvForm({ ...drvForm, licenseNumber: v })} icon="CreditCard" />
           <Input label={tc({en:"License Expiry", hi:"लाइसेंस समाप्ति", bn:"লাইসেন্স মেয়াদোত্তীর্ণ"})} value={drvForm.licenseExpiry} onChange={(v) => setDrvForm({ ...drvForm, licenseExpiry: v })} icon="Calendar" type="date" />
-          <Input label={tc({en:"Languages (comma-sep)", hi:"भाषाएं (कॉमा से अलग)", bn:"ভাষা (কমা দিয়ে পৃথক)"})} value={drvForm.languages} onChange={(v) => setDrvForm({ ...drvForm, languages: v })} icon="Languages" placeholder="Bengali, Hindi" />
+          <Input label={tc({en:"Languages (comma-sep)", hi:"भाषाएं (कॉमा से अलग)", bn:"ভাষা (কমা দিয়ে পৃথক)"})} value={drvForm.languages} onChange={(v) => setDrvForm({ ...drvForm, languages: v })} icon="Languages" placeholder={tc({ en: "Bengali, Hindi", hi: "बंगाली, हिन्दी", bn: "বাংলা, হিন্দি" })} />
           <Button full icon="Check" onClick={addDriver}>{tc({en:"Add Driver", hi:"चालक जोड़ें", bn:"চালক যোগ করুন"})}</Button>
         </div>
       </BottomSheet>

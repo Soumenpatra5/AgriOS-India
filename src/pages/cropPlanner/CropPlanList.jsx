@@ -22,7 +22,7 @@ const STATUS_COLOR = {
 const MAX_COMPARE = 4;
 
 export default function CropPlanList() {
-  const { pop, push, toast } = useApp();
+  const { pop, push, toast, tc } = useApp();
   const [plans, setPlans] = useState(null);
   const [filter, setFilter] = useState("all");
   const [delTarget, setDelTarget] = useState(null);
@@ -33,7 +33,7 @@ export default function CropPlanList() {
   useEffect(() => { refresh(); }, []);
 
   if (plans === null) {
-    return (<><AppBar title="Crop plans" onBack={pop} /><div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>Loading…</div></>);
+    return (<><AppBar title={tc({ en: "Crop plans", hi: "फ़सल योजनाएँ", bn: "ফসল পরিকল্পনা" })} onBack={pop} /><div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>{tc({ en: "Loading…", hi: "लोड हो रहा है…", bn: "লোড হচ্ছে…" })}</div></>);
   }
 
   const visible = filter === "all" ? plans : plans.filter((p) => p.status === filter);
@@ -43,29 +43,29 @@ export default function CropPlanList() {
 
   const exitCompare = () => { setCompareMode(false); setSelected([]); };
   const goCompare = () => {
-    if (selected.length < 2) { toast("Select at least 2 plans to compare", "info"); return; }
+    if (selected.length < 2) { toast(tc({ en: "Select at least 2 plans to compare", hi: "तुलना के लिए कम से कम 2 योजनाएँ चुनें", bn: "তুলনার জন্য অন্তত ২টি পরিকল্পনা বাছুন" }), "info"); return; }
     push({ kind: "cropPlanCompare", props: { ids: selected } });
     exitCompare();
   };
 
   return (
     <>
-      <AppBar title="Crop plans" onBack={pop} action={
+      <AppBar title={tc({ en: "Crop plans", hi: "फ़सल योजनाएँ", bn: "ফসল পরিকল্পনা" })} onBack={pop} action={
         compareMode ? (
           <button onClick={exitCompare} style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: "8px 13px", cursor: "pointer", color: T.ink, fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
-            Cancel
+            {tc({ en: "Cancel", hi: "रद्द करें", bn: "বাতিল" })}
           </button>
         ) : (
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setCompareMode(true)} disabled={plans.length < 2}
               style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8, cursor: plans.length < 2 ? "default" : "pointer",
-                opacity: plans.length < 2 ? .5 : 1, color: T.ink, display: "flex" }} aria-label="Compare plans">
+                opacity: plans.length < 2 ? .5 : 1, color: T.ink, display: "flex" }} aria-label={tc({ en: "Compare plans", hi: "योजनाओं की तुलना करें", bn: "পরিকল্পনার তুলনা করুন" })}>
               <Icon name="GitCompare" size={16} />
             </button>
             <button onClick={() => push({ kind: "cropPlanner" })}
               style={{ background: T.primary, border: "none", borderRadius: 12, padding: "8px 13px",
                 cursor: "pointer", color: "#fff", fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
-              + New
+              {tc({ en: "+ New", hi: "+ नई", bn: "+ নতুন" })}
             </button>
           </div>
         )
@@ -73,19 +73,23 @@ export default function CropPlanList() {
       <Screen gap={16}>
         {compareMode && (
           <div style={{ fontSize: 12.5, color: T.inkSoft, background: T.surface2, borderRadius: T.rMd, padding: "10px 12px" }}>
-            Select 2–{MAX_COMPARE} plans to compare ({selected.length} selected)
+            {tc({ en: `Select 2–${MAX_COMPARE} plans to compare (${selected.length} selected)`,
+                  hi: `तुलना के लिए 2–${MAX_COMPARE} योजनाएँ चुनें (${selected.length} चुनी गईं)`,
+                  bn: `তুলনার জন্য ২–${MAX_COMPARE}টি পরিকল্পনা বাছুন (${selected.length}টি বাছাই করা হয়েছে)` })}
           </div>
         )}
 
         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
-          <Chip active={filter === "all"} onClick={() => setFilter("all")}>All</Chip>
+          <Chip active={filter === "all"} onClick={() => setFilter("all")}>{tc({ en: "All", hi: "सभी", bn: "সব" })}</Chip>
           {CROP_PLAN_STATUSES.map((s) => (
-            <Chip key={s.id} active={filter === s.id} onClick={() => setFilter(s.id)}>{s.label}</Chip>
+            <Chip key={s.id} active={filter === s.id} onClick={() => setFilter(s.id)}>{s.i18n ? tc(s.i18n) : s.label}</Chip>
           ))}
         </div>
 
         {visible.length === 0 ? (
-          <EmptyHint icon="Sprout" text={plans.length === 0 ? "No crop plans yet — tap + New to create one." : "No plans with this status."} />
+          <EmptyHint icon="Sprout" text={plans.length === 0
+              ? tc({ en: "No crop plans yet — tap + New to create one.", hi: "अभी कोई फ़सल योजना नहीं — बनाने के लिए + नई दबाएँ।", bn: "এখনও কোনও ফসল পরিকল্পনা নেই — তৈরি করতে + নতুন চাপুন।" })
+              : tc({ en: "No plans with this status.", hi: "इस स्थिति की कोई योजना नहीं।", bn: "এই অবস্থার কোনও পরিকল্পনা নেই।" })} />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {visible.map((p) => {
@@ -94,9 +98,9 @@ export default function CropPlanList() {
               return (
                 <RecordRow key={p.id} icon={compareMode ? (isSelected ? "CheckCircle2" : "Circle") : "Sprout"}
                   iconColor={compareMode && isSelected ? T.primary : undefined}
-                  title={p.cropName || "Unnamed crop"}
-                  subtitle={`${p.areaValue || p.areaAcres} ${p.areaUnit || "acre"} · ${rupee(p.computed?.totalCost || 0)}`}
-                  badge={<Pill fg={sc.fg} bg={sc.bg}>{cropPlanService.statusLabel(p.status)}</Pill>}
+                  title={p.cropName || tc({ en: "Unnamed crop", hi: "बिना नाम की फ़सल", bn: "নামহীন ফসল" })}
+                  subtitle={`${p.areaValue || p.areaAcres} ${p.areaUnit || tc({ en: "acre", hi: "एकड़", bn: "একর" })} · ${rupee(p.computed?.totalCost || 0)}`}
+                  badge={<Pill fg={sc.fg} bg={sc.bg}>{tc(cropPlanService.statusI18n(p.status))}</Pill>}
                   onClick={() => compareMode ? toggleSelect(p.id) : push({ kind: "cropPlanDetail", props: { id: p.id } })}
                   onDelete={compareMode ? undefined : () => setDelTarget(p)} />
               );
@@ -106,16 +110,20 @@ export default function CropPlanList() {
 
         {compareMode && (
           <Button full disabled={selected.length < 2} onClick={goCompare} icon="GitCompare">
-            Compare {selected.length > 0 ? `(${selected.length})` : ""}
+            {tc({ en: "Compare", hi: "तुलना करें", bn: "তুলনা করুন" })} {selected.length > 0 ? `(${selected.length})` : ""}
           </Button>
         )}
       </Screen>
 
       <Dialog open={!!delTarget} onClose={() => setDelTarget(null)}
-        title="Delete crop plan?" icon="Trash2" danger
-        body={delTarget ? `${delTarget.cropName || "Unnamed crop"} — this cannot be undone.` : ""}
-        confirmLabel="Delete" cancelLabel="Cancel"
-        onConfirm={async () => { await cropPlanService.remove(delTarget.id); setDelTarget(null); refresh(); toast("Crop plan deleted", "info"); }} />
+        title={tc({ en: "Delete crop plan?", hi: "फ़सल योजना हटाएँ?", bn: "ফসল পরিকল্পনা মুছবেন?" })} icon="Trash2" danger
+        body={delTarget ? tc({
+          en: `${delTarget.cropName || "Unnamed crop"} — this cannot be undone.`,
+          hi: `${delTarget.cropName || "बिना नाम की फ़सल"} — इसे वापस नहीं किया जा सकता।`,
+          bn: `${delTarget.cropName || "নামহীন ফসল"} — এটি আর ফেরানো যাবে না।`,
+        }) : ""}
+        confirmLabel={tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" })} cancelLabel={tc({ en: "Cancel", hi: "रद्द करें", bn: "বাতিল" })}
+        onConfirm={async () => { await cropPlanService.remove(delTarget.id); setDelTarget(null); refresh(); toast(tc({ en: "Crop plan deleted", hi: "फ़सल योजना हटाई गई", bn: "ফসল পরিকল্পনা মুছে ফেলা হয়েছে" }), "info"); }} />
     </>
   );
 }

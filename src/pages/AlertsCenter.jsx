@@ -29,7 +29,7 @@ export default function AlertsCenter() {
   useEffect(() => { farmAlertsService.getAll().then(setAlerts); }, []);
 
   if (alerts === null) {
-    return (<><AppBar title={tc({ en: "Alerts", hi: "अलर्ट", bn: "সতর্কতা" })} onBack={pop} /><div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>Loading…</div></>);
+    return (<><AppBar title={tc({ en: "Alerts", hi: "अलर्ट", bn: "সতর্কতা" })} onBack={pop} /><div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>{tc({ en: "Loading…", hi: "लोड हो रहा है…", bn: "লোড হচ্ছে…" })}</div></>);
   }
 
   const counts = { all: alerts.length, high: 0, medium: 0, low: 0 };

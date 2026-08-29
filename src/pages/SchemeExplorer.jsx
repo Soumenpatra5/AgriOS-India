@@ -120,7 +120,7 @@ export default function SchemeExplorer() {
                   <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>{scheme.fullName}</div>
                   <div style={{ fontSize: 13, color: T.ink, marginTop: 6, lineHeight: 1.45 }}>{scheme.offer}</div>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); toggleBookmark(scheme.id); }} aria-label="Save"
+                <button onClick={(e) => { e.stopPropagation(); toggleBookmark(scheme.id); }} aria-label={tc({ en: "Save", hi: "सहेजें", bn: "সংরক্ষণ" })}
                   style={{ background: "none", border: "none", cursor: "pointer", color: isBookmarked ? T.primary : T.inkFaint, display: "flex", flexShrink: 0, padding: 4 }}>
                   <Icon name={isBookmarked ? "BookmarkCheck" : "BookmarkPlus"} size={18} />
                 </button>

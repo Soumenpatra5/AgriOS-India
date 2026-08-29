@@ -25,7 +25,7 @@ const QUICK_TEMPLATES = [
 ];
 
 export default function AIChat({ agentId = null, conversationId = null }) {
-  const { t, lang, pop, toast } = useApp();
+  const { t, tc, lang, pop, toast } = useApp();
   const ai = useAI({ agentId, conversationId, lang });
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
@@ -173,12 +173,12 @@ export default function AIChat({ agentId = null, conversationId = null }) {
           {pendingImage && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "6px 10px", borderRadius: T.rMd, background: T.surface2 }}>
               <img src={pendingImage.block.source?.data ? `data:image/jpeg;base64,${pendingImage.block.source.data}` : ""}
-                alt="Attached photo" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover" }} />
+                alt={tc({ en: "Attached photo", hi: "संलग्न फ़ोटो", bn: "সংযুক্ত ছবি" })} style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover" }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>{t("imageAttached")}</div>
                 <div style={{ fontSize: 11, color: T.inkFaint, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pendingImage.meta.name}</div>
               </div>
-              <button onClick={() => setPendingImage(null)} aria-label="Remove image" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
+              <button onClick={() => setPendingImage(null)} aria-label={tc({ en: "Remove image", hi: "छवि हटाएँ", bn: "ছবি সরান" })} style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
                 <Icon name="X" size={16} />
               </button>
             </div>
@@ -272,6 +272,7 @@ const bubbleCss = (isUser) => ({
 });
 
 function Bubble({ msg, onSpeak, onStop, speaking, onShare, isLast, onChip }) {
+  const { tc } = useApp();
   const isUser = msg.role === "user";
   const rawText = textOf(msg);
   const hasImage = Array.isArray(msg.content) && msg.content.some((b) => b.type === "image");
@@ -313,7 +314,9 @@ function Bubble({ msg, onSpeak, onStop, speaking, onShare, isLast, onChip }) {
       )}
       {!isUser && body && (
         <div style={{ display: "flex", gap: 2 }}>
-          <button onClick={() => speaking ? onStop() : onSpeak(body)} aria-label={speaking ? "Stop reading" : "Read aloud"}
+          <button onClick={() => speaking ? onStop() : onSpeak(body)} aria-label={speaking
+              ? tc({ en: "Stop reading", hi: "पढ़ना रोकें", bn: "পড়া থামান" })
+              : tc({ en: "Read aloud", hi: "ज़ोर से पढ़ें", bn: "জোরে পড়ুন" })}
             style={{ background: "none", border: "none", cursor: "pointer",
               color: speaking ? T.primary : T.inkFaint, display: "flex", alignItems: "center", gap: 4,
               fontSize: 11, padding: "5px 4px", fontFamily: T.body,
@@ -321,7 +324,7 @@ function Bubble({ msg, onSpeak, onStop, speaking, onShare, isLast, onChip }) {
             <Icon name={speaking ? "VolumeX" : "Volume2"} size={13} />
           </button>
           {canShare && (
-            <button onClick={() => onShare(body)} aria-label="Share"
+            <button onClick={() => onShare(body)} aria-label={tc({ en: "Share", hi: "साझा करें", bn: "শেয়ার" })}
               style={{ background: "none", border: "none", cursor: "pointer",
                 color: T.inkFaint, display: "flex", alignItems: "center",
                 fontSize: 11, padding: "5px 4px", fontFamily: T.body }}>

@@ -107,7 +107,7 @@ export default function FarmLedger() {
     <>
       <AppBar title={tc({en:"Farm ledger",hi:"खेत का हिसाब",bn:"খামারের হিসাব"})} onBack={pop} action={
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={handleExport} aria-label="Export CSV"
+          <button onClick={handleExport} aria-label={tc({ en: "Export CSV", hi: "CSV निर्यात करें", bn: "CSV রপ্তানি করুন" })}
             style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8,
               cursor: "pointer", color: T.ink, display: "flex" }}>
             <Icon name="Download" size={17} />
@@ -124,12 +124,12 @@ export default function FarmLedger() {
       <Screen gap={16}>
         {/* Month navigator */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button onClick={prevMonth} aria-label="Previous month"
+          <button onClick={prevMonth} aria-label={tc({ en: "Previous month", hi: "पिछला महीना", bn: "আগের মাস" })}
             style={{ background: T.surface2, border: "none", borderRadius: 10, padding: 8, cursor: "pointer", display: "flex", color: T.ink }}>
             <Icon name="ChevronLeft" size={20} />
           </button>
           <div style={{ fontFamily: T.display, fontSize: 17, fontWeight: 700 }}>{tc(MONTHS_I18N[month])} {year}</div>
-          <button onClick={nextMonth} disabled={atCurrentMonth} aria-label="Next month"
+          <button onClick={nextMonth} disabled={atCurrentMonth} aria-label={tc({ en: "Next month", hi: "अगला महीना", bn: "পরের মাস" })}
             style={{ background: T.surface2, border: "none", borderRadius: 10, padding: 8,
               cursor: atCurrentMonth ? "default" : "pointer", display: "flex",
               color: atCurrentMonth ? T.inkFaint : T.ink }}>
@@ -211,7 +211,7 @@ export default function FarmLedger() {
                     {isInc ? "+" : "-"}{rupee(t.amount)}
                   </div>
                   {can("records.delete") && (
-                  <button onClick={() => setDelTarget(t)} aria-label="Delete"
+                  <button onClick={() => setDelTarget(t)} aria-label={tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" })}
                     style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4, flexShrink: 0 }}>
                     <Icon name="Trash2" size={16} />
                   </button>

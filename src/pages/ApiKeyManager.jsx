@@ -188,24 +188,24 @@ export default function ApiKeyManager() {
                   {/* Action buttons */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
                     {!isActive && (
-                      <button onClick={() => handleSetActive(k.id)} title="Set Active"
+                      <button onClick={() => handleSetActive(k.id)} title={tc({ en: "Set Active", hi: "सक्रिय करें", bn: "সক্রিয় করুন" })}
                         style={{ ...S.iconBtn, color: T.primary }}>
                         <Icon name="CheckCircle" size={18} />
                       </button>
                     )}
-                    <button onClick={() => toggleVisible(k.id)} title="Show/Hide" style={S.iconBtn}>
+                    <button onClick={() => toggleVisible(k.id)} title={tc({ en: "Show/Hide", hi: "दिखाएँ/छिपाएँ", bn: "দেখান/লুকান" })} style={S.iconBtn}>
                       <Icon name={visible ? "EyeOff" : "Eye"} size={16} />
                     </button>
-                    <button onClick={() => handleCopy(k.key)} title="Copy" style={S.iconBtn}>
+                    <button onClick={() => handleCopy(k.key)} title={tc({ en: "Copy", hi: "कॉपी करें", bn: "কপি করুন" })} style={S.iconBtn}>
                       <Icon name="Copy" size={16} />
                     </button>
-                    <button onClick={() => setShowHealth(k)} title="Health" style={S.iconBtn}>
+                    <button onClick={() => setShowHealth(k)} title={tc({ en: "Health", hi: "स्थिति जाँच", bn: "স্বাস্থ্য পরীক্ষা" })} style={S.iconBtn}>
                       <Icon name="Activity" size={16} />
                     </button>
-                    <button onClick={() => setEditKey(k)} title="Edit" style={S.iconBtn}>
+                    <button onClick={() => setEditKey(k)} title={tc({ en: "Edit", hi: "संपादित करें", bn: "সম্পাদনা" })} style={S.iconBtn}>
                       <Icon name="Pencil" size={16} />
                     </button>
-                    <button onClick={() => setDeleteConfirm(k)} title="Delete"
+                    <button onClick={() => setDeleteConfirm(k)} title={tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" })}
                       style={{ ...S.iconBtn, color: "#ef4444" }}>
                       <Icon name="Trash2" size={16} />
                     </button>

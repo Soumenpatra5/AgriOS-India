@@ -281,7 +281,9 @@ export default function FeedBatchDetail({ id }) {
 
       <Dialog open={delOpen} onClose={() => setDelOpen(false)}
         title={tc({ en: "Delete this batch?", hi: "यह बैच हटाएँ?", bn: "এই ব্যাচ মুছবেন?" })} icon="Trash2" danger
-        body="Consumption and wastage logs for this batch will remain but won't be linked to a batch anymore."
+        body={tc({ en: "Consumption and wastage logs for this batch will remain but won't be linked to a batch anymore.",
+                 hi: "इस बैच के खपत और बर्बादी के रिकॉर्ड बने रहेंगे, पर किसी बैच से नहीं जुड़े होंगे।",
+                 bn: "এই ব্যাচের ব্যবহার ও অপচয়ের রেকর্ড থাকবে, তবে আর কোনও ব্যাচের সঙ্গে যুক্ত থাকবে না।" })}
         confirmLabel="Delete" cancelLabel="Cancel"
         onConfirm={async () => { await feedBatchService.remove(id); toast(tc({ en: "Batch deleted", hi: "बैच हटाया गया", bn: "ব্যাচ মুছে ফেলা হয়েছে" }), "info"); pop(); }} />
     </>

@@ -4,6 +4,7 @@
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../Icon.jsx";
 import { Card } from "../primitives.jsx";
+import { useApp } from "../../store/AppStore.jsx";
 import { rupee } from "../../utils/format.js";
 
 function Section({ title, icon, children }) {
@@ -38,47 +39,50 @@ function SummaryRow({ label, value }) {
 }
 
 export default function PlanSummary({ plan, showProfitability }) {
+  const { tc } = useApp();
   const roi = plan.profit.roiPct;
   const roiColor = roi === null ? T.ink : roi >= 0 ? T.primary : T.red;
 
   return (
     <>
-      <Section title="Cultivation cost summary" icon="Calculator">
+      <Section title={tc({ en: "Cultivation cost summary", hi: "खेती लागत सारांश", bn: "চাষের খরচের সারসংক্ষেপ" })} icon="Calculator">
         <Card pad={14}>
-          <SummaryRow label="Seed cost" value={plan.seed.totalSeedCost} />
-          {plan.fertilizer.total > 0 && <SummaryRow label="Fertilizer cost" value={plan.fertilizer.total} />}
-          {plan.protection.total > 0 && <SummaryRow label="Crop protection cost" value={plan.protection.total} />}
-          {plan.organic.total > 0 && <SummaryRow label="Organic input cost" value={plan.organic.total} />}
-          {plan.irrigation.total > 0 && <SummaryRow label="Irrigation cost" value={plan.irrigation.total} />}
-          {plan.labour.total > 0 && <SummaryRow label="Labour cost" value={plan.labour.total} />}
-          {plan.machinery.total > 0 && <SummaryRow label="Machinery cost" value={plan.machinery.total} />}
-          {plan.other.total > 0 && <SummaryRow label="Other cost" value={plan.other.total} />}
+          <SummaryRow label={tc({ en: "Seed cost", hi: "बीज लागत", bn: "বীজের খরচ" })} value={plan.seed.totalSeedCost} />
+          {plan.fertilizer.total > 0 && <SummaryRow label={tc({ en: "Fertilizer cost", hi: "उर्वरक लागत", bn: "সারের খরচ" })} value={plan.fertilizer.total} />}
+          {plan.protection.total > 0 && <SummaryRow label={tc({ en: "Crop protection cost", hi: "फ़सल सुरक्षा लागत", bn: "ফসল সুরক্ষার খরচ" })} value={plan.protection.total} />}
+          {plan.organic.total > 0 && <SummaryRow label={tc({ en: "Organic input cost", hi: "जैविक इनपुट लागत", bn: "জৈব উপকরণের খরচ" })} value={plan.organic.total} />}
+          {plan.irrigation.total > 0 && <SummaryRow label={tc({ en: "Irrigation cost", hi: "सिंचाई लागत", bn: "সেচের খরচ" })} value={plan.irrigation.total} />}
+          {plan.labour.total > 0 && <SummaryRow label={tc({ en: "Labour cost", hi: "श्रम लागत", bn: "শ্রমের খরচ" })} value={plan.labour.total} />}
+          {plan.machinery.total > 0 && <SummaryRow label={tc({ en: "Machinery cost", hi: "मशीन लागत", bn: "যন্ত্রপাতির খরচ" })} value={plan.machinery.total} />}
+          {plan.other.total > 0 && <SummaryRow label={tc({ en: "Other cost", hi: "अन्य लागत", bn: "অন্যান্য খরচ" })} value={plan.other.total} />}
           <div style={{ height: 1, background: T.lineSoft, margin: "10px 0" }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <span style={{ fontSize: 14.5, fontWeight: 700, color: T.ink }}>Total cultivation cost</span>
+            <span style={{ fontSize: 14.5, fontWeight: 700, color: T.ink }}>{tc({ en: "Total cultivation cost", hi: "कुल खेती लागत", bn: "মোট চাষের খরচ" })}</span>
             <span style={{ fontFamily: T.display, fontSize: 19, fontWeight: 800, color: T.primary }}>{rupee(plan.totalCost)}</span>
           </div>
         </Card>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
-          <StatBox label="Cost / acre" value={rupee(plan.costPerAcre)} />
-          <StatBox label="Cost / hectare" value={rupee(plan.costPerHectare)} />
+          <StatBox label={tc({ en: "Cost / acre", hi: "प्रति एकड़ लागत", bn: "প্রতি একরে খরচ" })} value={rupee(plan.costPerAcre)} />
+          <StatBox label={tc({ en: "Cost / hectare", hi: "प्रति हेक्टेयर लागत", bn: "প্রতি হেক্টরে খরচ" })} value={rupee(plan.costPerHectare)} />
         </div>
       </Section>
 
       {showProfitability && (
-        <Section title="Estimated profitability" icon="TrendingUp">
+        <Section title={tc({ en: "Estimated profitability", hi: "अनुमानित लाभप्रदता", bn: "আনুমানিক লাভজনকতা" })} icon="TrendingUp">
           <div style={{ fontSize: 11.5, color: T.inkFaint, marginBottom: 10, display: "flex", gap: 6 }}>
             <Icon name="Info" size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-            Planning estimate only — not a guaranteed yield, price, or profit.
+            {tc({ en: "Planning estimate only — not a guaranteed yield, price, or profit.",
+                  hi: "केवल योजना अनुमान — गारंटीशुदा उपज, कीमत या लाभ नहीं।",
+                  bn: "শুধুমাত্র পরিকল্পনার হিসাব — নিশ্চিত ফলন, দাম বা মুনাফা নয়।" })}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <StatBox label="Estimated yield" value={`${plan.yield.totalYield.toLocaleString("en-IN")}`} sub="total, this area" />
-            <StatBox label="Estimated revenue" value={rupee(plan.revenue.total)} />
-            <StatBox label="Estimated profit" value={rupee(plan.profit.gross)} fg={plan.profit.gross >= 0 ? T.primary : T.red} />
-            <StatBox label="ROI" value={roi === null ? "—" : `${roi}%`} fg={roiColor} />
-            <StatBox label="Cost / kg (or unit)" value={plan.costPerKg === null ? "—" : rupee(plan.costPerKg)} />
-            <StatBox label="Break-even price" value={plan.breakEven.breakEvenPrice === null ? "—" : rupee(plan.breakEven.breakEvenPrice)} sub="₹ needed / unit to cover cost" />
+            <StatBox label={tc({ en: "Estimated yield", hi: "अनुमानित उपज", bn: "আনুমানিক ফলন" })} value={`${plan.yield.totalYield.toLocaleString("en-IN")}`} sub={tc({ en: "total, this area", hi: "कुल, इस क्षेत्र में", bn: "মোট, এই এলাকায়" })} />
+            <StatBox label={tc({ en: "Estimated revenue", hi: "अनुमानित आय", bn: "আনুমানিক আয়" })} value={rupee(plan.revenue.total)} />
+            <StatBox label={tc({ en: "Estimated profit", hi: "अनुमानित लाभ", bn: "আনুমানিক মুনাফা" })} value={rupee(plan.profit.gross)} fg={plan.profit.gross >= 0 ? T.primary : T.red} />
+            <StatBox label={tc({ en: "ROI", hi: "ROI", bn: "ROI" })} value={roi === null ? "—" : `${roi}%`} fg={roiColor} />
+            <StatBox label={tc({ en: "Cost / kg (or unit)", hi: "प्रति किग्रा (या इकाई) लागत", bn: "প্রতি কেজি (বা ইউনিট) খরচ" })} value={plan.costPerKg === null ? "—" : rupee(plan.costPerKg)} />
+            <StatBox label={tc({ en: "Break-even price", hi: "लागत-वसूली कीमत", bn: "খরচ-উসুল দাম" })} value={plan.breakEven.breakEvenPrice === null ? "—" : rupee(plan.breakEven.breakEvenPrice)} sub={tc({ en: "₹ needed / unit to cover cost", hi: "लागत निकालने के लिए ₹ प्रति इकाई", bn: "খরচ তুলতে প্রতি ইউনিটে প্রয়োজনীয় ₹" })} />
           </div>
         </Section>
       )}

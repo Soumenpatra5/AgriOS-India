@@ -111,7 +111,7 @@ export default function WeatherDashboard() {
         title={tc({ en: "Weather", hi: "मौसम", bn: "আবহাওয়া" })}
         onBack={pop}
         action={
-          <button onClick={() => load(loc, true)} aria-label="Refresh"
+          <button onClick={() => load(loc, true)} aria-label={tc({ en: "Refresh", hi: "ताज़ा करें", bn: "রিফ্রেশ" })}
             disabled={status === "loading"}
             style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: 8, cursor: "pointer", color: T.ink, display: "flex", opacity: status === "loading" ? 0.5 : 1 }}>
             <Icon name="RefreshCw" size={18} style={status === "loading" ? { animation: "ag-spin .7s linear infinite" } : undefined} />

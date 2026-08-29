@@ -181,7 +181,7 @@ export default function Home() {
                 padding: "7px 12px", cursor: "pointer", fontFamily: T.body, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>
               Allow
             </button>
-            <button onClick={handleNotifDismiss} aria-label="Dismiss"
+            <button onClick={handleNotifDismiss} aria-label={tc({ en: "Dismiss", hi: "हटाएँ", bn: "সরান" })}
               style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4, flexShrink: 0 }}>
               <Icon name="X" size={16} />
             </button>
@@ -204,7 +204,7 @@ export default function Home() {
                 padding: "7px 12px", cursor: "pointer", fontFamily: T.body, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>
               {tc({ en: "Install", hi: "इंस्टॉल", bn: "ইনস্টল" })}
             </button>
-            <button onClick={handleInstallDismiss} aria-label="Dismiss"
+            <button onClick={handleInstallDismiss} aria-label={tc({ en: "Dismiss", hi: "हटाएँ", bn: "সরান" })}
               style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4, flexShrink: 0 }}>
               <Icon name="X" size={16} />
             </button>

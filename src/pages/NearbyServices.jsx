@@ -81,7 +81,7 @@ export default function NearbyServices() {
                   </div>
                 </div>
                 <a href={mapsService.directionsUrl({ lat: p.lat, lon: p.lon })} target="_blank" rel="noreferrer"
-                  aria-label="Directions"
+                  aria-label={tc({ en: "Directions", hi: "रास्ता", bn: "পথনির্দেশ" })}
                   style={{ background: T.primarySoft, color: T.primary, borderRadius: 12, padding: 9, display: "flex", flexShrink: 0 }}>
                   <Icon name="Navigation" size={18} />
                 </a>

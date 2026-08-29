@@ -76,7 +76,7 @@ export default function CRMManager() {
   const orderBadge = (o) => {
     if (o.status === "paid") return <Pill>PAID</Pill>;
     const due = o.amount - (o.paidAmount || 0);
-    if (due > 0 && o.paidAmount > 0) return <Pill fg={T.orange} bg={T.orangeSoft}>PART PAID</Pill>;
+    if (due > 0 && o.paidAmount > 0) return <Pill fg={T.orange} bg={T.orangeSoft}>{tc({ en: "PART PAID", hi: "आंशिक भुगतान", bn: "আংশিক পরিশোধ" })}</Pill>;
     return <Pill fg={T.blue} bg={T.blueSoft}>OPEN</Pill>;
   };
 

@@ -45,6 +45,13 @@ const LEDGER_CATEGORY_BY_BUCKET = {
 export const cropPlanService = {
   statusLabel: (id) => CROP_PLAN_STATUSES.find((s) => s.id === id)?.label ?? id,
 
+  /* The {en,hi,bn} object for a status, for callers that can translate.
+     statusLabel stays the English canonical for CSV export and grouping. */
+  statusI18n: (id) => {
+    const s = CROP_PLAN_STATUSES.find((x) => x.id === id);
+    return s?.i18n ?? { en: s?.label ?? id, hi: s?.label ?? id, bn: s?.label ?? id };
+  },
+
   /* `input` is the raw planner form state (see calcEngine.computePlan docs)
      plus identifying fields: farmId, fieldId, cropId, cropName, variety,
      season, areaValue, areaUnit, notes. We store both the raw inputs (so the

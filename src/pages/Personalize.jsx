@@ -58,6 +58,7 @@ function Segmented({ options, value, onChange }) {
    Reads live row height from the DOM so it works at any display size /
    text scale, and shifts sibling rows as a live preview while dragging. */
 function DragReorderList({ items, renderRow, onReorder }) {
+  const { tc } = useApp();
   const [dragIdx, setDragIdx] = useState(null);
   const [dragY, setDragY] = useState(0);
   const startY = useRef(0);
@@ -118,7 +119,7 @@ function DragReorderList({ items, renderRow, onReorder }) {
         style={{ position: "relative", zIndex: dragging ? 2 : 1, background: dragging ? T.surface : "transparent",
           borderRadius: dragging ? T.rMd : 0, boxShadow: dragging ? T.shadowMd : "none",
           transform: `translateY(${translateY}px)`, transition: dragging ? "none" : "transform .18s var(--ag-ease)" }}>
-        {renderRow(id, idx, <button onPointerDown={startDrag(idx)} onTouchStart={startDrag(idx)} aria-label="Drag to reorder"
+        {renderRow(id, idx, <button onPointerDown={startDrag(idx)} onTouchStart={startDrag(idx)} aria-label={tc({ en: "Drag to reorder", hi: "क्रम बदलने के लिए खींचें", bn: "ক্রম বদলাতে টেনে আনুন" })}
           style={{ background: "none", border: "none", cursor: dragging ? "grabbing" : "grab", color: T.inkFaint,
             display: "flex", padding: 4, touchAction: "none" }}>
           <Icon name="GripVertical" size={17} />
@@ -274,11 +275,11 @@ export default function Personalize() {
                   borderTop: idx ? `1px solid ${T.lineSoft}` : "none" }}>
                   {handle}
                   <span style={{ flex: 1, fontSize: 14.5, fontWeight: 500, color: prefs.dashboard.widgets[id] === false ? T.inkFaint : T.ink }}>{tc(WIDGET_LABELS[id] || { en: id })}</span>
-                  <button onClick={() => moveWidget(id, -1)} disabled={idx === 0} aria-label="move up"
+                  <button onClick={() => moveWidget(id, -1)} disabled={idx === 0} aria-label={tc({ en: "move up", hi: "ऊपर ले जाएँ", bn: "উপরে নিন" })}
                     style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? T.inkFaint : T.inkSoft, opacity: idx === 0 ? .35 : 1, display: "flex", padding: 2 }}>
                     <Icon name="ChevronUp" size={16} />
                   </button>
-                  <button onClick={() => moveWidget(id, 1)} disabled={idx === prefs.dashboard.order.length - 1} aria-label="move down"
+                  <button onClick={() => moveWidget(id, 1)} disabled={idx === prefs.dashboard.order.length - 1} aria-label={tc({ en: "move down", hi: "नीचे ले जाएँ", bn: "নিচে নিন" })}
                     style={{ background: "none", border: "none", cursor: idx === prefs.dashboard.order.length - 1 ? "default" : "pointer", color: T.inkSoft, opacity: idx === prefs.dashboard.order.length - 1 ? .35 : 1, display: "flex", padding: 2 }}>
                     <Icon name="ChevronDown" size={16} />
                   </button>

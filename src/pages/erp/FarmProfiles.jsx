@@ -73,7 +73,7 @@ export default function FarmProfiles() {
           <Input label={tc({ en: "Village / Town", hi: "गाँव / शहर", bn: "গ্রাম / শহর" })} placeholder="" value={form.village} onChange={(v) => setForm((f) => ({ ...f, village: v }))} />
           <Input label={tc({ en: "District", hi: "ज़िला", bn: "জেলা" })} placeholder="" value={form.district} onChange={(v) => setForm((f) => ({ ...f, district: v }))} />
           <Input label={tc({ en: "State", hi: "राज्य", bn: "রাজ্য" })} placeholder="" value={form.state} onChange={(v) => setForm((f) => ({ ...f, state: v }))} />
-          <Input label="Total size (acres)" type="number" placeholder="0" value={form.sizeAcres} onChange={(v) => setForm((f) => ({ ...f, sizeAcres: v }))} />
+          <Input label={tc({ en: "Total size (acres)", hi: "कुल क्षेत्रफल (एकड़)", bn: "মোট আয়তন (একর)" })} type="number" placeholder="0" value={form.sizeAcres} onChange={(v) => setForm((f) => ({ ...f, sizeAcres: v }))} />
           <Button full onClick={add} disabled={!form.name}>{tc({ en: "Add Farm", hi: "फार्म जोड़ें", bn: "খামার যোগ করুন" })}</Button>
         </div>
       </BottomSheet>

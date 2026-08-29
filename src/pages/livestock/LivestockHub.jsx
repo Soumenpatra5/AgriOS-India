@@ -65,7 +65,7 @@ export default function LivestockHub() {
             🐄
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Livestock Manager</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{tc({ en: "Livestock Manager", hi: "पशुधन प्रबंधक", bn: "পশুসম্পদ ম্যানেজার" })}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,.75)", marginTop: 2 }}>
               Manage all your farm enterprises in one place
             </div>

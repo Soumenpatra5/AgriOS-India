@@ -118,7 +118,7 @@ export default function FarmLocations() {
                       {tc({ en: "Set active", hi: "सक्रिय करें", bn: "সক্রিয় করুন" })}
                     </button>
                   )}
-                  <button onClick={() => setConfirmDel(f)} aria-label="Delete"
+                  <button onClick={() => setConfirmDel(f)} aria-label={tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" })}
                     style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
                     <Icon name="Trash2" size={17} />
                   </button>

@@ -267,9 +267,9 @@ export default function DiagnosticResult({ record }) {
       <AppBar title={tc({en:"Diagnosis Result", hi:"निदान परिणाम", bn:"রোগ নির্ণয়ের ফলাফল"})} onBack={pop}
         action={
           <div style={{ display: "flex", gap: 8 }}>
-            <HdrBtn icon="Share2" label="Share" onClick={share} />
-            <HdrBtn icon="FileDown" label="Download report" onClick={() => reportService.downloadJson(record)} />
-            <HdrBtn icon="Printer" label="Print report" onClick={() => reportService.print(record)} />
+            <HdrBtn icon="Share2" label={tc({ en: "Share", hi: "साझा करें", bn: "শেয়ার" })} onClick={share} />
+            <HdrBtn icon="FileDown" label={tc({ en: "Download report", hi: "रिपोर्ट डाउनलोड करें", bn: "রিপোর্ট ডাউনলোড করুন" })} onClick={() => reportService.downloadJson(record)} />
+            <HdrBtn icon="Printer" label={tc({ en: "Print report", hi: "रिपोर्ट प्रिंट करें", bn: "রিপোর্ট প্রিন্ট করুন" })} onClick={() => reportService.print(record)} />
           </div>
         } />
 

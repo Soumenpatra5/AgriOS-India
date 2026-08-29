@@ -110,7 +110,7 @@ export default function DiagnosticHistory() {
                 <button onClick={(e) => { e.stopPropagation(); deleteRecord(r.id); }}
                   style={{ position: "absolute", top: 12, right: 44, background: "none",
                     border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}
-                  aria-label="Delete record">
+                  aria-label={tc({ en: "Delete record", hi: "रिकॉर्ड हटाएँ", bn: "রেকর্ড মুছুন" })}>
                   <Icon name="Trash2" size={14} />
                 </button>
               </div>
