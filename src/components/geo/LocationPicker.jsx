@@ -121,9 +121,13 @@ function PickSheet({ open, onClose, title, items, selectedId, onSelect, searchPl
    onChange: receives the whole next value, already cascaded. */
 export default function LocationPicker({
   value = {}, onChange, disabled = false, showDistrict = true, labels = true,
+  gps = false,
 }) {
   const { tc } = useApp();
   const [openWhich, setOpenWhich] = useState(null);
+  const [suggestion, setSuggestion] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [gpsError, setGpsError] = useState(null);
 
   const { stateId = "", districtId = "" } = value;
   const state = getState(stateId);
@@ -138,6 +142,38 @@ export default function LocationPicker({
        corruption this component exists to prevent. */
     if (s?.id === stateId) return;
     onChange?.({ ...value, stateId: s?.id || "", districtId: "" });
+  };
+
+  /* GPS proposes; the farmer disposes. Nothing here writes to `value` — a
+     wrong administrative location silently mis-targets schemes and mandi
+     prices, so it must never be applied without a tap. */
+  const locate = async () => {
+    setLocating(true); setGpsError(null); setSuggestion(null);
+    try {
+      const [{ locationService }, { reverseAdmin }, geo] = await Promise.all([
+        import("../../services/location/locationService.js"),
+        import("../../services/location/geocoding.js"),
+        import("../../services/geo/geoService.js"),
+      ]);
+      const pos = await locationService.currentPosition();
+      const admin = await reverseAdmin(pos.lat, pos.lon);
+      const s = admin && geo.suggestFrom(admin);
+      if (!s) {
+        setGpsError(tc({
+          en: "Couldn't work out your district from that position.",
+          hi: "उस स्थान से आपका ज़िला पता नहीं चल सका।",
+          bn: "সেই অবস্থান থেকে আপনার জেলা বোঝা যায়নি।",
+        }));
+        return;
+      }
+      /* Already what they have — nothing to offer. */
+      if (s.stateId === stateId && s.districtId === districtId) return;
+      setSuggestion(s);
+    } catch (e) {
+      setGpsError(String(e?.message || e));
+    } finally {
+      setLocating(false);
+    }
   };
 
   const caveat = ds.verified ? null : tc({
@@ -168,6 +204,64 @@ export default function LocationPicker({
           onOpen={() => setOpenWhich("district")}
           onClear={() => onChange?.({ ...value, districtId: "" })}
         />
+      )}
+
+      {gps && !disabled && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {!suggestion && (
+            <button type="button" onClick={locate} disabled={locating}
+              style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6,
+                background: "none", border: "none", cursor: locating ? "default" : "pointer",
+                color: T.primary, fontFamily: T.body, fontSize: 12.5, fontWeight: 600, padding: "2px 0" }}>
+              <Icon name="LocateFixed" size={14} />
+              {locating
+                ? tc({ en: "Finding you…", hi: "आपका स्थान खोजा जा रहा है…", bn: "আপনার অবস্থান খোঁজা হচ্ছে…" })
+                : tc({ en: "Use my location", hi: "मेरा स्थान इस्तेमाल करें", bn: "আমার অবস্থান ব্যবহার করুন" })}
+            </button>
+          )}
+
+          {suggestion && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 13px",
+              background: T.surface2, border: `1px solid ${T.line}`, borderRadius: T.rMd }}>
+              <Icon name="MapPin" size={16} style={{ color: T.primary, flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11.5, color: T.inkSoft }}>
+                  {tc({ en: "Suggested location", hi: "सुझाया गया स्थान", bn: "প্রস্তাবিত অবস্থান" })}
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>
+                  {[suggestion.districtName, suggestion.stateName].filter(Boolean).join(", ")}
+                </div>
+                {!suggestion.exact && (
+                  <div style={{ fontSize: 11, color: T.orange, marginTop: 2 }}>
+                    {tc({ en: "Close match — please check.", hi: "मिलता-जुलता — कृपया जाँच लें।", bn: "কাছাকাছি মিল — দয়া করে দেখে নিন।" })}
+                  </div>
+                )}
+              </div>
+              <button type="button" onClick={() => setSuggestion(null)}
+                aria-label={tc({ en: "Dismiss suggestion", hi: "सुझाव हटाएँ", bn: "প্রস্তাব সরান" })}
+                style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
+                <Icon name="X" size={15} />
+              </button>
+              <button type="button"
+                onClick={() => {
+                  onChange?.({ ...value, stateId: suggestion.stateId, districtId: suggestion.districtId });
+                  setSuggestion(null);
+                }}
+                style={{ flexShrink: 0, background: T.primary, color: T.onPrimary, border: "none",
+                  borderRadius: T.pill, padding: "7px 13px", cursor: "pointer",
+                  fontFamily: T.body, fontSize: 12.5, fontWeight: 700 }}>
+                {tc({ en: "Use", hi: "लगाएँ", bn: "ব্যবহার" })}
+              </button>
+            </div>
+          )}
+
+          {gpsError && (
+            <div style={{ fontSize: 11.5, color: T.red, display: "flex", gap: 6, alignItems: "flex-start" }}>
+              <Icon name="TriangleAlert" size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>{gpsError}</span>
+            </div>
+          )}
+        </div>
       )}
 
       <PickSheet

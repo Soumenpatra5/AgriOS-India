@@ -52,7 +52,7 @@ export default function FarmDetails() {
         <Card style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Field label={tc({ en: "Your name", hi: "आपका नाम", bn: "আপনার নাম" })} value={name} onChange={setName}
             placeholder={tc({ en: "e.g. Soumen Patra", hi: "जैसे सौमेन पात्रा", bn: "যেমন সৌমেন পাত্র" })} />
-          <LocationPicker value={region} onChange={setRegion} />
+          <LocationPicker value={region} onChange={setRegion} gps />
           <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: -6 }}>
             {tc({ en: "Used for mandi prices & advice", hi: "मंडी भाव और सलाह के लिए", bn: "মান্ডি দর ও পরামর্শের জন্য" })}
           </div>

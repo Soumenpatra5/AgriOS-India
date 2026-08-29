@@ -24,6 +24,39 @@ export async function searchPlaces(query, { signal, count = 6 } = {}) {
   }));
 }
 
+/* Coordinates → the administrative names Nominatim reports, unjoined.
+
+   reverseGeocode() below returns a display string, which is right for a label
+   but useless for matching against the district dataset. This returns the raw
+   parts so services/geo can try to resolve them to ids.
+
+   The names are OSM's, not the dataset's, and the two do not always agree —
+   OSM may say "Puruliya" where the dataset says "Purulia", or give a
+   sub-district where a district is wanted. Callers must treat a match as a
+   suggestion to confirm, never as an answer. */
+export async function reverseAdmin(lat, lon, { signal } = {}) {
+  const p = new URLSearchParams({
+    lat: String(lat), lon: String(lon), format: "json", zoom: "10", addressdetails: "1",
+  });
+  try {
+    const res = await fetch(`${REVERSE_URL}?${p.toString()}`, {
+      signal, headers: { "Accept-Language": "en" },
+    });
+    if (!res.ok) throw new Error();
+    const a = (await res.json()).address || {};
+    return {
+      state: a.state || "",
+      /* state_district is Nominatim's district field; county is the fallback
+         it uses in some states. */
+      district: a.state_district || a.county || "",
+      town: a.village || a.town || a.city || a.suburb || "",
+      countryCode: (a.country_code || "").toUpperCase(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /* Coordinates → a short human place name (district/town level). */
 export async function reverseGeocode(lat, lon, { signal } = {}) {
   const p = new URLSearchParams({

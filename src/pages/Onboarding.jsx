@@ -103,7 +103,7 @@ function PersonalizeStep({ finish, t, tc, toast }) {
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <LocationPicker value={region} onChange={setRegion} />
+          <LocationPicker value={region} onChange={setRegion} gps />
           <Field label={tc({ en: "Main crops", hi: "मुख्य फसलें", bn: "প্রধান ফসল" })} value={crops} onChange={setCrops}
             placeholder={tc({ en: "Paddy, Potato, Mustard…", hi: "धान, आलू, सरसों…", bn: "ধান, আলু, সরিষা…" })}
             hint={tc({ en: "Comma separated", hi: "अल्पविराम से अलग करें", bn: "কমা দিয়ে আলাদা করুন" })} />

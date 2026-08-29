@@ -163,6 +163,76 @@ export function upgradeLegacy({ state = "", district = "" } = {}) {
   };
 }
 
+/* ---------------------------------------------------------------- suggestion
+
+   GPS gives OSM's names, which do not always equal the dataset's — "Puruliya"
+   for "Purulia", "Hooghly" for "Hugli", a trailing " District". Exact matching
+   alone would reject most real positions, so this is deliberately more
+   forgiving than matchDistrict().
+
+   It is only ever a SUGGESTION. Nothing here writes; the caller shows it and
+   the farmer confirms, because a wrong administrative location is worse than
+   none — it silently mis-targets schemes and prices. */
+const NOISE = /\b(district|dist|division|subdivision|zilla|zila)\b/g;
+const loose = (s) => norm(s).replace(NOISE, " ").replace(/\s+/g, " ").trim();
+
+/* Reduce a name to its consonant skeleton, so the transliteration spellings
+   that differ between OSM and this dataset collapse together. Not a fuzzy
+   score: two names either reduce to the same string or they do not.
+
+   Order matters — the aspirated digraphs must go before vowels are stripped,
+   or "Hooghly" keeps its h and never meets "Hugli".
+
+     Hooghly / Hugli      -> hgl
+     Purulia / Puruliya   -> prl     (y is a vowel here, not a consonant)
+     Bardhaman / Barddhaman -> brdmn */
+const fold = (s) => loose(s)
+  .replace(/(gh|kh|bh|dh|th|jh|ch|ph)/g, (m) => m[0]) // aspirated → plain
+  .replace(/[aeiouy]+/g, "")
+  .replace(/([a-z])\1+/g, "$1")
+  .replace(/\s+/g, "");
+
+function looseFind(list, name) {
+  if (!name) return null;
+  const l = loose(name);
+  const exact = list.find((x) => loose(x.name) === l);
+  if (exact) return exact;
+  const f = fold(name);
+  if (!f) return null;
+  const folded = list.filter((x) => fold(x.name) === f);
+  /* Only accept a folded match when it is unambiguous — two candidates means
+     we cannot tell, and guessing is exactly what this must not do. */
+  return folded.length === 1 ? folded[0] : null;
+}
+
+/* Turn a reverse-geocode result into a confirmable suggestion.
+
+   Returns null when nothing usable was found, otherwise
+   { stateId, districtId, stateName, districtName, exact } where `exact` says
+   whether both parts matched without folding — the UI can be more confident
+   about an exact one. */
+export function suggestFrom({ state, district, countryCode } = {}) {
+  /* The dataset is India-only. A position abroad should suggest nothing rather
+     than fold a foreign state name onto an Indian one. */
+  if (countryCode && countryCode !== "IN") return null;
+
+  const s = looseFind(STATES, state);
+  if (!s) return null;
+  const d = looseFind(DISTRICTS_BY_STATE.get(s.id) || [], district);
+
+  /* `exact` means "both halves matched on the nose". A district that was
+     reported but could not be resolved is NOT exact — the UI should be less
+     confident about that suggestion, not more. */
+  const askedForDistrict = !!loose(district);
+  const exact = loose(s.name) === loose(state)
+    && (askedForDistrict ? !!d && loose(d.name) === loose(district) : true);
+  return {
+    stateId: s.id, districtId: d?.id || "",
+    stateName: s.name, districtName: d?.name || "",
+    exact,
+  };
+}
+
 /* Counts, for the dataset caveat the UI shows while verified is false. */
 export const stats = () => ({
   states: STATES.length,

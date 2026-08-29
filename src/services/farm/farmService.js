@@ -3,6 +3,7 @@
 
 import { repo } from "../erp/erpDb.js";
 import { storage } from "../../utils/storage.js";
+import { upgradeLegacy } from "../geo/geoService.js";
 
 const ACTIVE_KEY = "erp:activeFarmId";
 
@@ -34,9 +35,45 @@ async function cascadeSoftDelete(farmId) {
   }));
 }
 
+/* Farm rows predating the structured location hold free-text state/district.
+   Upgrading them once, lazily, means every reader gets ids without each
+   caller having to know that legacy rows exist.
+
+   Only exact matches are written; anything ambiguous keeps its text and stays
+   without ids, because a silently wrong district on a farm profile would flow
+   straight into the DPR and the scheme engine. */
+const GEO_FLAG = "erp:farms:geoUpgraded:v1";
+let _geoUpgrade = null;
+
+function upgradeGeoOnce() {
+  if (_geoUpgrade) return _geoUpgrade;
+  _geoUpgrade = (async () => {
+    if (storage.get(GEO_FLAG)) return { skipped: true };
+    let upgraded = 0, review = 0;
+    for (const f of await farms.getAll()) {
+      if (f.stateId || (!f.state && !f.district)) continue;
+      const g = upgradeLegacy({ state: f.state, district: f.district });
+      if (g.stateId) {
+        await farms.update(f.id, {
+          stateId: g.stateId, districtId: g.districtId,
+          state: g.stateName, district: g.districtName,
+        });
+        upgraded++;
+      }
+      if (g.review) review++;
+    }
+    storage.set(GEO_FLAG, true);
+    return { upgraded, review };
+  })();
+  return _geoUpgrade;
+}
+
+/* Tests only — replay the migration. */
+export function _resetGeoUpgradeForTests() { _geoUpgrade = null; }
+
 export const farmService = {
   add:    (data) => farms.add(data),
-  getAll: ()     => farms.getAll(),
+  async getAll() { await upgradeGeoOnce(); return farms.getAll(); },
   getById:(id)   => farms.getById(id),
   update: (id, patch) => farms.update(id, patch),
   remove: async (id) => {

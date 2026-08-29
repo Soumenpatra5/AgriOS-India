@@ -6,6 +6,8 @@ import { BottomSheet, Input, Dropdown, Dialog } from "../../components/index.js"
 import { useApp } from "../../store/AppStore.jsx";
 import { farmService, FARM_TYPES } from "../../services/farm/farmService.js";
 import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
+import LocationPicker from "../../components/geo/LocationPicker.jsx";
+import { getState, getDistrict } from "../../services/geo/geoService.js";
 
 export default function FarmProfiles() {
   const { pop, toast, can, tc } = useApp();
@@ -15,7 +17,7 @@ export default function FarmProfiles() {
   const refresh = () => setTick((n) => n + 1);
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", type: "mixed", village: "", district: "", state: "", sizeAcres: "", ownerName: "" });
+  const [form, setForm] = useState({ name: "", type: "mixed", village: "", district: "", state: "", stateId: "", districtId: "", sizeAcres: "", ownerName: "" });
   const [delId, setDelId] = useState(null);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function FarmProfiles() {
     const rec = await farmService.add(form);
     if (farms.length === 0) farmService.setActive(rec.id);
     setOpen(false);
-    setForm({ name: "", type: "mixed", village: "", district: "", state: "", sizeAcres: "", ownerName: "" });
+    setForm({ name: "", type: "mixed", village: "", district: "", state: "", stateId: "", districtId: "", sizeAcres: "", ownerName: "" });
     refresh(); toast(tc({ en: "Farm added", hi: "फार्म जोड़ा गया", bn: "খামার যোগ হয়েছে" }), "success");
   };
 
@@ -71,8 +73,15 @@ export default function FarmProfiles() {
             options={FARM_TYPES.map((t) => ({ value: t.id, label: t.i18n ? tc(t.i18n) : t.label }))} />
           <Input label={tc({ en: "Owner name", hi: "मालिक का नाम", bn: "মালিকের নাম" })} placeholder={tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} value={form.ownerName} onChange={(v) => setForm((f) => ({ ...f, ownerName: v }))} />
           <Input label={tc({ en: "Village / Town", hi: "गाँव / शहर", bn: "গ্রাম / শহর" })} placeholder="" value={form.village} onChange={(v) => setForm((f) => ({ ...f, village: v }))} />
-          <Input label={tc({ en: "District", hi: "ज़िला", bn: "জেলা" })} placeholder="" value={form.district} onChange={(v) => setForm((f) => ({ ...f, district: v }))} />
-          <Input label={tc({ en: "State", hi: "राज्य", bn: "রাজ্য" })} placeholder="" value={form.state} onChange={(v) => setForm((f) => ({ ...f, state: v }))} />
+          {/* Ids are the truth; the names ride along so the list rows and the
+              DPR keep rendering without a lookup. */}
+          <LocationPicker
+            value={{ stateId: form.stateId, districtId: form.districtId }}
+            onChange={(next) => setForm((f) => ({
+              ...f, ...next,
+              state: getState(next.stateId)?.name || "",
+              district: getDistrict(next.districtId)?.name || "",
+            }))} />
           <Input label={tc({ en: "Total size (acres)", hi: "कुल क्षेत्रफल (एकड़)", bn: "মোট আয়তন (একর)" })} type="number" placeholder="0" value={form.sizeAcres} onChange={(v) => setForm((f) => ({ ...f, sizeAcres: v }))} />
           <Button full onClick={add} disabled={!form.name}>{tc({ en: "Add Farm", hi: "फार्म जोड़ें", bn: "খামার যোগ করুন" })}</Button>
         </div>
