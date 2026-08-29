@@ -121,6 +121,9 @@ export const experimentTracker = {
     });
   },
 
+  /* Side-by-side view of several experiments. finalMetrics is included because
+     comparing inputs without the results they produced answers nothing — which
+     run actually scored better is the question being asked. */
   async compare(experimentIds) {
     const experiments = await Promise.all(experimentIds.map((id) => this.getById(id)));
     return experiments.filter(Boolean).map((e) => ({
@@ -129,6 +132,10 @@ export const experimentTracker = {
       params: e.params,
       hyperparams: e.hyperparams,
       status: e.status,
+      finalMetrics: e.finalMetrics || {},
+      modelId: e.modelId,
+      datasetVersion: e.datasetVersion,
+      createdAt: e.createdAt,
     }));
   },
 

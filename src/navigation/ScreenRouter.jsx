@@ -109,6 +109,7 @@ const DatasetDetail      = lazy(() => import("../pages/mlops/DatasetDetail.jsx")
 const AnnotationWorkspace = lazy(() => import("../pages/mlops/AnnotationWorkspace.jsx"));
 const ModelRegistryPage  = lazy(() => import("../pages/mlops/ModelRegistryPage.jsx"));
 const ExperimentList     = lazy(() => import("../pages/mlops/ExperimentList.jsx"));
+const ExperimentComparison = lazy(() => import("../pages/mlops/ExperimentComparison.jsx"));
 const TrainingDashboard  = lazy(() => import("../pages/mlops/TrainingDashboard.jsx"));
 const MonitoringDashboard = lazy(() => import("../pages/mlops/MonitoringDashboard.jsx"));
 const ApiKeyManager       = lazy(() => import("../pages/ApiKeyManager.jsx"));
@@ -232,6 +233,7 @@ function StackScreen({ item }) {
   if (item.kind === "annotationWorkspace")  return <AnnotationWorkspace {...(item.props || {})} />;
   if (item.kind === "modelRegistryPage")    return <ModelRegistryPage />;
   if (item.kind === "experimentList")       return <ExperimentList />;
+  if (item.kind === "experimentComparison") return <ExperimentComparison {...(item.props || {})} />;
   if (item.kind === "trainingDashboard")    return <TrainingDashboard />;
   if (item.kind === "monitoringDashboard")  return <MonitoringDashboard />;
   if (item.kind === "apiKeyManager")        return <ApiKeyManager />;
