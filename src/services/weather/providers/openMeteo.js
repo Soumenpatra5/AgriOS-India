@@ -89,7 +89,7 @@ function normalize(d, lat, lon) {
       dewPoint: H.dew_point_2m?.[k] != null ? Math.round(H.dew_point_2m[k]) : null,
       visibility: H.visibility?.[k] != null ? Math.round(H.visibility[k] / 1000) : null, // km
       weatherCode: H.weather_code?.[k],
-      condition: desc.label,
+      condition: desc.label, conditionI18n: desc.i18n,
       icon: desc.icon,
     };
   });
@@ -111,7 +111,7 @@ function normalize(d, lat, lon) {
     sunrise: D.sunrise?.[i],
     sunset: D.sunset?.[i],
     weatherCode: D.weather_code?.[i],
-    condition: describeWeather(D.weather_code?.[i]).label,
+    condition: describeWeather(D.weather_code?.[i]).label, conditionI18n: describeWeather(D.weather_code?.[i]).i18n,
     icon: describeWeather(D.weather_code?.[i]).icon,
   }));
 
@@ -131,7 +131,7 @@ function normalize(d, lat, lon) {
       visibility: null, // not available in Open-Meteo current
       isDay: cur.is_day === 1,
       weatherCode: cur.weather_code,
-      condition: curDesc.label,
+      condition: curDesc.label, conditionI18n: curDesc.i18n,
       icon: curDesc.icon,
       time: cur.time,
     },

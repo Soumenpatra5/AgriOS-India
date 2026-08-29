@@ -9,7 +9,7 @@ import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, Button, Input, Dropdown, Divider } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import Restricted from "../../components/Restricted.jsx";
-import { dprService, project as computeProject } from "../../services/business/dpr/dprService.js";
+import { dprService, project as computeProject, unitsText } from "../../services/business/dpr/dprService.js";
 import { VerdictChip } from "./DprGenerator.jsx";
 import { rupee, compact } from "../../utils/format.js";
 
@@ -141,7 +141,7 @@ export default function DprEditor({ id }) {
         {/* Project & size */}
         <Section id="project" open={open} onToggle={setOpen} icon="FileText"
           title={tc({ en: "Project & size", hi: "परियोजना और आकार", bn: "প্রকল্প ও আকার" })}
-          summary={`${d.units} ${d.unitLabel}${d.units === 1 ? "" : "s"}`}>
+          summary={unitsText(d.units, d.unitLabel)}>
           <Input label={tc({ en: "Project title", hi: "परियोजना शीर्षक", bn: "প্রকল্পের শিরোনাম" })}
             value={proj.title} onChange={(v) => setIn("project", "title", v)} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

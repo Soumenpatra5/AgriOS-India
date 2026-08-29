@@ -29,15 +29,19 @@ const sumPerUnit = (rows = [], units) =>
 
 /* A fresh, fully-editable draft seeded from a model template plus whatever the
    app already knows about the farmer — so the wizard opens mostly filled in. */
-export function draftFrom(modelId, { farm = null, user = null } = {}) {
+export function draftFrom(modelId, { farm = null, user = null, tc = null } = {}) {
   const m = getModel(modelId);
-  const clone = (rows) => rows.map((r) => ({ ...r }));
+  /* Head labels become editable text inside the farmer's draft, so they are
+     seeded in the farmer's language once at creation rather than translated on
+     every render — otherwise the farmer's own edits would be overwritten. */
+  const L = (r) => (tc && r.i18n ? tc(r.i18n) : r.label);
+  const clone = (rows) => rows.map((r) => ({ ...r, label: L(r) }));
   return {
-    name: m.label,
+    name: L(m),
     modelId: m.id,
     enterprise: m.enterprise,
     units: m.defaultUnits,
-    unitLabel: m.unitLabel,
+    unitLabel: tc && m.unitLabelI18n ? tc(m.unitLabelI18n) : m.unitLabel,
     horizonYears: m.horizonYears,
     promoter: {
       name: user?.name || farm?.ownerName || "",
@@ -52,7 +56,7 @@ export function draftFrom(modelId, { farm = null, user = null } = {}) {
       experienceYears: "",
     },
     project: {
-      title: m.label,
+      title: L(m),
       location: [farm?.village, farm?.district, farm?.state].filter(Boolean).join(", "),
       purpose: "",
     },
@@ -66,6 +70,18 @@ export function draftFrom(modelId, { farm = null, user = null } = {}) {
     finance: { ...m.finance, subsidyPct: 0 },
   };
 }
+
+/* "5 milch animals" / "5 দুগ্ধবতী পশু". The English plural -s is only added
+   to an English label; a translated unitLabel is left as the language wrote
+   it, since Hindi and Bengali do not take an -s here. */
+export const unitsText = (units, unitLabel) => {
+  const l = unitLabel || "unit";
+  /* Printable ASCII means the label is still the English default, which takes
+     the plural -s. A translated label is left exactly as the language wrote
+     it — neither Hindi nor Bengali pluralises a unit noun this way. */
+  const isEnglish = /^[ -~]*$/.test(l);
+  return `${units} ${units === 1 || !isEnglish ? l : `${l}s`}`;
+};
 
 /* The whole appraisal. Pure function of `input`. */
 export function project(input) {

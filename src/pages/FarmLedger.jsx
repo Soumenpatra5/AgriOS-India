@@ -69,7 +69,7 @@ export default function FarmLedger() {
         Object.entries(byCat)
           .map(([categoryId, total]) => ({
             categoryId, total,
-            label: ledgerService.categoryLabel("expense", categoryId),
+            label: tc(ledgerService.categoryI18n("expense", categoryId)),
             icon: ledgerService.categoryIcon("expense", categoryId),
             pct: totalExp ? Math.round((total / totalExp) * 100) : 0,
           }))
@@ -194,7 +194,7 @@ export default function FarmLedger() {
             {txns.map((t, i) => {
               const isInc   = t.kind === "income";
               const catIcon = ledgerService.categoryIcon(t.kind, t.categoryId);
-              const catLabel = ledgerService.categoryLabel(t.kind, t.categoryId);
+              const catLabel = tc(ledgerService.categoryI18n(t.kind, t.categoryId));
               const entLabel = t.enterpriseId ? ledgerService.enterpriseLabel(t.enterpriseId) : null;
               return (
                 <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
@@ -232,7 +232,7 @@ export default function FarmLedger() {
 
       <Dialog open={!!delTarget} onClose={() => setDelTarget(null)}
         title={tc({en:"Delete entry?",hi:"प्रविष्टि हटाएं?",bn:"এন্ট্রি মুছবেন?"})}
-        body={delTarget ? `${ledgerService.categoryLabel(delTarget.kind, delTarget.categoryId)} · ${rupee(delTarget.amount)}` : ""}
+        body={delTarget ? `${tc(ledgerService.categoryI18n(delTarget.kind, delTarget.categoryId))} · ${rupee(delTarget.amount)}` : ""}
         icon="Trash2" danger confirmLabel={tc({en:"Delete",hi:"हटाएं",bn:"মুছুন"})} cancelLabel={t("cancel")}
         onConfirm={async () => { await ledgerService.remove(delTarget.id); setDelTarget(null); refresh(); toast(tc({en:"Entry deleted",hi:"प्रविष्टि हटाई गई",bn:"এন্ট্রি মোছা হয়েছে"}), "info"); }} />
     </>
@@ -257,8 +257,8 @@ function AddSheet({ open, onClose, onSaved }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const cats = form.kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-  const catOpts = [{ value: "", label: tc({en:"Select category…",hi:"श्रेणी चुनें…",bn:"বিভাগ নির্বাচন করুন…"}) }, ...cats.map((c) => ({ value: c.id, label: c.label }))];
-  const entOpts = ENTERPRISES.map((e) => ({ value: e.id, label: e.label }));
+  const catOpts = [{ value: "", label: tc({en:"Select category…",hi:"श्रेणी चुनें…",bn:"বিভাগ নির্বাচন করুন…"}) }, ...cats.map((c) => ({ value: c.id, label: c.i18n ? tc(c.i18n) : c.label }))];
+  const entOpts = ENTERPRISES.map((e) => ({ value: e.id, label: e.i18n ? tc(e.i18n) : e.label }));
 
   const canSubmit = form.amount && parseFloat(form.amount) > 0 && form.categoryId;
 

@@ -12,6 +12,7 @@
 
 import { rupee } from "../../../utils/format.js";
 import { DPR_DISCLAIMER } from "./dprConstants.js";
+import { unitsText } from "./dprService.js";
 
 const dash = "—";
 const val = (v) => (v === null || v === undefined || v === "" ? dash : v);
@@ -54,7 +55,7 @@ export function buildDocument(input, computed, now = new Date()) {
       { label: "Project", value: val(proj.title || input.name) },
       { label: "Activity", value: val(input.name) },
       { label: "Location", value: val(proj.location) },
-      { label: "Size of unit", value: `${input.units} ${input.unitLabel || "unit"}${input.units === 1 ? "" : "s"}` },
+      { label: "Size of unit", value: unitsText(input.units, input.unitLabel) },
       { label: "Projection horizon", value: `${computed.horizon} years` },
       { label: "Financing bank", value: val(bank.name) },
       { label: "Branch", value: val(bank.branch) },

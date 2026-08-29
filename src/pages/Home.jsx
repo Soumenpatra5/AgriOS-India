@@ -489,7 +489,7 @@ function WeatherCard({ t, tc, onOpen }) {
         <div>
           <div style={{ fontSize: 12.5, opacity: .9, fontWeight: 600 }}>{t("weather")} · {loc.name}</div>
           <div style={{ fontFamily: T.display, fontSize: 40, fontWeight: 800, lineHeight: 1.1, marginTop: 2 }}>{c.temp}°</div>
-          <div style={{ fontSize: 13, opacity: .92 }}>{c.condition} · {tc({en:`feels ${c.feelsLike}°`,hi:`अनुभव ${c.feelsLike}°`,bn:`অনুভূত ${c.feelsLike}°`})}</div>
+          <div style={{ fontSize: 13, opacity: .92 }}>{c.conditionI18n ? tc(c.conditionI18n) : c.condition} · {tc({en:`feels ${c.feelsLike}°`,hi:`अनुभव ${c.feelsLike}°`,bn:`অনুভূত ${c.feelsLike}°`})}</div>
         </div>
         <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 12, opacity: .92, lineHeight: 1.8 }}>
           <div><Icon name="Droplets" size={12} style={{ verticalAlign: -1 }} /> {c.humidity}%</div>

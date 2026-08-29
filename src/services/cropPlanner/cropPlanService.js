@@ -1,3 +1,5 @@
+/* label stays English — it is the stored value, the text in CSV exports and
+   the key reports group on. i18n is what the UI shows. */
 /* Crop Plan persistence + integration with Inventory, Farm Ledger and CRM
    purchase orders. Built on the same erpDb repo() pattern every other ERP
    service uses, so offline queueing/sync (syncRepo.js) is automatic.
@@ -17,13 +19,13 @@ import { rupee } from "../../utils/format.js";
 const plans = repo("cropPlans");
 
 export const CROP_PLAN_STATUSES = [
-  { id: "draft",       label: "Draft" },
-  { id: "planned",     label: "Planned" },
-  { id: "approved",    label: "Approved" },
-  { id: "in_progress", label: "In progress" },
-  { id: "harvested",   label: "Harvested" },
-  { id: "completed",   label: "Completed" },
-  { id: "cancelled",   label: "Cancelled" },
+  { id: "draft",       label: "Draft", i18n: { en: "Draft", hi: "मसौदा", bn: "খসড়া" } },
+  { id: "planned",     label: "Planned", i18n: { en: "Planned", hi: "नियोजित", bn: "পরিকল্পিত" } },
+  { id: "approved",    label: "Approved", i18n: { en: "Approved", hi: "स्वीकृत", bn: "অনুমোদিত" } },
+  { id: "in_progress", label: "In progress", i18n: { en: "In progress", hi: "चल रहा है", bn: "চলমান" } },
+  { id: "harvested",   label: "Harvested", i18n: { en: "Harvested", hi: "कटाई हुई", bn: "ফসল কাটা হয়েছে" } },
+  { id: "completed",   label: "Completed", i18n: { en: "Completed", hi: "पूर्ण", bn: "সম্পন্ন" } },
+  { id: "cancelled",   label: "Cancelled", i18n: { en: "Cancelled", hi: "रद्द", bn: "বাতিল" } },
 ];
 
 /* Maps a planner cost bucket to the Farm Ledger's existing expense category
@@ -146,30 +148,30 @@ function buildReport(plan) {
     generatedAt: new Date().toLocaleString("en-IN"),
     sections: [
       { heading: "Plan Details", rows: [
-        { label: "Crop", value: plan.cropName || "" },
-        { label: "Variety", value: plan.variety || "" },
-        { label: "Season", value: plan.season || "" },
-        { label: "Area", value: `${plan.areaValue ?? plan.areaAcres} ${plan.areaUnit || "acre"}` },
-        { label: "Status", value: CROP_PLAN_STATUSES.find((s) => s.id === plan.status)?.label || plan.status },
+        { label: "Crop", value: plan.cropName || "", i18n: { en: "Crop", hi: "फ़सल", bn: "ফসল" } },
+        { label: "Variety", value: plan.variety || "", i18n: { en: "Variety", hi: "किस्म", bn: "জাত" } },
+        { label: "Season", value: plan.season || "", i18n: { en: "Season", hi: "मौसम", bn: "মৌসুম" } },
+        { label: "Area", value: `${plan.areaValue ?? plan.areaAcres} ${plan.areaUnit || "acre"}`, i18n: { en: "Area", hi: "क्षेत्रफल", bn: "আয়তন" } },
+        { label: "Status", value: CROP_PLAN_STATUSES.find((s) => s.id === plan.status)?.label || plan.status, i18n: { en: "Status", hi: "स्थिति", bn: "অবস্থা" } },
       ]},
       { heading: "Cultivation Cost Breakdown", rows: [
-        { label: "Seed cost", value: rupee(c.seed.totalSeedCost) },
-        { label: "Fertilizer cost", value: rupee(c.fertilizer.total) },
+        { label: "Seed cost", value: rupee(c.seed.totalSeedCost), i18n: { en: "Seed cost", hi: "बीज लागत", bn: "বীজের ব্যয়" } },
+        { label: "Fertilizer cost", value: rupee(c.fertilizer.total), i18n: { en: "Fertilizer cost", hi: "उर्वरक लागत", bn: "সারের ব্যয়" } },
         { label: "Crop protection cost", value: rupee(c.protection.total) },
         { label: "Organic input cost", value: rupee(c.organic.total) },
         { label: "Irrigation cost", value: rupee(c.irrigation.total) },
-        { label: "Labour cost", value: rupee(c.labour.total) },
+        { label: "Labour cost", value: rupee(c.labour.total), i18n: { en: "Labour cost", hi: "श्रम लागत", bn: "শ্রমের ব্যয়" } },
         { label: "Machinery cost", value: rupee(c.machinery.total) },
         { label: "Other cost", value: rupee(c.other.total) },
         { label: "Total cultivation cost", value: rupee(c.totalCost) },
-        { label: "Cost / acre", value: rupee(c.costPerAcre) },
+        { label: "Cost / acre", value: rupee(c.costPerAcre), i18n: { en: "Cost / acre", hi: "प्रति एकड़ लागत", bn: "প্রতি একরের ব্যয়" } },
         { label: "Cost / hectare", value: rupee(c.costPerHectare) },
       ]},
       { heading: "Estimated Profitability (planning estimate, not guaranteed)", rows: [
         { label: "Estimated yield", value: c.yield.totalYield.toLocaleString("en-IN") },
         { label: "Estimated revenue", value: rupee(c.revenue.total) },
         { label: "Estimated profit", value: rupee(c.profit.gross) },
-        { label: "ROI", value: c.profit.roiPct === null ? "N/A" : `${c.profit.roiPct}%` },
+        { label: "ROI", value: c.profit.roiPct === null ? "N/A" : `${c.profit.roiPct}%`, i18n: { en: "ROI", hi: "ROI", bn: "ROI" } },
         { label: "Cost / kg (or unit)", value: c.costPerKg === null ? "N/A" : rupee(c.costPerKg) },
         { label: "Break-even price", value: c.breakEven.breakEvenPrice === null ? "N/A" : rupee(c.breakEven.breakEvenPrice) },
       ]},

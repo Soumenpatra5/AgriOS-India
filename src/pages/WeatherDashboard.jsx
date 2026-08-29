@@ -333,7 +333,7 @@ function CurrentHero({ cur, today, locName, tc }) {
       <div style={{ position: "relative" }}>
         <div style={{ fontSize: 12.5, opacity: 0.9, fontWeight: 600 }}>{locName}</div>
         <div style={{ fontFamily: T.display, fontSize: 54, fontWeight: 800, lineHeight: 1.05, marginTop: 4 }}>{cur.temp}°</div>
-        <div style={{ fontSize: 14, opacity: 0.95 }}>{cur.condition} · {tc({ en: `feels ${cur.feelsLike}°`, hi: `अनुभव ${cur.feelsLike}°`, bn: `অনুভূত ${cur.feelsLike}°` })}</div>
+        <div style={{ fontSize: 14, opacity: 0.95 }}>{cur.conditionI18n ? tc(cur.conditionI18n) : cur.condition} · {tc({ en: `feels ${cur.feelsLike}°`, hi: `अनुभव ${cur.feelsLike}°`, bn: `অনুভূত ${cur.feelsLike}°` })}</div>
 
         {/* Primary metrics row */}
         <div style={{ display: "flex", gap: 14, marginTop: 14, fontSize: 12, opacity: 0.92, flexWrap: "wrap" }}>

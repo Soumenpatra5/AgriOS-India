@@ -7,7 +7,7 @@ import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, Button, SectionHeader, EmptyState, BottomSheet, Dialog } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import Restricted from "../../components/Restricted.jsx";
-import { dprService, draftFrom, project as computeProject } from "../../services/business/dpr/dprService.js";
+import { dprService, draftFrom, project as computeProject, unitsText } from "../../services/business/dpr/dprService.js";
 import { DPR_MODELS } from "../../services/business/dpr/dprConstants.js";
 import { farmService } from "../../services/farm/farmService.js";
 import { rupee, compact } from "../../utils/format.js";
@@ -48,7 +48,7 @@ export default function DprGenerator() {
   const startNew = async (modelId) => {
     setPicking(false);
     const farm = await farmService.getActive?.().catch(() => null);
-    const created = await dprService.create(draftFrom(modelId, { farm, user }));
+    const created = await dprService.create(draftFrom(modelId, { farm, user, tc }));
     push({ kind: "dprEditor", props: { id: created.id } });
   };
 
@@ -126,7 +126,7 @@ export default function DprGenerator() {
                         <VerdictChip level={c.verdict.level} tc={tc} />
                       </div>
                       <div style={{ fontSize: 11.5, color: T.inkSoft }}>
-                        {d.units} {d.unitLabel}{d.units === 1 ? "" : "s"} · {compact(c.totalCapital)} {tc({ en: "project cost", hi: "परियोजना लागत", bn: "প্রকল্প ব্যয়" })}
+                        {unitsText(d.units, d.unitLabel)} · {compact(c.totalCapital)} {tc({ en: "project cost", hi: "परियोजना लागत", bn: "প্রকল্প ব্যয়" })}
                       </div>
                       <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
                         {tc({ en: "Loan", hi: "ऋण", bn: "ঋণ" })} {rupee(c.means.loan)}
@@ -159,8 +159,8 @@ export default function DprGenerator() {
                   <Icon name={MODEL_ICON[m.id] || "FileText"} size={17} color={T.primary} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{m.label}</div>
-                  <div style={{ fontSize: 11.5, color: T.inkSoft }}>{m.unitHint}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{m.i18n ? tc(m.i18n) : m.label}</div>
+                  <div style={{ fontSize: 11.5, color: T.inkSoft }}>{m.unitHintI18n ? tc(m.unitHintI18n) : m.unitHint}</div>
                 </div>
                 <Icon name="ChevronRight" size={16} color={T.inkFaint} />
               </div>

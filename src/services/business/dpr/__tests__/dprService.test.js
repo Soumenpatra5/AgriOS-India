@@ -22,7 +22,7 @@ const held = vi.hoisted(() => {
 
 vi.mock("../../../erp/erpDb.js", () => ({ repo: held.repo, uid: () => "uid" }));
 
-const { dprService, project, draftFrom, verdictFor } = await import("../dprService.js");
+const { dprService, project, draftFrom, verdictFor, unitsText } = await import("../dprService.js");
 const { DPR_MODELS } = await import("../dprConstants.js");
 
 /* A deliberately small project whose every figure can be checked by hand:
@@ -229,6 +229,39 @@ describe("dprService", () => {
 
     it("falls back to the first model for an unknown id", () => {
       expect(draftFrom("nonsense").modelId).toBe("dairy");
+    });
+
+    /* Head labels are editable text in the draft, so they must be seeded in the
+       farmer's language at creation — translating them at render time would
+       silently overwrite whatever the farmer typed. */
+    it("seeds head labels in the farmer's language when given a translator", () => {
+      const tc = (o) => o.bn ?? o.en;
+      const d = draftFrom("dairy", { tc });
+      expect(d.name).toBe("ডেয়ারি — সংকর দুগ্ধবতী গবাদি পশু");
+      expect(d.project.title).toBe(d.name);
+      expect(d.unitLabel).toBe("দুগ্ধবতী পশু");
+      expect(d.capital.map((r) => r.label)).toContain("দুগ্ধবতী পশু");
+      expect(d.revenue.map((r) => r.label)).toContain("দুধ বিক্রয়");
+      /* ids are untouched, so the appraisal maths still keys on them */
+      expect(d.capital[0].id).toBe("animals");
+    });
+
+    it("keeps English labels when no translator is passed", () => {
+      expect(draftFrom("dairy").capital[0].label).toBe("Milch animals");
+    });
+  });
+
+  describe("unitsText", () => {
+    it("pluralises an English unit label but not a translated one", () => {
+      expect(unitsText(5, "milch animal")).toBe("5 milch animals");
+      expect(unitsText(1, "milch animal")).toBe("1 milch animal");
+      expect(unitsText(5, "দুগ্ধবতী পশু")).toBe("5 দুগ্ধবতী পশু");
+      expect(unitsText(5, "दुधारू पशु")).toBe("5 दुधारू पशु");
+    });
+
+    it("falls back to \"unit\" when the label is missing", () => {
+      expect(unitsText(3, "")).toBe("3 units");
+      expect(unitsText(3, undefined)).toBe("3 units");
     });
   });
 
