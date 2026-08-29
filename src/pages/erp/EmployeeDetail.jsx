@@ -175,10 +175,22 @@ export default function EmployeeDetail({ id }) {
 
   const uploadDoc = async () => {
     setDocBusy(true);
-    await documentService.add({ employeeId: id, ...docForm }, docFile);
-    setDocBusy(false); setDocOpen(false);
-    setDocForm({ type: "id_proof", name: "", number: "", issueDate: "", expiryDate: "" }); setDocFile(null);
-    setTick((n) => n + 1);
+    try {
+      await documentService.add({ employeeId: id, ...docForm }, docFile);
+      setDocOpen(false);
+      setDocForm({ type: "id_proof", name: "", number: "", issueDate: "", expiryDate: "" }); setDocFile(null);
+      setTick((n) => n + 1);
+    } catch (err) {
+      /* Keep the sheet open with the form intact so the entry is not lost, and
+         say what went wrong — without this the button sat on "Uploading…"
+         forever with no explanation. */
+      toast(tc({ en: "Could not save the document. Please try again.",
+                 hi: "दस्तावेज़ सहेजा नहीं जा सका। कृपया फिर कोशिश करें।",
+                 bn: "নথি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।" }), "error");
+      console.error("[documents] upload failed", err);
+    } finally {
+      setDocBusy(false);
+    }
   };
   const openDoc = async (d) => {
     if (d.fileUrl) { window.open(d.fileUrl, "_blank", "noopener"); return; }
@@ -420,9 +432,13 @@ export default function EmployeeDetail({ id }) {
         {tab === "Documents" && can("documents.view") && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{documents.length} document{documents.length !== 1 ? "s" : ""}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{tc({
+                en: `${documents.length} document${documents.length !== 1 ? "s" : ""}`,
+                hi: `${documents.length} दस्तावेज़`,
+                bn: `${documents.length}টি নথি`,
+              })}</div>
               <button onClick={() => setDocOpen(true)} style={{ background: T.primarySoft, border: "none", borderRadius: 10, padding: "7px 12px", cursor: "pointer", color: T.primary, fontSize: 12.5, fontWeight: 700, fontFamily: T.body, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                <Icon name="Upload" size={14} /> Upload
+                <Icon name="Upload" size={14} /> {tc({ en: "Upload", hi: "अपलोड", bn: "আপলোড" })}
               </button>
             </div>
             {documents.length === 0
@@ -507,19 +523,19 @@ export default function EmployeeDetail({ id }) {
             if (f.type === "farm") return <Dropdown key={f.key} label={tc(f.label)} value={val} onChange={set} options={[{ value: "", label: tc({ en: "— None —", hi: "— कोई नहीं —", bn: "— কিছু নয় —" }) }, ...farms.map((fm) => ({ value: fm.id, label: fm.name }))]} />;
             return <Input key={f.key} label={tc(f.label)} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} value={val} onChange={set} placeholder={f.type === "date" ? "" : tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} />;
           })}
-          <Button full onClick={save}>Save</Button>
+          <Button full onClick={save}>{tc({ en: "Save", hi: "सहेजें", bn: "সংরক্ষণ" })}</Button>
         </div>
       </BottomSheet>
 
       <BottomSheet open={leaveOpen} onClose={() => setLeaveOpen(false)} title={tc({ en: "Apply leave", hi: "अवकाश आवेदन", bn: "ছুটির আবেদন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Dropdown label={tc({ en: "Leave type", hi: "अवकाश प्रकार", bn: "ছুটির ধরন" })} value={leaveForm.type} onChange={(v) => setLeaveForm((f) => ({ ...f, type: v }))}
-            options={LEAVE_TYPES.map((t) => ({ value: t.id, label: t.label }))} />
+            options={LEAVE_TYPES.map((t) => ({ value: t.id, label: t.i18n ? tc(t.i18n) : t.label }))} />
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}><Input label={tc({ en: "From", hi: "से", bn: "থেকে" })} type="date" value={leaveForm.fromDate} onChange={(v) => setLeaveForm((f) => ({ ...f, fromDate: v }))} /></div>
-            <div style={{ flex: 1 }}><Input label="To" type="date" value={leaveForm.toDate} onChange={(v) => setLeaveForm((f) => ({ ...f, toDate: v }))} /></div>
+            <div style={{ flex: 1 }}><Input label={tc({ en: "To", hi: "तक", bn: "পর্যন্ত" })} type="date" value={leaveForm.toDate} onChange={(v) => setLeaveForm((f) => ({ ...f, toDate: v }))} /></div>
           </div>
-          {leaveForm.fromDate && <div style={{ fontSize: 12.5, color: T.inkSoft }}>{leaveDays(leaveForm.fromDate, leaveForm.toDate)} day(s)</div>}
+          {leaveForm.fromDate && <div style={{ fontSize: 12.5, color: T.inkSoft }}>{leaveDays(leaveForm.fromDate, leaveForm.toDate)} {tc({ en: "day(s)", hi: "दिन", bn: "দিন" })}</div>}
           <Input label={tc({ en: "Reason", hi: "कारण", bn: "কারণ" })} placeholder={tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} value={leaveForm.reason} onChange={(v) => setLeaveForm((f) => ({ ...f, reason: v }))} />
           <Button full onClick={applyLeave} disabled={!leaveForm.fromDate}>{tc({ en: "Submit request", hi: "अनुरोध भेजें", bn: "অনুরোধ পাঠান" })}</Button>
         </div>
@@ -528,7 +544,7 @@ export default function EmployeeDetail({ id }) {
       <BottomSheet open={docOpen} onClose={() => setDocOpen(false)} title={tc({ en: "Upload document", hi: "दस्तावेज़ अपलोड करें", bn: "নথি আপলোড করুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Dropdown label={tc({ en: "Document type", hi: "दस्तावेज़ प्रकार", bn: "নথির ধরন" })} value={docForm.type} onChange={(v) => setDocForm((f) => ({ ...f, type: v }))}
-            options={DOC_TYPES.map((t) => ({ value: t.id, label: t.label }))} />
+            options={DOC_TYPES.map((t) => ({ value: t.id, label: t.i18n ? tc(t.i18n) : t.label }))} />
           <Input label={tc({ en: "Name / title", hi: "नाम / शीर्षक", bn: "নাম / শিরোনাম" })} placeholder={tc({ en: "e.g. Aadhaar card", hi: "उदा. आधार कार्ड", bn: "যেমন আধার কার্ড" })} value={docForm.name} onChange={(v) => setDocForm((f) => ({ ...f, name: v }))} />
           <Input label={tc({ en: "Document number", hi: "दस्तावेज़ संख्या", bn: "নথির নম্বর" })} placeholder={tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} value={docForm.number} onChange={(v) => setDocForm((f) => ({ ...f, number: v }))} />
           <div style={{ display: "flex", gap: 10 }}>
@@ -536,11 +552,13 @@ export default function EmployeeDetail({ id }) {
             <div style={{ flex: 1 }}><Input label={tc({ en: "Expiry date", hi: "समय-सीमा तिथि", bn: "মেয়াদ শেষের তারিখ" })} type="date" value={docForm.expiryDate} onChange={(v) => setDocForm((f) => ({ ...f, expiryDate: v }))} /></div>
           </div>
           <label style={{ display: "block" }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft, marginBottom: 7 }}>File</div>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft, marginBottom: 7 }}>{tc({ en: "File", hi: "फ़ाइल", bn: "ফাইল" })}</div>
             <input type="file" accept="image/*,application/pdf" onChange={(e) => setDocFile(e.target.files?.[0] || null)}
               style={{ width: "100%", fontSize: 13, color: T.ink }} />
           </label>
-          <Button full onClick={uploadDoc} disabled={docBusy || (!docForm.name && !docFile)}>{docBusy ? "Uploading…" : "Save document"}</Button>
+          <Button full onClick={uploadDoc} disabled={docBusy || (!docForm.name && !docFile)}>{docBusy
+              ? tc({ en: "Uploading…", hi: "अपलोड हो रहा है…", bn: "আপলোড হচ্ছে…" })
+              : tc({ en: "Save document", hi: "दस्तावेज़ सहेजें", bn: "নথি সংরক্ষণ করুন" })}</Button>
         </div>
       </BottomSheet>
 
@@ -554,7 +572,7 @@ export default function EmployeeDetail({ id }) {
                 ? <Dropdown key={f.key} label={tc(f.label)} value={val} onChange={set} options={f.options.map((o) => ({ value: o.id, label: o.i18n ? tc(o.i18n) : (typeof o.label === "string" ? o.label : tc(o.label)) }))} />
                 : <Input key={f.key} label={tc(f.label)} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} value={val} onChange={set} placeholder={f.type === "date" ? "" : tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} />;
             })}
-            <Button full onClick={saveRec} disabled={!recAdd.form.name && recAdd.kind !== "performance"}>Save</Button>
+            <Button full onClick={saveRec} disabled={!recAdd.form.name && recAdd.kind !== "performance"}>{tc({ en: "Save", hi: "सहेजें", bn: "সংরক্ষণ" })}</Button>
           </div>
         )}
       </BottomSheet>

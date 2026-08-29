@@ -49,7 +49,19 @@ export function openDb() {
         indexes.forEach((ix) => s.createIndex(ix, ix, { unique: false }));
       });
     };
-    req.onsuccess = (e) => { _db = e.target.result; resolve(_db); };
+    /* Another tab holding the DB at an older version fires 'blocked' and then
+       NEITHER onsuccess NOR onerror — the promise would never settle and every
+       repo call would hang forever (a button stuck on "Uploading…" with no
+       error). Reject instead so callers can surface it. */
+    req.onblocked = () => reject(new Error(
+      "Database upgrade blocked by another open tab. Close other AgriOS tabs and retry."));
+    req.onsuccess = (e) => {
+      _db = e.target.result;
+      /* And do not become that blocking tab ourselves: if another tab needs to
+         upgrade, drop our handle so it can proceed. */
+      _db.onversionchange = () => { try { _db.close(); } finally { _db = null; } };
+      resolve(_db);
+    };
     req.onerror = () => reject(req.error);
   });
 }
