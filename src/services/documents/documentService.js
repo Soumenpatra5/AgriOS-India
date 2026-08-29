@@ -25,7 +25,8 @@ import { repo } from "../erp/erpDb.js";
 import { storage as local } from "../../utils/storage.js";
 import { auditService } from "../employees/auditService.js";
 import {
-  EXPIRY_WINDOW_DAYS, MAX_OFFLINE_INLINE_BYTES, UPLOAD_TIMEOUT_MS, previewKind,
+  EXPIRY_WINDOW_DAYS, MAX_OFFLINE_INLINE_BYTES, UPLOAD_TIMEOUT_MS,
+  DELETED_RETENTION_DAYS, previewKind,
 } from "./documentConfig.js";
 
 /* fileData is a base64 blob: far past Firestore's 1 MB document limit, and
@@ -287,14 +288,67 @@ export const documentService = {
 
   isVersioned: (category) => !!categoryOf(category).versioned,
 
+  /* Soft delete. The FILE is deliberately left in place: a delete that
+     destroyed the scan immediately would make restore() a lie, and the most
+     common reason to restore is having just deleted the wrong row.
+     purgeExpiredDeletions() destroys it once the retention window passes. */
   async remove(id) {
     const d = await docs.getById(id);
-    await docs.remove(id); // soft delete — recoverable, audited
+    await docs.remove(id);
     auditService.log("document.removed", {
       employeeId: d?.subjectType === "employee" ? d.subjectId : "",
       detail: d?.title || id,
     });
     return d;
+  },
+
+  async restore(id) {
+    const d = await docs.restore(id);
+    if (d) {
+      auditService.log("document.restored", {
+        employeeId: d.subjectType === "employee" ? d.subjectId : "",
+        detail: d.title || id,
+      });
+    }
+    return d;
+  },
+
+  /* Irreversible: destroys the stored file, every superseded version, and the
+     rows. This is the only path that frees cloud storage, so it has to reach
+     the version objects too — they are invisible once their parent is gone and
+     nothing else would ever clean them up. */
+  async purge(id) {
+    const d = (await docs.getById(id)) || (await docs.deleted()).find((x) => x.id === id);
+    const vs = await versions.getBy("documentId", id);
+
+    const paths = [d, ...vs].filter((x) => x?.storagePath).map((x) => x.storagePath);
+    if (paths.length) {
+      const { deleteImage } = await import("../firebase/storage.js").catch(() => ({}));
+      /* Best effort per object: one failure (already gone, offline) must not
+         strand the rest, and the rows are removed either way — a file we could
+         not reach is a smaller problem than a row that never goes away. */
+      if (deleteImage) await Promise.all(paths.map((p) => deleteImage(p).catch(() => {})));
+    }
+
+    for (const v of vs) await versions.purge(v.id);
+    await docs.purge(id);
+    return { id, filesDeleted: paths.length, versions: vs.length };
+  },
+
+  /* Retention sweep: destroy files for documents deleted longer ago than the
+     window. Safe to call repeatedly — it only ever looks at tombstones. */
+  async purgeExpiredDeletions({ now = Date.now(), retentionDays = DELETED_RETENTION_DAYS } = {}) {
+    const cutoff = now - retentionDays * 86400000;
+    const due = (await docs.deleted()).filter((d) => {
+      const t = Date.parse(d.deletedAt);
+      return Number.isFinite(t) && t <= cutoff;
+    });
+    let files = 0;
+    for (const d of due) {
+      const r = await this.purge(d.id).catch(() => null);
+      if (r) files += r.filesDeleted;
+    }
+    return { purged: due.length, filesDeleted: files };
   },
 
   setStatus: (id, status) => docs.update(id, {

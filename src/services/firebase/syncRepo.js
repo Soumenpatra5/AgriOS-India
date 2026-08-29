@@ -46,6 +46,9 @@ export function wrapWithSync(storeName, local, options = {}) {
     },
 
     getAll: () => local.getAll(),
+    /* Local-only: tombstones are a device-side retention concern, and the
+       cloud copy is reconciled by the sync layer, not by this read. */
+    deleted: () => local.deleted(),
     getBy: (index, value) => local.getBy(index, value),
     getById: (id) => local.getById(id),
 

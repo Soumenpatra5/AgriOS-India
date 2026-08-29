@@ -59,7 +59,18 @@ export function AppProvider({ children }) {
     import("../services/documents/uploadQueue.js")
       .then((m) => { stop = m.startAutoRetry(); })
       .catch(() => {});
-    return () => stop();
+
+    /* Deleted documents keep their file so a mistaken delete stays undoable.
+       Once the retention window passes the file is destroyed for good —
+       otherwise every document a farmer ever deleted would go on occupying
+       their storage. Runs after boot so it never competes with first paint. */
+    const sweep = setTimeout(() => {
+      import("../services/documents/documentService.js")
+        .then((m) => m.documentService.purgeExpiredDeletions())
+        .catch(() => {});
+    }, 15000);
+
+    return () => { stop(); clearTimeout(sweep); };
   }, []);
 
   useEffect(() => {

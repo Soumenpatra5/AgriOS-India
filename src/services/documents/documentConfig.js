@@ -30,6 +30,16 @@ export const MAX_OFFLINE_INLINE_BYTES = MAX_OFFLINE_INLINE_MB * 1024 * 1024;
    the next attempt can push it to the cloud. */
 export const UPLOAD_TIMEOUT_MS = envNum(import.meta.env?.VITE_DOC_UPLOAD_TIMEOUT_MS, 45000);
 
+/* How long a deleted document's file is kept before it is destroyed for good.
+
+   Deletes are soft, so the record can be restored — which is only meaningful
+   while its file still exists. The window is the gap between "I deleted the
+   wrong thing" and "stop paying to store something nobody wants": long enough
+   for a farmer to notice a mistake, short enough that deleted scans do not
+   accumulate in their storage forever. Set to 0 to destroy the file as soon as
+   the record is deleted; restore would then bring back metadata only. */
+export const DELETED_RETENTION_DAYS = envNum(import.meta.env?.VITE_DOC_RETENTION_DAYS, 30);
+
 /* Days before expiry that a document starts being reported as "expiring soon".
    Kept here rather than in the alert code so the reminder ladder is one edit. */
 export const EXPIRY_WINDOW_DAYS = envNum(import.meta.env?.VITE_DOC_EXPIRY_WINDOW_DAYS, 30);

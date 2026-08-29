@@ -141,6 +141,10 @@ function _localRepo(storeName) {
       await run("readwrite", (s) => s.put(restored));
       return restored;
     },
+    /* Soft-deleted rows only. Every other read hides them, which is right for
+       callers but leaves retention sweeps with no way to find what they are
+       supposed to clean up. */
+    deleted: () => run("readonly", (s) => s.getAll()).then((r) => (r || []).filter((x) => x && x.deletedAt)),
     purge: (id) => run("readwrite", (s) => s.delete(id)),
     count: () => run("readonly", (s) => s.getAll()).then((r) => (r || []).filter(live).length),
   };
