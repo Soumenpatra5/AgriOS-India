@@ -72,9 +72,9 @@ UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN   # optional: fleet-wide rate 
 | `PLATFORM_COMMISSION_BPS` | Vercel (server) | Route settlement split |
 | `UPSTASH_REDIS_REST_URL/TOKEN` | Vercel (server) | shared rate limiting |
 
-## Not covered here — Firebase Storage
+## Not covered here — Firebase
 
-This runbook covers the commerce backend only. Firebase Storage (document and
-photo uploads) is a separate, currently **unprovisioned** dependency: the bucket
-does not exist, so uploads silently fall back to device storage. See
-[STORAGE-PROVISIONING.md](STORAGE-PROVISIONING.md).
+This runbook covers the commerce backend only. Firebase — Auth, Firestore and
+Storage — is a separate dependency, and the project the app now points at
+(agrios-india-app) has none of the three enabled yet. See
+[FIREBASE-PROVISIONING.md](FIREBASE-PROVISIONING.md).
