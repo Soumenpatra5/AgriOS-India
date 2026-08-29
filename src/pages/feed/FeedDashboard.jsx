@@ -35,7 +35,7 @@ function Section({ title, icon, children }) {
 const SEVERITY_COLOR = { high: { fg: T.red, bg: T.redSoft }, medium: { fg: T.orange, bg: T.orangeSoft }, low: { fg: T.inkSoft, bg: T.surface2 } };
 
 export default function FeedDashboard() {
-  const { pop, push } = useApp();
+  const { pop, push, tc } = useApp();
   const [summary, setSummary] = useState(null);
   const [trend, setTrend] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -53,26 +53,26 @@ export default function FeedDashboard() {
   }, []);
 
   if (!summary) {
-    return (<><AppBar title="Feed cost analytics" onBack={pop} /><div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>Loading…</div></>);
+    return (<><AppBar title={tc({ en: "Feed cost analytics", hi: "चारा लागत विश्लेषण", bn: "খাদ্য ব্যয় বিশ্লেষণ" })} onBack={pop} /><div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>{tc({ en: "Loading…", hi: "लोड हो रहा है…", bn: "লোড হচ্ছে…" })}</div></>);
   }
 
   const maxTrendCost = Math.max(1, ...trend.map((t) => t.cost));
 
   return (
     <>
-      <AppBar title="Feed cost analytics" onBack={pop} />
+      <AppBar title={tc({ en: "Feed cost analytics", hi: "चारा लागत विश्लेषण", bn: "খাদ্য ব্যয় বিশ্লেষণ" })} onBack={pop} />
       <Screen gap={20}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <StatBox label="Today" value={rupee(summary.todayCost)} sub={`${summary.todayQty} kg`} />
-          <StatBox label="This week" value={rupee(summary.weekCost)} sub={`${summary.weekQty} kg`} />
-          <StatBox label="This month" value={rupee(summary.monthCost)} sub={`${summary.monthQty} kg`} fg={T.primary} />
-          <StatBox label="Avg cost / kg" value={rupee(summary.avgCostPerKg)} sub="this month" />
-          <StatBox label="Feed stock value" value={rupee(summary.stockValue)} />
-          <StatBox label="Alerts" value={alerts.length} fg={alerts.length > 0 ? T.red : T.primary} />
+          <StatBox label={tc({ en: "Today", hi: "आज", bn: "আজ" })} value={rupee(summary.todayCost)} sub={`${summary.todayQty} kg`} />
+          <StatBox label={tc({ en: "This week", hi: "इस सप्ताह", bn: "এ সপ্তাহে" })} value={rupee(summary.weekCost)} sub={`${summary.weekQty} kg`} />
+          <StatBox label={tc({ en: "This month", hi: "इस माह", bn: "এ মাসে" })} value={rupee(summary.monthCost)} sub={`${summary.monthQty} kg`} fg={T.primary} />
+          <StatBox label={tc({ en: "Avg cost / kg", hi: "औसत लागत / किग्रा", bn: "গড় ব্যয় / কেজি" })} value={rupee(summary.avgCostPerKg)} sub={tc({ en: "this month", hi: "इस माह", bn: "এ মাসে" })} />
+          <StatBox label={tc({ en: "Feed stock value", hi: "चारा स्टॉक मूल्य", bn: "খাদ্য মজুতের মূল্য" })} value={rupee(summary.stockValue)} />
+          <StatBox label={tc({ en: "Alerts", hi: "अलर्ट", bn: "সতর্কতা" })} value={alerts.length} fg={alerts.length > 0 ? T.red : T.primary} />
         </div>
 
         {alerts.length > 0 && (
-          <Section title="Alerts" icon="AlertTriangle">
+          <Section title={tc({ en: "Alerts", hi: "अलर्ट", bn: "সতর্কতা" })} icon="AlertTriangle">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {alerts.slice(0, 8).map((a, i) => {
                 const c = SEVERITY_COLOR[a.severity] || SEVERITY_COLOR.low;
@@ -90,7 +90,7 @@ export default function FeedDashboard() {
           </Section>
         )}
 
-        <Section title="Feed cost trend (6 months)" icon="TrendingUp">
+        <Section title={tc({ en: "Feed cost trend (6 months)", hi: "चारा लागत रुझान (6 माह)", bn: "খাদ্য ব্যয়ের ধারা (৬ মাস)" })} icon="TrendingUp">
           <Card pad={14}>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 100 }}>
               {trend.map((t) => (
@@ -104,7 +104,7 @@ export default function FeedDashboard() {
         </Section>
 
         {livestock.length > 0 && (
-          <Section title="Livestock comparison" icon="Layers">
+          <Section title={tc({ en: "Livestock comparison", hi: "पशु तुलना", bn: "প্রাণী তুলনা" })} icon="Layers">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {livestock.map((g) => (
                 <Card key={g.enterprise} pad={12}>
@@ -120,7 +120,7 @@ export default function FeedDashboard() {
         )}
 
         {feedTypes.length > 0 && (
-          <Section title="Cost by feed type" icon="PieChart">
+          <Section title={tc({ en: "Cost by feed type", hi: "चारा प्रकार अनुसार लागत", bn: "খাদ্যের ধরন অনুযায়ী ব্যয়" })} icon="PieChart">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {feedTypes.map((f) => (
                 <div key={f.feedType} style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -136,7 +136,7 @@ export default function FeedDashboard() {
         )}
 
         {batches.length > 0 && (
-          <Section title="Batch comparison" icon="Gauge">
+          <Section title={tc({ en: "Batch comparison", hi: "बैच तुलना", bn: "ব্যাচ তুলনা" })} icon="Gauge">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {batches.map((b) => (
                 <Card key={b.batch.id} onClick={() => push({ kind: "feedBatchDetail", props: { id: b.batch.id } })} pad={12}>

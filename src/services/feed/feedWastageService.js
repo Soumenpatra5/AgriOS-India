@@ -10,12 +10,12 @@ import { safeNum, round2 } from "../../utils/num.js";
 const wastage = repo("feedWastage");
 
 export const WASTAGE_REASONS = [
-  { id: "spillage",  label: "Spillage" },
-  { id: "spoilage",  label: "Spoilage" },
-  { id: "expired",   label: "Expired" },
-  { id: "damaged",   label: "Damaged" },
-  { id: "pest",      label: "Pest / rodent damage" },
-  { id: "other",     label: "Other" },
+  { id: "spillage",  label: "Spillage" , i18n: { en: "Spillage", hi: "छलकाव", bn: "ছিটকে পড়া" } },
+  { id: "spoilage",  label: "Spoilage" , i18n: { en: "Spoilage", hi: "खराब होना", bn: "নষ্ট হওয়া" } },
+  { id: "expired",   label: "Expired" , i18n: { en: "Expired", hi: "समय-सीमा समाप्त", bn: "মেয়াদোত্তীর্ণ" } },
+  { id: "damaged",   label: "Damaged" , i18n: { en: "Damaged", hi: "क्षतिग्रस्त", bn: "ক্ষতিগ্রস্ত" } },
+  { id: "pest",      label: "Pest / rodent damage" , i18n: { en: "Pest / rodent damage", hi: "कीट / चूहे से नुकसान", bn: "পোকা / ইঁদুরের ক্ষতি" } },
+  { id: "other",     label: "Other" , i18n: { en: "Other", hi: "अन्य", bn: "অন্যান্য" } },
 ];
 
 export const feedWastageService = {

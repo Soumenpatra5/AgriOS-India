@@ -14,12 +14,12 @@ import { orderService } from "../crm/orderService.js";
 import { rupee } from "../../utils/format.js";
 
 export const FEED_REPORT_TYPES = [
-  { id: "cost",      label: "Feed Cost Report" },
-  { id: "inventory", label: "Feed Inventory Report" },
-  { id: "fcr",       label: "FCR Report" },
-  { id: "wastage",   label: "Feed Wastage Report" },
-  { id: "purchase",  label: "Feed Purchase Report" },
-  { id: "supplier",  label: "Supplier Feed Report" },
+  { id: "cost",      label: "Feed Cost Report" , i18n: { en: "Feed Cost Report", hi: "चारा लागत रिपोर्ट", bn: "খাদ্য ব্যয় রিপোর্ট" } },
+  { id: "inventory", label: "Feed Inventory Report" , i18n: { en: "Feed Inventory Report", hi: "चारा स्टॉक रिपोर्ट", bn: "খাদ্য মজুত রিপোর্ট" } },
+  { id: "fcr",       label: "FCR Report" , i18n: { en: "FCR Report", hi: "FCR रिपोर्ट", bn: "FCR রিপোর্ট" } },
+  { id: "wastage",   label: "Feed Wastage Report" , i18n: { en: "Feed Wastage Report", hi: "चारा बर्बादी रिपोर्ट", bn: "খাদ্য অপচয় রিপোর্ট" } },
+  { id: "purchase",  label: "Feed Purchase Report" , i18n: { en: "Feed Purchase Report", hi: "चारा खरीद रिपोर्ट", bn: "খাদ্য ক্রয় রিপোর্ট" } },
+  { id: "supplier",  label: "Supplier Feed Report" , i18n: { en: "Supplier Feed Report", hi: "आपूर्तिकर्ता रिपोर्ट", bn: "সরবরাহকারী রিপোর্ট" } },
 ];
 
 const generatedAt = () => new Date().toLocaleString("en-IN");

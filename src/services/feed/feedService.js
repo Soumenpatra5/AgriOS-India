@@ -20,36 +20,38 @@ import { safeNum, round2 } from "../../utils/num.js";
 
 export const FEED_CATEGORY = "feed"; // matches inventoryService.ITEM_CATEGORIES id
 
+/* label stays English — feedReportService writes it into CSV exports and
+   feedAnalyticsService groups on it. i18n is what the UI shows. */
 export const FEED_TYPES = [
-  { id: "starter",  label: "Starter Feed" },
-  { id: "grower",   label: "Grower Feed" },
-  { id: "finisher", label: "Finisher Feed" },
-  { id: "layer",    label: "Layer Feed" },
-  { id: "broiler",  label: "Broiler Feed" },
-  { id: "dairy",    label: "Dairy Feed" },
-  { id: "goat",     label: "Goat Feed" },
-  { id: "pig",      label: "Pig Feed" },
-  { id: "fish",     label: "Fish Feed" },
-  { id: "duck",     label: "Duck Feed" },
-  { id: "sheep",    label: "Sheep Feed" },
-  { id: "rabbit",   label: "Rabbit Feed" },
-  { id: "bee",      label: "Bee Feed / Supplement" },
-  { id: "custom",   label: "Custom Feed" },
+  { id: "starter",  label: "Starter Feed" , i18n: { en: "Starter Feed", hi: "स्टार्टर फ़ीड", bn: "স্টার্টার ফিড" } },
+  { id: "grower",   label: "Grower Feed" , i18n: { en: "Grower Feed", hi: "ग्रोअर फ़ीड", bn: "গ্রোয়ার ফিড" } },
+  { id: "finisher", label: "Finisher Feed" , i18n: { en: "Finisher Feed", hi: "फिनिशर फ़ीड", bn: "ফিনিশার ফিড" } },
+  { id: "layer",    label: "Layer Feed" , i18n: { en: "Layer Feed", hi: "लेयर फ़ीड", bn: "লেয়ার ফিড" } },
+  { id: "broiler",  label: "Broiler Feed" , i18n: { en: "Broiler Feed", hi: "ब्रॉयलर फ़ीड", bn: "ব্রয়লার ফিড" } },
+  { id: "dairy",    label: "Dairy Feed" , i18n: { en: "Dairy Feed", hi: "डेयरी फ़ीड", bn: "ডেয়ারি ফিড" } },
+  { id: "goat",     label: "Goat Feed" , i18n: { en: "Goat Feed", hi: "बकरी फ़ीड", bn: "ছাগলের ফিড" } },
+  { id: "pig",      label: "Pig Feed" , i18n: { en: "Pig Feed", hi: "सूअर फ़ीड", bn: "শূকরের ফিড" } },
+  { id: "fish",     label: "Fish Feed" , i18n: { en: "Fish Feed", hi: "मछली फ़ीड", bn: "মাছের ফিড" } },
+  { id: "duck",     label: "Duck Feed" , i18n: { en: "Duck Feed", hi: "बत्तख फ़ीड", bn: "হাঁসের ফিড" } },
+  { id: "sheep",    label: "Sheep Feed" , i18n: { en: "Sheep Feed", hi: "भेड़ फ़ीड", bn: "ভেড়ার ফিড" } },
+  { id: "rabbit",   label: "Rabbit Feed" , i18n: { en: "Rabbit Feed", hi: "खरगोश फ़ीड", bn: "খরগোশের ফিড" } },
+  { id: "bee",      label: "Bee Feed / Supplement" , i18n: { en: "Bee Feed / Supplement", hi: "मधुमक्खी फ़ीड / सप्लीमेंट", bn: "মৌমাছির ফিড / সাপ্লিমেন্ট" } },
+  { id: "custom",   label: "Custom Feed" , i18n: { en: "Custom Feed", hi: "कस्टम फ़ीड", bn: "কাস্টম ফিড" } },
 ];
 
 /* Broader than livestockService.ENTERPRISES (poultry/dairy/goat/pig/sheep/
    fish/bee) — the calculator/inventory need to describe duck/rabbit/other
    feed even though those don't have a dedicated livestock manager page yet. */
 export const LIVESTOCK_TYPES = [
-  { id: "poultry", label: "Poultry" },
-  { id: "dairy",   label: "Dairy" },
-  { id: "goat",    label: "Goat" },
-  { id: "pig",     label: "Pig" },
-  { id: "sheep",   label: "Sheep" },
-  { id: "fish",    label: "Fish" },
-  { id: "duck",    label: "Duck" },
-  { id: "rabbit",  label: "Rabbit" },
-  { id: "other",   label: "Other" },
+  { id: "poultry", label: "Poultry" , i18n: { en: "Poultry", hi: "मुर्गी पालन", bn: "হাঁস-মুরগি" } },
+  { id: "dairy",   label: "Dairy" , i18n: { en: "Dairy", hi: "डेयरी", bn: "ডেয়ারি" } },
+  { id: "goat",    label: "Goat" , i18n: { en: "Goat", hi: "बकरी", bn: "ছাগল" } },
+  { id: "pig",     label: "Pig" , i18n: { en: "Pig", hi: "सूअर", bn: "শূকর" } },
+  { id: "sheep",   label: "Sheep" , i18n: { en: "Sheep", hi: "भेड़", bn: "ভেড়া" } },
+  { id: "fish",    label: "Fish" , i18n: { en: "Fish", hi: "मछली", bn: "মাছ" } },
+  { id: "duck",    label: "Duck" , i18n: { en: "Duck", hi: "बत्तख", bn: "হাঁস" } },
+  { id: "rabbit",  label: "Rabbit" , i18n: { en: "Rabbit", hi: "खरगोश", bn: "খরগোশ" } },
+  { id: "other",   label: "Other" , i18n: { en: "Other", hi: "अन्य", bn: "অন্যান্য" } },
 ];
 
 /* ------------------------------------------------------------ calc engine -- */
