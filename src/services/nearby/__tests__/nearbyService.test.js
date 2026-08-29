@@ -94,3 +94,42 @@ describe("nearbyService.find — offline / errors", () => {
     await expect(nearbyService.find(origin)).rejects.toThrow(/overpass error/);
   });
 });
+
+/* A saturated Overpass instance accepts the connection and then never answers.
+   Without a deadline the promise never settles and the screen spins forever. */
+describe("nearbyService.find — a stalled Overpass instance", () => {
+  /* Never resolves on its own; only the abort signal ends it. */
+  const stubFetchHang = () => vi.stubGlobal("fetch", vi.fn((url, { signal } = {}) => new Promise((_, reject) => {
+    signal?.addEventListener("abort", () => {
+      const e = new Error("aborted");
+      e.name = "AbortError";
+      reject(e);
+    });
+  })));
+
+  it("gives up instead of hanging, and says it timed out", async () => {
+    stubFetchHang();
+    const err = await nearbyService.find(origin, { timeoutMs: 20 }).catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.timedOut).toBe(true);
+  });
+
+  it("prefers stale results over an error when the instance stalls", async () => {
+    stubFetchOk(elements);
+    const first = await nearbyService.find(origin);
+
+    stubFetchHang();
+    const stale = await nearbyService.find({ ...origin, force: true }, { timeoutMs: 20 });
+    expect(stale).toEqual(first);
+  });
+
+  it("still honours a caller's own abort signal", async () => {
+    stubFetchHang();
+    const ctrl = new AbortController();
+    const p = nearbyService.find({ ...origin, categoryId: "fuel" }, { signal: ctrl.signal, timeoutMs: 5000 });
+    ctrl.abort();
+    const err = await p.catch((e) => e);
+    expect(err.name).toBe("AbortError");
+    expect(err.timedOut).toBeUndefined(); // cancelled by the caller, not by the deadline
+  });
+});

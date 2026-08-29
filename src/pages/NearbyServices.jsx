@@ -19,8 +19,8 @@ export default function NearbyServices() {
     try {
       const items = await nearbyService.find({ categoryId, lat: loc.lat, lon: loc.lon });
       setState({ status: "ready", items });
-    } catch {
-      setState({ status: "error", items: [] });
+    } catch (err) {
+      setState({ status: "error", items: [], timedOut: !!err?.timedOut });
     }
   }, [loc]);
 
@@ -54,7 +54,17 @@ export default function NearbyServices() {
               <div style={{ display: "grid", placeItems: "center", padding: "40px 0" }}><Spinner size={26} /></div>
             )}
             {status === "error" && (
-              <ErrorState title={tc({ en: "Couldn't load services", hi: "सेवाएँ लोड नहीं हुईं", bn: "সেবা লোড হয়নি" })} body={tc({ en: "Check your connection and try again.", hi: "इंटरनेट जाँचें और पुनः प्रयास करें।", bn: "ইন্টারনেট দেখে আবার চেষ্টা করুন।" })} onRetry={() => load(cat)} />
+              <ErrorState
+                title={tc({ en: "Couldn't load services", hi: "सेवाएँ लोड नहीं हुईं", bn: "সেবা লোড হয়নি" })}
+                /* Don't blame the farmer's connection when it was the free
+                   OpenStreetMap service that stalled — they'd go hunting for a
+                   fault that isn't theirs. */
+                body={state.timedOut
+                  ? tc({ en: "The map service is busy right now. Your connection is fine — try again in a moment.",
+                         hi: "मानचित्र सेवा अभी व्यस्त है। आपका इंटरनेट ठीक है — थोड़ी देर बाद पुनः प्रयास करें।",
+                         bn: "মানচিত্র পরিষেবা এখন ব্যস্ত। আপনার ইন্টারনেট ঠিক আছে — একটু পরে আবার চেষ্টা করুন।" })
+                  : tc({ en: "Check your connection and try again.", hi: "इंटरनेट जाँचें और पुनः प्रयास करें।", bn: "ইন্টারনেট দেখে আবার চেষ্টা করুন।" })}
+                onRetry={() => load(cat)} />
             )}
             {status === "ready" && items.length === 0 && (
               <EmptyState icon="SearchX" title={tc({ en: `No ${category.label.toLowerCase()} found nearby`, hi: `पास में कोई ${category.label.toLowerCase()} नहीं मिला`, bn: `কাছাকাছি কোনো ${category.label.toLowerCase()} পাওয়া যায়নি` })}

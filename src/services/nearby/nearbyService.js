@@ -8,6 +8,15 @@ import { ttlCache } from "../cache/ttlCache.js";
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 const TTL = 6 * 60 * 60 * 1000; // 6h — POIs rarely move
 
+/* The `[timeout:20]` in the query is Overpass's SERVER-side budget for running
+   the query — it does nothing for a connection that never gets that far. The
+   public instance is free and heavily loaded, and when it is saturated the
+   socket simply stalls: observed hanging past 30s with no response and no
+   error. Without a deadline of our own the request never settles and the
+   screen sits on a spinner forever, which is what a farmer sees as "not
+   working". Bound it here so a stalled instance becomes a retryable error. */
+const REQUEST_TIMEOUT_MS = 12000;
+
 /* category id → { label, icon, accent, overpass filters } */
 export const NEARBY_CATEGORIES = [
   { id: "vet",     label: "Veterinary", icon: "Stethoscope", accent: "red",     filters: ['node["amenity"="veterinary"]'] },
@@ -41,7 +50,7 @@ export const nearbyService = {
   categories: NEARBY_CATEGORIES,
 
   /* Returns [{ id, name, lat, lon, distanceKm, category }], nearest first. */
-  async find({ categoryId, lat, lon, radiusKm = 15, force = false }, { signal } = {}) {
+  async find({ categoryId, lat, lon, radiusKm = 15, force = false }, { signal, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
     const category = getCategory(categoryId);
     const ck = `nearby:${categoryId}:${lat.toFixed(2)},${lon.toFixed(2)}:${radiusKm}`;
 
@@ -50,12 +59,21 @@ export const nearbyService = {
       if (fresh) return fresh;
     }
 
+    /* Our own deadline, chained to the caller's signal so an unmounting screen
+       still cancels. timedOut is tracked separately because an AbortError
+       cannot say which of the two aborted it. */
+    const ctrl = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, timeoutMs);
+    const relay = () => ctrl.abort();
+    signal?.addEventListener("abort", relay, { once: true });
+
     try {
       const res = await fetch(OVERPASS_URL, {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: "data=" + encodeURIComponent(buildQuery(category, lat, lon, radiusKm * 1000)),
-        signal,
+        signal: ctrl.signal,
       });
       if (!res.ok) throw new Error(`overpass error (${res.status})`);
       const d = await res.json();
@@ -76,9 +94,21 @@ export const nearbyService = {
       ttlCache.set(ck, items, TTL);
       return items;
     } catch (err) {
+      /* Stale POIs beat no POIs — a vet that was there six hours ago is still
+         almost certainly there. Only when there is nothing cached does the
+         caller get an error, flagged so the UI can say the map service is
+         slow rather than blaming the farmer's connection. */
       const cached = ttlCache.getStale(ck);
       if (cached?.value) return cached.value;
+      if (timedOut) {
+        const e = new Error("overpass timed out");
+        e.timedOut = true;
+        throw e;
+      }
       throw err;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", relay);
     }
   },
 };
