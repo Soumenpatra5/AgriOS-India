@@ -71,3 +71,10 @@ UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN   # optional: fleet-wide rate 
 | `CRON_SECRET`, `ORDER_RESERVATION_TTL_MIN` | Vercel (server) | reservation cron |
 | `PLATFORM_COMMISSION_BPS` | Vercel (server) | Route settlement split |
 | `UPSTASH_REDIS_REST_URL/TOKEN` | Vercel (server) | shared rate limiting |
+
+## Not covered here — Firebase Storage
+
+This runbook covers the commerce backend only. Firebase Storage (document and
+photo uploads) is a separate, currently **unprovisioned** dependency: the bucket
+does not exist, so uploads silently fall back to device storage. See
+[STORAGE-PROVISIONING.md](STORAGE-PROVISIONING.md).
