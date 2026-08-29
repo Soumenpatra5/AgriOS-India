@@ -37,7 +37,10 @@ describe("documentService (WF-5)", () => {
     expect(d.name).toBe("Identity Proof"); // falls back to type label
     expect(d.number).toBe("1234-5678");
     expect(d.uploadDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(d.storage).toBeUndefined(); // no file
+    /* "none" rather than undefined since the unified service landed: the UI has
+       to tell a record with no file apart from one whose file is still pending
+       upload, and an absent field cannot express that. */
+    expect(d.storage).toBe("none");
   });
 
   it("setStatus verifies and stamps a verified date", async () => {

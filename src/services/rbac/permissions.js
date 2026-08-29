@@ -26,7 +26,10 @@ export const CAPABILITIES = [
   "team.view",        // employee roster + profiles
   "team.manage",      // add / edit / remove employees
   "salary.view",      // wages / salary figures
-  "documents.view",   // employee documents (ID / bank / medical)
+  "documents.view",   // read documents (worker IDs, land records, KCC…)
+  "documents.upload", // attach or replace a document file
+  "documents.download", // pull the actual file off the device / cloud
+  "documents.delete", // remove a document record — owner only, see MATRIX
   "payroll.manage",   // record payments / advances / bonuses
   "records.delete",   // delete critical records (farms, employees, ledger…)
   "settings.manage",  // security / privacy / API keys
@@ -36,7 +39,7 @@ export const CAPABILITIES = [
 
 const MATRIX = {
   owner:   new Set(CAPABILITIES), // everything
-  manager: new Set(["finance.view", "team.view", "team.manage", "salary.view", "documents.view", "payroll.manage"]),
+  manager: new Set(["finance.view", "team.view", "team.manage", "salary.view", "documents.view", "documents.upload", "documents.download", "payroll.manage"]),
   worker:  new Set(["team.view"]), // roster only (for attendance); no salary/docs/finance
 };
 

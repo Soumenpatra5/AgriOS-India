@@ -34,6 +34,17 @@ export function wrapWithSync(storeName, local, options = {}) {
       return record;
     },
 
+    /* Upsert by id. firestoreRepo.add() honours a supplied id and setDoc()s it,
+       so the cloud side is idempotent too — a migration can safely re-run. */
+    async put(record) {
+      const saved = await local.put(record);
+      const cloudRecord = forCloud(saved);
+      pushToCloud((cloud) =>
+        cloud.add(cloudRecord).catch(() => enqueue(storeName, "add", cloudRecord))
+      );
+      return saved;
+    },
+
     getAll: () => local.getAll(),
     getBy: (index, value) => local.getBy(index, value),
     getById: (id) => local.getById(id),

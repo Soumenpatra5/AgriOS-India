@@ -3,7 +3,7 @@
    tested CRUD implementation (Repository Pattern) instead of copying it. */
 
 const DB_NAME = "agrios-erp";
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 
 /* store name -> indexes created on upgrade. onupgradeneeded is additive: it
    only creates stores that don't yet exist, so bumping the version to add a
@@ -33,6 +33,11 @@ const STORES = {
   feedConsumption: ["batchId", "farmId", "date"],
   feedWastage:     ["batchId", "farmId", "date"],
   dprProjects: ["modelId"], // DPR project reports
+  /* One store for every document in the app — owner records (land, KCC,
+     insurance…) and employee records (ID, bank, medical…) alike. Replaces the
+     employeeDocuments store and the docs:list localStorage key; see
+     services/documents/documentService.js for the migration. */
+  documents:   ["subjectType", "subjectId", "category"],
 };
 
 let _db = null;
@@ -96,6 +101,16 @@ function _localRepo(storeName) {
       const record = { ...data, id: uid(), createdAt: new Date().toISOString() };
       await run("readwrite", (s) => s.add(record));
       return record;
+    },
+    /* Upsert with a caller-supplied id. add() always mints a new id, which is
+       right for normal creates but wrong for a migration that must preserve
+       identity — without a stable id a half-finished migration would duplicate
+       every record on the next run. Prefer add() everywhere else. */
+    async put(record) {
+      if (!record?.id) throw new Error("put() requires an id");
+      const full = { ...record, createdAt: record.createdAt || new Date().toISOString() };
+      await run("readwrite", (s) => s.put(full));
+      return full;
     },
     getAll: () => run("readonly", (s) => s.getAll()).then((r) => (r || []).filter(live)),
     getBy: (index, value) =>

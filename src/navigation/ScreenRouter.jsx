@@ -27,6 +27,7 @@ const Privacy            = lazy(() => import("../pages/Privacy.jsx"));
 const Subscription       = lazy(() => import("../pages/Subscription.jsx"));
 const Payments           = lazy(() => import("../pages/Payments.jsx"));
 const Documents          = lazy(() => import("../pages/Documents.jsx"));
+const DocumentDetail     = lazy(() => import("../pages/DocumentDetail.jsx"));
 const Security           = lazy(() => import("../pages/Security.jsx"));
 const Permissions        = lazy(() => import("../pages/Permissions.jsx"));
 const About              = lazy(() => import("../pages/About.jsx"));
@@ -150,6 +151,7 @@ function StackScreen({ item }) {
   if (item.kind === "subscription") return <Subscription />;
   if (item.kind === "payments") return <Payments />;
   if (item.kind === "documents") return <Documents />;
+  if (item.kind === "documentDetail") return <DocumentDetail {...item.props} />;
   if (item.kind === "security") return <Security />;
   if (item.kind === "permissions") return <Permissions />;
   if (item.kind === "about") return <About />;
