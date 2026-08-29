@@ -24,7 +24,7 @@ function ScoreRing({ score }) {
 }
 
 export default function AIInsights() {
-  const { pop, toast } = useApp();
+  const { pop, toast, tc } = useApp();
   const [data, setData]         = useState(null);
   const [health, setHealth]     = useState(null);
   const [insights, setInsights] = useState(null);
@@ -53,7 +53,7 @@ export default function AIInsights() {
 
   return (
     <>
-      <AppBar title="AI Insights" onBack={pop} />
+      <AppBar title={tc({ en: "AI Insights", hi: "AI जानकारी", bn: "AI অন্তর্দৃষ্টি" })} onBack={pop} />
       <div style={{ padding: "8px 16px 32px", display: "flex", flexDirection: "column", gap: 12,
         animation: "ag-fade .25s var(--ag-ease)" }}>
 
@@ -62,7 +62,7 @@ export default function AIInsights() {
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {health ? <ScoreRing score={health.score} /> : <div style={{ width: 110, height: 110 }} />}
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: T.display, fontSize: 16, fontWeight: 700 }}>Farm Health Score</div>
+              <div style={{ fontFamily: T.display, fontSize: 16, fontWeight: 700 }}>{tc({ en: "Farm Health Score", hi: "फार्म स्वास्थ्य स्कोर", bn: "খামার স্বাস্থ্য স্কোর" })}</div>
               <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 4, lineHeight: 1.5 }}>
                 Computed from your real records: profit, vaccinations, stock alerts, tasks and mortality.
               </div>
@@ -86,7 +86,7 @@ export default function AIInsights() {
         </Card>
 
         {/* AI advice */}
-        <SectionHeader title="AI Advisor" />
+        <SectionHeader title={tc({ en: "AI Advisor", hi: "AI सलाहकार", bn: "AI পরামর্শদাতা" })} />
         {!insights && (
           <Card pad={16}>
             <div style={{ fontSize: 13, color: T.inkSoft, lineHeight: 1.6, marginBottom: 12 }}>

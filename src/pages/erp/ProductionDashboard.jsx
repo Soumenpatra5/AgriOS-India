@@ -12,7 +12,7 @@ const BG = { primary: T.primarySoft, blue: T.blueSoft, orange: T.orangeSoft, red
 const fmtDate = (d) => new Date(d + "T12:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
 export default function ProductionDashboard() {
-  const { pop } = useApp();
+  const { pop, tc } = useApp();
   const [snapshot, setSnapshot]   = useState([]);
   const [harvests, setHarvests]   = useState([]);
   const [mortality, setMortality] = useState(0);
@@ -27,15 +27,15 @@ export default function ProductionDashboard() {
 
   return (
     <>
-      <AppBar title="Production" onBack={pop} />
+      <AppBar title={tc({ en: "Production", hi: "उत्पादन", bn: "উৎপাদন" })} onBack={pop} />
       <div style={{ padding: "8px 16px 32px", display: "flex", flexDirection: "column", gap: 12,
         animation: "ag-fade .25s var(--ag-ease)" }}>
 
-        <SectionHeader title={`This Month — ${monthName}`} />
+        <SectionHeader title={tc({ en: `This Month — ${monthName}`, hi: `इस माह — ${monthName}`, bn: `এ মাসে — ${monthName}` })} />
 
         {snapshot.length === 0 ? (
           <EmptyHint icon="TrendingUp"
-            text="No production logged yet — daily logs in each livestock module appear here" />
+            text={tc({ en: "No production logged yet — daily logs in each livestock module appear here", hi: "अभी कोई उत्पादन दर्ज नहीं — हर पशुधन मॉड्यूल के दैनिक लॉग यहाँ दिखेंगे", bn: "এখনও কোনও উৎপাদন লেখা হয়নি — প্রতিটি পশুসম্পদ মডিউলের দৈনিক লগ এখানে দেখা যাবে" })} />
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {snapshot.map((r) => {
@@ -47,7 +47,7 @@ export default function ProductionDashboard() {
                       display: "grid", placeItems: "center" }}>
                       <Icon name={r.enterprise.icon} size={16} color={FG[a] || T.primary} />
                     </div>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft }}>{r.enterprise.label}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft }}>{r.enterprise.i18n ? tc(r.enterprise.i18n) : r.enterprise.label}</div>
                   </div>
                   <div style={{ fontFamily: T.display, fontSize: 20, fontWeight: 700, color: FG[a] || T.primary }}>
                     {r.total.toLocaleString("en-IN")} <span style={{ fontSize: 12 }}>{r.metric.unit}</span>
@@ -71,7 +71,7 @@ export default function ProductionDashboard() {
           </div>
         )}
 
-        <SectionHeader title="Recent Harvests" />
+        <SectionHeader title={tc({ en: "Recent Harvests", hi: "हाल की कटाई", bn: "সাম্প্রতিক আহরণ" })} />
         {harvests.length === 0
           ? <div style={{ fontSize: 12.5, color: T.inkFaint, textAlign: "center", padding: "12px 0" }}>
               Harvest events (fish, honey…) will appear here.

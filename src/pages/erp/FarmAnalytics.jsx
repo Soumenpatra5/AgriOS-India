@@ -10,7 +10,7 @@ import { assetService } from "../../services/assets/assetService.js";
 import { rupee, compact } from "../../utils/format.js";
 
 export default function FarmAnalytics() {
-  const { pop } = useApp();
+  const { pop, tc } = useApp();
   const year = new Date().getFullYear();
   const [kpi, setKpi]             = useState(null);
   const [costs, setCosts]         = useState([]);
@@ -30,7 +30,7 @@ export default function FarmAnalytics() {
 
   return (
     <>
-      <AppBar title="Farm Analytics" onBack={pop} />
+      <AppBar title={tc({ en: "Farm Analytics", hi: "फार्म विश्लेषण", bn: "খামার বিশ্লেষণ" })} onBack={pop} />
       <div style={{ padding: "8px 16px 32px", display: "flex", flexDirection: "column", gap: 12,
         animation: "ag-fade .25s var(--ag-ease)" }}>
 
@@ -38,12 +38,12 @@ export default function FarmAnalytics() {
         {kpi && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {[
-              { label: "Revenue", value: compact(kpi.totalRevenue), fg: T.primary, bg: T.primarySoft },
-              { label: "Net Profit", value: compact(kpi.netProfit), fg: kpi.netProfit >= 0 ? T.primary : T.red, bg: kpi.netProfit >= 0 ? T.primarySoft : T.redSoft },
-              { label: "ROI", value: `${kpi.roi}%`, fg: T.blue, bg: T.blueSoft },
-              { label: "Margin", value: `${kpi.profitMargin}%`, fg: T.orange, bg: T.orangeSoft },
-              { label: "Stock Value", value: compact(stockValue), fg: T.yellow, bg: T.yellowSoft },
-              { label: "Asset Value", value: compact(assetValue), fg: T.blue, bg: T.blueSoft },
+              { label: tc({ en: "Revenue", hi: "राजस्व", bn: "আয়" }), value: compact(kpi.totalRevenue), fg: T.primary, bg: T.primarySoft },
+              { label: tc({ en: "Net Profit", hi: "शुद्ध लाभ", bn: "নিট মুনাফা" }), value: compact(kpi.netProfit), fg: kpi.netProfit >= 0 ? T.primary : T.red, bg: kpi.netProfit >= 0 ? T.primarySoft : T.redSoft },
+              { label: tc({ en: "ROI", hi: "ROI", bn: "ROI" }), value: `${kpi.roi}%`, fg: T.blue, bg: T.blueSoft },
+              { label: tc({ en: "Margin", hi: "मार्जिन", bn: "মার্জিন" }), value: `${kpi.profitMargin}%`, fg: T.orange, bg: T.orangeSoft },
+              { label: tc({ en: "Stock Value", hi: "स्टॉक मूल्य", bn: "মজুতের মূল্য" }), value: compact(stockValue), fg: T.yellow, bg: T.yellowSoft },
+              { label: tc({ en: "Asset Value", hi: "संपत्ति मूल्य", bn: "সম্পদের মূল্য" }), value: compact(assetValue), fg: T.blue, bg: T.blueSoft },
             ].map((c) => (
               <div key={c.label} style={{ background: c.bg, borderRadius: T.rLg, padding: "13px 14px" }}>
                 <div style={{ fontFamily: T.display, fontSize: 19, fontWeight: 700, color: c.fg }}>{c.value}</div>
@@ -54,7 +54,7 @@ export default function FarmAnalytics() {
         )}
 
         {/* Cost per unit */}
-        <SectionHeader title="Cost Per Unit" />
+        <SectionHeader title={tc({ en: "Cost Per Unit", hi: "प्रति इकाई लागत", bn: "প্রতি এককের ব্যয়" })} />
         {costs.filter((c) => c.costPerUnit !== null).length === 0 ? (
           <div style={{ fontSize: 12.5, color: T.inkFaint, textAlign: "center", padding: "10px 0" }}>
             Log production and tag ledger entries to an enterprise to see cost per egg / litre / kg.
@@ -83,7 +83,7 @@ export default function FarmAnalytics() {
         {/* Break-even */}
         {breakEven.length > 0 && (
           <>
-            <SectionHeader title="Break-even" />
+            <SectionHeader title={tc({ en: "Break-even", hi: "लाभ-हानि बराबर", bn: "সমতা বিন্দু" })} />
             {breakEven.map((b) => (
               <Card key={b.enterprise.id} pad={13}>
                 <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 6 }}>{b.enterprise.label}</div>

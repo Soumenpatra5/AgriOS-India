@@ -12,11 +12,11 @@ import { taskService } from "../tasks/taskService.js";
 const year = () => new Date().getFullYear();
 
 export const REPORT_TYPES = [
-  { id: "summary",    label: "Farm Summary",      icon: "House"     },
-  { id: "financial",  label: "Financial Report",  icon: "Wallet"    },
-  { id: "production", label: "Production Report", icon: "TrendingUp"},
-  { id: "livestock",  label: "Livestock Report",  icon: "Rabbit"    },
-  { id: "inventory",  label: "Inventory Report",  icon: "Boxes"     },
+  { id: "summary",    label: "Farm Summary",      icon: "House", i18n: { en: "Farm Summary", hi: "फार्म सारांश", bn: "খামার সারসংক্ষেপ" }     },
+  { id: "financial",  label: "Financial Report",  icon: "Wallet", i18n: { en: "Financial Report", hi: "वित्तीय रिपोर्ट", bn: "আর্থিক রিপোর্ট" }    },
+  { id: "production", label: "Production Report", icon: "TrendingUp", i18n: { en: "Production Report", hi: "उत्पादन रिपोर्ट", bn: "উৎপাদন রিপোর্ট" }},
+  { id: "livestock",  label: "Livestock Report",  icon: "Rabbit", i18n: { en: "Livestock Report", hi: "पशुधन रिपोर्ट", bn: "পশুসম্পদ রিপোর্ট" }    },
+  { id: "inventory",  label: "Inventory Report",  icon: "Boxes", i18n: { en: "Inventory Report", hi: "स्टॉक रिपोर्ट", bn: "মজুত রিপোর্ট" }     },
 ];
 
 export const reportService = {

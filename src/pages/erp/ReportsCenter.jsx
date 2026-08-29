@@ -6,24 +6,24 @@ import { useApp } from "../../store/AppStore.jsx";
 import { reportService, REPORT_TYPES } from "../../services/reports/reportService.js";
 
 export default function ReportsCenter() {
-  const { pop, toast } = useApp();
+  const { pop, toast, tc } = useApp();
   const [report, setReport]   = useState(null);
   const [loading, setLoading] = useState(false);
 
   const generate = async (typeId) => {
     setLoading(true);
     try { setReport(await reportService.build(typeId)); }
-    catch (e) { toast("Could not build report", "error"); }
+    catch (e) { toast(tc({ en: "Could not build report", hi: "रिपोर्ट नहीं बन सकी", bn: "রিপোর্ট তৈরি করা যায়নি" }), "error"); }
     setLoading(false);
   };
 
   return (
     <>
-      <AppBar title="Reports" onBack={pop} />
+      <AppBar title={tc({ en: "Reports", hi: "रिपोर्ट", bn: "রিপোর্ট" })} onBack={pop} />
       <div style={{ padding: "8px 16px 32px", display: "flex", flexDirection: "column", gap: 12,
         animation: "ag-fade .25s var(--ag-ease)" }}>
 
-        <SectionHeader title="Generate Report" />
+        <SectionHeader title={tc({ en: "Generate Report", hi: "रिपोर्ट बनाएँ", bn: "রিপোর্ট তৈরি করুন" })} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           {REPORT_TYPES.map((r) => (
             <Card key={r.id} onClick={() => generate(r.id)} pad={13}
@@ -32,7 +32,7 @@ export default function ReportsCenter() {
                 display: "grid", placeItems: "center", flexShrink: 0 }}>
                 <Icon name={r.icon} size={18} color={T.orange} />
               </div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>{r.label}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>{r.i18n ? tc(r.i18n) : r.label}</div>
             </Card>
           ))}
         </div>
@@ -75,7 +75,7 @@ export default function ReportsCenter() {
                         <tbody>
                           {s.table.data.length === 0
                             ? <tr><td colSpan={s.table.headers.length}
-                                style={{ padding: "8px", color: T.inkFaint, textAlign: "center" }}>No data yet</td></tr>
+                                style={{ padding: "8px", color: T.inkFaint, textAlign: "center" }}>{tc({ en: "No data yet", hi: "अभी कोई डेटा नहीं", bn: "এখনও কোনও তথ্য নেই" })}</td></tr>
                             : s.table.data.map((row, ri) => (
                               <tr key={ri}>{row.map((c, ci) => (
                                 <td key={ci} style={{ padding: "5px 8px", borderBottom: `1px solid ${T.lineSoft}`,
@@ -91,8 +91,8 @@ export default function ReportsCenter() {
             </Card>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <Button full icon="FileDown" variant="soft" onClick={() => { reportService.downloadCsv(report); toast("CSV downloaded — opens in Excel", "success"); }}>
-                Excel (CSV)
+              <Button full icon="FileDown" variant="soft" onClick={() => { reportService.downloadCsv(report); toast(tc({ en: "CSV downloaded — opens in Excel", hi: "CSV डाउनलोड हुई — Excel में खुलेगी", bn: "CSV ডাউনলোড হয়েছে — Excel-এ খুলবে" }), "success"); }}>
+                {tc({ en: "Excel (CSV)", hi: "Excel (CSV)", bn: "Excel (CSV)" })}
               </Button>
               <Button full icon="Printer" onClick={() => reportService.print(report)}>
                 PDF / Print
