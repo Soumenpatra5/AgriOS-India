@@ -26,7 +26,6 @@ export const SERVICE_CATEGORIES = [
   { id: "government",   label: { en: "Government & schemes", hi: "सरकार व योजनाएँ", bn: "সরকার ও স্কিম" }, icon: "Landmark",     accent: "primary" },
   { id: "documents",    label: { en: "Documents", hi: "दस्तावेज़", bn: "নথিপত্র" }, icon: "FileText",     accent: "blue"    },
   { id: "reports",      label: { en: "Reports & analytics", hi: "रिपोर्ट व विश्लेषण", bn: "রিপোর্ট ও বিশ্লেষণ" }, icon: "PieChart",     accent: "primary" },
-  { id: "settings",     label: { en: "Settings & admin", hi: "सेटिंग्स व एडमिन", bn: "সেটিংস ও অ্যাডমিন" }, icon: "Settings",     accent: "blue"    },
 ];
 
 /* badge: "new" | "ai" | "premium" (rendered as a small pill). coming: true
@@ -193,26 +192,6 @@ export const SERVICE_REGISTRY = [
     title: { en: "Farm analytics", hi: "फार्म विश्लेषण", bn: "খামার বিশ্লেষণ" }, desc: { en: "KPIs, cost & break-even", hi: "KPI, लागत, ब्रेक-ईवन", bn: "KPI, খরচ, ব্রেক-ইভেন" }, keywords: "analytics kpi cost break-even performance" },
   { id: "feedReports",  category: "reports", icon: "FileText", accent: "blue", kind: "feedReports",
     title: { en: "Feed reports", hi: "चारा रिपोर्ट", bn: "খাদ্য রিপোর্ট" }, desc: { en: "Cost, FCR, wastage & supplier", hi: "लागत, FCR, बर्बादी, आपूर्तिकर्ता", bn: "খরচ, FCR, অপচয়, সরবরাহকারী" }, keywords: "feed report fcr wastage cost supplier" },
-
-  /* ── Settings & admin ── */
-  { id: "settings",     category: "settings", icon: "Settings", accent: "blue", kind: "settings",
-    title: { en: "Settings", hi: "सेटिंग्स", bn: "সেটিংস" }, desc: { en: "App preferences", hi: "ऐप प्राथमिकताएँ", bn: "অ্যাপ পছন্দ" }, keywords: "settings preferences" },
-  { id: "personalize",  category: "settings", icon: "SlidersHorizontal", accent: "primary", kind: "personalize",
-    title: { en: "Personalize", hi: "अनुकूलित करें", bn: "ব্যক্তিগতকরণ" }, desc: { en: "Theme, layout & dashboard", hi: "थीम, लेआउट, डैशबोर्ड", bn: "থিম, লেআউট, ড্যাশবোর্ড" }, keywords: "personalize theme dark layout dashboard widget" },
-  { id: "subscription", category: "settings", icon: "Crown", accent: "yellow", kind: "subscription",
-    title: { en: "Subscription", hi: "सदस्यता", bn: "সাবস্ক্রিপশন" }, desc: { en: "Your plan & billing", hi: "आपकी योजना व बिलिंग", bn: "আপনার প্ল্যান ও বিলিং" }, keywords: "subscription plan premium billing" },
-  { id: "payments",     category: "settings", icon: "CreditCard", accent: "blue", kind: "payments",
-    title: { en: "Payments", hi: "भुगतान", bn: "পেমেন্ট" }, desc: { en: "Payment methods & history", hi: "भुगतान तरीके व इतिहास", bn: "পেমেন্ট পদ্ধতি ও ইতিহাস" }, keywords: "payment upi card billing" },
-  { id: "security",     category: "settings", icon: "Lock", accent: "primary", kind: "security",
-    title: { en: "Security", hi: "सुरक्षा", bn: "নিরাপত্তা" }, desc: { en: "Account security", hi: "खाता सुरक्षा", bn: "অ্যাকাউন্ট নিরাপত্তা" }, keywords: "security password login" },
-  { id: "permissions",  category: "settings", icon: "ShieldCheck", accent: "blue", kind: "permissions",
-    title: { en: "Permissions", hi: "अनुमतियाँ", bn: "অনুমতি" }, desc: { en: "App permissions", hi: "ऐप अनुमतियाँ", bn: "অ্যাপ অনুমতি" }, keywords: "permission access camera location" },
-  { id: "apiKeys",      category: "settings", icon: "Cpu", accent: "blue", kind: "apiKeyManager",
-    title: { en: "AI API keys", hi: "AI API कुंजियाँ", bn: "AI API কী" }, desc: { en: "Manage AI provider keys", hi: "AI प्रदाता कुंजियाँ प्रबंधित करें", bn: "AI প্রদানকারী কী পরিচালনা" }, keywords: "api key ai provider anthropic" },
-  { id: "storage",      category: "settings", icon: "HardDrive", accent: "orange", kind: "storage",
-    title: { en: "Storage", hi: "स्टोरेज", bn: "স্টোরেজ" }, desc: { en: "Local data & cache", hi: "स्थानीय डेटा व कैश", bn: "স্থানীয় ডেটা ও ক্যাশ" }, keywords: "storage cache data offline" },
-  { id: "about",        category: "settings", icon: "Info", accent: "blue", kind: "about",
-    title: { en: "About", hi: "बारे में", bn: "সম্পর্কে" }, desc: { en: "App info & version", hi: "ऐप जानकारी व संस्करण", bn: "অ্যাপ তথ্য ও সংস্করণ" }, keywords: "about version help info" },
 ];
 
 /* Precomputed category → services grouping. The registry is a static import
