@@ -36,7 +36,7 @@ const accentSoft = {
 };
 
 export default function LivestockHub() {
-  const { pop, push } = useApp();
+  const { pop, push, tc } = useApp();
   const { prefs } = usePrefs();
   const enterprises = filterByType(prefs, ENTERPRISES);
   const [counts, setCounts]   = useState({});
@@ -53,7 +53,7 @@ export default function LivestockHub() {
 
   return (
     <>
-      <AppBar title="Livestock" onBack={pop} />
+      <AppBar title={tc({ en: "Livestock", hi: "पशुधन", bn: "পশুসম্পদ" })} onBack={pop} />
       <div style={{ padding: `8px ${H_PAD}px 32px`, display: "flex", flexDirection: "column", gap: 12,
         animation: "ag-fade .25s var(--ag-ease)" }}>
 
@@ -80,14 +80,14 @@ export default function LivestockHub() {
               <Icon name="Package" size={22} color={T.orange} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: T.display, fontSize: 15, fontWeight: 700, color: T.ink }}>Feed Management</div>
-              <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>Calculator, inventory, purchases</div>
+              <div style={{ fontFamily: T.display, fontSize: 15, fontWeight: 700, color: T.ink }}>{tc({ en: "Feed Management", hi: "चारा प्रबंधन", bn: "খাদ্য ব্যবস্থাপনা" })}</div>
+              <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>{tc({ en: "Calculator, inventory, purchases", hi: "कैलकुलेटर, इन्वेंटरी, खरीद", bn: "ক্যালকুলেটর, ইনভেন্টরি, ক্রয়" })}</div>
             </div>
             <Icon name="ChevronRight" size={18} color={T.inkFaint} />
           </div>
         </Card>
 
-        <SectionHeader title="Your Enterprises" />
+        <SectionHeader title={tc({ en: "Your Enterprises", hi: "आपके उद्यम", bn: "আপনার উদ্যোগ" })} />
 
         {enterprises.map((e) => {
           const fg  = accentColor[e.accent] || T.primary;
@@ -106,14 +106,14 @@ export default function LivestockHub() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: T.display, fontSize: 15, fontWeight: 700, color: T.ink }}>
-                    {e.label}
+                    {e.i18n ? tc(e.i18n) : e.label}
                   </div>
                   <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
-                    {cnt === 0 ? "No animals added yet" : `${cnt} animal${cnt !== 1 ? "s" : ""} registered`}
+                    {cnt === 0 ? tc({ en: "No animals added yet", hi: "अभी कोई पशु नहीं जोड़ा", bn: "এখনও কোনও প্রাণী যোগ হয়নি" }) : tc({ en: `${cnt} animal${cnt !== 1 ? "s" : ""} registered`, hi: `${cnt} पशु दर्ज`, bn: `${cnt}টি প্রাণী নথিভুক্ত` })}
                     {upcomingCount > 0 && (
                       <span style={{ marginLeft: 8, background: T.orangeSoft, color: T.orange,
                         borderRadius: 6, padding: "1px 6px", fontSize: 11, fontWeight: 600 }}>
-                        {upcomingCount} due
+                        {upcomingCount} {tc({ en: "due", hi: "बाकी", bn: "বাকি" })}
                       </span>
                     )}
                   </div>
@@ -125,11 +125,11 @@ export default function LivestockHub() {
         })}
 
         {/* Quick tips */}
-        <SectionHeader title="Quick Tips" style={{ marginTop: 8 }} />
+        <SectionHeader title={tc({ en: "Quick Tips", hi: "त्वरित सुझाव", bn: "দ্রুত পরামর্শ" })} style={{ marginTop: 8 }} />
         {[
-          { icon: "Syringe",    text: "Log vaccinations to get timely reminders" },
-          { icon: "TrendingUp", text: "Daily production logs help track profitability" },
-          { icon: "AlertCircle",text: "Use AI Vet Advisor for health concerns" },
+          { icon: "Syringe",    text: tc({ en: "Log vaccinations to get timely reminders", hi: "समय पर रिमाइंडर के लिए टीकाकरण दर्ज करें", bn: "সময়মতো রিমাইন্ডারের জন্য টিকা লিখুন" }) },
+          { icon: "TrendingUp", text: tc({ en: "Daily production logs help track profitability", hi: "रोज़ उत्पादन दर्ज करने से लाभ का हिसाब रहता है", bn: "প্রতিদিনের উৎপাদন লিখলে লাভের হিসাব থাকে" }) },
+          { icon: "AlertCircle",text: tc({ en: "Use AI Vet Advisor for health concerns", hi: "स्वास्थ्य चिंताओं के लिए AI पशु सलाहकार से पूछें", bn: "স্বাস্থ্য সমস্যায় AI পশু পরামর্শকে জিজ্ঞাসা করুন" }) },
         ].map((tip, i) => (
           <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10,
             padding: "10px 12px", background: T.surface2, borderRadius: T.rMd }}>

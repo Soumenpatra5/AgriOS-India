@@ -1,13 +1,15 @@
 import { repo } from "./livestockDb.js";
 
+/* label stays English — it is the canonical name used in records, reports and
+   aggregation keys. i18n is what the UI shows. */
 export const ENTERPRISES = [
-  { id: "poultry", label: "Poultry",    icon: "Bird",      emoji: "🐔", accent: "orange" },
-  { id: "dairy",   label: "Dairy",      icon: "Milk",      emoji: "🐄", accent: "blue"   },
-  { id: "goat",    label: "Goat",       icon: "Rabbit",    emoji: "🐐", accent: "primary"},
-  { id: "pig",     label: "Pig",        icon: "PiggyBank", emoji: "🐖", accent: "red"    },
-  { id: "sheep",   label: "Sheep",      icon: "Beef",      emoji: "🐑", accent: "blue"   },
-  { id: "fish",    label: "Fish",       icon: "Fish",      emoji: "🐟", accent: "blue"   },
-  { id: "bee",     label: "Beekeeping", icon: "Bug",       emoji: "🐝", accent: "yellow" },
+  { id: "poultry", label: "Poultry",    icon: "Bird",      emoji: "🐔", accent: "orange",  i18n: { en: "Poultry",    hi: "मुर्गी पालन",   bn: "হাঁস-মুরগি"  } },
+  { id: "dairy",   label: "Dairy",      icon: "Milk",      emoji: "🐄", accent: "blue",    i18n: { en: "Dairy",      hi: "डेयरी",         bn: "ডেয়ারি"      } },
+  { id: "goat",    label: "Goat",       icon: "Rabbit",    emoji: "🐐", accent: "primary", i18n: { en: "Goat",       hi: "बकरी",          bn: "ছাগল"        } },
+  { id: "pig",     label: "Pig",        icon: "PiggyBank", emoji: "🐖", accent: "red",     i18n: { en: "Pig",        hi: "सूअर",          bn: "শূকর"        } },
+  { id: "sheep",   label: "Sheep",      icon: "Beef",      emoji: "🐑", accent: "blue",    i18n: { en: "Sheep",      hi: "भेड़",           bn: "ভেড়া"       } },
+  { id: "fish",    label: "Fish",       icon: "Fish",      emoji: "🐟", accent: "blue",    i18n: { en: "Fish",       hi: "मछली",          bn: "মাছ"         } },
+  { id: "bee",     label: "Beekeeping", icon: "Bug",       emoji: "🐝", accent: "yellow",  i18n: { en: "Beekeeping", hi: "मधुमक्खी पालन", bn: "মৌমাছি পালন" } },
 ];
 
 const animalsRepo     = repo("animals");
