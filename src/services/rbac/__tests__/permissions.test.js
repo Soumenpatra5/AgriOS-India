@@ -8,8 +8,16 @@ describe("can (permission matrix)", () => {
 
   it("worker has no sensitive capabilities (but keeps the roster)", () => {
     expect(can("worker", "team.view")).toBe(true);
-    for (const cap of ["salary.view", "documents.view", "finance.view", "team.manage", "payroll.manage", "records.delete", "settings.manage"]) {
-      expect(can("worker", cap)).toBe(false);
+    for (const cap of CAPABILITIES.filter((c) => c !== "team.view")) {
+      expect(can("worker", cap), cap).toBe(false);
+    }
+  });
+
+  it("keeps backup/erase and the owner's money and papers to the owner alone", () => {
+    for (const cap of ["data.manage", "profile.manage"]) {
+      expect(can("owner", cap), cap).toBe(true);
+      expect(can("manager", cap), cap).toBe(false);
+      expect(can("worker", cap), cap).toBe(false);
     }
   });
 

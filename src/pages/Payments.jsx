@@ -2,9 +2,17 @@ import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, Card } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
+import Restricted from "../components/Restricted.jsx";
 
 export default function Payments() {
-  const { pop, tc, push } = useApp();
+  const { pop, tc, push, can } = useApp();
+
+  if (!can("profile.manage")) return (
+    <>
+      <AppBar title={tc({ en: "Payments", hi: "भुगतान", bn: "পেমেন্ট" })} onBack={pop} />
+      <Restricted tc={tc} />
+    </>
+  );
 
   return (
     <>

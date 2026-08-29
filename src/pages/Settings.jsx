@@ -145,6 +145,10 @@ export default function Settings() {
           </>)}
         </Card>
 
+        {/* Backup exports every record to a file and restore overwrites them,
+            so this sits with the other destructive, owner-only actions rather
+            than being reachable by whoever is holding the phone. */}
+        {can("data.manage") && (
         <Card pad={6}>
           <Row icon="Download" label={tc({ en: "Backup data", hi: "डेटा बैकअप", bn: "ডেটা ব্যাকআপ" })} onClick={handleBackup}>
             {backing
@@ -159,6 +163,7 @@ export default function Settings() {
           </Row>
           <input ref={restoreRef} type="file" accept=".json" onChange={handleRestore} style={{ display: "none" }} />
         </Card>
+        )}
 
         <Card pad={6}>
           <Row icon="Info" label={t("about")} onClick={() => push({ kind: "about" })} last>

@@ -4,6 +4,7 @@ import Icon from "../components/Icon.jsx";
 import { AppBar, Card, BottomSheet, EmptyState } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { storage } from "../utils/storage.js";
+import Restricted from "../components/Restricted.jsx";
 
 const KEY = "docs:list";
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -19,7 +20,7 @@ const DOC_TYPES = [
 const typeOf = (id) => DOC_TYPES.find((d) => d.id === id) || DOC_TYPES[5];
 
 export default function Documents() {
-  const { pop, tc, toast } = useApp();
+  const { pop, tc, toast, can } = useApp();
   const [docs, setDocs] = useState(() => storage.get(KEY, []));
   const [open, setOpen] = useState(false);
   const [type, setType] = useState("land");
@@ -35,6 +36,13 @@ export default function Documents() {
     toast(tc({ en: "Document saved", hi: "दस्तावेज़ सहेजा गया", bn: "নথি সংরক্ষিত হয়েছে" }), "success");
   };
   const remove = (id) => { save(docs.filter((d) => d.id !== id)); };
+
+  if (!can("profile.manage")) return (
+    <>
+      <AppBar title={tc({ en: "Documents", hi: "दस्तावेज़", bn: "নথিপত্র" })} onBack={pop} />
+      <Restricted tc={tc} />
+    </>
+  );
 
   return (
     <>

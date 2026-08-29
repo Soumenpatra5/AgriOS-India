@@ -21,8 +21,11 @@ const PROVIDER_LABELS = {
   phone: "Phone", password: "Email",
 };
 
+/* Money and personal papers — the owner's, not whoever is holding the phone. */
+const OWNER_ONLY_ITEMS = new Set(["subscription", "payments", "documents"]);
+
 export default function Profile() {
-  const { t, tc, user, push, logout, toast } = useApp();
+  const { t, tc, user, push, logout, toast, can } = useApp();
   const online = useOnline();
   const [confirm, setConfirm] = useState(false);
   const [pending, setPending] = useState(0);
@@ -144,7 +147,9 @@ export default function Profile() {
         <AccessModeCard />
 
         <Card pad={6}>
-          {PROFILE_ITEMS.map((it, i) => (
+          {/* The pages themselves are gated too; this only avoids offering a
+              row that would open straight onto a "restricted" screen. */}
+          {PROFILE_ITEMS.filter((it) => !OWNER_ONLY_ITEMS.has(it.id) || can("profile.manage")).map((it, i) => (
             <button key={it.id} onClick={() => tap(it.id)}
               style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "13px 12px", cursor: "pointer",
                 background: "none", border: "none", borderTop: i ? `1px solid ${T.lineSoft}` : "none", fontFamily: T.body }}>

@@ -7,6 +7,7 @@ import { conversationStore, responseCache } from "../ai/index.js";
 import { reminderService } from "../services/calendar/reminderService.js";
 import { priceAlertService } from "../services/market/priceAlerts.js";
 import { errorLog } from "../utils/errorLog.js";
+import Restricted from "../components/Restricted.jsx";
 
 const NS = "agrios:";
 
@@ -29,7 +30,7 @@ function fmtBytes(b) {
 }
 
 export default function StorageManager() {
-  const { pop, tc, toast, push } = useApp();
+  const { pop, tc, toast, push, can } = useApp();
   const [tick, setTick] = useState(0);
   const [estimate, setEstimate] = useState(null);
   const [confirm, setConfirm] = useState(null); // { title, body, run }
@@ -62,6 +63,13 @@ export default function StorageManager() {
   const clearReminders = () => { reminderService.clear(); refresh(); toast(tc({ en: "Reminders cleared", hi: "रिमाइंडर साफ़", bn: "রিমাইন্ডার মুছে গেছে" }), "success"); };
 
   const ask = (title, body, run) => setConfirm({ title, body, run });
+
+  if (!can("data.manage")) return (
+    <>
+      <AppBar title={tc({ en: "Storage & Data", hi: "स्टोरेज और डेटा", bn: "স্টোরেজ ও ডেটা" })} onBack={pop} />
+      <Restricted tc={tc} />
+    </>
+  );
 
   return (
     <>

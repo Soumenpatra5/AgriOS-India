@@ -29,7 +29,9 @@ export const CAPABILITIES = [
   "documents.view",   // employee documents (ID / bank / medical)
   "payroll.manage",   // record payments / advances / bonuses
   "records.delete",   // delete critical records (farms, employees, ledger…)
-  "settings.manage",  // security / privacy / subscription / API keys
+  "settings.manage",  // security / privacy / API keys
+  "data.manage",      // backup, restore, erase — the whole device's data
+  "profile.manage",   // subscription, payment methods, the owner's own documents
 ];
 
 const MATRIX = {

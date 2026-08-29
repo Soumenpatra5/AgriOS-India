@@ -2,6 +2,7 @@ import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { AppBar, Card } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
+import Restricted from "../components/Restricted.jsx";
 
 const PREMIUM_FEATURES = [
   { en: "Unlimited AI assistant questions", hi: "असीमित AI सहायक प्रश्न", bn: "সীমাহীন AI সহায়ক প্রশ্ন" },
@@ -26,7 +27,14 @@ function FeatureLine({ text, tc, on }) {
 }
 
 export default function Subscription() {
-  const { pop, tc, toast } = useApp();
+  const { pop, tc, toast, can } = useApp();
+
+  if (!can("profile.manage")) return (
+    <>
+      <AppBar title={tc({ en: "Subscription", hi: "सदस्यता", bn: "সাবস্ক্রিপশন" })} onBack={pop} />
+      <Restricted tc={tc} />
+    </>
+  );
 
   return (
     <>
