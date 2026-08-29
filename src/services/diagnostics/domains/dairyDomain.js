@@ -8,6 +8,10 @@ export const dairyDomain = {
   emoji:  "🐄",
   accent: "blue",
   description: "Diagnose health problems in cows and buffaloes",
+  /* Display copy. name/description stay English because orchestrator.js
+     puts them in the model prompt; these are what the UI shows. */
+  label: { en: "Dairy (Cow & Buffalo)", hi: "डेयरी (गाय और भैंस)", bn: "ডেয়ারি (গরু ও মহিষ)" },
+  desc:  { en: "Diagnose health problems in cows and buffaloes", hi: "गाय और भैंस में स्वास्थ्य समस्याएँ पहचानें", bn: "গরু ও মহিষের স্বাস্থ্য সমস্যা শনাক্ত করুন" },
 
   species: ["HF / Holstein", "Jersey", "Gir (Desi Cow)", "Sahiwal", "Murrah Buffalo", "Surti Buffalo", "Jaffarabadi Buffalo", "Nili-Ravi Buffalo", "Mixed / Local Breed"],
 

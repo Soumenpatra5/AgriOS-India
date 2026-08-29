@@ -8,6 +8,10 @@ export const poultryDomain = {
   emoji:  "🐔",
   accent: "orange",
   description: "Diagnose diseases and health problems in chickens, ducks, and turkeys",
+  /* Display copy. name/description stay English because orchestrator.js
+     puts them in the model prompt; these are what the UI shows. */
+  label: { en: "Poultry", hi: "मुर्गी पालन", bn: "হাঁস-মুরগি" },
+  desc:  { en: "Diagnose diseases and health problems in chickens, ducks, and turkeys", hi: "मुर्गी, बत्तख और टर्की में रोग और स्वास्थ्य समस्याएँ पहचानें", bn: "মুরগি, হাঁস ও টার্কির রোগ ও স্বাস্থ্য সমস্যা শনাক্ত করুন" },
 
   species: ["Broiler", "Layer (Egg bird)", "Country Chicken (Desi)", "Duck", "Turkey", "Guinea Fowl", "Quail"],
 

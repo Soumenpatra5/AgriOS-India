@@ -8,6 +8,10 @@ export const fishDomain = {
   emoji:  "🐟",
   accent: "blue",
   description: "Diagnose diseases and health problems in fish and aquaculture",
+  /* Display copy. name/description stay English because orchestrator.js
+     puts them in the model prompt; these are what the UI shows. */
+  label: { en: "Fish Farming", hi: "मछली पालन", bn: "মাছ চাষ" },
+  desc:  { en: "Diagnose diseases and health problems in fish and aquaculture", hi: "मछली और जलकृषि में रोग और स्वास्थ्य समस्याएँ पहचानें", bn: "মাছ ও মৎস্যচাষে রোগ ও স্বাস্থ্য সমস্যা শনাক্ত করুন" },
 
   species: ["Rohu", "Catla", "Mrigal", "Common Carp", "Grass Carp", "Silver Carp", "Pangasius", "Tilapia", "Catfish (Magur/Singhi)", "Prawn (Vannamei)", "Prawn (Tiger)", "Hilsa", "Murrel", "Pearl Spot", "Other"],
 

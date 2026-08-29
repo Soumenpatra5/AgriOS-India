@@ -8,6 +8,10 @@ export const plantDomain = {
   emoji:  "🌱",
   accent: "primary",
   description: "Diagnose diseases, pests, nutrient deficiencies, and stress in crops",
+  /* Display copy. name/description stay English because orchestrator.js
+     puts them in the model prompt; these are what the UI shows. */
+  label: { en: "Plant & Crop", hi: "फ़सल और पौधे", bn: "ফসল ও গাছ" },
+  desc:  { en: "Diagnose diseases, pests, nutrient deficiencies, and stress in crops", hi: "फ़सलों में रोग, कीट, पोषक तत्वों की कमी और तनाव पहचानें", bn: "ফসলের রোগ, পোকা, পুষ্টির ঘাটতি ও চাপ শনাক্ত করুন" },
 
   species: [
     "Paddy (Rice)", "Wheat", "Maize (Corn)", "Cotton", "Mustard", "Soybean",

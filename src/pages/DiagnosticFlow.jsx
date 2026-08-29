@@ -100,7 +100,7 @@ export default function DiagnosticFlow({ domainId }) {
         <CameraCapture onCapture={handleCapture} onCancel={() => setCameraOpen(false)} />
       )}
 
-      <AppBar title={domain.name} onBack={analyzing ? undefined : pop} />
+      <AppBar title={domain.label ? tc(domain.label) : domain.name} onBack={analyzing ? undefined : pop} />
 
       <div style={{ padding: "16px 16px 100px", animation: "ag-fade .22s var(--ag-ease)" }}>
 

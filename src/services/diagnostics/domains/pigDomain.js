@@ -7,6 +7,10 @@ export const pigDomain = {
   emoji:  "🐖",
   accent: "red",
   description: "Diagnose diseases and health problems in pigs",
+  /* Display copy. name/description stay English because orchestrator.js
+     puts them in the model prompt; these are what the UI shows. */
+  label: { en: "Pig Farming", hi: "सूअर पालन", bn: "শূকর পালন" },
+  desc:  { en: "Diagnose diseases and health problems in pigs", hi: "सूअरों में रोग और स्वास्थ्य समस्याएँ पहचानें", bn: "শূকরের রোগ ও স্বাস্থ্য সমস্যা শনাক্ত করুন" },
 
   species: ["Desi (Indigenous)", "Large White Yorkshire", "Landrace", "Hampshire", "Duroc", "Crossbred"],
 

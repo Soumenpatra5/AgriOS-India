@@ -7,6 +7,10 @@ export const goatDomain = {
   emoji:  "🐐",
   accent: "orange",
   description: "Diagnose diseases and health problems in goats and sheep",
+  /* Display copy. name/description stay English because orchestrator.js
+     puts them in the model prompt; these are what the UI shows. */
+  label: { en: "Goat Farming", hi: "बकरी पालन", bn: "ছাগল পালন" },
+  desc:  { en: "Diagnose diseases and health problems in goats and sheep", hi: "बकरी और भेड़ में रोग और स्वास्थ्य समस्याएँ पहचानें", bn: "ছাগল ও ভেড়ার রোগ ও স্বাস্থ্য সমস্যা শনাক্ত করুন" },
 
   species: ["Black Bengal", "Sirohi", "Barbari", "Osmanabadi", "Jamunapari", "Beetal", "Malabari", "Sheep (Desi)", "Other"],
 

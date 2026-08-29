@@ -58,7 +58,7 @@ export default function DiagnosticResult({ record }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 11, color: T.inkFaint, marginBottom: 4, fontWeight: 600, letterSpacing: .5 }}>
-            {(domain?.name || record.domainId || "").toUpperCase()}
+            {(domain?.label ? tc(domain.label) : (domain?.name || record.domainId || "")).toUpperCase()}
             {record.species ? ` · ${record.species}` : ""}
           </div>
           <div style={{ fontFamily: T.display, fontSize: 19, fontWeight: 800, color: T.ink, lineHeight: 1.2 }}>

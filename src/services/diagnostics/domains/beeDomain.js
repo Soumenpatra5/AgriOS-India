@@ -7,6 +7,10 @@ export const beeDomain = {
   emoji:  "🐝",
   accent: "yellow",
   description: "Assess hive health, diagnose bee diseases, and monitor colony strength",
+  /* Display copy. name/description stay English because orchestrator.js
+     puts them in the model prompt; these are what the UI shows. */
+  label: { en: "Bee Keeping", hi: "मधुमक्खी पालन", bn: "মৌমাছি পালন" },
+  desc:  { en: "Assess hive health, diagnose bee diseases, and monitor colony strength", hi: "छत्ते का स्वास्थ्य जाँचें, रोग पहचानें और कॉलोनी की ताकत देखें", bn: "মৌচাকের স্বাস্থ্য যাচাই করুন, রোগ শনাক্ত করুন ও কলোনির শক্তি দেখুন" },
 
   species: ["Apis mellifera (European Honey Bee)", "Apis cerana (Indian Honey Bee)", "Apis dorsata (Rock Bee)", "Apis florea (Dwarf Bee)", "Stingless Bee (Meliponini)"],
 

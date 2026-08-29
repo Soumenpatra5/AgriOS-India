@@ -83,8 +83,10 @@ export default function DiagnosticsHome() {
                   display: "grid", placeItems: "center" }}>
                   <Icon name={d.icon} size={22} style={{ color: ac.fg }} />
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>{d.name}</div>
-                <div style={{ fontSize: 11.5, color: T.inkSoft, lineHeight: 1.4 }}>{d.description}</div>
+                {/* Fall back to the English name so a domain registered
+                    without display copy still shows something. */}
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>{d.label ? tc(d.label) : d.name}</div>
+                <div style={{ fontSize: 11.5, color: T.inkSoft, lineHeight: 1.4 }}>{d.desc ? tc(d.desc) : d.description}</div>
               </button>
             );
           })}
