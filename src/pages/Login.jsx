@@ -30,6 +30,10 @@ const ERR = {
      farmer retrying. */
   "auth/unauthorized-domain":  { en: "This site isn't authorised for sign-in yet. Please report this.", hi: "यह साइट अभी साइन-इन के लिए अधिकृत नहीं है। कृपया सूचित करें।", bn: "এই সাইটটি এখনও সাইন-ইনের জন্য অনুমোদিত নয়। দয়া করে জানান।" },
   "auth/operation-not-allowed": { en: "This sign-in method isn't switched on yet. Please report this.", hi: "यह साइन-इन तरीका अभी चालू नहीं है। कृपया सूचित करें।", bn: "এই সাইন-ইন পদ্ধতি এখনও চালু নয়। দয়া করে জানান।" },
+  /* The build has no Firebase config at all — VITE_FB_API_KEY was missing
+     when it was built, so there is no auth object. Nothing the farmer does
+     will help; say so instead of showing an SDK TypeError. */
+  "auth/not-configured": { en: "Sign-in isn't available in this build — it was built without its Firebase settings.", hi: "इस बिल्ड में साइन-इन उपलब्ध नहीं — यह Firebase सेटिंग्स के बिना बनाया गया है।", bn: "এই বিল্ডে সাইন-ইন উপলব্ধ নয় — এটি Firebase সেটিংস ছাড়াই তৈরি হয়েছে।" },
   "auth/popup-closed-by-user": { en: "Sign-in was cancelled", hi: "साइन-इन रद्द किया गया", bn: "সাইন-ইন বাতিল হয়েছে" },
   "auth/cancelled-popup-request": { en: "Sign-in was cancelled", hi: "साइन-इन रद्द किया गया", bn: "সাইন-ইন বাতিল হয়েছে" },
 };

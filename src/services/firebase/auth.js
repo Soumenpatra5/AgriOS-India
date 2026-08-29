@@ -19,6 +19,23 @@ import { auth, fbEnabled } from "./config.js";
 
 if (fbEnabled) setPersistence(auth, browserLocalPersistence).catch(() => {});
 
+/* Firebase is optional — the app runs offline-first without it, so config.js
+   leaves `auth` null when VITE_FB_API_KEY is absent. Every call below needs
+   it, and passing a null auth into the SDK produced
+
+     TypeError: Cannot read properties of null (reading 'app')
+
+   which reached the farmer as an unactionable string and told nobody that the
+   build simply has no Firebase config. Fail with a real code instead. */
+function requireAuth() {
+  if (!fbEnabled || !auth) {
+    const err = new Error("Firebase is not configured for this build");
+    err.code = "auth/not-configured";
+    throw err;
+  }
+  return auth;
+}
+
 let confirmationResult = null;
 
 /* ── Phone OTP ───────────────────────────────────────────────────────────── */
@@ -26,7 +43,7 @@ let confirmationResult = null;
 export function setupRecaptcha() {}
 
 export async function sendOtp(phone) {
-  const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+  const verifier = new RecaptchaVerifier(requireAuth(), "recaptcha-container", {
     size: "invisible",
   });
   try {
@@ -51,18 +68,18 @@ export async function verifyOtp(code) {
 /* ── Email / Password ────────────────────────────────────────────────────── */
 
 export async function signInWithEmail(email, password) {
-  const result = await signInWithEmailAndPassword(auth, email, password);
+  const result = await signInWithEmailAndPassword(requireAuth(), email, password);
   return result.user;
 }
 
 export async function signUpWithEmail(email, password) {
-  const result = await createUserWithEmailAndPassword(auth, email, password);
+  const result = await createUserWithEmailAndPassword(requireAuth(), email, password);
   return result.user;
 }
 
 export async function checkEmailExists(email) {
   try {
-    const methods = await fetchSignInMethodsForEmail(auth, email);
+    const methods = await fetchSignInMethodsForEmail(requireAuth(), email);
     return methods.length > 0;
   } catch {
     return false;
@@ -70,28 +87,28 @@ export async function checkEmailExists(email) {
 }
 
 export async function resetPassword(email) {
-  await sendPasswordResetEmail(auth, email);
+  await sendPasswordResetEmail(requireAuth(), email);
 }
 
 /* ── Social providers ────────────────────────────────────────────────────── */
 
 export async function signInWithGoogle() {
-  const result = await signInWithPopup(auth, new GoogleAuthProvider());
+  const result = await signInWithPopup(requireAuth(), new GoogleAuthProvider());
   return result.user;
 }
 
 export async function signInWithFacebook() {
-  const result = await signInWithPopup(auth, new FacebookAuthProvider());
+  const result = await signInWithPopup(requireAuth(), new FacebookAuthProvider());
   return result.user;
 }
 
 export async function signInWithApple() {
-  const result = await signInWithPopup(auth, new OAuthProvider("apple.com"));
+  const result = await signInWithPopup(requireAuth(), new OAuthProvider("apple.com"));
   return result.user;
 }
 
 export async function signInWithTwitter() {
-  const result = await signInWithPopup(auth, new TwitterAuthProvider());
+  const result = await signInWithPopup(requireAuth(), new TwitterAuthProvider());
   return result.user;
 }
 
@@ -103,6 +120,10 @@ export function onAuthChange(cb) {
 }
 
 export async function getIdToken() {
+  /* Called on the API path, not only from the login screen — returning null
+     when Firebase is absent lets callers fall back to an unauthenticated
+     request instead of crashing on a null auth. */
+  if (!fbEnabled || !auth) return null;
   const user = auth.currentUser;
   return user ? user.getIdToken() : null;
 }

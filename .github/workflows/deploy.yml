@@ -1,0 +1,99 @@
+name: Deploy to Vercel
+
+# Auto-deploy on push, without Vercel's GitHub integration.
+#
+# WHY THIS EXISTS. The repository moved to the Soumenpatra5 account, but the
+# Vercel account signs in as GitHub user soumen-patra01. Linking a project
+# needs write access to the repo, and one GitHub user does not have that on
+# another user's repository — so `vercel git connect` fails with
+#
+#     You need admin or write access to the repository "AgriOS-India" (400)
+#
+# and Vercel's own push-to-deploy could not be restored. This workflow runs
+# inside the repository itself, where the push already happened, and calls
+# Vercel over the API with a token. No cross-account permission is involved.
+#
+# WHY IT DOES NOT USE `vercel build --prebuilt`. Every environment variable on
+# the project is typed Sensitive, which makes it write-only: `vercel pull`
+# returns the literal string "[SENSITIVE]" rather than a value. Building here
+# would bake those placeholders into the bundle and break Firebase at runtime.
+# Plain `vercel deploy` uploads the source and lets Vercel build it, where the
+# real values exist.
+#
+# SETUP — one secret, created in accounts you already control:
+#   1. vercel.com → Account Settings → Tokens → create a token
+#   2. GitHub → Soumenpatra5/AgriOS-India → Settings → Secrets and variables →
+#      Actions → New repository secret → name VERCEL_TOKEN, paste the token
+# The org and project ids below are not secrets; they identify the project and
+# are safe in source. They come from .vercel/project.json, which is gitignored.
+#
+# Deploys only after lint, tests and the build pass in CI — a manual
+# `vercel --prod` skips all of that, which is the failure mode this replaces.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Never deploy a red build. workflow_dispatch has no upstream run, so it is
+    # allowed through for a deliberate manual deploy.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    env:
+      VERCEL_ORG_ID: team_eCowB4XHckU90LFmbU9Hwjhr
+      VERCEL_PROJECT_ID: prj_9BGSAWJJ6qoT9VNdTGOsGwNu9z70
+
+    steps:
+      - name: Checkout the commit CI validated
+        uses: actions/checkout@v4
+        with:
+          # workflow_run fires against the default branch by default; pin to the
+          # exact commit CI passed on so a race cannot deploy something newer
+          # and untested.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Fail early if the token is missing
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN is not set. See the setup notes at the top of this file."
+            exit 1
+          fi
+
+      - name: Deploy
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          # No --prebuilt: Vercel builds this, so the project's real (Sensitive)
+          # environment variables are available at build time.
+          url=$(npx --yes vercel@latest deploy --prod --yes --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed $url"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deployed to production"
+            echo ""
+            echo "- commit: \`${{ github.event.workflow_run.head_sha || github.sha }}\`"
+            echo "- url: ${{ steps.deploy.outputs.url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
