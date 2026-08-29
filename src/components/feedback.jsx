@@ -83,7 +83,23 @@ export function ToastHost() {
             background: T.elevated, color: T.ink, border: `1px solid ${T.line}`, borderRadius: T.rMd, padding: "12px 14px",
             boxShadow: T.shadowLg, animation: "ag-toast .28s var(--ag-ease)" }}>
           <Icon name={iconOf[tst.kind] || "Info"} size={18} style={{ color: tone[tst.kind] || T.ink, flexShrink: 0 }} />
-          <span style={{ fontSize: 13.5, fontWeight: 500 }}>{tst.message}</span>
+          <span style={{ fontSize: 13.5, fontWeight: 500, flex: 1, minWidth: 0 }}>{tst.message}</span>
+          {tst.action && (
+            <button
+              onClick={(e) => {
+                /* The toast body dismisses on click, so the action must not
+                   bubble into it — otherwise tapping Undo would race its own
+                   dismissal. */
+                e.stopPropagation();
+                dismissToast(tst.id);
+                tst.action.onPress?.();
+              }}
+              style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer",
+                color: T.primary, fontFamily: T.body, fontSize: 13.5, fontWeight: 700,
+                padding: "2px 4px", textTransform: "uppercase", letterSpacing: .3 }}>
+              {tst.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>

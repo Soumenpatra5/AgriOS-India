@@ -14,7 +14,7 @@ import { useApp } from "../store/AppStore.jsx";
 import Restricted from "../components/Restricted.jsx";
 import FilePicker from "../components/documents/FilePicker.jsx";
 import {
-  documentService, categoriesFor, categoryOf, expiryState,
+  documentService, categoriesFor, categoryOf, expiryState, onDocumentsChanged,
 } from "../services/documents/documentService.js";
 import { findDuplicate } from "../services/documents/fileValidation.js";
 import { filterDocuments, facets } from "../services/documents/documentSearch.js";
@@ -37,14 +37,22 @@ export default function Documents() {
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [delTarget, setDelTarget] = useState(null);
 
   const [query, setQuery] = useState("");
+  const [trash, setTrash] = useState(null);      // deleted docs, loaded on demand
+  const [showTrash, setShowTrash] = useState(false);
+  const [purgeTarget, setPurgeTarget] = useState(null);
   const [chip, setChip] = useState("all");
   const [sort, setSort] = useState("recent");
 
-  const refresh = () => documentService.list("owner").then(setDocs);
-  useEffect(() => { refresh(); }, []);
+  const refresh = () => Promise.all([
+    documentService.list("owner").then(setDocs),
+    documentService.listDeleted("owner").then(setTrash),
+  ]);
+  useEffect(() => {
+    refresh();
+    return onDocumentsChanged(refresh);
+  }, []);
 
   /* Filtering happens over the already-loaded list rather than the store: the
      screen holds metadata only (§32), and a farmer's list is tens of rows. */
@@ -97,11 +105,28 @@ export default function Documents() {
     }
   };
 
-  const confirmDelete = async () => {
-    await documentService.remove(delTarget.id);
-    setDelTarget(null);
+  /* Emptying the deleted list leaves the sheet with nothing to show, so it
+     closes itself rather than sitting there stale over the restored document. */
+  const closeTrashIfEmpty = async () => {
+    const left = await documentService.listDeleted("owner");
+    if (!left.length) setShowTrash(false);
+  };
+
+  const restore = async (id) => {
+    const back = await documentService.restore(id);
     await refresh();
-    toast(tc({ en: "Document deleted", hi: "दस्तावेज़ हटाया गया", bn: "নথি মুছে ফেলা হয়েছে" }), "info");
+    await closeTrashIfEmpty();
+    toast(back
+      ? tc({ en: "Document restored", hi: "दस्तावेज़ वापस आ गया", bn: "নথি ফিরিয়ে আনা হয়েছে" })
+      : tc({ en: "That document is no longer available.", hi: "वह दस्तावेज़ अब उपलब्ध नहीं है।", bn: "সেই নথি আর উপলব্ধ নেই।" }),
+      back ? "success" : "error");
+  };
+
+  const destroy = async (id) => {
+    await documentService.purge(id);
+    await refresh();
+    await closeTrashIfEmpty();
+    toast(tc({ en: "Deleted permanently", hi: "स्थायी रूप से हटाया गया", bn: "স্থায়ীভাবে মুছে ফেলা হয়েছে" }), "info");
   };
 
   const dup = file && docs ? findDuplicate(docs, file) : null;
@@ -117,6 +142,15 @@ export default function Documents() {
         ) : null} />
 
       <div style={{ padding: "4px 16px 28px", display: "flex", flexDirection: "column", gap: 12, animation: "ag-fade .25s var(--ag-ease)" }}>
+        {trash?.length > 0 && (
+          <button onClick={() => setShowTrash(true)}
+            style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px",
+              borderRadius: T.pill, cursor: "pointer", fontFamily: T.body, fontSize: 12.5, fontWeight: 600,
+              border: `1.5px solid ${T.line}`, background: T.surface, color: T.inkSoft }}>
+            <Icon name="Trash2" size={13} />
+            {tc({ en: "Deleted", hi: "हटाए गए", bn: "মুছে ফেলা" })} ({trash.length})
+          </button>
+        )}
         {docs === null ? (
           <div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>
             {tc({ en: "Loading…", hi: "लोड हो रहा है…", bn: "লোড হচ্ছে…" })}
@@ -269,16 +303,64 @@ export default function Documents() {
         </div>
       </BottomSheet>
 
-      <Dialog open={!!delTarget} onClose={() => setDelTarget(null)}
-        title={tc({ en: "Delete this document?", hi: "यह दस्तावेज़ हटाएँ?", bn: "এই নথি মুছবেন?" })} icon="Trash2" danger
-        body={delTarget ? tc({
-          en: `${delTarget.title} — the record and its file will be removed from this list.`,
-          hi: `${delTarget.title} — रिकॉर्ड और उसकी फ़ाइल इस सूची से हट जाएँगे।`,
-          bn: `${delTarget.title} — রেকর্ড ও তার ফাইল এই তালিকা থেকে সরে যাবে।`,
+      <BottomSheet open={showTrash} onClose={() => setShowTrash(false)}
+        title={tc({ en: "Deleted documents", hi: "हटाए गए दस्तावेज़", bn: "মুছে ফেলা নথি" })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: "62vh", overflowY: "auto" }}>
+          <div style={{ fontSize: 11.5, color: T.inkFaint, lineHeight: 1.5 }}>
+            {tc({ en: "Deleted documents are kept for a while before their files are removed for good. Restore one to put it back exactly as it was.",
+                  hi: "हटाए गए दस्तावेज़ कुछ समय रखे जाते हैं, फिर उनकी फ़ाइलें हमेशा के लिए मिट जाती हैं। वापस लाने पर दस्तावेज़ ज्यों का त्यों लौट आता है।",
+                  bn: "মুছে ফেলা নথি কিছুদিন রাখা হয়, তারপর তাদের ফাইল চিরতরে মুছে যায়। ফেরালে নথিটি ঠিক আগের মতোই ফিরে আসে।" })}
+          </div>
+
+          {(trash || []).map((d) => {
+            const cat = categoryOf(d.category);
+            return (
+              <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px",
+                background: T.surface2, borderRadius: T.rMd, border: `1px solid ${T.line}` }}>
+                <Icon name={cat.icon} size={18} style={{ color: T.inkFaint, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</div>
+                  <div style={{ fontSize: 11.5, color: T.inkSoft }}>
+                    {tc(cat.i18n)}
+                    {" · "}
+                    {d.daysLeft === 1
+                      ? tc({ en: "1 day left", hi: "1 दिन बचा", bn: "১ দিন বাকি" })
+                      : tc({ en: `${d.daysLeft} days left`, hi: `${d.daysLeft} दिन बचे`, bn: `${d.daysLeft} দিন বাকি` })}
+                  </div>
+                </div>
+                <button onClick={() => restore(d.id)}
+                  style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: T.primary,
+                    fontFamily: T.body, fontSize: 12.5, fontWeight: 700, padding: "4px 6px" }}>
+                  {tc({ en: "Restore", hi: "वापस लाएँ", bn: "ফেরান" })}
+                </button>
+                <button onClick={() => setPurgeTarget(d)}
+                  aria-label={tc({ en: "Delete permanently", hi: "स्थायी रूप से हटाएँ", bn: "স্থায়ীভাবে মুছুন" })}
+                  style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
+                  <Icon name="Trash2" size={15} />
+                </button>
+              </div>
+            );
+          })}
+
+          {!trash?.length && (
+            <div style={{ padding: "20px 0", textAlign: "center", color: T.inkFaint, fontSize: 13 }}>
+              {tc({ en: "Nothing here.", hi: "यहाँ कुछ नहीं है।", bn: "এখানে কিছু নেই।" })}
+            </div>
+          )}
+        </div>
+      </BottomSheet>
+
+      <Dialog open={!!purgeTarget} onClose={() => setPurgeTarget(null)}
+        title={tc({ en: "Delete permanently?", hi: "स्थायी रूप से हटाएँ?", bn: "স্থায়ীভাবে মুছবেন?" })} icon="Trash2" danger
+        body={purgeTarget ? tc({
+          en: `${purgeTarget.title} and its file will be destroyed now. This cannot be undone.`,
+          hi: `${purgeTarget.title} और इसकी फ़ाइल अभी मिटा दी जाएगी। इसे वापस नहीं किया जा सकता।`,
+          bn: `${purgeTarget.title} ও তার ফাইল এখনই মুছে যাবে। এটি আর ফেরানো যাবে না।`,
         }) : ""}
-        confirmLabel={tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" })}
+        confirmLabel={tc({ en: "Delete permanently", hi: "स्थायी रूप से हटाएँ", bn: "স্থায়ীভাবে মুছুন" })}
         cancelLabel={tc({ en: "Cancel", hi: "रद्द करें", bn: "বাতিল" })}
-        onConfirm={confirmDelete} />
+        onConfirm={async () => { const t = purgeTarget; setPurgeTarget(null); await destroy(t.id); }} />
+
     </>
   );
 }

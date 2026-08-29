@@ -36,6 +36,17 @@ const versions = repo("documentVersions", { stripForSync: ["fileData"] });
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+/* Documents are mutated from screens that are not the one displaying them —
+   most obviously Undo, which is offered on a toast after the detail screen has
+   already popped back to the list. A one-line subscription keeps those views
+   honest without threading callbacks through the navigation stack. */
+const listeners = new Set();
+export function onDocumentsChanged(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+const notify = () => listeners.forEach((fn) => { try { fn(); } catch { /* a bad listener must not break a write */ } });
+
 /* ---------------------------------------------------------------- categories
 
    Every category the app has ever offered, in one list. The owner set came
@@ -189,6 +200,25 @@ export const documentService = {
 
   getById: (id) => docs.getById(id),
 
+  /* Deleted documents still inside the retention window, newest first, each
+     carrying how many days it has left. Anything already past the window is
+     omitted: it is due to be destroyed, so offering to restore it would be a
+     promise the next sweep breaks. */
+  async listDeleted(subjectType, { now = Date.now(), retentionDays = DELETED_RETENTION_DAYS } = {}) {
+    const all = await docs.deleted();
+    return all
+      .filter((d) => !subjectType || d.subjectType === subjectType)
+      .map((d) => {
+        const at = Date.parse(d.deletedAt);
+        const daysLeft = Number.isFinite(at)
+          ? Math.ceil((at + retentionDays * 86400000 - now) / 86400000)
+          : retentionDays;
+        return { ...d, daysLeft };
+      })
+      .filter((d) => d.daysLeft > 0)
+      .sort((a, b) => (b.deletedAt || "").localeCompare(a.deletedAt || ""));
+  },
+
   /* Create a record. `file` is optional — a farmer may want to note that a
      document exists and where it is kept without photographing it. */
   async add({ subjectType = "owner", subjectId = "", category = "other",
@@ -224,10 +254,11 @@ export const documentService = {
       employeeId: subjectType === "employee" ? subjectId : "",
       detail: `${saved.title} (${category})`,
     });
+    notify();
     return saved;
   },
 
-  update: (id, patch) => docs.update(id, patch),
+  update: (id, patch) => docs.update(id, patch).then((r) => { notify(); return r; }),
 
   /* Swap the file on an existing record, keeping its metadata and identity.
      The new file is stored FIRST, so a failed replace leaves the original
@@ -279,6 +310,7 @@ export const documentService = {
       employeeId: existing.subjectType === "employee" ? existing.subjectId : "",
       detail: existing.title,
     });
+    notify();
     return updated;
   },
 
@@ -299,6 +331,7 @@ export const documentService = {
       employeeId: d?.subjectType === "employee" ? d.subjectId : "",
       detail: d?.title || id,
     });
+    notify();
     return d;
   },
 
@@ -310,6 +343,7 @@ export const documentService = {
         detail: d.title || id,
       });
     }
+    notify();
     return d;
   },
 
@@ -332,6 +366,7 @@ export const documentService = {
 
     for (const v of vs) await versions.purge(v.id);
     await docs.purge(id);
+    notify();
     return { id, filesDeleted: paths.length, versions: vs.length };
   },
 

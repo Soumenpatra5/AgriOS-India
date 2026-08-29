@@ -163,3 +163,43 @@ describe("retention sweep", () => {
     expect(await documentService.purgeExpiredDeletions({ now })).toEqual({ purged: 0, filesDeleted: 0 });
   });
 });
+
+describe("listDeleted — what the restore UI shows", () => {
+  it("lists deleted documents with the days they have left", async () => {
+    const d = await docs.add(cloudDoc());
+    await docs.remove(d.id);
+    const tomb = (await docs.deleted()).find((x) => x.id === d.id);
+
+    const [row] = await documentService.listDeleted("owner", {
+      now: Date.parse(tomb.deletedAt) + 3 * DAY,
+    });
+    expect(row).toMatchObject({ id: d.id, title: "Plot 42" });
+    expect(row.daysLeft).toBe(27); // 30-day window, deleted 3 days ago
+  });
+
+  it("hides anything already past the window, since restoring it would be a promise the next sweep breaks", async () => {
+    const d = await docs.add(cloudDoc());
+    await docs.remove(d.id);
+    const tomb = (await docs.deleted()).find((x) => x.id === d.id);
+
+    const late = await documentService.listDeleted("owner", {
+      now: Date.parse(tomb.deletedAt) + 31 * DAY,
+    });
+    expect(late).toEqual([]);
+  });
+
+  it("never includes live documents", async () => {
+    await docs.add(cloudDoc({ title: "Still here" }));
+    expect(await documentService.listDeleted("owner")).toEqual([]);
+  });
+
+  it("separates subjects, so a worker's deleted ID does not appear in the farmer's list", async () => {
+    const own = await docs.add(cloudDoc({ title: "Mine" }));
+    const emp = await docs.add(cloudDoc({ subjectType: "employee", subjectId: "E1", title: "Theirs" }));
+    await docs.remove(own.id); await docs.remove(emp.id);
+
+    expect((await documentService.listDeleted("owner")).map((d) => d.title)).toEqual(["Mine"]);
+    expect((await documentService.listDeleted("employee")).map((d) => d.title)).toEqual(["Theirs"]);
+    expect(await documentService.listDeleted()).toHaveLength(2); // no filter = everything
+  });
+});

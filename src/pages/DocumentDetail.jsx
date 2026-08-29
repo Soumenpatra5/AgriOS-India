@@ -278,8 +278,20 @@ export default function DocumentDetail({ id }) {
         onConfirm={async () => {
           await documentService.remove(id);
           setDelOpen(false);
-          toast(tc({ en: "Document deleted", hi: "दस्तावेज़ हटाया गया", bn: "নথি মুছে ফেলা হয়েছে" }), "info");
           pop();
+          /* The file outlives the delete by the retention window, so this
+             offer is real — undo restores the document and its versions
+             exactly as they were. It runs after pop(), so it deliberately
+             touches no state on this screen; the list picks the change up
+             through onDocumentsChanged. */
+          toast(
+            tc({ en: "Document deleted", hi: "दस्तावेज़ हटाया गया", bn: "নথি মুছে ফেলা হয়েছে" }),
+            "info",
+            {
+              label: tc({ en: "Undo", hi: "वापस", bn: "ফেরান" }),
+              onPress: () => documentService.restore(id),
+            },
+          );
         }} />
     </>
   );

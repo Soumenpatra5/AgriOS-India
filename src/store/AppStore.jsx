@@ -191,10 +191,14 @@ export function AppProvider({ children }) {
     }
   }, [stage, tab, stack]);
 
-  const toast = useCallback((message, kind = "info") => {
+  /* `action` is an optional { label, onPress } — an Undo affordance for things
+     that would otherwise need a confirmation dialog in front of every delete.
+     Actionable toasts stay up more than twice as long: 2.6s is enough to read
+     a confirmation but not to read an offer, decide, and tap it. */
+  const toast = useCallback((message, kind = "info", action = null) => {
     const id = Date.now() + Math.random();
-    setToasts((q) => [...q, { id, message, kind }]);
-    setTimeout(() => setToasts((q) => q.filter((x) => x.id !== id)), 2600);
+    setToasts((q) => [...q, { id, message, kind, action }]);
+    setTimeout(() => setToasts((q) => q.filter((x) => x.id !== id)), action ? 6500 : 2600);
   }, []);
   const dismissToast = useCallback((id) => setToasts((q) => q.filter((x) => x.id !== id)), []);
 
