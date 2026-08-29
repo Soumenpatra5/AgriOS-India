@@ -40,14 +40,15 @@ export function EmptyState({ icon = "Inbox", title, body, action, onAction }) {
 }
 
 export function ErrorState({ title, body, onRetry }) {
+  const { tc } = useApp();
   return (
     <div style={{ textAlign: "center", padding: "36px 24px" }}>
       <div style={{ width: 60, height: 60, borderRadius: 20, background: T.redSoft, display: "grid", placeItems: "center", margin: "0 auto 16px", color: T.red }}>
         <Icon name="CloudOff" size={26} />
       </div>
-      <div style={{ fontFamily: T.display, fontSize: 18, fontWeight: 700, marginBottom: 6, color: T.ink }}>{title || "Something went wrong"}</div>
-      <div style={{ fontSize: 13.5, color: T.inkSoft, lineHeight: 1.55, maxWidth: 280, margin: "0 auto" }}>{body || "Please try again in a moment."}</div>
-      {onRetry && <div style={{ marginTop: 18 }}><Button variant="soft" icon="RotateCcw" onClick={onRetry}>Retry</Button></div>}
+      <div style={{ fontFamily: T.display, fontSize: 18, fontWeight: 700, marginBottom: 6, color: T.ink }}>{title || tc({ en: "Something went wrong", hi: "कुछ गड़बड़ हो गई", bn: "কিছু একটা ভুল হয়েছে" })}</div>
+      <div style={{ fontSize: 13.5, color: T.inkSoft, lineHeight: 1.55, maxWidth: 280, margin: "0 auto" }}>{body || tc({ en: "Please try again in a moment.", hi: "कृपया थोड़ी देर बाद फिर कोशिश करें।", bn: "একটু পরে আবার চেষ্টা করুন।" })}</div>
+      {onRetry && <div style={{ marginTop: 18 }}><Button variant="soft" icon="RotateCcw" onClick={onRetry}>{tc({ en: "Retry", hi: "फिर कोशिश करें", bn: "আবার চেষ্টা করুন" })}</Button></div>}
     </div>
   );
 }

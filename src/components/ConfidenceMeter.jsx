@@ -2,6 +2,7 @@
 
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "./Icon.jsx";
+import { useApp } from "../store/AppStore.jsx";
 
 const COLORS = {
   high:   "var(--ag-primary)",
@@ -10,6 +11,7 @@ const COLORS = {
 };
 
 export default function ConfidenceMeter({ confidence, needsMoreImages }) {
+  const { tc } = useApp();
   if (!confidence) return null;
 
   const { score, label, isLow } = confidence;
@@ -19,7 +21,7 @@ export default function ConfidenceMeter({ confidence, needsMoreImages }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 12.5, color: T.inkSoft, fontWeight: 500 }}>AI Confidence</span>
+        <span style={{ fontSize: 12.5, color: T.inkSoft, fontWeight: 500 }}>{tc({ en: "AI Confidence", hi: "AI विश्वास", bn: "AI আস্থা" })}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color }}>{pct}% — {capitalize(label)}</span>
       </div>
 

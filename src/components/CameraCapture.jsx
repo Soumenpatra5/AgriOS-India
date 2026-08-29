@@ -111,11 +111,11 @@ export default function CameraCapture({ onCapture, onCancel }) {
   if (mode === "preview" && preview) {
     return (
       <div style={overlay}>
-        <img src={preview.url} alt="Preview"
+        <img src={preview.url} alt={tc({ en: "Preview", hi: "पूर्वावलोकन", bn: "প্রিভিউ" })}
           style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 12 }} />
         <div style={{ display: "flex", gap: 16, marginTop: 28 }}>
-          <button onClick={retake}      style={btnSecondary}>Retake</button>
-          <button onClick={confirmCapture} style={btnPrimary}>Use Photo</button>
+          <button onClick={retake}      style={btnSecondary}>{tc({ en: "Retake", hi: "फिर लें", bn: "আবার তুলুন" })}</button>
+          <button onClick={confirmCapture} style={btnPrimary}>{tc({ en: "Use Photo", hi: "यह फ़ोटो लें", bn: "এই ছবি নিন" })}</button>
         </div>
         <button onClick={cancel} aria-label={tc({ en: "Close", hi: "बंद करें", bn: "বন্ধ করুন" })} style={closeBtn}>
           <Icon name="X" size={20} />
@@ -180,8 +180,12 @@ export default function CameraCapture({ onCapture, onCancel }) {
         </div>
       )}
 
-      <ChoiceRow icon="Camera"     label="Take a photo"        sub="Use your camera"        onClick={startCamera} />
-      <ChoiceRow icon="ImagePlus"  label="Choose from gallery" sub="JPEG, PNG, WEBP, HEIC"  onClick={openGallery} />
+      <ChoiceRow icon="Camera" onClick={startCamera}
+        label={tc({ en: "Take a photo", hi: "फ़ोटो लें", bn: "ছবি তুলুন" })}
+        sub={tc({ en: "Use your camera", hi: "अपना कैमरा इस्तेमाल करें", bn: "আপনার ক্যামেরা ব্যবহার করুন" })} />
+      {/* The format list stays as-is: they are file-format names, not words. */}
+      <ChoiceRow icon="ImagePlus" onClick={openGallery} sub="JPEG, PNG, WEBP, HEIC"
+        label={tc({ en: "Choose from gallery", hi: "गैलरी से चुनें", bn: "গ্যালারি থেকে বাছুন" })} />
 
       {onCancel && (
         <button onClick={cancel}

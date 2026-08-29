@@ -1,9 +1,11 @@
 import { T } from "../../theme/ThemeProvider.jsx";
 import { rupee } from "../../utils/format.js";
+import { useApp } from "../../store/AppStore.jsx";
 
 /* Price-forecast range bar: shows the seasonal band (low..high), the MSP floor,
    and the predicted point with its ±range — an inline SVG, no external libs. */
 export default function ForecastChart({ low, high, msp, predicted, range, unit = "qtl" }) {
+  const { tc } = useApp();
   const hasMsp = !!msp;
   const min = Math.min(low, hasMsp ? msp : low, range?.low ?? predicted) * 0.98;
   const max = Math.max(high, range?.high ?? predicted) * 1.02;
@@ -29,7 +31,7 @@ export default function ForecastChart({ low, high, msp, predicted, range, unit =
       </svg>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: T.inkFaint, marginTop: 2 }}>
         <span>Band {rupee(low)}</span>
-        {hasMsp ? <span style={{ color: T.orange }}>MSP {rupee(msp)}</span> : <span>Market-driven</span>}
+        {hasMsp ? <span style={{ color: T.orange }}>MSP {rupee(msp)}</span> : <span>{tc({ en: "Market-driven", hi: "बाज़ार-आधारित", bn: "বাজার-নির্ভর" })}</span>}
         <span>{rupee(high)}</span>
       </div>
       <div style={{ textAlign: "center", marginTop: 6 }}>

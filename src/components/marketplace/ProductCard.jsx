@@ -36,7 +36,7 @@ export default function ProductCard({ product, onClick, wished, onToggleWish }) 
         )}
         {out && (
           <span style={{ position: "absolute", bottom: 8, left: 8, background: T.red, color: "#fff",
-            fontSize: 9.5, fontWeight: 800, padding: "3px 7px", borderRadius: 6 }}>OUT OF STOCK</span>
+            fontSize: 9.5, fontWeight: 800, padding: "3px 7px", borderRadius: 6 }}>{tc({ en: "OUT OF STOCK", hi: "स्टॉक ख़त्म", bn: "স্টক শেষ" })}</span>
         )}
       </div>
       <div style={{ padding: "10px 12px 12px" }}>

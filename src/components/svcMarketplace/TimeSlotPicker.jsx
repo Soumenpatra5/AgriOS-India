@@ -1,7 +1,9 @@
 import { T } from "../../theme/ThemeProvider.jsx";
+import { useApp } from "../../store/AppStore.jsx";
 
 export default function TimeSlotPicker({ slots = [], selected, onSelect }) {
-  if (!slots.length) return <div style={{ fontSize: 12.5, color: T.inkSoft, padding: 8 }}>No slots available for this day.</div>;
+  const { tc } = useApp();
+  if (!slots.length) return <div style={{ fontSize: 12.5, color: T.inkSoft, padding: 8 }}>{tc({ en: "No slots available for this day.", hi: "इस दिन कोई समय उपलब्ध नहीं।", bn: "এই দিনে কোনও সময় নেই।" })}</div>;
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>

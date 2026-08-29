@@ -3,8 +3,10 @@
 
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "./Icon.jsx";
+import { useApp } from "../store/AppStore.jsx";
 
 export default function SymptomChecklist({ symptoms = [], answers = {}, onChange }) {
+  const { tc } = useApp();
   const set = (id, val) => onChange({ ...answers, [id]: val });
 
   return (
@@ -43,7 +45,7 @@ export default function SymptomChecklist({ symptoms = [], answers = {}, onChange
           {s.type === "text" && (
             <textarea value={answers[s.id] || ""}
               onChange={(e) => set(s.id, e.target.value)}
-              placeholder="Type here…"
+              placeholder={tc({ en: "Type here…", hi: "यहाँ लिखें…", bn: "এখানে লিখুন…" })}
               rows={2}
               style={{
                 width: "100%", padding: "10px 12px", borderRadius: T.rMd,
