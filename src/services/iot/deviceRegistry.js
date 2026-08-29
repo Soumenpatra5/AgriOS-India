@@ -6,13 +6,13 @@
 import { repo } from "../erp/erpDb.js";
 
 export const DEVICE_TYPES = [
-  { id: "temp",      label: "Temperature Sensor", icon: "Thermometer", unit: "°C"  },
-  { id: "humidity",  label: "Humidity Sensor",    icon: "Droplets",    unit: "%"   },
-  { id: "water",     label: "Water Level Sensor", icon: "Gauge",       unit: "cm"  },
-  { id: "feed",      label: "Feed Sensor",        icon: "Package",     unit: "kg"  },
-  { id: "weight",    label: "Weight Sensor",      icon: "Scale",       unit: "kg"  },
-  { id: "gps",       label: "GPS Tracker",        icon: "MapPin",      unit: ""    },
-  { id: "rfid",      label: "RFID Reader",        icon: "ScanLine",    unit: ""    },
+  { id: "temp",      label: "Temperature Sensor", icon: "Thermometer", unit: "°C", i18n: { en: "Temperature Sensor", hi: "तापमान सेंसर", bn: "তাপমাত্রা সেন্সর" }  },
+  { id: "humidity",  label: "Humidity Sensor",    icon: "Droplets",    unit: "%", i18n: { en: "Humidity Sensor", hi: "आर्द्रता सेंसर", bn: "আর্দ্রতা সেন্সর" }   },
+  { id: "water",     label: "Water Level Sensor", icon: "Gauge",       unit: "cm", i18n: { en: "Water Level Sensor", hi: "जल स्तर सेंसर", bn: "জলস্তর সেন্সর" }  },
+  { id: "feed",      label: "Feed Sensor",        icon: "Package",     unit: "kg", i18n: { en: "Feed Sensor", hi: "चारा सेंसर", bn: "খাদ্য সেন্সর" }  },
+  { id: "weight",    label: "Weight Sensor",      icon: "Scale",       unit: "kg", i18n: { en: "Weight Sensor", hi: "वज़न सेंसर", bn: "ওজন সেন্সর" }  },
+  { id: "gps",       label: "GPS Tracker",        icon: "MapPin",      unit: "", i18n: { en: "GPS Tracker", hi: "GPS ट्रैकर", bn: "GPS ট্র্যাকার" }    },
+  { id: "rfid",      label: "RFID Reader",        icon: "ScanLine",    unit: "", i18n: { en: "RFID Reader", hi: "RFID रीडर", bn: "RFID রিডার" }    },
 ];
 
 export const PROTOCOLS = ["Manual entry", "Bluetooth", "WiFi", "LoRaWAN", "NB-IoT", "MQTT"];

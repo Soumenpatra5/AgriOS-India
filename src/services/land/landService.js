@@ -5,9 +5,9 @@ import { repo } from "../erp/erpDb.js";
 export const SOIL_TYPES  = ["Alluvial","Black (Regur)","Red","Laterite","Sandy","Clay","Loamy","Saline"];
 export const WATER_SOURCES = ["Borewell","Canal","Pond","River","Rain-fed","Drip","Sprinkler"];
 export const OWNERSHIP   = [
-  { id: "owned",  label: "Owned"  },
-  { id: "leased", label: "Leased" },
-  { id: "shared", label: "Share-cropped" },
+  { id: "owned",  label: "Owned", i18n: { en: "Owned", hi: "स्वामित्व", bn: "নিজস্ব" }  },
+  { id: "leased", label: "Leased", i18n: { en: "Leased", hi: "पट्टे पर", bn: "ইজারা" } },
+  { id: "shared", label: "Share-cropped", i18n: { en: "Share-cropped", hi: "बटाई पर", bn: "ভাগচাষ" } },
 ];
 
 const parcels = repo("parcels");

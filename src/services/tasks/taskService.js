@@ -4,16 +4,16 @@
 import { repo } from "../erp/erpDb.js";
 
 export const PRIORITIES = [
-  { id: "high",   label: "High",   },
-  { id: "medium", label: "Medium", },
-  { id: "low",    label: "Low",    },
+  { id: "high",   label: "High", i18n: { en: "High", hi: "उच्च", bn: "উচ্চ" }   },
+  { id: "medium", label: "Medium", i18n: { en: "Medium", hi: "मध्यम", bn: "মাঝারি" } },
+  { id: "low",    label: "Low", i18n: { en: "Low", hi: "निम्न", bn: "নিম্ন" }    },
 ];
 
 export const RECURRENCE = [
-  { id: "",        label: "One-time" },
-  { id: "daily",   label: "Daily"    },
-  { id: "weekly",  label: "Weekly"   },
-  { id: "monthly", label: "Monthly"  },
+  { id: "",        label: "One-time", i18n: { en: "One-time", hi: "एक बार", bn: "একবার" } },
+  { id: "daily",   label: "Daily", i18n: { en: "Daily", hi: "दैनिक", bn: "দৈনিক" }    },
+  { id: "weekly",  label: "Weekly", i18n: { en: "Weekly", hi: "साप्ताहिक", bn: "সাপ্তাহিক" }   },
+  { id: "monthly", label: "Monthly", i18n: { en: "Monthly", hi: "मासिक", bn: "মাসিক" }  },
 ];
 
 const tasks = repo("tasks");

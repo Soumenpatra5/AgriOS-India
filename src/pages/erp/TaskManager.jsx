@@ -19,7 +19,7 @@ const PRIORITY_STYLE = {
 };
 
 export default function TaskManager() {
-  const { pop, toast, can } = useApp();
+  const { pop, toast, can, tc } = useApp();
   const [filter, setFilter]   = useState("Today");
   const [buckets, setBuckets] = useState({ overdue: [], today: [], upcoming: [], done: [] });
   const [employees, setEmployees] = useState([]);
@@ -45,20 +45,20 @@ export default function TaskManager() {
     await taskService.add(form);
     setOpen(false);
     setForm({ title: "", dueDate: todayStr(), priority: "medium", recurrence: "", assigneeId: "", note: "" });
-    refresh(); toast("Task added", "success");
+    refresh(); toast(tc({ en: "Task added", hi: "कार्य जोड़ा गया", bn: "কাজ যোগ হয়েছে" }), "success");
   };
 
   const toggle = async (t) => {
     if (t.status === "done") await taskService.reopen(t.id);
     else {
       const next = await taskService.complete(t.id);
-      if (next) toast(`Done — next ${t.recurrence} occurrence created`, "success");
-      else toast("Task completed", "success");
+      if (next) toast(tc({ en: `Done — next ${t.recurrence} occurrence created`, hi: `पूर्ण — अगला ${t.recurrence} कार्य बनाया गया`, bn: `সম্পন্ন — পরবর্তী ${t.recurrence} কাজ তৈরি হয়েছে` }), "success");
+      else toast(tc({ en: "Task completed", hi: "कार्य पूर्ण", bn: "কাজ সম্পন্ন" }), "success");
     }
     refresh();
   };
 
-  const handleDelete = async () => { await taskService.remove(delId); setDelId(null); refresh(); toast("Deleted", "info"); };
+  const handleDelete = async () => { await taskService.remove(delId); setDelId(null); refresh(); toast(tc({ en: "Deleted", hi: "हटाया गया", bn: "মুছে ফেলা হয়েছে" }), "info"); };
 
   const assigneeName = (id) => employees.find((e) => e.id === id)?.name;
 
@@ -67,12 +67,12 @@ export default function TaskManager() {
 
   return (
     <>
-      <AppBar title="Tasks" onBack={pop} action={
+      <AppBar title={tc({ en: "Tasks", hi: "कार्य", bn: "কাজ" })} onBack={pop} action={
         <button onClick={() => setOpen(true)}
           style={{ background: T.blue, border: "none", borderRadius: 12, padding: "8px 13px",
             cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6,
             fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
-          <Icon name="Plus" size={15} color="#fff" /> Add
+          <Icon name="Plus" size={15} color="#fff" /> {tc({ en: "Add", hi: "जोड़ें", bn: "যোগ" })}
         </button>
       } />
 
@@ -126,27 +126,27 @@ export default function TaskManager() {
           })}
       </div>
 
-      <BottomSheet open={open} onClose={() => setOpen(false)} title="Add Task">
+      <BottomSheet open={open} onClose={() => setOpen(false)} title={tc({ en: "Add Task", hi: "कार्य जोड़ें", bn: "কাজ যোগ করুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Input label="Task" placeholder="e.g. Vaccinate batch A" value={form.title} onChange={(v) => setForm((f) => ({ ...f, title: v }))} />
-          <Input label="Due date" type="date" value={form.dueDate} onChange={(v) => setForm((f) => ({ ...f, dueDate: v }))} />
-          <Dropdown label="Priority" value={form.priority} onChange={(v) => setForm((f) => ({ ...f, priority: v }))}
-            options={PRIORITIES.map((p) => ({ value: p.id, label: p.label }))} />
-          <Dropdown label="Repeats" value={form.recurrence} onChange={(v) => setForm((f) => ({ ...f, recurrence: v }))}
-            options={RECURRENCE.map((r) => ({ value: r.id, label: r.label }))} />
+          <Input label={tc({ en: "Task", hi: "कार्य", bn: "কাজ" })} placeholder={tc({ en: "e.g. Vaccinate batch A", hi: "उदा. बैच A का टीकाकरण", bn: "যেমন ব্যাচ A-এর টিকা" })} value={form.title} onChange={(v) => setForm((f) => ({ ...f, title: v }))} />
+          <Input label={tc({ en: "Due date", hi: "नियत तिथि", bn: "নির্ধারিত তারিখ" })} type="date" value={form.dueDate} onChange={(v) => setForm((f) => ({ ...f, dueDate: v }))} />
+          <Dropdown label={tc({ en: "Priority", hi: "प्राथमिकता", bn: "অগ্রাধিকার" })} value={form.priority} onChange={(v) => setForm((f) => ({ ...f, priority: v }))}
+            options={PRIORITIES.map((p) => ({ value: p.id, label: p.i18n ? tc(p.i18n) : p.label }))} />
+          <Dropdown label={tc({ en: "Repeats", hi: "दोहराव", bn: "পুনরাবৃত্তি" })} value={form.recurrence} onChange={(v) => setForm((f) => ({ ...f, recurrence: v }))}
+            options={RECURRENCE.map((r) => ({ value: r.id, label: r.i18n ? tc(r.i18n) : r.label }))} />
           {employees.length > 0 && (
-            <Dropdown label="Assign to" value={form.assigneeId} onChange={(v) => setForm((f) => ({ ...f, assigneeId: v }))}
-              options={[{ value: "", label: "Unassigned" }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
+            <Dropdown label={tc({ en: "Assign to", hi: "सौंपें", bn: "বরাদ্দ করুন" })} value={form.assigneeId} onChange={(v) => setForm((f) => ({ ...f, assigneeId: v }))}
+              options={[{ value: "", label: tc({ en: "Unassigned", hi: "अनासाइन्ड", bn: "বরাদ্দহীন" }) }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
           )}
           <Input label="Notes" placeholder="Optional" value={form.note} onChange={(v) => setForm((f) => ({ ...f, note: v }))} />
-          <Button full onClick={add} disabled={!form.title}>Add Task</Button>
+          <Button full onClick={add} disabled={!form.title}>{tc({ en: "Add Task", hi: "कार्य जोड़ें", bn: "কাজ যোগ করুন" })}</Button>
         </div>
       </BottomSheet>
 
-      <Dialog open={!!delId} title="Delete task?" onClose={() => setDelId(null)}
+      <Dialog open={!!delId} title={tc({ en: "Delete task?", hi: "कार्य हटाएँ?", bn: "কাজ মুছবেন?" })} onClose={() => setDelId(null)}
         actions={[
-          { label: "Cancel", variant: "outline", onClick: () => setDelId(null) },
-          { label: "Delete", variant: "danger",  onClick: handleDelete },
+          { label: tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" }), variant: "outline", onClick: () => setDelId(null) },
+          { label: tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger",  onClick: handleDelete },
         ]}>
         <div style={{ fontSize: 14, color: T.inkSoft }}>This task will be permanently removed.</div>
       </Dialog>

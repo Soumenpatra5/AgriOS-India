@@ -9,7 +9,7 @@ import StatTile from "../../components/erp/StatTile.jsx";
 import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
 
 export default function InventoryManager() {
-  const { pop, toast, can } = useApp();
+  const { pop, toast, can, tc } = useApp();
   const [items, setItems]   = useState([]);
   const [alerts, setAlerts] = useState({ lowStock: [], expired: [], expiring: [] });
   const [catFilter, setCatFilter] = useState("all");
@@ -35,17 +35,17 @@ export default function InventoryManager() {
     await inventoryService.addItem(form);
     setOpen(false);
     setForm({ name: "", category: "feed", qty: "", unit: "kg", minQty: "", unitPrice: "", expiryDate: "", supplierName: "" });
-    refresh(); toast("Item added", "success");
+    refresh(); toast(tc({ en: "Item added", hi: "मद जोड़ी गई", bn: "আইটেম যোগ হয়েছে" }), "success");
   };
 
   const doMove = async () => {
     if (!moveForm.qty) return;
     await inventoryService.move(moveTarget.id, moveForm.kind, moveForm.qty, moveForm.note);
     setMoveTarget(null); setMoveForm({ kind: "in", qty: "", note: "" });
-    refresh(); toast(moveForm.kind === "in" ? "Stock added" : "Stock issued", "success");
+    refresh(); toast(moveForm.kind === "in" ? tc({ en: "Stock added", hi: "स्टॉक जोड़ा गया", bn: "মজুত যোগ হয়েছে" }) : tc({ en: "Stock issued", hi: "स्टॉक निकाला गया", bn: "মজুত বের করা হয়েছে" }), "success");
   };
 
-  const handleDelete = async () => { await inventoryService.removeItem(delId); setDelId(null); refresh(); toast("Deleted", "info"); };
+  const handleDelete = async () => { await inventoryService.removeItem(delId); setDelId(null); refresh(); toast(tc({ en: "Deleted", hi: "हटाया गया", bn: "মুছে ফেলা হয়েছে" }), "info"); };
 
   const itemBadge = (i) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -56,19 +56,19 @@ export default function InventoryManager() {
 
   return (
     <>
-      <AppBar title="Inventory" onBack={pop} action={
+      <AppBar title={tc({ en: "Inventory", hi: "स्टॉक", bn: "মজুত" })} onBack={pop} action={
         <button onClick={() => setOpen(true)}
           style={{ background: T.orange, border: "none", borderRadius: 12, padding: "8px 13px",
             cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6,
             fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
-          <Icon name="Plus" size={15} color="#fff" /> Add
+          <Icon name="Plus" size={15} color="#fff" /> {tc({ en: "Add", hi: "जोड़ें", bn: "যোগ" })}
         </button>
       } />
 
       <div style={{ display: "flex", gap: 10, padding: "8px 16px 4px", overflowX: "auto" }}>
-        <StatTile a="orange" label="Items" value={items.length} />
-        <StatTile a={alertCount > 0 ? "red" : "primary"} label="Alerts" value={alertCount} />
-        <StatTile a="blue" label="Low Stock" value={alerts.lowStock.length} />
+        <StatTile a="orange" label={tc({ en: "Items", hi: "मदें", bn: "আইটেম" })} value={items.length} />
+        <StatTile a={alertCount > 0 ? "red" : "primary"} label={tc({ en: "Alerts", hi: "अलर्ट", bn: "সতর্কতা" })} value={alertCount} />
+        <StatTile a="blue" label={tc({ en: "Low Stock", hi: "कम स्टॉक", bn: "কম মজুত" })} value={alerts.lowStock.length} />
       </div>
 
       <div style={{ display: "flex", gap: 8, padding: "10px 16px 4px", overflowX: "auto" }}>
@@ -80,7 +80,7 @@ export default function InventoryManager() {
 
       <div style={{ padding: "8px 16px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
         {list.length === 0
-          ? <EmptyHint icon="Warehouse" text="Add feed, medicine, seeds and other stock to track levels and expiry" />
+          ? <EmptyHint icon="Warehouse" text={tc({ en: "Add feed, medicine, seeds and other stock to track levels and expiry", hi: "स्तर और समय-सीमा देखने के लिए चारा, दवा, बीज और अन्य स्टॉक जोड़ें", bn: "স্তর ও মেয়াদ দেখতে খাদ্য, ওষুধ, বীজ ও অন্যান্য মজুত যোগ করুন" })} />
           : list.map((i) => (
             <RecordRow key={i.id}
               icon={inventoryService.categoryIcon(i.category)} iconColor={T.orange} iconBg={T.orangeSoft}
@@ -98,18 +98,18 @@ export default function InventoryManager() {
           ))}
       </div>
 
-      <BottomSheet open={open} onClose={() => setOpen(false)} title="Add Inventory Item">
+      <BottomSheet open={open} onClose={() => setOpen(false)} title={tc({ en: "Add Inventory Item", hi: "स्टॉक मद जोड़ें", bn: "মজুত আইটেম যোগ করুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Input label="Item name" placeholder="e.g. Layer feed 50kg" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-          <Dropdown label="Category" value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))}
-            options={ITEM_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))} />
+          <Input label={tc({ en: "Item name", hi: "मद का नाम", bn: "আইটেমের নাম" })} placeholder={tc({ en: "e.g. Layer feed 50kg", hi: "उदा. लेयर फ़ीड 50 किग्रा", bn: "যেমন লেয়ার ফিড ৫০ কেজি" })} value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
+          <Dropdown label={tc({ en: "Category", hi: "श्रेणी", bn: "শ্রেণি" })} value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))}
+            options={ITEM_CATEGORIES.map((c) => ({ value: c.id, label: c.i18n ? tc(c.i18n) : c.label }))} />
           <Input label="Opening quantity" type="number" placeholder="0" value={form.qty} onChange={(v) => setForm((f) => ({ ...f, qty: v }))} />
           <Input label="Unit" placeholder="kg / L / bags / pcs" value={form.unit} onChange={(v) => setForm((f) => ({ ...f, unit: v }))} />
           <Input label="Low-stock alert level" type="number" placeholder="0" value={form.minQty} onChange={(v) => setForm((f) => ({ ...f, minQty: v }))} />
           <Input label="Unit price (₹)" type="number" placeholder="0" value={form.unitPrice} onChange={(v) => setForm((f) => ({ ...f, unitPrice: v }))} />
           <Input label="Expiry date (optional)" type="date" value={form.expiryDate} onChange={(v) => setForm((f) => ({ ...f, expiryDate: v }))} />
           <Input label="Supplier (optional)" placeholder="" value={form.supplierName} onChange={(v) => setForm((f) => ({ ...f, supplierName: v }))} />
-          <Button full onClick={add} disabled={!form.name}>Add Item</Button>
+          <Button full onClick={add} disabled={!form.name}>{tc({ en: "Add Item", hi: "मद जोड़ें", bn: "আইটেম যোগ করুন" })}</Button>
         </div>
       </BottomSheet>
 
@@ -126,10 +126,10 @@ export default function InventoryManager() {
         </div>
       </BottomSheet>
 
-      <Dialog open={!!delId} title="Delete item?" onClose={() => setDelId(null)}
+      <Dialog open={!!delId} title={tc({ en: "Delete item?", hi: "मद हटाएँ?", bn: "আইটেম মুছবেন?" })} onClose={() => setDelId(null)}
         actions={[
-          { label: "Cancel", variant: "outline", onClick: () => setDelId(null) },
-          { label: "Delete", variant: "danger",  onClick: handleDelete },
+          { label: tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" }), variant: "outline", onClick: () => setDelId(null) },
+          { label: tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger",  onClick: handleDelete },
         ]}>
         <div style={{ fontSize: 14, color: T.inkSoft }}>The item and its stock history will be removed.</div>
       </Dialog>

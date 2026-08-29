@@ -12,7 +12,7 @@ import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx"
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export default function AssetManager() {
-  const { pop, toast, can } = useApp();
+  const { pop, toast, can, tc } = useApp();
   const [assets, setAssets] = useState([]);
   const [value, setValue]   = useState(0);
   const [due, setDue]       = useState([]);
@@ -36,39 +36,39 @@ export default function AssetManager() {
     await assetService.add(form);
     setOpen(false);
     setForm({ name: "", category: "machinery", purchasePrice: "", purchaseDate: "", note: "" });
-    refresh(); toast("Asset added", "success");
+    refresh(); toast(tc({ en: "Asset added", hi: "संपत्ति जोड़ी गई", bn: "সম্পদ যোগ হয়েছে" }), "success");
   };
 
   const logMaint = async () => {
     await assetService.logMaintenance(maintTarget.id, maintForm);
     setMaintTarget(null); setMaintForm({ date: todayStr(), kind: "service", cost: "", note: "", nextDue: "" });
-    refresh(); toast("Maintenance logged", "success");
+    refresh(); toast(tc({ en: "Maintenance logged", hi: "रखरखाव दर्ज हुआ", bn: "রক্ষণাবেক্ষণ লেখা হয়েছে" }), "success");
   };
 
-  const handleDelete = async () => { await assetService.remove(delId); setDelId(null); refresh(); toast("Deleted", "info"); };
+  const handleDelete = async () => { await assetService.remove(delId); setDelId(null); refresh(); toast(tc({ en: "Deleted", hi: "हटाया गया", bn: "মুছে ফেলা হয়েছে" }), "info"); };
 
   const dueIds = new Set(due.map((d) => d.asset.id));
 
   return (
     <>
-      <AppBar title="Assets" onBack={pop} action={
+      <AppBar title={tc({ en: "Assets", hi: "संपत्ति", bn: "সম্পদ" })} onBack={pop} action={
         <button onClick={() => setOpen(true)}
           style={{ background: T.yellow, border: "none", borderRadius: 12, padding: "8px 13px",
             cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6,
             fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
-          <Icon name="Plus" size={15} color="#fff" /> Add
+          <Icon name="Plus" size={15} color="#fff" /> {tc({ en: "Add", hi: "जोड़ें", bn: "যোগ" })}
         </button>
       } />
 
       <div style={{ display: "flex", gap: 10, padding: "8px 16px 4px", overflowX: "auto" }}>
-        <StatTile a="yellow" label="Assets" value={assets.length} />
-        <StatTile a="primary" label="Total Value" value={compact(value)} />
-        <StatTile a={due.length > 0 ? "red" : "blue"} label="Service Due" value={due.length} />
+        <StatTile a="yellow" label={tc({ en: "Assets", hi: "संपत्ति", bn: "সম্পদ" })} value={assets.length} />
+        <StatTile a="primary" label={tc({ en: "Total Value", hi: "कुल मूल्य", bn: "মোট মূল্য" })} value={compact(value)} />
+        <StatTile a={due.length > 0 ? "red" : "blue"} label={tc({ en: "Service Due", hi: "सर्विस बाकी", bn: "সার্ভিস বাকি" })} value={due.length} />
       </div>
 
       <div style={{ padding: "10px 16px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
         {assets.length === 0
-          ? <EmptyHint icon="Tractor" text="Register machinery, vehicles and buildings — track maintenance and value" />
+          ? <EmptyHint icon="Tractor" text={tc({ en: "Register machinery, vehicles and buildings — track maintenance and value", hi: "मशीनरी, वाहन और भवन दर्ज करें — रखरखाव और मूल्य देखें", bn: "যন্ত্রপাতি, যানবাহন ও ভবন নথিভুক্ত করুন — রক্ষণাবেক্ষণ ও মূল্য দেখুন" })} />
           : assets.map((a) => (
             <RecordRow key={a.id}
               icon={assetService.categoryIcon(a.category)} iconColor={T.yellow} iconBg={T.yellowSoft}
@@ -86,15 +86,15 @@ export default function AssetManager() {
           ))}
       </div>
 
-      <BottomSheet open={open} onClose={() => setOpen(false)} title="Add Asset">
+      <BottomSheet open={open} onClose={() => setOpen(false)} title={tc({ en: "Add Asset", hi: "संपत्ति जोड़ें", bn: "সম্পদ যোগ করুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Input label="Asset name" placeholder="e.g. Mahindra 575 tractor" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-          <Dropdown label="Category" value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))}
-            options={ASSET_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))} />
+          <Input label={tc({ en: "Asset name", hi: "संपत्ति का नाम", bn: "সম্পদের নাম" })} placeholder={tc({ en: "e.g. Mahindra 575 tractor", hi: "उदा. महिंद्रा 575 ट्रैक्टर", bn: "যেমন মাহিন্দ্রা ৫৭৫ ট্রাক্টর" })} value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
+          <Dropdown label={tc({ en: "Category", hi: "श्रेणी", bn: "শ্রেণি" })} value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))}
+            options={ASSET_CATEGORIES.map((c) => ({ value: c.id, label: c.i18n ? tc(c.i18n) : c.label }))} />
           <Input label="Purchase price (₹)" type="number" placeholder="0" value={form.purchasePrice} onChange={(v) => setForm((f) => ({ ...f, purchasePrice: v }))} />
           <Input label="Purchase date" type="date" value={form.purchaseDate} onChange={(v) => setForm((f) => ({ ...f, purchaseDate: v }))} />
           <Input label="Notes" placeholder="Optional" value={form.note} onChange={(v) => setForm((f) => ({ ...f, note: v }))} />
-          <Button full onClick={add} disabled={!form.name}>Add Asset</Button>
+          <Button full onClick={add} disabled={!form.name}>{tc({ en: "Add Asset", hi: "संपत्ति जोड़ें", bn: "সম্পদ যোগ করুন" })}</Button>
         </div>
       </BottomSheet>
 
@@ -115,10 +115,10 @@ export default function AssetManager() {
         </div>
       </BottomSheet>
 
-      <Dialog open={!!delId} title="Delete asset?" onClose={() => setDelId(null)}
+      <Dialog open={!!delId} title={tc({ en: "Delete asset?", hi: "संपत्ति हटाएँ?", bn: "সম্পদ মুছবেন?" })} onClose={() => setDelId(null)}
         actions={[
-          { label: "Cancel", variant: "outline", onClick: () => setDelId(null) },
-          { label: "Delete", variant: "danger",  onClick: handleDelete },
+          { label: tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" }), variant: "outline", onClick: () => setDelId(null) },
+          { label: tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger",  onClick: handleDelete },
         ]}>
         <div style={{ fontSize: 14, color: T.inkSoft }}>The asset and its maintenance history will be removed.</div>
       </Dialog>

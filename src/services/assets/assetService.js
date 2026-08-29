@@ -3,14 +3,14 @@
 import { repo } from "../erp/erpDb.js";
 
 export const ASSET_CATEGORIES = [
-  { id: "machinery", label: "Machinery",    icon: "Tractor"   },
-  { id: "vehicle",   label: "Vehicle",      icon: "Truck"     },
-  { id: "building",  label: "Building",     icon: "Factory"   },
-  { id: "pump",      label: "Water Pump",   icon: "Droplets"  },
-  { id: "generator", label: "Generator",    icon: "Zap"       },
-  { id: "solar",     label: "Solar System", icon: "Sun"       },
-  { id: "tool",      label: "Tools",        icon: "Wrench"    },
-  { id: "other",     label: "Other",        icon: "Package2"  },
+  { id: "machinery", label: "Machinery",    icon: "Tractor", i18n: { en: "Machinery", hi: "मशीनरी", bn: "যন্ত্রপাতি" }   },
+  { id: "vehicle",   label: "Vehicle",      icon: "Truck", i18n: { en: "Vehicle", hi: "वाहन", bn: "যানবাহন" }     },
+  { id: "building",  label: "Building",     icon: "Factory", i18n: { en: "Building", hi: "भवन", bn: "ভবন" }   },
+  { id: "pump",      label: "Water Pump",   icon: "Droplets", i18n: { en: "Water Pump", hi: "जल पंप", bn: "জল পাম্প" }  },
+  { id: "generator", label: "Generator",    icon: "Zap", i18n: { en: "Generator", hi: "जनरेटर", bn: "জেনারেটর" }       },
+  { id: "solar",     label: "Solar System", icon: "Sun", i18n: { en: "Solar System", hi: "सौर प्रणाली", bn: "সৌর ব্যবস্থা" }       },
+  { id: "tool",      label: "Tools",        icon: "Wrench", i18n: { en: "Tools", hi: "औज़ार", bn: "সরঞ্জাম" }    },
+  { id: "other",     label: "Other",        icon: "Package2", i18n: { en: "Other", hi: "अन्य", bn: "অন্যান্য" }  },
 ];
 
 const assets = repo("assets");

@@ -81,7 +81,7 @@ export default function FarmERPHub() {
             </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,.72)", marginTop: 2 }}>
               {farm
-                ? `${farmService.typeLabel(farm.type)}${farm.village ? ` · ${farm.village}` : ""} — ${tc({ en: "tap to switch farm", hi: "फार्म बदलने के लिए टैप करें", bn: "খামার বদলাতে ট্যাপ করুন" })}`
+                ? `${tc(farmService.typeI18n(farm.type))}${farm.village ? ` · ${farm.village}` : ""} — ${tc({ en: "tap to switch farm", hi: "फार्म बदलने के लिए टैप करें", bn: "খামার বদলাতে ট্যাপ করুন" })}`
                 : tc({ en: "Create a farm profile to organise your records", hi: "रिकॉर्ड व्यवस्थित करने के लिए फार्म प्रोफ़ाइल बनाएँ", bn: "রেকর্ড গোছাতে একটি খামার প্রোফাইল তৈরি করুন" })}
             </div>
           </div>

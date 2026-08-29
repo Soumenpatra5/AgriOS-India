@@ -7,15 +7,15 @@ import { storage } from "../../utils/storage.js";
 const ACTIVE_KEY = "erp:activeFarmId";
 
 export const FARM_TYPES = [
-  { id: "mixed",     label: "Mixed Farming"   },
-  { id: "crop",      label: "Crop Farm"       },
-  { id: "dairy",     label: "Dairy Farm"      },
-  { id: "poultry",   label: "Poultry Farm"    },
-  { id: "aqua",      label: "Fish / Aqua"     },
-  { id: "goatery",   label: "Goatery"         },
-  { id: "piggery",   label: "Piggery"         },
-  { id: "apiary",    label: "Apiary (Bees)"   },
-  { id: "orchard",   label: "Orchard / Horti" },
+  { id: "mixed",     label: "Mixed Farming", i18n: { en: "Mixed Farming", hi: "मिश्रित खेती", bn: "মিশ্র চাষ" }   },
+  { id: "crop",      label: "Crop Farm", i18n: { en: "Crop Farm", hi: "फ़सल फार्म", bn: "ফসল খামার" }       },
+  { id: "dairy",     label: "Dairy Farm", i18n: { en: "Dairy Farm", hi: "डेयरी फार्म", bn: "ডেয়ারি খামার" }      },
+  { id: "poultry",   label: "Poultry Farm", i18n: { en: "Poultry Farm", hi: "मुर्गी फार्म", bn: "হাঁস-মুরগি খামার" }    },
+  { id: "aqua",      label: "Fish / Aqua", i18n: { en: "Fish / Aqua", hi: "मछली / जलकृषि", bn: "মাছ / মৎস্যচাষ" }     },
+  { id: "goatery",   label: "Goatery", i18n: { en: "Goatery", hi: "बकरी पालन", bn: "ছাগল পালন" }         },
+  { id: "piggery",   label: "Piggery", i18n: { en: "Piggery", hi: "सूअर पालन", bn: "শূকর পালন" }         },
+  { id: "apiary",    label: "Apiary (Bees)", i18n: { en: "Apiary (Bees)", hi: "मधुमक्खी पालन", bn: "মৌমাছি পালন" }   },
+  { id: "orchard",   label: "Orchard / Horti", i18n: { en: "Orchard / Horti", hi: "बाग / बागवानी", bn: "বাগান / উদ্যান" } },
 ];
 
 const farms = repo("farms");
@@ -58,4 +58,10 @@ export const farmService = {
   },
 
   typeLabel: (id) => FARM_TYPES.find((t) => t.id === id)?.label ?? id,
+  /* The {en,hi,bn} object for a farm type, for callers that can translate.
+     Falls back to the English label so an unknown id still renders. */
+  typeI18n: (id) => {
+    const t = FARM_TYPES.find((x) => x.id === id);
+    return t?.i18n ?? { en: t?.label ?? id, hi: t?.label ?? id, bn: t?.label ?? id };
+  },
 };

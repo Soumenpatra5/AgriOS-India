@@ -4,15 +4,15 @@
 import { repo } from "../erp/erpDb.js";
 
 export const ITEM_CATEGORIES = [
-  { id: "feed",       label: "Feed",         icon: "Package"     },
-  { id: "medicine",   label: "Medicine",     icon: "Pill"        },
-  { id: "seeds",      label: "Seeds",        icon: "Sprout"      },
-  { id: "fertilizer", label: "Fertilizer",   icon: "Leaf"        },
-  { id: "pesticide",  label: "Pesticide",    icon: "SprayCan"    },
-  { id: "fuel",       label: "Fuel",         icon: "Zap"         },
-  { id: "equipment",  label: "Equipment",    icon: "Wrench"      },
-  { id: "packaging",  label: "Packaging",    icon: "Boxes"       },
-  { id: "other",      label: "Other",        icon: "Package2"    },
+  { id: "feed",       label: "Feed",         icon: "Package", i18n: { en: "Feed", hi: "चारा", bn: "খাদ্য" }     },
+  { id: "medicine",   label: "Medicine",     icon: "Pill", i18n: { en: "Medicine", hi: "दवा", bn: "ওষুধ" }        },
+  { id: "seeds",      label: "Seeds",        icon: "Sprout", i18n: { en: "Seeds", hi: "बीज", bn: "বীজ" }      },
+  { id: "fertilizer", label: "Fertilizer",   icon: "Leaf", i18n: { en: "Fertilizer", hi: "उर्वरक", bn: "সার" }        },
+  { id: "pesticide",  label: "Pesticide",    icon: "SprayCan", i18n: { en: "Pesticide", hi: "कीटनाशक", bn: "কীটনাশক" }    },
+  { id: "fuel",       label: "Fuel",         icon: "Zap", i18n: { en: "Fuel", hi: "ईंधन", bn: "জ্বালানি" }         },
+  { id: "equipment",  label: "Equipment",    icon: "Wrench", i18n: { en: "Equipment", hi: "उपकरण", bn: "সরঞ্জাম" }      },
+  { id: "packaging",  label: "Packaging",    icon: "Boxes", i18n: { en: "Packaging", hi: "पैकेजिंग", bn: "প্যাকেজিং" }       },
+  { id: "other",      label: "Other",        icon: "Package2", i18n: { en: "Other", hi: "अन्य", bn: "অন্যান্য" }    },
 ];
 
 const items = repo("inventory");
