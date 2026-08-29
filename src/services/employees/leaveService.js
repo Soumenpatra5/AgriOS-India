@@ -6,12 +6,12 @@
 import { repo } from "../erp/erpDb.js";
 
 export const LEAVE_TYPES = [
-  { id: "casual",    label: "Casual Leave",    allowance: 12 },
-  { id: "sick",      label: "Sick Leave",      allowance: 12 },
-  { id: "annual",    label: "Annual Leave",    allowance: 15 },
-  { id: "emergency", label: "Emergency Leave", allowance: 6 },
-  { id: "unpaid",    label: "Unpaid Leave",    allowance: 0 },
-  { id: "other",     label: "Other",           allowance: 0 },
+  { id: "casual",    label: "Casual Leave",    allowance: 12, i18n: { en: "Casual Leave", hi: "आकस्मिक अवकाश", bn: "নৈমিত্তিক ছুটি" } },
+  { id: "sick",      label: "Sick Leave",      allowance: 12, i18n: { en: "Sick Leave", hi: "बीमारी अवकाश", bn: "অসুস্থতার ছুটি" } },
+  { id: "annual",    label: "Annual Leave",    allowance: 15, i18n: { en: "Annual Leave", hi: "वार्षिक अवकाश", bn: "বার্ষিক ছুটি" } },
+  { id: "emergency", label: "Emergency Leave", allowance: 6, i18n: { en: "Emergency Leave", hi: "आपात अवकाश", bn: "জরুরি ছুটি" } },
+  { id: "unpaid",    label: "Unpaid Leave",    allowance: 0, i18n: { en: "Unpaid Leave", hi: "अवैतनिक अवकाश", bn: "বেতনহীন ছুটি" } },
+  { id: "other",     label: "Other",           allowance: 0, i18n: { en: "Other", hi: "अन्य", bn: "অন্যান্য" } },
 ];
 
 const leaves = repo("employeeLeaves");

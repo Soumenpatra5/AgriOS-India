@@ -7,16 +7,16 @@
 import { repo } from "../erp/erpDb.js";
 
 export const SKILL_LEVELS = [
-  { id: "beginner",     label: "Beginner" },
-  { id: "intermediate", label: "Intermediate" },
-  { id: "advanced",     label: "Advanced" },
-  { id: "expert",       label: "Expert" },
+  { id: "beginner",     label: "Beginner", i18n: { en: "Beginner", hi: "शुरुआती", bn: "শিক্ষানবিশ" } },
+  { id: "intermediate", label: "Intermediate", i18n: { en: "Intermediate", hi: "मध्यम", bn: "মাঝারি" } },
+  { id: "advanced",     label: "Advanced", i18n: { en: "Advanced", hi: "उन्नत", bn: "উন্নত" } },
+  { id: "expert",       label: "Expert", i18n: { en: "Expert", hi: "विशेषज्ञ", bn: "বিশেষজ্ঞ" } },
 ];
 
 export const TRAINING_STATUSES = [
-  { id: "planned",   label: "Planned" },
-  { id: "ongoing",   label: "Ongoing" },
-  { id: "completed", label: "Completed" },
+  { id: "planned",   label: "Planned", i18n: { en: "Planned", hi: "नियोजित", bn: "পরিকল্পিত" } },
+  { id: "ongoing",   label: "Ongoing", i18n: { en: "Ongoing", hi: "जारी", bn: "চলমান" } },
+  { id: "completed", label: "Completed", i18n: { en: "Completed", hi: "पूर्ण", bn: "সম্পন্ন" } },
 ];
 
 const records = repo("employeeRecords");

@@ -14,18 +14,18 @@ import { repo } from "../erp/erpDb.js";
 import { storage } from "../../utils/storage.js";
 
 export const DOC_TYPES = [
-  { id: "profile_photo",  label: "Profile Photo" },
-  { id: "id_proof",       label: "Identity Proof" },
-  { id: "address_proof",  label: "Address Proof" },
-  { id: "agreement",      label: "Employment Agreement" },
-  { id: "joining_form",   label: "Joining Form" },
-  { id: "bank_proof",     label: "Bank Account Proof" },
-  { id: "qualification",  label: "Qualification Certificate" },
-  { id: "skill_cert",     label: "Skill Certificate" },
-  { id: "training_cert",  label: "Training Certificate" },
-  { id: "medical",        label: "Medical / Fitness" },
-  { id: "driving_licence", label: "Driving Licence" },
-  { id: "other",          label: "Other Document" },
+  { id: "profile_photo",  label: "Profile Photo", i18n: { en: "Profile Photo", hi: "प्रोफ़ाइल फ़ोटो", bn: "প্রোফাইল ছবি" } },
+  { id: "id_proof",       label: "Identity Proof", i18n: { en: "Identity Proof", hi: "पहचान प्रमाण", bn: "পরিচয় প্রমাণ" } },
+  { id: "address_proof",  label: "Address Proof", i18n: { en: "Address Proof", hi: "पता प्रमाण", bn: "ঠিকানার প্রমাণ" } },
+  { id: "agreement",      label: "Employment Agreement", i18n: { en: "Employment Agreement", hi: "रोज़गार अनुबंध", bn: "কর্মসংস্থান চুক্তি" } },
+  { id: "joining_form",   label: "Joining Form", i18n: { en: "Joining Form", hi: "नियुक्ति फ़ॉर्म", bn: "যোগদান ফর্ম" } },
+  { id: "bank_proof",     label: "Bank Account Proof", i18n: { en: "Bank Account Proof", hi: "बैंक खाता प्रमाण", bn: "ব্যাঙ্ক অ্যাকাউন্ট প্রমাণ" } },
+  { id: "qualification",  label: "Qualification Certificate", i18n: { en: "Qualification Certificate", hi: "योग्यता प्रमाणपत्र", bn: "যোগ্যতার সনদ" } },
+  { id: "skill_cert",     label: "Skill Certificate", i18n: { en: "Skill Certificate", hi: "कौशल प्रमाणपत्र", bn: "দক্ষতার সনদ" } },
+  { id: "training_cert",  label: "Training Certificate", i18n: { en: "Training Certificate", hi: "प्रशिक्षण प्रमाणपत्र", bn: "প্রশিক্ষণের সনদ" } },
+  { id: "medical",        label: "Medical / Fitness", i18n: { en: "Medical / Fitness", hi: "चिकित्सा / फ़िटनेस", bn: "চিকিৎসা / ফিটনেস" } },
+  { id: "driving_licence", label: "Driving Licence", i18n: { en: "Driving Licence", hi: "ड्राइविंग लाइसेंस", bn: "ড্রাইভিং লাইসেন্স" } },
+  { id: "other",          label: "Other Document", i18n: { en: "Other", hi: "अन्य", bn: "অন্যান্য" } },
 ];
 
 /* `fileData` (base64 blob) is stripped before cloud sync — it would exceed

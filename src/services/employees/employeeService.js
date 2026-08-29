@@ -66,12 +66,12 @@ export const DESIGNATIONS = [
 ];
 
 export const STATUSES = [
-  { id: "active",         label: "Active",         tone: "primary" },
+  { id: "active",         label: "Active",         tone: "primary", i18n: { en: "Active", hi: "सक्रिय", bn: "সক্রিয়" } },
   { id: "on_leave",       label: "On Leave",       tone: "orange"  },
   { id: "suspended",      label: "Suspended",      tone: "red"     },
-  { id: "inactive",       label: "Inactive",       tone: "faint"   },
-  { id: "resigned",       label: "Resigned",       tone: "faint"   },
-  { id: "terminated",     label: "Terminated",     tone: "red"     },
+  { id: "inactive",       label: "Inactive",       tone: "faint", i18n: { en: "Inactive", hi: "निष्क्रिय", bn: "নিষ্ক্রিয়" }   },
+  { id: "resigned",       label: "Resigned",       tone: "faint", i18n: { en: "Resigned", hi: "त्यागपत्र", bn: "পদত্যাগ" }   },
+  { id: "terminated",     label: "Terminated",     tone: "red", i18n: { en: "Terminated", hi: "समाप्त", bn: "সমাপ্ত" }     },
   { id: "contract_ended", label: "Contract Ended", tone: "faint"   },
   { id: "retired",        label: "Retired",        tone: "faint"   },
 ];
@@ -84,14 +84,14 @@ export const GENDERS = [
    excludes the day from the attendance-% denominator. Legacy rows used only
    present/halfday/absent — all still valid here. */
 export const ATTENDANCE_STATUSES = [
-  { id: "present",    label: "Present",    short: "P",  tone: "primary", worked: 1 },
-  { id: "halfday",    label: "Half Day",   short: "½",  tone: "orange",  worked: 0.5 },
-  { id: "late",       label: "Late",       short: "L",  tone: "orange",  worked: 1 },
-  { id: "overtime",   label: "Overtime",   short: "OT", tone: "primary", worked: 1 },
-  { id: "absent",     label: "Absent",     short: "A",  tone: "red",     worked: 0 },
-  { id: "leave",      label: "Leave",      short: "LV", tone: "blue",    worked: 0 },
-  { id: "weekly_off", label: "Weekly Off", short: "WO", tone: "faint",   worked: 0, nonWorking: true },
-  { id: "holiday",    label: "Holiday",    short: "H",  tone: "faint",   worked: 0, nonWorking: true },
+  { id: "present",    label: "Present",    short: "P",  tone: "primary", worked: 1, i18n: { en: "Present", hi: "उपस्थित", bn: "উপস্থিত" } },
+  { id: "halfday",    label: "Half Day",   short: "½",  tone: "orange",  worked: 0.5, i18n: { en: "Half Day", hi: "आधा दिन", bn: "অর্ধ দিন" } },
+  { id: "late",       label: "Late",       short: "L",  tone: "orange",  worked: 1, i18n: { en: "Late", hi: "देर से", bn: "দেরি" } },
+  { id: "overtime",   label: "Overtime",   short: "OT", tone: "primary", worked: 1, i18n: { en: "Overtime", hi: "ओवरटाइम", bn: "ওভারটাইম" } },
+  { id: "absent",     label: "Absent",     short: "A",  tone: "red",     worked: 0, i18n: { en: "Absent", hi: "अनुपस्थित", bn: "অনুপস্থিত" } },
+  { id: "leave",      label: "Leave",      short: "LV", tone: "blue",    worked: 0, i18n: { en: "Leave", hi: "छुट्टी", bn: "ছুটি" } },
+  { id: "weekly_off", label: "Weekly Off", short: "WO", tone: "faint",   worked: 0, nonWorking: true, i18n: { en: "Weekly Off", hi: "साप्ताहिक अवकाश", bn: "সাপ্তাহিক ছুটি" } },
+  { id: "holiday",    label: "Holiday",    short: "H",  tone: "faint",   worked: 0, nonWorking: true, i18n: { en: "Holiday", hi: "अवकाश", bn: "ছুটির দিন" } },
 ];
 const attMeta = (id) => ATTENDANCE_STATUSES.find((a) => a.id === id);
 
@@ -266,8 +266,8 @@ export const employeeService = {
 };
 
 export const PAYMENT_METHODS = [
-  { id: "cash", label: "Cash" },
-  { id: "bank", label: "Bank Transfer" },
-  { id: "upi",  label: "UPI" },
-  { id: "other", label: "Other" },
+  { id: "cash", label: "Cash", i18n: { en: "Cash", hi: "नकद", bn: "নগদ" } },
+  { id: "bank", label: "Bank Transfer", i18n: { en: "Bank Transfer", hi: "बैंक ट्रांसफर", bn: "ব্যাঙ্ক ট্রান্সফার" } },
+  { id: "upi",  label: "UPI", i18n: { en: "UPI", hi: "UPI", bn: "UPI" } },
+  { id: "other", label: "Other", i18n: { en: "Other", hi: "अन्य", bn: "অন্যান্য" } },
 ];
