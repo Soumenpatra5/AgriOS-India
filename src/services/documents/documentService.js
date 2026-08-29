@@ -31,6 +31,7 @@ import {
 /* fileData is a base64 blob: far past Firestore's 1 MB document limit, and
    sensitive besides. It stays in local IndexedDB and never leaves. */
 const docs = repo("documents", { stripForSync: ["fileData"] });
+const versions = repo("documentVersions", { stripForSync: ["fileData"] });
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -41,13 +42,13 @@ const today = () => new Date().toISOString().slice(0, 10);
    `group` is the scalable taxonomy from the brief so new categories slot in
    without another enum. `id` is the stored value and never changes. */
 export const DOC_CATEGORIES = [
-  { id: "land",       subject: "owner", group: "farm",         icon: "Map",           i18n: { en: "Land record", hi: "भूमि रिकॉर्ड", bn: "জমির রেকর্ড" } },
+  { id: "land",       subject: "owner", versioned: true, group: "farm",         icon: "Map",           i18n: { en: "Land record", hi: "भूमि रिकॉर्ड", bn: "জমির রেকর্ড" } },
   { id: "kcc",        subject: "owner", group: "banking",      icon: "CreditCard",    i18n: { en: "Kisan Credit Card", hi: "किसान क्रेडिट कार्ड", bn: "কিষান ক্রেডিট কার্ড" } },
-  { id: "insurance",  subject: "owner", group: "insurance",    icon: "ShieldCheck",   i18n: { en: "Crop insurance", hi: "फसल बीमा", bn: "ফসল বীমা" } },
+  { id: "insurance",  subject: "owner", versioned: true, group: "insurance",    icon: "ShieldCheck",   i18n: { en: "Crop insurance", hi: "फसल बीमा", bn: "ফসল বীমা" } },
   { id: "soil",       subject: "owner", group: "crop",         icon: "FlaskConical",  i18n: { en: "Soil health card", hi: "मृदा स्वास्थ्य कार्ड", bn: "মাটি স্বাস্থ্য কার্ড" } },
   { id: "bank",       subject: "owner", group: "banking",      icon: "Building2",     i18n: { en: "Bank passbook", hi: "बैंक पासबुक", bn: "ব্যাংক পাসবই" } },
-  { id: "loan",       subject: "owner", group: "loan",         icon: "Landmark",      i18n: { en: "Loan document", hi: "ऋण दस्तावेज़", bn: "ঋণের নথি" } },
-  { id: "lease",      subject: "owner", group: "contracts",    icon: "FileSignature", i18n: { en: "Lease agreement", hi: "पट्टा अनुबंध", bn: "ইজারা চুক্তি" } },
+  { id: "loan",       subject: "owner", versioned: true, group: "loan",         icon: "Landmark",      i18n: { en: "Loan document", hi: "ऋण दस्तावेज़", bn: "ঋণের নথি" } },
+  { id: "lease",      subject: "owner", versioned: true, group: "contracts",    icon: "FileSignature", i18n: { en: "Lease agreement", hi: "पट्टा अनुबंध", bn: "ইজারা চুক্তি" } },
   { id: "subsidy",    subject: "owner", group: "government",   icon: "Building2",     i18n: { en: "Scheme / subsidy", hi: "योजना / सब्सिडी", bn: "প্রকল্প / ভর্তুকি" } },
   { id: "licence",    subject: "owner", group: "licences",     icon: "BadgeCheck",    i18n: { en: "Licence / permit", hi: "लाइसेंस / परमिट", bn: "লাইসেন্স / অনুমতি" } },
   { id: "tax",        subject: "owner", group: "tax",          icon: "Receipt",       i18n: { en: "Tax document", hi: "कर दस्तावेज़", bn: "কর সংক্রান্ত নথি" } },
@@ -56,7 +57,7 @@ export const DOC_CATEGORIES = [
   { id: "profile_photo",   subject: "employee", group: "employee",     icon: "User",        i18n: { en: "Profile Photo", hi: "प्रोफ़ाइल फ़ोटो", bn: "প্রোফাইল ছবি" } },
   { id: "id_proof",        subject: "employee", group: "employee",     icon: "IdCard",      i18n: { en: "Identity Proof", hi: "पहचान प्रमाण", bn: "পরিচয় প্রমাণ" } },
   { id: "address_proof",   subject: "employee", group: "employee",     icon: "House",       i18n: { en: "Address Proof", hi: "पता प्रमाण", bn: "ঠিকানার প্রমাণ" } },
-  { id: "agreement",       subject: "employee", group: "contracts",    icon: "FileSignature", i18n: { en: "Employment Agreement", hi: "रोज़गार अनुबंध", bn: "কর্মসংস্থান চুক্তি" } },
+  { id: "agreement",       subject: "employee", versioned: true, group: "contracts",    icon: "FileSignature", i18n: { en: "Employment Agreement", hi: "रोज़गार अनुबंध", bn: "কর্মসংস্থান চুক্তি" } },
   { id: "joining_form",    subject: "employee", group: "employee",     icon: "FileText",    i18n: { en: "Joining Form", hi: "नियुक्ति फ़ॉर्म", bn: "যোগদান ফর্ম" } },
   { id: "bank_proof",      subject: "employee", group: "banking",      icon: "Building2",   i18n: { en: "Bank Account Proof", hi: "बैंक खाता प्रमाण", bn: "ব্যাঙ্ক অ্যাকাউন্ট প্রমাণ" } },
   { id: "qualification",   subject: "employee", group: "certificates", icon: "GraduationCap", i18n: { en: "Qualification Certificate", hi: "योग्यता प्रमाणपत्र", bn: "যোগ্যতার সনদ" } },
@@ -204,7 +205,20 @@ export const documentService = {
 
     if (file) Object.assign(rec, await putFile(file, { subjectType, subjectId, category, onProgress, ownerId }));
 
-    const saved = await docs.add(rec);
+    let saved;
+    try {
+      saved = await docs.add(rec);
+    } catch (err) {
+      /* The bytes landed but the metadata row did not, so nothing in the app
+         will ever reference that object again. Delete it rather than leave an
+         invisible file sitting in the farmer's storage quota (brief §29). */
+      if (rec.storagePath) {
+        await import("../firebase/storage.js")
+          .then((m) => m.deleteImage(rec.storagePath))
+          .catch(() => {});
+      }
+      throw err;
+    }
     auditService.log("document.created", {
       employeeId: subjectType === "employee" ? subjectId : "",
       detail: `${saved.title} (${category})`,
@@ -215,15 +229,36 @@ export const documentService = {
   update: (id, patch) => docs.update(id, patch),
 
   /* Swap the file on an existing record, keeping its metadata and identity.
-     The old object is deleted only after the new one is safely stored, so a
-     failed replace leaves the original intact rather than losing both. */
-  async replaceFile(id, file, { onProgress, ownerId, uploadedBy = "" } = {}) {
+     The new file is stored FIRST, so a failed replace leaves the original
+     intact rather than losing both. */
+  async replaceFile(id, file, { onProgress, ownerId, uploadedBy = "", changeNote = "" } = {}) {
     const existing = await docs.getById(id);
     if (!existing) return null;
     const stored = await putFile(file, {
       subjectType: existing.subjectType, subjectId: existing.subjectId,
       category: existing.category, onProgress, ownerId,
     });
+
+    /* Keep the outgoing file for the record types where losing a previous
+       version would matter — a land record or a lease is evidence, and the
+       version it replaced may still be the one a dispute turns on. Everything
+       else (a re-photographed soil card) is just churn, so the old object is
+       deleted to reclaim the space. */
+    const keep = !!categoryOf(existing.category).versioned;
+    const hadFile = !!(existing.fileUrl || existing.fileData);
+
+    if (keep && hadFile) {
+      const prior = await versions.getBy("documentId", id);
+      await versions.add({
+        documentId: id,
+        version: prior.length + 1,
+        fileName: existing.fileName || "", mimeType: existing.mimeType || "", size: existing.size || 0,
+        storage: existing.storage || "", storagePath: existing.storagePath || "",
+        fileUrl: existing.fileUrl || "", fileData: existing.fileData || "",
+        changedBy: uploadedBy, changeNote,
+        changedAt: new Date().toISOString(),
+      });
+    }
 
     const updated = await docs.update(id, {
       ...stored,
@@ -232,7 +267,7 @@ export const documentService = {
       previousFileName: existing.fileName || "",
     });
 
-    if (existing.storagePath && existing.storagePath !== stored.storagePath) {
+    if (!keep && existing.storagePath && existing.storagePath !== stored.storagePath) {
       /* Best effort: a leftover object is wasted bytes, never a correctness
          problem, and must not fail the replace the farmer just did. */
       import("../firebase/storage.js")
@@ -245,6 +280,12 @@ export const documentService = {
     });
     return updated;
   },
+
+  /* Superseded files, newest first. Empty for categories we do not version. */
+  versions: (documentId) => versions.getBy("documentId", documentId)
+    .then((l) => l.sort((a, b) => (b.version || 0) - (a.version || 0))),
+
+  isVersioned: (category) => !!categoryOf(category).versioned,
 
   async remove(id) {
     const d = await docs.getById(id);
@@ -298,7 +339,7 @@ export const documentService = {
    filename — becomes a path segment, so a name like "../../other-user/x"
    cannot escape its folder (brief §28). The original name is kept only as
    metadata, for display and download. */
-function storagePathFor({ ownerId, subjectType, subjectId, category, ext }) {
+export function storagePathFor({ ownerId, subjectType, subjectId, category, ext }) {
   const rand = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}${Math.random()}`)
     .replace(/[^a-zA-Z0-9]/g, "").slice(0, 24);
   const subject = subjectId ? `${subjectType}/${subjectId}` : subjectType;
@@ -308,13 +349,27 @@ function storagePathFor({ ownerId, subjectType, subjectId, category, ext }) {
 const cloudAvailable = () =>
   !!import.meta.env?.VITE_FB_API_KEY && typeof navigator !== "undefined" && navigator.onLine !== false;
 
-function toDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = () => reject(fr.error);
-    fr.readAsDataURL(file);
-  });
+/* FileReader.readAsDataURL is the efficient browser path — it encodes natively
+   rather than walking the bytes in JS — so it stays primary. The manual
+   fallback covers environments without it, which includes the test runner. */
+async function toDataUrl(file) {
+  if (typeof FileReader !== "undefined") {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(file);
+    });
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  /* Chunked: String.fromCharCode(...wholeFile) overflows the call stack on
+     anything but a tiny file. */
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return `data:${file.type || "application/octet-stream"};base64,${btoa(binary)}`;
 }
 
 /* Store the bytes and describe where they went. Cloud when we can, device

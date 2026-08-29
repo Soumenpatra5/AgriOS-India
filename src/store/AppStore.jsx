@@ -50,6 +50,18 @@ export function AppProvider({ children }) {
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
   }, []);
 
+  /* Document files that never reached the cloud — captured offline, or after a
+     failed upload — are pushed when connectivity returns. Metadata syncs
+     through the normal sync layer; files cannot, because a base64 scan has no
+     business in a Firestore document. */
+  useEffect(() => {
+    let stop = () => {};
+    import("../services/documents/uploadQueue.js")
+      .then((m) => { stop = m.startAutoRetry(); })
+      .catch(() => {});
+    return () => stop();
+  }, []);
+
   useEffect(() => {
     let unsub = () => {};
     let cancelled = false;

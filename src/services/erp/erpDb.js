@@ -3,7 +3,7 @@
    tested CRUD implementation (Repository Pattern) instead of copying it. */
 
 const DB_NAME = "agrios-erp";
-const DB_VERSION = 11;
+const DB_VERSION = 12;
 
 /* store name -> indexes created on upgrade. onupgradeneeded is additive: it
    only creates stores that don't yet exist, so bumping the version to add a
@@ -38,6 +38,9 @@ const STORES = {
      employeeDocuments store and the docs:list localStorage key; see
      services/documents/documentService.js for the migration. */
   documents:   ["subjectType", "subjectId", "category"],
+  /* Superseded files for the record types where losing the previous version
+     would matter — land, lease, insurance, loan, employment agreements. */
+  documentVersions: ["documentId"],
 };
 
 let _db = null;

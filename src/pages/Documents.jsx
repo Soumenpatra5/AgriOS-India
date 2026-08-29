@@ -17,6 +17,8 @@ import {
   documentService, categoriesFor, categoryOf, expiryState,
 } from "../services/documents/documentService.js";
 import { findDuplicate } from "../services/documents/fileValidation.js";
+import { filterDocuments, facets } from "../services/documents/documentSearch.js";
+import { isPending } from "../services/documents/uploadQueue.js";
 
 const fileSize = (n) => (!n ? "" : n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`);
 
@@ -37,8 +39,28 @@ export default function Documents() {
   const [busy, setBusy] = useState(false);
   const [delTarget, setDelTarget] = useState(null);
 
+  const [query, setQuery] = useState("");
+  const [chip, setChip] = useState("all");
+  const [sort, setSort] = useState("recent");
+
   const refresh = () => documentService.list("owner").then(setDocs);
   useEffect(() => { refresh(); }, []);
+
+  /* Filtering happens over the already-loaded list rather than the store: the
+     screen holds metadata only (§32), and a farmer's list is tens of rows. */
+  const counts = facets(docs || []);
+  const visible = filterDocuments(docs || [], {
+    query, sort,
+    expiry: chip === "expired" ? "expired" : chip === "expiring" ? "expiring_soon" : "",
+    hasFile: chip === "nofile" ? false : null,
+  });
+
+  const CHIPS = [
+    { id: "all",      label: tc({ en: "All", hi: "सभी", bn: "সব" }), n: counts.total },
+    { id: "expired",  label: tc({ en: "Expired", hi: "समय-समाप्त", bn: "মেয়াদ শেষ" }), n: counts.expired },
+    { id: "expiring", label: tc({ en: "Expiring", hi: "जल्द समाप्त", bn: "শীঘ্রই শেষ" }), n: counts.expiringSoon },
+    { id: "nofile",   label: tc({ en: "No file", hi: "फ़ाइल नहीं", bn: "ফাইল নেই" }), n: counts.total - counts.withFile },
+  ].filter((c) => c.id === "all" || c.n > 0);
 
   const canView = can("documents.view") || can("profile.manage");
   if (!canView) return (
@@ -105,7 +127,50 @@ export default function Documents() {
               body={tc({ en: "Keep track of your land records, KCC, insurance and more. Tap + to add one.", hi: "अपने भूमि रिकॉर्ड, KCC, बीमा आदि का हिसाब रखें। जोड़ने के लिए + दबाएँ।", bn: "আপনার জমির রেকর্ড, KCC, বীমা ইত্যাদির হিসাব রাখুন। যোগ করতে + চাপুন।" })} />
           </div>
         ) : (
-          docs.map((d) => {
+          <>
+            {/* Search and filters appear only once there is enough to sift
+                through — on a list of three they are just clutter. */}
+            {docs.length > 3 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ position: "relative" }}>
+                  <Icon name="Search" size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: T.inkFaint }} />
+                  <input value={query} onChange={(e) => setQuery(e.target.value)}
+                    placeholder={tc({ en: "Search documents…", hi: "दस्तावेज़ खोजें…", bn: "নথি খুঁজুন…" })}
+                    style={{ ...fieldStyle, paddingLeft: 34 }} />
+                  {query && (
+                    <button onClick={() => setQuery("")} aria-label={tc({ en: "Clear search", hi: "खोज साफ़ करें", bn: "খোঁজ মুছুন" })}
+                      style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
+                      <Icon name="X" size={15} />
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+                  {CHIPS.map((c) => (
+                    <button key={c.id} onClick={() => setChip(c.id)}
+                      style={{ flexShrink: 0, padding: "7px 12px", borderRadius: T.pill, cursor: "pointer", fontFamily: T.body, fontSize: 12.5, fontWeight: 600,
+                        border: `1.5px solid ${chip === c.id ? T.primary : T.line}`, background: chip === c.id ? T.primarySoft : T.surface, color: chip === c.id ? T.primary : T.inkSoft }}>
+                      {c.label} {c.n > 0 ? `(${c.n})` : ""}
+                    </button>
+                  ))}
+                  <button onClick={() => setSort((s) => (s === "recent" ? "expiry" : s === "expiry" ? "title" : "recent"))}
+                    style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: T.pill, cursor: "pointer",
+                      fontFamily: T.body, fontSize: 12.5, fontWeight: 600, border: `1.5px solid ${T.line}`, background: T.surface, color: T.inkSoft }}>
+                    <Icon name="ArrowUpDown" size={13} />
+                    {{ recent: tc({ en: "Recent", hi: "हाल के", bn: "সাম্প্রতিক" }),
+                       expiry: tc({ en: "Expiry", hi: "समय-सीमा", bn: "মেয়াদ" }),
+                       title:  tc({ en: "Name", hi: "नाम", bn: "নাম" }) }[sort]}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {visible.length === 0 && (
+              <div style={{ padding: "30px 0", textAlign: "center", color: T.inkFaint, fontSize: 13 }}>
+                {tc({ en: "No documents match that.", hi: "इससे कोई दस्तावेज़ मेल नहीं खाता।", bn: "এর সঙ্গে কোনও নথি মেলেনি।" })}
+              </div>
+            )}
+
+            {visible.map((d) => {
             const cat = categoryOf(d.category);
             const state = expiryState(d);
             const tone = EXPIRY_TONE[state]?.(T);
@@ -132,12 +197,16 @@ export default function Documents() {
                     </span>
                   )}
                 </div>
-                {d.fileName
-                  ? <Icon name="Paperclip" size={15} style={{ color: T.inkFaint, flexShrink: 0 }} />
-                  : <Icon name="ChevronRight" size={16} style={{ color: T.inkFaint, flexShrink: 0 }} />}
+                {isPending(d)
+                  ? <Icon name="CloudUpload" size={15} style={{ color: T.orange, flexShrink: 0 }}
+                      aria-label={tc({ en: "Waiting to upload", hi: "अपलोड की प्रतीक्षा", bn: "আপলোডের অপেক্ষায়" })} />
+                  : d.fileName
+                    ? <Icon name="Paperclip" size={15} style={{ color: T.inkFaint, flexShrink: 0 }} />
+                    : <Icon name="ChevronRight" size={16} style={{ color: T.inkFaint, flexShrink: 0 }} />}
               </Card>
             );
-          })
+            })}
+          </>
         )}
 
         <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center", lineHeight: 1.6 }}>

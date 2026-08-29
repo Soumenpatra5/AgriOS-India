@@ -16,6 +16,7 @@ import FilePicker from "../components/documents/FilePicker.jsx";
 import {
   documentService, categoryOf, expiryState,
 } from "../services/documents/documentService.js";
+import { isPending, uploadState, retryNow, UPLOAD_STATE } from "../services/documents/uploadQueue.js";
 
 const fileSize = (n) => (!n ? "—" : n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`);
 
@@ -39,8 +40,27 @@ export default function DocumentDetail({ id }) {
   const [busy, setBusy] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
 
-  const refresh = () => documentService.getById(id).then((d) => { setDoc(d); if (!d) setMissing(true); });
+  const [versions, setVersions] = useState([]);
+  const [retrying, setRetrying] = useState(false);
+
+  const refresh = () => Promise.all([
+    documentService.getById(id).then((d) => { setDoc(d); if (!d) setMissing(true); }),
+    documentService.versions(id).then(setVersions),
+  ]);
   useEffect(() => { refresh(); }, [id]);
+
+  const retryUpload = async () => {
+    setRetrying(true);
+    try {
+      const ok = await retryNow(id);
+      await refresh();
+      toast(ok
+        ? tc({ en: "Uploaded", hi: "अपलोड हो गया", bn: "আপলোড হয়েছে" })
+        : tc({ en: "Still can't upload — it will keep trying in the background.",
+               hi: "अभी अपलोड नहीं हो सका — पृष्ठभूमि में कोशिश जारी रहेगी।",
+               bn: "এখনও আপলোড হয়নি — পটভূমিতে চেষ্টা চলতে থাকবে।" }), ok ? "success" : "info");
+    } finally { setRetrying(false); }
+  };
 
   if (missing) return (
     <>
@@ -63,6 +83,22 @@ export default function DocumentDetail({ id }) {
   const state = expiryState(doc);
   const hasFile = !!(doc.fileUrl || doc.fileData);
   const mayDownload = can("documents.download") || can("profile.manage");
+  const pending = isPending(doc);
+  const state2 = uploadState(doc);
+
+  /* A superseded version resolves the same way a current file does. */
+  const downloadVersion = async (v) => {
+    const opened = await documentService.openable(v);
+    if (!opened) {
+      toast(tc({ en: "This version could not be opened.", hi: "यह संस्करण खोला नहीं जा सका।", bn: "এই সংস্করণ খোলা যায়নি।" }), "error");
+      return;
+    }
+    documentService.logDownload(doc);
+    const a = document.createElement("a");
+    a.href = opened.url; a.download = v.fileName || "document"; a.rel = "noopener";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => opened.revoke?.(), 30000);
+  };
 
   /* Download resolves the file only when asked, and logs the access. A blob
      URL made for a device-stored file is revoked once the click is done. */
@@ -139,6 +175,58 @@ export default function DocumentDetail({ id }) {
               value={`${doc.replacedAt.slice(0, 10)}${doc.previousFileName ? ` (${doc.previousFileName})` : ""}`} />
           )}
         </Card>
+
+        {pending && (
+          <Card pad={12} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Icon name="CloudUpload" size={18} style={{ color: T.orange, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
+                {state2 === UPLOAD_STATE.FAILED
+                  ? tc({ en: "Upload failed", hi: "अपलोड विफल", bn: "আপলোড ব্যর্থ" })
+                  : tc({ en: "Waiting to upload", hi: "अपलोड की प्रतीक्षा", bn: "আপলোডের অপেক্ষায়" })}
+              </div>
+              <div style={{ fontSize: 11.5, color: T.inkSoft }}>
+                {tc({ en: "The file is safe on this device and will go to your cloud folder when there is signal.",
+                       hi: "फ़ाइल इस डिवाइस पर सुरक्षित है और सिग्नल मिलते ही आपके क्लाउड फ़ोल्डर में चली जाएगी।",
+                       bn: "ফাইলটি এই ডিভাইসে নিরাপদ আছে এবং সিগন্যাল পেলে আপনার ক্লাউড ফোল্ডারে চলে যাবে।" })}
+              </div>
+            </div>
+            <Button size="sm" variant="soft" disabled={retrying} onClick={retryUpload}>
+              {retrying
+                ? tc({ en: "Trying…", hi: "कोशिश…", bn: "চেষ্টা…" })
+                : tc({ en: "Retry", hi: "फिर कोशिश", bn: "আবার" })}
+            </Button>
+          </Card>
+        )}
+
+        {versions.length > 0 && (
+          <Card pad={14}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: T.inkSoft, textTransform: "uppercase", letterSpacing: .4, marginBottom: 10 }}>
+              {tc({ en: "Previous versions", hi: "पिछले संस्करण", bn: "আগের সংস্করণ" })}
+            </div>
+            {versions.map((v) => (
+              <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: `1px solid ${T.lineSoft}` }}>
+                <div style={{ width: 26, height: 26, borderRadius: 8, background: T.surface2, color: T.inkSoft,
+                  display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                  v{v.version}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.fileName}</div>
+                  <div style={{ fontSize: 11.5, color: T.inkSoft }}>
+                    {(v.changedAt || "").slice(0, 10)}{v.changeNote ? ` · ${v.changeNote}` : ""}
+                  </div>
+                </div>
+                {mayDownload && (
+                  <button onClick={() => downloadVersion(v)}
+                    aria-label={tc({ en: "Download this version", hi: "यह संस्करण डाउनलोड करें", bn: "এই সংস্করণ ডাউনলোড করুন" })}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: T.primary, display: "flex", padding: 4 }}>
+                    <Icon name="Download" size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </Card>
+        )}
 
         {replacing ? (
           <Card pad={14} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
