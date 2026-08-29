@@ -1,121 +1,119 @@
 # Firebase — Provisioning Runbook
 
-The app now points at the Firebase project **`agrios-india-app`** (`.env`,
-`.firebaserc`). That project is **newly created and completely bare**. Until the
-three services below are enabled, the app cannot log anyone in, cannot sync, and
-cannot store a file.
-
-Probed against the live project:
+The app uses the Firebase project **`agrios-india`** (`.env`, `.firebaserc`).
 
 | Service | State | Evidence |
 |---|---|---|
-| Authentication | **not enabled** | `identitytoolkit …/v1/projects` → `400 CONFIGURATION_NOT_FOUND` |
-| Firestore | **no database** | `firestore …/databases/(default)` → `403 "Cloud Firestore API has not been used in project agrios-india-app before or it is disabled"` |
-| Storage | **no bucket** | `storage …/b/agrios-india-app.firebasestorage.app` → `404 "The specified bucket does not exist"` |
+| Authentication | working | users sign in today |
+| Firestore | working | `403 PERMISSION_DENIED` — the database exists and rules correctly deny anonymous reads |
+| Storage | **NOT PROVISIONED** | `404 "The specified bucket does not exist"` |
 
-For contrast, the previous project `agrios-india` had working Auth and Firestore
-(its Firestore answers `403 PERMISSION_DENIED`, i.e. the database exists and
-rules correctly deny anonymous reads) but never had Storage either.
+Only Storage is missing. Enabling it is the whole job.
 
-## Read this before switching
+> A second project, `agrios-india-app`, was created during an account move and
+> is **bare** — no Auth (`400 CONFIGURATION_NOT_FOUND`), no Firestore, no
+> Storage. Switching to it would log every existing user out permanently:
+> Firebase Auth accounts do not transfer between projects, and synced Firestore
+> data stays behind. Do not point `.env` at it without reading "Moving projects"
+> at the bottom.
 
-**Existing users cannot log in to the new project.** Firebase Auth accounts do
-not transfer between projects. Everyone who has signed up has an account in
-`agrios-india`, and to the new project they are strangers. They will have to
-register again.
+## What the missing bucket breaks
 
-**Cloud data stays behind.** Synced Firestore documents live in the old project.
-The app is local-first, so each device keeps everything in IndexedDB and nothing
-visible is lost — but the cloud backup starts empty, and a farmer restoring onto
-a new phone would find nothing there.
+Nothing visibly, which is why it went unnoticed. `putFile()` in
+`services/documents/documentService.js` tries the cloud, times out, and keeps
+the file on the device as base64. Documents save and open normally — they are
+just not backed up and do not follow a farmer to a new phone.
 
-If that is not what you want, keep `.env` pointed at `agrios-india` and enable
-Storage there instead — that alone fixes uploads without disturbing anyone.
+`uploadQueue` retries on reconnect and at startup, so **everything already
+captured uploads by itself once the bucket exists**. No data is lost and no
+migration is needed.
 
-## 1. Authentication
+Affected: employee documents (ID, bank proof, medical), the farmer's own
+documents (land records, KCC, insurance), and diagnostic photos.
 
-Console → **Build → Authentication → Get started**, then enable the methods the
-app offers (`src/pages/Login.jsx`): Google, Apple, Facebook, X/Twitter, Email/
-Password, and Phone. Each social provider needs its own OAuth client configured
-in that provider's console; phone needs a billing account for SMS beyond the
-free tier.
+## 1. Create the bucket
 
-Then **Settings → Authorized domains**, and add:
+Console access only; this cannot be scripted.
 
-- the production Vercel domain (the *new* one, after the account move)
-- `localhost` for development
+1. Firebase Console → **`agrios-india`** → **Build → Storage → Get started**.
+2. **Choose a location. This is permanent.** Pick `asia-south1` (Mumbai) or
+   `asia-south2` (Delhi) — the users are in India, and a US bucket adds a round
+   trip to every upload on the connections least able to afford one.
+3. Confirm the bucket name matches `VITE_FB_STORAGE_BUCKET`, currently
+   `agrios-india.firebasestorage.app`. If the console shows `…appspot.com`,
+   change the env var to match the console rather than the reverse.
 
-A domain missing here fails sign-in with a message that does not mention
-domains, which is a slow thing to debug.
+## 2. Deploy the rules
 
-## 2. Firestore
-
-Console → **Build → Firestore Database → Create database**.
-
-- Location: `asia-south1` (Mumbai) or `asia-south2` (Delhi). **Permanent.**
-- Start in production mode; `firestore.rules` is already written and replaces
-  the defaults in the next step.
+`storage.rules` is written and committed: every file is confined to
+`users/{uid}/…` and uploads are capped at 15 MB. Without it the permissive
+defaults apply.
 
 ```bash
 npx firebase-tools login
-npx firebase-tools deploy --only firestore:rules
+npx firebase-tools deploy --only storage
 ```
 
 `.firebaserc` pins the project, so no `--project` flag is needed.
 
-## 3. Storage
+## 3. Apply CORS
 
-Console → **Build → Storage → Get started**.
-
-- Location: same region as Firestore. **Permanent.**
-- Confirm the bucket name matches `VITE_FB_STORAGE_BUCKET` — currently
-  `agrios-india-app.firebasestorage.app`. If the console shows
-  `…appspot.com` instead, change the env var to match the console, not the
-  other way round.
+Browser uploads fail without this, with a preflight error that reads like a
+permissions problem and is not.
 
 ```bash
-npx firebase-tools deploy --only storage
+gcloud storage buckets update gs://agrios-india.firebasestorage.app --cors-file=cors.json
 ```
 
-`storage.rules` confines every file to `users/{uid}/…` and caps uploads at
-15 MB.
+(or `gsutil cors set cors.json gs://agrios-india.firebasestorage.app`)
 
-### CORS
+**Check the origins in `cors.json` first.** It lists the current Vercel URL and
+the local dev ports. If the Vercel account move changes the production URL, add
+the new origin — a missing origin fails identically to a missing bucket.
 
-Browser uploads fail without this, with a preflight error that looks exactly
-like a permissions problem. `cors.json` is at the repo root.
+## 4. Verify
+
+With a signed-in user on the deployed site, attach a PDF to a document:
+
+- the document detail screen reads **"Private cloud folder"**, not "This device";
+- Console → Storage shows the object under
+  `users/{uid}/documents/owner/{category}/`;
+- the browser console shows no CORS error.
+
+## Vercel environment variables — read this
+
+Every variable on the Vercel project is typed **Sensitive**, which makes it
+write-only. `vercel env pull` cannot return those values; it writes the literal
+string `[SENSITIVE]` instead. Anything pulled that way is a placeholder, not a
+secret.
+
+The six `VITE_FB_*` values are recoverable regardless — they are compiled into
+the client bundle, so the live deployment is an authoritative copy:
 
 ```bash
-gcloud storage buckets update gs://agrios-india-app.firebasestorage.app --cors-file=cors.json
+curl -s https://agrios-india.vercel.app/assets/config-BVsiJ1Ww.js | grep -o 'AIza[0-9A-Za-z_-]\{35\}'
 ```
 
-(or `gsutil cors set cors.json gs://agrios-india-app.firebasestorage.app`)
+These four exist **only** inside Vercel and cannot be read back from anywhere.
+If they are ever lost they must be reissued, not recovered:
 
-**Edit `cors.json` first.** It lists the old Vercel URL and the local dev ports.
-Add the new production origin, or uploads keep failing in a way indistinguishable
-from an unprovisioned bucket.
+| Variable | Where to reissue |
+|---|---|
+| `ANTHROPIC_API_KEY` | console.anthropic.com |
+| `TWOFACTOR_API_KEY` | 2factor.in dashboard |
+| `DATAGOV_API_KEY` | data.gov.in profile |
+| `OTP_JWT_SECRET` | any fresh random string — rotating it invalidates in-flight OTP tokens only |
 
-## 4. Push the config to Vercel
+## Moving projects
 
-The six `VITE_FB_*` values and `FB_PROJECT_ID` are already updated in `.env` and
-in `.env.newproject` (the migration file). They must also be set on the Vercel
-project, for **production and preview** — the `VITE_*` ones are baked into the
-bundle at build time, so a preview build missing them loses Firebase silently.
+If Firebase ever does move to another project or account:
 
-`VITE_FB_VAPID_KEY` (web push) is project-specific and is **not** carried over.
-Generate a new key pair in Console → Project settings → Cloud Messaging → Web
-Push certificates if push notifications are wanted.
-
-## 5. Verify
-
-1. Sign in on the deployed site with a fresh account.
-2. Add a document with a PDF attached. Its detail screen should read
-   **"Private cloud folder"**, not "This device".
-3. Console → Storage shows the object under
-   `users/{uid}/documents/owner/{category}/`.
-4. Console → Firestore shows synced collections appearing.
-5. Browser console: no CORS errors.
-
-Anything captured while Storage was missing is still on the device and uploads
-by itself — `uploadQueue` sweeps on reconnect and at startup. No data is lost in
-the meantime and no migration is needed.
+- **Auth accounts do not transfer.** Every existing user must register again.
+- **Firestore data does not transfer.** The app is local-first so no device
+  loses anything, but the cloud backup starts empty.
+- Both region choices (Firestore, Storage) are **permanent** — pick
+  `asia-south1`/`asia-south2` at creation.
+- Enable Auth providers and add the production domain under
+  **Authentication → Settings → Authorized domains**, or sign-in fails with an
+  error that never mentions domains.
+- `VITE_FB_VAPID_KEY` (web push) is project-specific and must be regenerated.

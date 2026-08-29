@@ -74,7 +74,7 @@ UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN   # optional: fleet-wide rate 
 
 ## Not covered here — Firebase
 
-This runbook covers the commerce backend only. Firebase — Auth, Firestore and
-Storage — is a separate dependency, and the project the app now points at
-(agrios-india-app) has none of the three enabled yet. See
+This runbook covers the commerce backend only. Firebase is a separate
+dependency: Auth and Firestore work, but Storage has never
+been provisioned, so document uploads silently fall back to device storage. See
 [FIREBASE-PROVISIONING.md](FIREBASE-PROVISIONING.md).
