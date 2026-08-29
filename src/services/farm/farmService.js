@@ -3,7 +3,6 @@
 
 import { repo } from "../erp/erpDb.js";
 import { storage } from "../../utils/storage.js";
-import { upgradeLegacy } from "../geo/geoService.js";
 
 const ACTIVE_KEY = "erp:activeFarmId";
 
@@ -42,6 +41,10 @@ async function cascadeSoftDelete(farmId) {
    Only exact matches are written; anything ambiguous keeps its text and stays
    without ids, because a silently wrong district on a farm profile would flow
    straight into the DPR and the scheme engine. */
+/* Loaded on demand: the district dataset is only needed to upgrade legacy
+   rows, which happens once and never on the first-paint path. */
+const geo = () => import("../geo/geoService.js");
+
 const GEO_FLAG = "erp:farms:geoUpgraded:v1";
 let _geoUpgrade = null;
 
@@ -52,7 +55,7 @@ function upgradeGeoOnce() {
     let upgraded = 0, review = 0;
     for (const f of await farms.getAll()) {
       if (f.stateId || (!f.state && !f.district)) continue;
-      const g = upgradeLegacy({ state: f.state, district: f.district });
+      const g = (await geo()).upgradeLegacy({ state: f.state, district: f.district });
       if (g.stateId) {
         await farms.update(f.id, {
           stateId: g.stateId, districtId: g.districtId,

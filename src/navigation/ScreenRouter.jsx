@@ -10,7 +10,6 @@ import UpdateBanner from "../components/UpdateBanner.jsx";
 /* Core screens loaded eagerly (always visible on every session) */
 import Splash from "../pages/Splash.jsx";
 import LanguageSelect from "../pages/LanguageSelect.jsx";
-import Onboarding from "../pages/Onboarding.jsx";
 import AuthFlow from "../pages/AuthFlow.jsx";
 import Home from "../pages/Home.jsx";
 
@@ -26,6 +25,7 @@ const Support            = lazy(() => import("../pages/Support.jsx"));
 const Privacy            = lazy(() => import("../pages/Privacy.jsx"));
 const Subscription       = lazy(() => import("../pages/Subscription.jsx"));
 const Payments           = lazy(() => import("../pages/Payments.jsx"));
+const Onboarding         = lazy(() => import("../pages/Onboarding.jsx"));
 const Documents          = lazy(() => import("../pages/Documents.jsx"));
 const LanguageSettings   = lazy(() => import("../pages/LanguageSettings.jsx"));
 const DocumentDetail     = lazy(() => import("../pages/DocumentDetail.jsx"));
@@ -279,7 +279,9 @@ export default function ScreenRouter() {
     return (
       <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg }}>
         {!online && <OfflineBar tc={tc} />}
-        <Flow />
+        <Suspense fallback={<LazyFallback />}>
+          <Flow />
+        </Suspense>
         <UpdateBanner />
         <ToastHost />
       </div>
