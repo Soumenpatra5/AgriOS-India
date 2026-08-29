@@ -6,6 +6,8 @@ import { useApp } from "../store/AppStore.jsx";
 import { usePrefs } from "../customize/PreferencesProvider.jsx";
 import { profileMemory } from "../ai/memory/profileMemory.js";
 import { ONBOARDING } from "../constants/content.js";
+import LocationPicker from "../components/geo/LocationPicker.jsx";
+import { readRegion, writeRegion, regionLabel } from "../services/geo/regionPrefs.js";
 
 export default function Onboarding() {
   const { finishOnboarding, t, tc, toast } = useApp();
@@ -18,7 +20,7 @@ export default function Onboarding() {
   const lastSlide = i === ONBOARDING.length - 1;
 
   if (personalize) {
-    return <PersonalizeStep set={set} finish={finishOnboarding} t={t} tc={tc} toast={toast} />;
+    return <PersonalizeStep finish={finishOnboarding} t={t} tc={tc} toast={toast} />;
   }
 
   return (
@@ -62,15 +64,13 @@ function Field({ label, value, onChange, placeholder, hint }) {
   );
 }
 
-function PersonalizeStep({ set, finish, t, tc, toast }) {
-  const [state, setState] = useState("");
-  const [district, setDistrict] = useState("");
+function PersonalizeStep({ finish, t, tc, toast }) {
+  const [region, setRegion] = useState(() => readRegion());
   const [crops, setCrops] = useState("");
 
   const save = () => {
-    if (state.trim()) set("region.state", state.trim());
-    if (district.trim()) set("region.district", district.trim());
-    const loc = [district.trim(), state.trim()].filter(Boolean).join(", ");
+    writeRegion(region);
+    const loc = regionLabel(region);
     profileMemory.update({
       location: loc,
       crops: crops.split(",").map((s) => s.trim()).filter(Boolean),
@@ -79,7 +79,7 @@ function PersonalizeStep({ set, finish, t, tc, toast }) {
     finish();
   };
 
-  const anything = state.trim() || district.trim() || crops.trim();
+  const anything = region.stateId || region.districtId || crops.trim();
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", padding: "18px 22px 24px", animation: "ag-rise .3s var(--ag-ease)" }}>
@@ -103,10 +103,7 @@ function PersonalizeStep({ set, finish, t, tc, toast }) {
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Field label={tc({ en: "State", hi: "राज्य", bn: "রাজ্য" })} value={state} onChange={setState}
-            placeholder={tc({ en: "e.g. West Bengal", hi: "जैसे पश्चिम बंगाल", bn: "যেমন পশ্চিমবঙ্গ" })} />
-          <Field label={tc({ en: "District", hi: "ज़िला", bn: "জেলা" })} value={district} onChange={setDistrict}
-            placeholder={tc({ en: "e.g. Hooghly", hi: "जैसे हुगली", bn: "যেমন হুগলি" })} />
+          <LocationPicker value={region} onChange={setRegion} />
           <Field label={tc({ en: "Main crops", hi: "मुख्य फसलें", bn: "প্রধান ফসল" })} value={crops} onChange={setCrops}
             placeholder={tc({ en: "Paddy, Potato, Mustard…", hi: "धान, आलू, सरसों…", bn: "ধান, আলু, সরিষা…" })}
             hint={tc({ en: "Comma separated", hi: "अल्पविराम से अलग करें", bn: "কমা দিয়ে আলাদা করুন" })} />

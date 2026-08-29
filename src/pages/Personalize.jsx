@@ -7,6 +7,8 @@ import { notificationService } from "../services/notifications/notificationServi
 import { usePrefs } from "../customize/PreferencesProvider.jsx";
 import { ACCENTS, CARD_STYLES, DISPLAY_SIZES } from "../customize/appearance.js";
 import { FARMER_TYPES, TYPE_LABELS } from "../customize/farmerTypes.js";
+import LocationPicker from "../components/geo/LocationPicker.jsx";
+import { readRegion, writeRegion } from "../services/geo/regionPrefs.js";
 
 const WIDGET_LABELS = {
   weather:      { en: "Weather", hi: "मौसम", bn: "আবহাওয়া" },
@@ -304,12 +306,7 @@ export default function Personalize() {
 
         <Section title={tc({ en: "Region", hi: "क्षेत्र", bn: "অঞ্চল" })}>
           <Card pad={12} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input value={prefs.region.state} onChange={(e) => set("region.state", e.target.value)}
-              placeholder={tc({ en: "State (e.g. West Bengal)", hi: "राज्य (जैसे पश्चिम बंगाल)", bn: "রাজ্য (যেমন পশ্চিমবঙ্গ)" })}
-              style={{ width: "100%", padding: "12px 14px", borderRadius: T.rMd, border: `1px solid ${T.line}`, background: T.surface2, color: T.ink, fontFamily: T.body, fontSize: 14.5, outline: "none", boxSizing: "border-box" }} />
-            <input value={prefs.region.district} onChange={(e) => set("region.district", e.target.value)}
-              placeholder={tc({ en: "District (optional)", hi: "ज़िला (वैकल्पिक)", bn: "জেলা (ঐচ্ছিক)" })}
-              style={{ width: "100%", padding: "12px 14px", borderRadius: T.rMd, border: `1px solid ${T.line}`, background: T.surface2, color: T.ink, fontFamily: T.body, fontSize: 14.5, outline: "none", boxSizing: "border-box" }} />
+            <LocationPicker value={readRegion()} onChange={(next) => { writeRegion(next); set("region.stateId", next.stateId); }} labels={false} />
           </Card>
           <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 6, padding: "0 2px" }}>
             {tc({ en: "Used to pull mandi prices for your state.", hi: "आपके राज्य के मंडी भाव के लिए उपयोग होता है।", bn: "আপনার রাজ্যের মান্ডি দর আনতে ব্যবহৃত হয়।" })}

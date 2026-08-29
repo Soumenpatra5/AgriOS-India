@@ -5,6 +5,8 @@ import { useApp } from "../store/AppStore.jsx";
 import { usePrefs } from "../customize/PreferencesProvider.jsx";
 import { FARMER_TYPES, TYPE_LABELS } from "../customize/farmerTypes.js";
 import { profileMemory } from "../ai/memory/profileMemory.js";
+import LocationPicker from "../components/geo/LocationPicker.jsx";
+import { readRegion, writeRegion, regionLabel } from "../services/geo/regionPrefs.js";
 
 function Field({ label, value, onChange, placeholder, hint }) {
   return (
@@ -24,17 +26,15 @@ export default function FarmDetails() {
   const p = profileMemory.get();
 
   const [name, setName]       = useState(user?.name || "");
-  const [state, setState]     = useState(prefs.region.state || "");
-  const [district, setDistrict] = useState(prefs.region.district || "");
+  const [region, setRegion]   = useState(() => readRegion());
   const [land, setLand]       = useState(p.landSize || "");
   const [crops, setCrops]     = useState((p.crops || []).join(", "));
   const [livestock, setLivestock] = useState((p.livestock || []).join(", "));
 
   const save = () => {
     if (name.trim()) updateUser({ name: name.trim() });
-    set("region.state", state.trim());
-    set("region.district", district.trim());
-    const loc = [district.trim(), state.trim()].filter(Boolean).join(", ");
+    writeRegion(region);
+    const loc = regionLabel(region);
     profileMemory.update({
       location: loc,
       landSize: land.trim(),
@@ -52,11 +52,10 @@ export default function FarmDetails() {
         <Card style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Field label={tc({ en: "Your name", hi: "आपका नाम", bn: "আপনার নাম" })} value={name} onChange={setName}
             placeholder={tc({ en: "e.g. Soumen Patra", hi: "जैसे सौमेन पात्रा", bn: "যেমন সৌমেন পাত্র" })} />
-          <Field label={tc({ en: "State", hi: "राज्य", bn: "রাজ্য" })} value={state} onChange={setState}
-            placeholder={tc({ en: "e.g. West Bengal", hi: "जैसे पश्चिम बंगाल", bn: "যেমন পশ্চিমবঙ্গ" })}
-            hint={tc({ en: "Used for mandi prices & advice", hi: "मंडी भाव और सलाह के लिए", bn: "মান্ডি দর ও পরামর্শের জন্য" })} />
-          <Field label={tc({ en: "District", hi: "ज़िला", bn: "জেলা" })} value={district} onChange={setDistrict}
-            placeholder={tc({ en: "e.g. Hooghly", hi: "जैसे हुगली", bn: "যেমন হুগলি" })} />
+          <LocationPicker value={region} onChange={setRegion} />
+          <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: -6 }}>
+            {tc({ en: "Used for mandi prices & advice", hi: "मंडी भाव और सलाह के लिए", bn: "মান্ডি দর ও পরামর্শের জন্য" })}
+          </div>
           <Field label={tc({ en: "Land size", hi: "ज़मीन का आकार", bn: "জমির আকার" })} value={land} onChange={setLand}
             placeholder={tc({ en: "e.g. 3 acre / 5 bigha", hi: "जैसे 3 एकड़ / 5 बीघा", bn: "যেমন ৩ একর / ৫ বিঘা" })} />
           <Field label={tc({ en: "Main crops", hi: "मुख्य फसलें", bn: "প্রধান ফসল" })} value={crops} onChange={setCrops}
