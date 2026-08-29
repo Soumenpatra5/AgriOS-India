@@ -1,6 +1,6 @@
 /* AgriOS Service Hub — the categorized, searchable entry point to every
    capability in the app. Data comes from the service registry
-   (src/services/serviceHub/serviceRegistry.js); favorites/recents from
+   (src/services/serviceHub/serviceRegistry.js); favorites from
    serviceHubService. Reuses the existing SearchBar + fuzzyMatch (incl.
    Hindi/Bengali transliteration), prefs.layout.view (grid/list), and the
    farmer-profile personalization the rest of the app already uses. */
@@ -26,13 +26,12 @@ export default function Services() {
   const { prefs } = usePrefs();
   const grid = prefs.layout.view !== "list";
   const [q, setQ] = useState("");
-  const [tick, setTick] = useState(0); // bump to re-read favorites/recents after a change
+  const [tick, setTick] = useState(0); // bump to re-read favorites after a change
   const refresh = () => setTick((n) => n + 1);
 
-  // Favorites/recents live in localStorage; re-read only when `tick` bumps
+  // Favorites live in localStorage; re-read only when `tick` bumps
   // (a favorite toggle or service open), not on every keystroke in search.
   const favIds = useMemo(() => serviceHubService.getFavorites(), [tick]);
-  const recentIds = useMemo(() => serviceHubService.getRecents(), [tick]);
   const favSet = useMemo(() => new Set(favIds), [favIds]);
 
   const open = (s) => {
@@ -51,7 +50,6 @@ export default function Services() {
   const results = useMemo(() => (searching ? fuzzyMatch(SERVICE_REGISTRY, q) : []), [searching, q]);
   const suggested = useMemo(() => (searching ? [] : serviceHubService.suggestedFor(prefs, { excludeIds: favIds, limit: 6 })), [searching, prefs, favIds]);
   const favServices = useMemo(() => favIds.map(serviceById).filter(Boolean), [favIds]);
-  const recentServices = useMemo(() => recentIds.map(serviceById).filter(Boolean).filter((s) => !favSet.has(s.id)), [recentIds, favSet]);
 
   return (
     <>
@@ -72,12 +70,6 @@ export default function Services() {
             {favServices.length > 0 && (
               <Section title={tc({ en: "Favorites", hi: "पसंदीदा", bn: "প্রিয়" })} icon="Star">
                 <ServiceGrid services={favServices} grid={grid} tc={tc} favSet={favSet} onOpen={open} onFav={toggleFav} />
-              </Section>
-            )}
-
-            {recentServices.length > 0 && (
-              <Section title={tc({ en: "Recently used", hi: "हाल में उपयोग", bn: "সম্প্রতি ব্যবহৃত" })} icon="History">
-                <ServiceGrid services={recentServices.slice(0, 6)} grid={grid} tc={tc} favSet={favSet} onOpen={open} onFav={toggleFav} />
               </Section>
             )}
 
