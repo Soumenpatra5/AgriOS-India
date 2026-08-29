@@ -11,6 +11,8 @@ import { taskService } from "../tasks/taskService.js";
 
 const year = () => new Date().getFullYear();
 
+/* label stays English — it is the stored value, the text in CSV exports and
+   the key reports group on. i18n is what the UI shows. */
 export const REPORT_TYPES = [
   { id: "summary",    label: "Farm Summary",      icon: "House", i18n: { en: "Farm Summary", hi: "फार्म सारांश", bn: "খামার সারসংক্ষেপ" }     },
   { id: "financial",  label: "Financial Report",  icon: "Wallet", i18n: { en: "Financial Report", hi: "वित्तीय रिपोर्ट", bn: "আর্থিক রিপোর্ট" }    },
@@ -36,19 +38,19 @@ export const reportService = {
     const buckets = await taskService.buckets();
     return [
       { heading: "Financials (This Year)", rows: [
-        { label: "Total Revenue", value: `₹${kpi.totalRevenue.toLocaleString("en-IN")}` },
-        { label: "Total Cost",    value: `₹${kpi.totalCost.toLocaleString("en-IN")}` },
-        { label: "Net Profit",    value: `₹${kpi.netProfit.toLocaleString("en-IN")}` },
-        { label: "Profit Margin", value: `${kpi.profitMargin}%` },
+        { label: "Total Revenue", value: `₹${kpi.totalRevenue.toLocaleString("en-IN")}`, i18n: { en: "Total Revenue", hi: "कुल आय", bn: "মোট আয়" } },
+        { label: "Total Cost",    value: `₹${kpi.totalCost.toLocaleString("en-IN")}`, i18n: { en: "Total Cost", hi: "कुल लागत", bn: "মোট ব্যয়" } },
+        { label: "Net Profit",    value: `₹${kpi.netProfit.toLocaleString("en-IN")}`, i18n: { en: "Net Profit", hi: "शुद्ध लाभ", bn: "নিট মুনাফা" } },
+        { label: "Profit Margin", value: `${kpi.profitMargin}%`, i18n: { en: "Profit Margin", hi: "लाभ मार्जिन", bn: "মুনাফার হার" } },
       ]},
       { heading: "Production (This Month)", table: {
         headers: ["Enterprise", "Output", "Entries"],
         data: snapshot.map((r) => [r.enterprise.label, `${r.total} ${r.metric.unit}`, r.entries]),
       }},
       { heading: "Tasks", rows: [
-        { label: "Overdue",  value: buckets.overdue.length },
-        { label: "Today",    value: buckets.today.length },
-        { label: "Upcoming", value: buckets.upcoming.length },
+        { label: "Overdue",  value: buckets.overdue.length, i18n: { en: "Overdue", hi: "बकाया", bn: "বকেয়া" } },
+        { label: "Today",    value: buckets.today.length, i18n: { en: "Today", hi: "आज", bn: "আজ" } },
+        { label: "Upcoming", value: buckets.upcoming.length, i18n: { en: "Upcoming", hi: "आगामी", bn: "আসন্ন" } },
       ]},
     ];
   },
@@ -102,9 +104,9 @@ export const reportService = {
         data: items.map((i) => [i.name, inventoryService.categoryLabel(i.category), i.qty, i.unit || "", i.minQty || "", i.expiryDate || ""]),
       }},
       { heading: "Alerts", rows: [
-        { label: "Low stock items", value: alerts.lowStock.length },
-        { label: "Expired items",   value: alerts.expired.length },
-        { label: "Expiring in 30 days", value: alerts.expiring.length },
+        { label: "Low stock items", value: alerts.lowStock.length, i18n: { en: "Low stock items", hi: "कम स्टॉक वाली वस्तुएँ", bn: "কম মজুতের সামগ্রী" } },
+        { label: "Expired items",   value: alerts.expired.length, i18n: { en: "Expired items", hi: "समय-समाप्त वस्तुएँ", bn: "মেয়াদোত্তীর্ণ সামগ্রী" } },
+        { label: "Expiring in 30 days", value: alerts.expiring.length, i18n: { en: "Expiring in 30 days", hi: "30 दिन में समाप्त", bn: "৩০ দিনে মেয়াদ শেষ" } },
       ]},
     ];
   },

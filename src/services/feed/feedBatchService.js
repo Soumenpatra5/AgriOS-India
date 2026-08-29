@@ -20,9 +20,11 @@ import { safeNum, round2 } from "../../utils/num.js";
 
 const batches = repo("feedBatches");
 
+/* label stays English — it is the stored value, the text in CSV exports and
+   the key reports group on. i18n is what the UI shows. */
 export const BATCH_STATUSES = [
-  { id: "active", label: "Active" },
-  { id: "closed", label: "Closed" },
+  { id: "active", label: "Active", i18n: { en: "Active", hi: "सक्रिय", bn: "সক্রিয়" } },
+  { id: "closed", label: "Closed", i18n: { en: "Closed", hi: "बंद", bn: "বন্ধ" } },
 ];
 
 export const feedBatchService = {

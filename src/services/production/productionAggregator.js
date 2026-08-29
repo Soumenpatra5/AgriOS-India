@@ -5,21 +5,23 @@ import { productionService, eventService, ENTERPRISES } from "../livestock/lives
 
 /* enterprise -> which record field is the production quantity + its unit */
 const METRICS = {
-  poultry: { key: "eggs",     label: "Eggs",       unit: "pcs" },
-  dairy:   { key: "quantity", label: "Milk",       unit: "L"   },
-  goat:    { key: "weightKg", label: "Weight",     unit: "kg"  },
-  pig:     { key: "weightKg", label: "Weight",     unit: "kg"  },
-  sheep:   { key: "weightKg", label: "Weight",     unit: "kg"  },
-  fish:    { key: "feedKg",   label: "Feed used",  unit: "kg"  },
-  bee:     { key: "honeyKg",  label: "Honey",      unit: "kg"  },
+  poultry: { key: "eggs",     label: "Eggs",       unit: "pcs", i18n: { en: "Eggs", hi: "अंडे", bn: "ডিম" } },
+  dairy:   { key: "quantity", label: "Milk",       unit: "L", i18n: { en: "Milk", hi: "दूध", bn: "দুধ" }   },
+  goat:    { key: "weightKg", label: "Weight",     unit: "kg", i18n: { en: "Weight", hi: "वज़न", bn: "ওজন" }  },
+  pig:     { key: "weightKg", label: "Weight",     unit: "kg", i18n: { en: "Weight", hi: "वज़न", bn: "ওজন" }  },
+  sheep:   { key: "weightKg", label: "Weight",     unit: "kg", i18n: { en: "Weight", hi: "वज़न", bn: "ওজন" }  },
+  fish:    { key: "feedKg",   label: "Feed used",  unit: "kg", i18n: { en: "Feed used", hi: "इस्तेमाल हुआ चारा", bn: "ব্যবহৃত খাদ্য" }  },
+  bee:     { key: "honeyKg",  label: "Honey",      unit: "kg", i18n: { en: "Honey", hi: "शहद", bn: "মধু" }  },
 };
 
+/* label stays English — it is the stored value, the text in CSV exports and
+   the key reports group on. i18n is what the UI shows. */
 export const productionAggregator = {
   /* Current-month production per enterprise (only enterprises with data). */
   async monthSnapshot() {
     const prefix = new Date().toISOString().slice(0, 7);
     const rows = await Promise.all(ENTERPRISES.map(async (e) => {
-      const metric = METRICS[e.id] || { key: "quantity", label: "Production", unit: "" };
+      const metric = METRICS[e.id] || { key: "quantity", label: "Production", i18n: { en: "Production", hi: "उत्पादन", bn: "উৎপাদন" }, unit: "" };
       const records = await productionService.getForEnterprise(e.id, 120);
       const monthRecords = records.filter((r) => r.date.startsWith(prefix));
       const total = monthRecords.reduce((s, r) => s + (Number(r[metric.key]) || 0), 0);

@@ -12,20 +12,22 @@ const contracts = repo("contracts");
 const num = (v) => Number(v) || 0;
 
 /* Standard milestone templates farmers/buyers can start from. */
+/* label stays English — it is the stored value, the text in CSV exports and
+   the key reports group on. i18n is what the UI shows. */
 export const CONTRACT_TEMPLATES = [
   {
     id: "seasonal",
-    label: "Seasonal Supply",
+    label: "Seasonal Supply", i18n: { en: "Seasonal Supply", hi: "मौसमी आपूर्ति", bn: "মৌসুমি সরবরাহ" },
     milestones: ["Agreement signed", "Sowing verified", "Mid-season inspection", "Harvest & grading", "Delivery", "Payment released"],
   },
   {
     id: "spot",
-    label: "Spot Purchase",
+    label: "Spot Purchase", i18n: { en: "Spot Purchase", hi: "तत्काल खरीद", bn: "তাৎক্ষণিক ক্রয়" },
     milestones: ["Agreement signed", "Quality inspection", "Delivery", "Payment released"],
   },
   {
     id: "advance",
-    label: "Advance + Buyback",
+    label: "Advance + Buyback", i18n: { en: "Advance + Buyback", hi: "अग्रिम + वापसी खरीद", bn: "অগ্রিম + ফেরত ক্রয়" },
     milestones: ["Agreement signed", "Advance disbursed", "Crop monitoring", "Harvest buyback", "Final settlement"],
   },
 ];

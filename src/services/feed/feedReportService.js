@@ -13,6 +13,8 @@ import { feedPriceHistoryService } from "./feedPriceHistoryService.js";
 import { orderService } from "../crm/orderService.js";
 import { rupee } from "../../utils/format.js";
 
+/* label stays English — it is the stored value, the text in CSV exports and
+   the key reports group on. i18n is what the UI shows. */
 export const FEED_REPORT_TYPES = [
   { id: "cost",      label: "Feed Cost Report" , i18n: { en: "Feed Cost Report", hi: "चारा लागत रिपोर्ट", bn: "খাদ্য ব্যয় রিপোর্ট" } },
   { id: "inventory", label: "Feed Inventory Report" , i18n: { en: "Feed Inventory Report", hi: "चारा स्टॉक रिपोर्ट", bn: "খাদ্য মজুত রিপোর্ট" } },
@@ -42,11 +44,11 @@ export const feedReportService = {
       title: "Feed Cost Report", generatedAt: generatedAt(),
       sections: [
         { heading: "Summary", rows: [
-          { label: "Today", value: rupee(summary.todayCost) },
-          { label: "This week", value: rupee(summary.weekCost) },
-          { label: "This month", value: rupee(summary.monthCost) },
-          { label: "Avg cost / kg (this month)", value: rupee(summary.avgCostPerKg) },
-          { label: "Feed stock value", value: rupee(summary.stockValue) },
+          { label: "Today", value: rupee(summary.todayCost), i18n: { en: "Today", hi: "आज", bn: "আজ" } },
+          { label: "This week", value: rupee(summary.weekCost), i18n: { en: "This week", hi: "इस सप्ताह", bn: "এই সপ্তাহ" } },
+          { label: "This month", value: rupee(summary.monthCost), i18n: { en: "This month", hi: "इस महीने", bn: "এই মাস" } },
+          { label: "Avg cost / kg (this month)", value: rupee(summary.avgCostPerKg), i18n: { en: "Avg cost / kg (this month)", hi: "औसत लागत / किग्रा (इस महीने)", bn: "গড় ব্যয় / কেজি (এই মাস)" } },
+          { label: "Feed stock value", value: rupee(summary.stockValue), i18n: { en: "Feed stock value", hi: "चारा स्टॉक मूल्य", bn: "খাদ্য মজুতের মূল্য" } },
         ]},
         { heading: "Monthly Trend", table: { headers: ["Month", "Cost (₹)", "Quantity (kg)"], data: trend.map((t) => [t.month, t.cost, t.qty]) } },
         { heading: "Cost by Feed Type", table: { headers: ["Feed Type", "Cost (₹)", "Quantity (kg)", "% of Total"], data: feedTypes.map((f) => [f.feedType, f.cost, f.qty, `${f.pct}%`]) } },
@@ -65,9 +67,9 @@ export const feedReportService = {
           data: items.map((i) => [i.name, feedInventory.feedTypeLabel(i.feedType), i.qty, i.unit || "", i.unitPrice || "", i.expiryDate || ""]),
         }},
         { heading: "Alerts", rows: [
-          { label: "Low stock", value: alerts.lowStock.length },
-          { label: "Expired", value: alerts.expired.length },
-          { label: "Expiring within 30 days", value: alerts.expiring.length },
+          { label: "Low stock", value: alerts.lowStock.length, i18n: { en: "Low stock", hi: "कम स्टॉक", bn: "কম মজুত" } },
+          { label: "Expired", value: alerts.expired.length, i18n: { en: "Expired", hi: "समय-समाप्त", bn: "মেয়াদোত্তীর্ণ" } },
+          { label: "Expiring within 30 days", value: alerts.expiring.length, i18n: { en: "Expiring within 30 days", hi: "30 दिन में समाप्त", bn: "৩০ দিনের মধ্যে মেয়াদ শেষ" } },
         ]},
       ],
     };
@@ -98,8 +100,8 @@ export const feedReportService = {
       title: "Feed Wastage Report", generatedAt: generatedAt(),
       sections: [
         { heading: "Summary", rows: [
-          { label: "Total wastage", value: `${totalQty.toLocaleString("en-IN")} kg` },
-          { label: "Total wastage cost", value: rupee(totalCost) },
+          { label: "Total wastage", value: `${totalQty.toLocaleString("en-IN")} kg`, i18n: { en: "Total wastage", hi: "कुल बर्बादी", bn: "মোট অপচয়" } },
+          { label: "Total wastage cost", value: rupee(totalCost), i18n: { en: "Total wastage cost", hi: "कुल बर्बादी लागत", bn: "মোট অপচয়ের ব্যয়" } },
         ]},
         { heading: "Entries", table: {
           headers: ["Date", "Reason", "Quantity (kg)", "Cost (₹)"],

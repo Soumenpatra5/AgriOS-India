@@ -11,6 +11,8 @@ const norm = (s) => String(s || "").toLowerCase().trim();
 
 const severityOf = (score) => (score >= 66 ? "high" : score >= 33 ? "medium" : "low");
 
+/* label stays English — it is the stored value, the text in CSV exports and
+   the key reports group on. i18n is what the UI shows. */
 export const fraudDetection = {
   /* Scan the whole catalogue and return flagged items with reasons. */
   async scan() {
@@ -49,11 +51,11 @@ export const fraudDetection = {
       // 3. Unverified seller on a high-value listing
       const seller = sellerById.get(p.sellerId);
       if (seller && !seller.verified && num(p.price) > 5000) {
-        signal += 25; reasons.push({ label: "Unverified seller, high-value listing", weight: "medium" });
+        signal += 25; reasons.push({ label: "Unverified seller, high-value listing", i18n: { en: "Unverified seller, high-value listing", hi: "असत्यापित विक्रेता, उच्च-मूल्य लिस्टिंग", bn: "অযাচাইকৃত বিক্রেতা, উচ্চমূল্যের তালিকা" }, weight: "medium" });
       }
       // 4. No sales + no reviews but many listings from a cold seller
       if (seller && seller.orderCount === 0 && (seller.deliveredCount || 0) === 0 && num(p.price) > 2000) {
-        signal += 15; reasons.push({ label: "New seller, no fulfilment history", weight: "low" });
+        signal += 15; reasons.push({ label: "New seller, no fulfilment history", i18n: { en: "New seller, no fulfilment history", hi: "नया विक्रेता, कोई आपूर्ति इतिहास नहीं", bn: "নতুন বিক্রেতা, সরবরাহের কোনও ইতিহাস নেই" }, weight: "low" });
       }
 
       if (signal > 0) {
@@ -76,9 +78,9 @@ export const fraudDetection = {
     const listings = snap.products.filter((p) => p.sellerId === sellerId);
     let signal = 0;
     const reasons = [];
-    if (!s.verified) { signal += 30; reasons.push({ label: "Not verified", weight: "medium" }); }
-    if (s.cancelledCount > s.deliveredCount) { signal += 30; reasons.push({ label: "More cancellations than deliveries", weight: "high" }); }
-    if (listings.length > 5 && s.orderCount === 0) { signal += 25; reasons.push({ label: "Many listings, zero orders", weight: "medium" }); }
+    if (!s.verified) { signal += 30; reasons.push({ label: "Not verified", i18n: { en: "Not verified", hi: "असत्यापित", bn: "যাচাই করা হয়নি" }, weight: "medium" }); }
+    if (s.cancelledCount > s.deliveredCount) { signal += 30; reasons.push({ label: "More cancellations than deliveries", i18n: { en: "More cancellations than deliveries", hi: "डिलीवरी से ज़्यादा रद्दीकरण", bn: "সরবরাহের চেয়ে বাতিলের সংখ্যা বেশি" }, weight: "high" }); }
+    if (listings.length > 5 && s.orderCount === 0) { signal += 25; reasons.push({ label: "Many listings, zero orders", i18n: { en: "Many listings, zero orders", hi: "कई लिस्टिंग, शून्य ऑर्डर", bn: "অনেক তালিকা, শূন্য অর্ডার" }, weight: "medium" }); }
     if (s.rating > 0 && s.rating < 2.5) { signal += 15; reasons.push({ label: `Low rating ${s.rating}★`, weight: "low" }); }
     const score = Math.min(100, signal);
     return { sellerId, name: s.name, score: pct(score / 100), severity: severityOf(score), reasons };

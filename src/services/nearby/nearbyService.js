@@ -18,13 +18,15 @@ const TTL = 6 * 60 * 60 * 1000; // 6h — POIs rarely move
 const REQUEST_TIMEOUT_MS = 12000;
 
 /* category id → { label, icon, accent, overpass filters } */
+/* label stays English — it is the stored value, the text in CSV exports and
+   the key reports group on. i18n is what the UI shows. */
 export const NEARBY_CATEGORIES = [
-  { id: "vet",     label: "Veterinary", icon: "Stethoscope", accent: "red",     filters: ['node["amenity"="veterinary"]'] },
-  { id: "market",  label: "Markets",    icon: "Store",       accent: "orange",  filters: ['node["amenity"="marketplace"]', 'node["shop"="farm"]'] },
-  { id: "agri",    label: "Agri supply",icon: "Sprout",      accent: "primary", filters: ['node["shop"="agrarian"]', 'node["shop"="garden_centre"]'] },
-  { id: "bank",    label: "Banks & ATM",icon: "Building2",   accent: "blue",    filters: ['node["amenity"="bank"]', 'node["amenity"="atm"]'] },
-  { id: "fuel",    label: "Fuel",       icon: "Truck",       accent: "yellow",  filters: ['node["amenity"="fuel"]'] },
-  { id: "hospital",label: "Health",     icon: "ShieldCheck", accent: "red",     filters: ['node["amenity"="hospital"]', 'node["amenity"="clinic"]'] },
+  { id: "vet",     label: "Veterinary", icon: "Stethoscope", accent: "red",     filters: ['node["amenity"="veterinary"]'], i18n: { en: "Veterinary", hi: "पशु चिकित्सा", bn: "পশুচিকিৎসা" } },
+  { id: "market",  label: "Markets",    icon: "Store",       accent: "orange",  filters: ['node["amenity"="marketplace"]', 'node["shop"="farm"]'], i18n: { en: "Markets", hi: "बाज़ार", bn: "বাজার" } },
+  { id: "agri",    label: "Agri supply",icon: "Sprout",      accent: "primary", filters: ['node["shop"="agrarian"]', 'node["shop"="garden_centre"]'], i18n: { en: "Agri supply", hi: "कृषि आपूर्ति", bn: "কৃষি উপকরণ" } },
+  { id: "bank",    label: "Banks & ATM",icon: "Building2",   accent: "blue",    filters: ['node["amenity"="bank"]', 'node["amenity"="atm"]'], i18n: { en: "Banks & ATM", hi: "बैंक व ATM", bn: "ব্যাঙ্ক ও ATM" } },
+  { id: "fuel",    label: "Fuel",       icon: "Truck",       accent: "yellow",  filters: ['node["amenity"="fuel"]'], i18n: { en: "Fuel", hi: "ईंधन", bn: "জ্বালানি" } },
+  { id: "hospital",label: "Health",     icon: "ShieldCheck", accent: "red",     filters: ['node["amenity"="hospital"]', 'node["amenity"="clinic"]'], i18n: { en: "Health", hi: "स्वास्थ्य", bn: "স্বাস্থ্য" } },
 ];
 
 export function getCategory(id) {

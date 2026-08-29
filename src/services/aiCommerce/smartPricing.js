@@ -10,6 +10,8 @@ import { confidenceFromN } from "./explain.js";
 const num = (v) => Number(v) || 0;
 const round = (n) => Math.round(n);
 
+/* label stays English — it is the stored value, the text in CSV exports and
+   the key reports group on. i18n is what the UI shows. */
 export const smartPricing = {
   /* Suggested SELLING price for produce (crop) — nudged above the forecast when
      demand is firming, toward mid-band otherwise. */
@@ -79,7 +81,7 @@ export const smartPricing = {
       positionPct, margin,
       reasons: [
         { label: `${peers.length} competing listings, median ₹${median}`, contribution: 60 },
-        margin != null ? { label: `Gross margin ${margin}%`, contribution: 40 } : { label: "Provide unit cost for margin analysis", contribution: 40 },
+        margin != null ? { label: `Gross margin ${margin}%`, contribution: 40 } : { label: "Provide unit cost for margin analysis", contribution: 40, i18n: { en: "Provide unit cost for margin analysis", hi: "मार्जिन विश्लेषण के लिए इकाई लागत दें", bn: "মার্জিন বিশ্লেষণের জন্য একক ব্যয় দিন" } },
       ],
       confidence: confidenceFromN(peers.length, 6),
     };

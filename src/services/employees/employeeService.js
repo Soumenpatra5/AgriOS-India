@@ -67,17 +67,17 @@ export const DESIGNATIONS = [
 
 export const STATUSES = [
   { id: "active",         label: "Active",         tone: "primary", i18n: { en: "Active", hi: "सक्रिय", bn: "সক্রিয়" } },
-  { id: "on_leave",       label: "On Leave",       tone: "orange"  },
-  { id: "suspended",      label: "Suspended",      tone: "red"     },
+  { id: "on_leave",       label: "On Leave",       tone: "orange", i18n: { en: "On Leave", hi: "छुट्टी पर", bn: "ছুটিতে" }  },
+  { id: "suspended",      label: "Suspended",      tone: "red", i18n: { en: "Suspended", hi: "निलंबित", bn: "সাময়িক বরখাস্ত" }     },
   { id: "inactive",       label: "Inactive",       tone: "faint", i18n: { en: "Inactive", hi: "निष्क्रिय", bn: "নিষ্ক্রিয়" }   },
   { id: "resigned",       label: "Resigned",       tone: "faint", i18n: { en: "Resigned", hi: "त्यागपत्र", bn: "পদত্যাগ" }   },
   { id: "terminated",     label: "Terminated",     tone: "red", i18n: { en: "Terminated", hi: "समाप्त", bn: "সমাপ্ত" }     },
-  { id: "contract_ended", label: "Contract Ended", tone: "faint"   },
-  { id: "retired",        label: "Retired",        tone: "faint"   },
+  { id: "contract_ended", label: "Contract Ended", tone: "faint", i18n: { en: "Contract Ended", hi: "अनुबंध समाप्त", bn: "চুক্তি শেষ" }   },
+  { id: "retired",        label: "Retired",        tone: "faint", i18n: { en: "Retired", hi: "सेवानिवृत्त", bn: "অবসরপ্রাপ্ত" }   },
 ];
 
 export const GENDERS = [
-  { id: "male", label: "Male" }, { id: "female", label: "Female" }, { id: "other", label: "Other" },
+  { id: "male", label: "Male" }, { id: "female", label: "Female" }, { id: "other", label: "Other", i18n: { en: "Male", hi: "पुरुष", bn: "পুরুষ" } },
 ];
 
 /* Attendance statuses (spec §6). `worked` = day-fraction paid; `nonWorking`
@@ -97,10 +97,10 @@ const attMeta = (id) => ATTENDANCE_STATUSES.find((a) => a.id === id);
 
 /* Legacy roles kept so pre-WF-1 records and callers keep working. */
 export const ROLES = [
-  { id: "manager",    label: "Farm Manager" },
-  { id: "supervisor", label: "Supervisor" },
-  { id: "worker",     label: "Worker" },
-  { id: "consultant", label: "Consultant" },
+  { id: "manager",    label: "Farm Manager", i18n: { en: "Farm Manager", hi: "फ़ार्म प्रबंधक", bn: "খামার ম্যানেজার" } },
+  { id: "supervisor", label: "Supervisor", i18n: { en: "Supervisor", hi: "पर्यवेक्षक", bn: "সুপারভাইজার" } },
+  { id: "worker",     label: "Worker", i18n: { en: "Worker", hi: "श्रमिक", bn: "শ্রমিক" } },
+  { id: "consultant", label: "Consultant", i18n: { en: "Consultant", hi: "सलाहकार", bn: "পরামর্শদাতা" } },
 ];
 
 /* ── Custom designations (localStorage, single-user) ───────────────────────── */

@@ -8,21 +8,23 @@ const CROPS_KEY = "cal:crops";
 const DONE_KEY  = "cal:done";
 
 /* ── Task type descriptors ───────────────────────────────────────────────── */
-const SOW  = { id: "sow",        label: "Sow / Plant",     icon: "Sprout"       };
-const NUR  = { id: "nursery",    label: "Nursery prep",    icon: "Sprout"       };
-const TRA  = { id: "transplant", label: "Transplant",      icon: "Sprout"       };
-const IRR  = { id: "irrigation", label: "Irrigation",      icon: "Droplets"     };
-const FER  = { id: "fertilizer", label: "Fertilizer",      icon: "FlaskConical" };
-const SPR  = { id: "spray",      label: "Spray",           icon: "SprayCan"     };
-const WED  = { id: "weeding",    label: "Weeding",         icon: "Leaf"         };
-const THN  = { id: "thinning",   label: "Thinning",        icon: "Leaf"         };
-const EAR  = { id: "earthing",   label: "Earthing up",     icon: "Tractor"      };
-const STA  = { id: "staking",    label: "Staking",         icon: "Wrench"       };
-const HAR  = { id: "harvest",    label: "Harvest",         icon: "Wheat"        };
+const SOW  = { id: "sow",        label: "Sow / Plant", i18n: { en: "Sow / Plant", hi: "बुवाई / रोपाई", bn: "বপন / রোপণ" },     icon: "Sprout"       };
+const NUR  = { id: "nursery",    label: "Nursery prep", i18n: { en: "Nursery prep", hi: "नर्सरी तैयारी", bn: "নার্সারি প্রস্তুতি" },    icon: "Sprout"       };
+const TRA  = { id: "transplant", label: "Transplant", i18n: { en: "Transplant", hi: "रोपाई", bn: "চারা রোপণ" },      icon: "Sprout"       };
+const IRR  = { id: "irrigation", label: "Irrigation", i18n: { en: "Irrigation", hi: "सिंचाई", bn: "সেচ" },      icon: "Droplets"     };
+const FER  = { id: "fertilizer", label: "Fertilizer", i18n: { en: "Fertilizer", hi: "उर्वरक", bn: "সার" },      icon: "FlaskConical" };
+const SPR  = { id: "spray",      label: "Spray", i18n: { en: "Spray", hi: "छिड़काव", bn: "স্প্রে" },           icon: "SprayCan"     };
+const WED  = { id: "weeding",    label: "Weeding", i18n: { en: "Weeding", hi: "निराई", bn: "আগাছা পরিষ্কার" },         icon: "Leaf"         };
+const THN  = { id: "thinning",   label: "Thinning", i18n: { en: "Thinning", hi: "विरलीकरण", bn: "চারা পাতলা করা" },        icon: "Leaf"         };
+const EAR  = { id: "earthing",   label: "Earthing up", i18n: { en: "Earthing up", hi: "मिट्टी चढ़ाना", bn: "মাটি তোলা" },     icon: "Tractor"      };
+const STA  = { id: "staking",    label: "Staking", i18n: { en: "Staking", hi: "सहारा देना", bn: "খুঁটি দেওয়া" },         icon: "Wrench"       };
+const HAR  = { id: "harvest",    label: "Harvest", i18n: { en: "Harvest", hi: "कटाई", bn: "ফসল কাটা" },         icon: "Wheat"        };
 
 /* ── Crop definitions with agronomic task schedules (offsets from sowing) ── */
 /* name and season stay English — they go into AI prompts and are the
    canonical crop key. i18n/seasonI18n are what the UI shows. */
+/* label stays English — it is the stored value, the text in CSV exports and
+   the key reports group on. i18n is what the UI shows. */
 export const CROPS = [
   {
     id: "paddy", name: "Paddy", icon: "Wheat", season: "Kharif", i18n: { en: "Paddy", hi: "धान", bn: "ধান" }, seasonI18n: { en: "Kharif", hi: "खरीफ़", bn: "খরিফ" }, days: 120,
