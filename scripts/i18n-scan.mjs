@@ -12,9 +12,15 @@
                 no i18n sibling, i.e. dropdown and chip text
 
    Heuristics, not a parser: it can over-report (icon names, CSS values are
-   filtered, but not perfectly). Use it to rank work, not as a gate.
+   filtered, but not perfectly). Use it to rank work, not as a gate. It also
+   UNDER-reports: it cannot see a string that reaches the DOM through a
+   variable, so a count of zero for a file does not mean the file is done.
 
-   Usage:  node scripts/i18n-scan.mjs [--full]
+   src/admin/ is excluded. That panel is staff-only and stays English by
+   decision, so counting it hid how much real farmer-facing debt was left.
+   Pass --admin to count it anyway.
+
+   Usage:  node scripts/i18n-scan.mjs [--full] [--admin]
 */
 
 import fs from "node:fs";
@@ -22,6 +28,10 @@ import path from "node:path";
 
 const ROOT = "src";
 const FULL = process.argv.includes("--full");
+const WITH_ADMIN = process.argv.includes("--admin");
+
+/* Staff-only back office — English on purpose, not debt. */
+const isAdmin = (p) => /[\\/]admin[\\/]/.test(p);
 
 /* Attributes whose value the farmer actually reads. */
 const TEXT_ATTRS = ["label", "title", "placeholder", "text", "sub", "body", "aria-label", "emptyText", "hint"];
@@ -49,7 +59,9 @@ function walk(dir, out = []) {
   return out;
 }
 
-const files = walk(ROOT);
+const all = walk(ROOT);
+const files = WITH_ADMIN ? all : all.filter((p) => !isAdmin(p));
+const adminSkipped = all.length - files.length;
 const pageHits = [];
 const tableHits = [];
 
@@ -103,3 +115,6 @@ for (const [f, hits] of rank(tables)) {
 }
 
 console.log(`\nTOTAL: ${pageHits.length + tableHits.length}`);
+if (!WITH_ADMIN) {
+  console.log(`(${adminSkipped} files under src/admin/ not scanned — staff-only, English by decision. Use --admin to include.)`);
+}
