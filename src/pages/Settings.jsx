@@ -4,6 +4,7 @@ import Icon from "../components/Icon.jsx";
 import { AppBar, Card, BottomSheet } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { LANGUAGES } from "../constants/languages.js";
+import LanguagePicker from "../components/LanguagePicker.jsx";
 import { notificationService } from "../services/notifications/notificationService.js";
 import { fcmService } from "../services/notifications/fcmService.js";
 import { createBackup, downloadBackup, restoreBackup } from "../utils/backup.js";
@@ -173,21 +174,11 @@ export default function Settings() {
       </div>
 
       <BottomSheet open={langSheet} onClose={() => setLangSheet(false)} title={t("language")}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {LANGUAGES.map((l) => {
-            const on = l.code === lang;
-            return (
-              <button key={l.code} onClick={() => { setLang(l.code); setLangSheet(false); toast(tc({ en: "Language updated", hi: "भाषा बदली गई", bn: "ভাষা পরিবর্তন হয়েছে" }), "success"); }}
-                style={{ textAlign: "left", padding: "13px 15px", borderRadius: T.rLg, cursor: "pointer", fontFamily: T.body,
-                  border: `1.5px solid ${on ? T.primary : T.line}`, background: on ? T.primarySoft : T.surface }}>
-                <div style={{ fontFamily: T.display, fontSize: 16, fontWeight: 700, color: on ? T.primary : T.ink }}>{l.native}</div>
-                <div style={{ fontSize: 12, color: T.inkSoft }}>{l.label}</div>
-                {!l.t && <div style={{ fontSize: 10.5, fontWeight: 600, color: T.orange, marginTop: 3 }}>{tc({ en: "English UI", hi: "अंग्रेज़ी UI", bn: "ইংরেজি UI" })}</div>}
-              </button>
-
-            );
-          })}
-        </div>
+        <LanguagePicker compact value={lang} onSelect={(code) => {
+          setLang(code);
+          setLangSheet(false);
+          toast(tc({ en: "Language updated", hi: "भाषा बदली गई", bn: "ভাষা পরিবর্তন হয়েছে" }), "success");
+        }} />
       </BottomSheet>
     </>
   );

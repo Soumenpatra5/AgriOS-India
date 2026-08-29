@@ -52,7 +52,7 @@ export default function Profile() {
 
   const tap = (id) => {
     if (id === "settings") return push({ kind: "settings" });
-    if (id === "language") return push({ kind: "settings" });
+    if (id === "language") return push({ kind: "language" });
     if (id === "farm") return push({ kind: "farmDetails" });
     if (id === "support") return push({ kind: "support" });
     if (id === "privacy") return push({ kind: "privacy" });

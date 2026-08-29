@@ -4,6 +4,7 @@ import Icon from "../components/Icon.jsx";
 import { Button } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { LANGUAGES } from "../constants/languages.js";
+import LanguagePicker from "../components/LanguagePicker.jsx";
 import { storage } from "../utils/storage.js";
 
 export default function LanguageSelect() {
@@ -21,26 +22,7 @@ export default function LanguageSelect() {
       <h1 style={{ fontFamily: T.display, fontSize: 27, fontWeight: 800, margin: "0 0 6px", color: T.ink }}>{t("chooseLang")}</h1>
       <p style={{ fontSize: 14, color: T.inkSoft, margin: "0 0 22px" }}>{t("chooseLangSub")}</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, flex: 1, alignContent: "start" }}>
-        {LANGUAGES.map((l) => {
-          const on = sel === l.code;
-          return (
-            <button key={l.code} onClick={() => setSel(l.code)}
-              style={{ textAlign: "left", padding: "15px 16px", borderRadius: T.rLg, cursor: "pointer", fontFamily: T.body,
-                border: `1.5px solid ${on ? T.primary : T.line}`, background: on ? T.primarySoft : T.surface,
-                transition: "all .18s var(--ag-ease)", position: "relative" }}>
-              <div style={{ fontFamily: T.display, fontSize: 18, fontWeight: 700, color: on ? T.primary : T.ink }}>{l.native}</div>
-              <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 2 }}>{l.label}</div>
-              {!l.t && (
-                <div style={{ fontSize: 10.5, fontWeight: 600, color: T.orange, marginTop: 5 }}>
-                  {tc({ en: "English UI", hi: "अंग्रेज़ी UI", bn: "ইংরেজি UI" })}
-                </div>
-              )}
-              {on && <span style={{ position: "absolute", top: 12, right: 12, color: T.primary, display: "flex" }}><Icon name="CheckCircle2" size={18} /></span>}
-            </button>
-          );
-        })}
-      </div>
+      <LanguagePicker value={sel} onSelect={setSel} style={{ flex: 1, alignContent: "start" }} />
 
       {selPartial && (
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 16, padding: "10px 12px", borderRadius: T.rMd, background: T.orangeSoft }}>
