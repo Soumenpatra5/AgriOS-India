@@ -73,7 +73,7 @@ export default function AssetManager() {
             <RecordRow key={a.id}
               icon={assetService.categoryIcon(a.category)} iconColor={T.yellow} iconBg={T.yellowSoft}
               title={a.name}
-              badge={dueIds.has(a.id) ? <Pill fg={T.red} bg={T.redSoft}>SERVICE DUE</Pill> : null}
+              badge={dueIds.has(a.id) ? <Pill fg={T.red} bg={T.redSoft}>{tc({ en: "SERVICE DUE", hi: "सर्विस बाकी", bn: "সার্ভিস বাকি" })}</Pill> : null}
               subtitle={`${assetService.categoryLabel(a.category)}${a.purchasePrice ? ` · ${rupee(Number(a.purchasePrice))}` : ""}${a.purchaseDate ? ` · bought ${a.purchaseDate}` : ""}`}
               right={
                 <button onClick={(e) => { e.stopPropagation(); setMaintTarget(a); }}
@@ -91,9 +91,9 @@ export default function AssetManager() {
           <Input label={tc({ en: "Asset name", hi: "संपत्ति का नाम", bn: "সম্পদের নাম" })} placeholder={tc({ en: "e.g. Mahindra 575 tractor", hi: "उदा. महिंद्रा 575 ट्रैक्टर", bn: "যেমন মাহিন্দ্রা ৫৭৫ ট্রাক্টর" })} value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
           <Dropdown label={tc({ en: "Category", hi: "श्रेणी", bn: "শ্রেণি" })} value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))}
             options={ASSET_CATEGORIES.map((c) => ({ value: c.id, label: c.i18n ? tc(c.i18n) : c.label }))} />
-          <Input label="Purchase price (₹)" type="number" placeholder="0" value={form.purchasePrice} onChange={(v) => setForm((f) => ({ ...f, purchasePrice: v }))} />
-          <Input label="Purchase date" type="date" value={form.purchaseDate} onChange={(v) => setForm((f) => ({ ...f, purchaseDate: v }))} />
-          <Input label="Notes" placeholder="Optional" value={form.note} onChange={(v) => setForm((f) => ({ ...f, note: v }))} />
+          <Input label={tc({ en: "Purchase price (₹)", hi: "खरीद मूल्य (₹)", bn: "ক্রয় মূল্য (₹)" })} type="number" placeholder="0" value={form.purchasePrice} onChange={(v) => setForm((f) => ({ ...f, purchasePrice: v }))} />
+          <Input label={tc({ en: "Purchase date", hi: "खरीद तिथि", bn: "ক্রয়ের তারিখ" })} type="date" value={form.purchaseDate} onChange={(v) => setForm((f) => ({ ...f, purchaseDate: v }))} />
+          <Input label={tc({ en: "Notes", hi: "टिप्पणी", bn: "মন্তব্য" })} placeholder={tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} value={form.note} onChange={(v) => setForm((f) => ({ ...f, note: v }))} />
           <Button full onClick={add} disabled={!form.name}>{tc({ en: "Add Asset", hi: "संपत्ति जोड़ें", bn: "সম্পদ যোগ করুন" })}</Button>
         </div>
       </BottomSheet>
@@ -101,17 +101,17 @@ export default function AssetManager() {
       <BottomSheet open={!!maintTarget} onClose={() => setMaintTarget(null)} title={maintTarget ? `Service: ${maintTarget.name}` : ""}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Input label="Date" type="date" value={maintForm.date} onChange={(v) => setMaintForm((f) => ({ ...f, date: v }))} />
-          <Dropdown label="Type" value={maintForm.kind} onChange={(v) => setMaintForm((f) => ({ ...f, kind: v }))}
+          <Dropdown label={tc({ en: "Type", hi: "प्रकार", bn: "ধরন" })} value={maintForm.kind} onChange={(v) => setMaintForm((f) => ({ ...f, kind: v }))}
             options={[
               { value: "service", label: "Routine Service" },
               { value: "repair",  label: "Repair" },
               { value: "insurance", label: "Insurance Renewal" },
               { value: "other",   label: "Other" },
             ]} />
-          <Input label="Cost (₹)" type="number" placeholder="0" value={maintForm.cost} onChange={(v) => setMaintForm((f) => ({ ...f, cost: v }))} />
-          <Input label="Notes" placeholder="What was done…" value={maintForm.note} onChange={(v) => setMaintForm((f) => ({ ...f, note: v }))} />
-          <Input label="Next service due" type="date" value={maintForm.nextDue} onChange={(v) => setMaintForm((f) => ({ ...f, nextDue: v }))} />
-          <Button full onClick={logMaint}>Log Maintenance</Button>
+          <Input label={tc({ en: "Cost (₹)", hi: "लागत (₹)", bn: "ব্যয় (₹)" })} type="number" placeholder="0" value={maintForm.cost} onChange={(v) => setMaintForm((f) => ({ ...f, cost: v }))} />
+          <Input label={tc({ en: "Notes", hi: "टिप्पणी", bn: "মন্তব্য" })} placeholder={tc({ en: "What was done…", hi: "क्या किया गया…", bn: "কী করা হয়েছে…" })} value={maintForm.note} onChange={(v) => setMaintForm((f) => ({ ...f, note: v }))} />
+          <Input label={tc({ en: "Next service due", hi: "अगली सर्विस", bn: "পরবর্তী সার্ভিস" })} type="date" value={maintForm.nextDue} onChange={(v) => setMaintForm((f) => ({ ...f, nextDue: v }))} />
+          <Button full onClick={logMaint}>{tc({ en: "Log Maintenance", hi: "रखरखाव दर्ज करें", bn: "রক্ষণাবেক্ষণ লিখুন" })}</Button>
         </div>
       </BottomSheet>
 
@@ -120,7 +120,7 @@ export default function AssetManager() {
           { label: tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" }), variant: "outline", onClick: () => setDelId(null) },
           { label: tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger",  onClick: handleDelete },
         ]}>
-        <div style={{ fontSize: 14, color: T.inkSoft }}>The asset and its maintenance history will be removed.</div>
+        <div style={{ fontSize: 14, color: T.inkSoft }}>{tc({ en: "The asset and its maintenance history will be removed.", hi: "यह संपत्ति और इसका रखरखाव इतिहास हट जाएगा।", bn: "এই সম্পদ ও এর রক্ষণাবেক্ষণ ইতিহাস মুছে যাবে।" })}</div>
       </Dialog>
     </>
   );

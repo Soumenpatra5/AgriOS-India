@@ -103,12 +103,12 @@ export default function InventoryManager() {
           <Input label={tc({ en: "Item name", hi: "मद का नाम", bn: "আইটেমের নাম" })} placeholder={tc({ en: "e.g. Layer feed 50kg", hi: "उदा. लेयर फ़ीड 50 किग्रा", bn: "যেমন লেয়ার ফিড ৫০ কেজি" })} value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
           <Dropdown label={tc({ en: "Category", hi: "श्रेणी", bn: "শ্রেণি" })} value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))}
             options={ITEM_CATEGORIES.map((c) => ({ value: c.id, label: c.i18n ? tc(c.i18n) : c.label }))} />
-          <Input label="Opening quantity" type="number" placeholder="0" value={form.qty} onChange={(v) => setForm((f) => ({ ...f, qty: v }))} />
-          <Input label="Unit" placeholder="kg / L / bags / pcs" value={form.unit} onChange={(v) => setForm((f) => ({ ...f, unit: v }))} />
-          <Input label="Low-stock alert level" type="number" placeholder="0" value={form.minQty} onChange={(v) => setForm((f) => ({ ...f, minQty: v }))} />
-          <Input label="Unit price (₹)" type="number" placeholder="0" value={form.unitPrice} onChange={(v) => setForm((f) => ({ ...f, unitPrice: v }))} />
-          <Input label="Expiry date (optional)" type="date" value={form.expiryDate} onChange={(v) => setForm((f) => ({ ...f, expiryDate: v }))} />
-          <Input label="Supplier (optional)" placeholder="" value={form.supplierName} onChange={(v) => setForm((f) => ({ ...f, supplierName: v }))} />
+          <Input label={tc({ en: "Opening quantity", hi: "प्रारंभिक मात्रा", bn: "প্রারম্ভিক পরিমাণ" })} type="number" placeholder="0" value={form.qty} onChange={(v) => setForm((f) => ({ ...f, qty: v }))} />
+          <Input label={tc({ en: "Unit", hi: "इकाई", bn: "একক" })} placeholder={tc({ en: "kg / L / bags / pcs", hi: "किग्रा / लीटर / बोरी / नग", bn: "কেজি / লিটার / বস্তা / পিস" })} value={form.unit} onChange={(v) => setForm((f) => ({ ...f, unit: v }))} />
+          <Input label={tc({ en: "Low-stock alert level", hi: "कम स्टॉक अलर्ट स्तर", bn: "কম মজুত সতর্কতার স্তর" })} type="number" placeholder="0" value={form.minQty} onChange={(v) => setForm((f) => ({ ...f, minQty: v }))} />
+          <Input label={tc({ en: "Unit price (₹)", hi: "इकाई मूल्य (₹)", bn: "একক মূল্য (₹)" })} type="number" placeholder="0" value={form.unitPrice} onChange={(v) => setForm((f) => ({ ...f, unitPrice: v }))} />
+          <Input label={tc({ en: "Expiry date (optional)", hi: "समय-सीमा तिथि (वैकल्पिक)", bn: "মেয়াদ শেষের তারিখ (ঐচ্ছিক)" })} type="date" value={form.expiryDate} onChange={(v) => setForm((f) => ({ ...f, expiryDate: v }))} />
+          <Input label={tc({ en: "Supplier (optional)", hi: "आपूर्तिकर्ता (वैकल्पिक)", bn: "সরবরাহকারী (ঐচ্ছিক)" })} placeholder="" value={form.supplierName} onChange={(v) => setForm((f) => ({ ...f, supplierName: v }))} />
           <Button full onClick={add} disabled={!form.name}>{tc({ en: "Add Item", hi: "मद जोड़ें", bn: "আইটেম যোগ করুন" })}</Button>
         </div>
       </BottomSheet>
@@ -118,11 +118,11 @@ export default function InventoryManager() {
           <div style={{ fontSize: 13, color: T.inkSoft }}>
             Current stock: <b style={{ color: T.ink }}>{moveTarget?.qty} {moveTarget?.unit}</b>
           </div>
-          <Dropdown label="Movement" value={moveForm.kind} onChange={(v) => setMoveForm((f) => ({ ...f, kind: v }))}
+          <Dropdown label={tc({ en: "Movement", hi: "आवाजाही", bn: "চলাচল" })} value={moveForm.kind} onChange={(v) => setMoveForm((f) => ({ ...f, kind: v }))}
             options={[{ value: "in", label: "Stock In (purchase/receive)" }, { value: "out", label: "Stock Out (use/issue)" }]} />
-          <Input label="Quantity" type="number" placeholder="0" value={moveForm.qty} onChange={(v) => setMoveForm((f) => ({ ...f, qty: v }))} />
-          <Input label="Note" placeholder="Optional" value={moveForm.note} onChange={(v) => setMoveForm((f) => ({ ...f, note: v }))} />
-          <Button full onClick={doMove} disabled={!moveForm.qty}>Save Movement</Button>
+          <Input label={tc({ en: "Quantity", hi: "मात्रा", bn: "পরিমাণ" })} type="number" placeholder="0" value={moveForm.qty} onChange={(v) => setMoveForm((f) => ({ ...f, qty: v }))} />
+          <Input label={tc({ en: "Note", hi: "टिप्पणी", bn: "মন্তব্য" })} placeholder={tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} value={moveForm.note} onChange={(v) => setMoveForm((f) => ({ ...f, note: v }))} />
+          <Button full onClick={doMove} disabled={!moveForm.qty}>{tc({ en: "Save Movement", hi: "आवाजाही सहेजें", bn: "চলাচল সংরক্ষণ" })}</Button>
         </div>
       </BottomSheet>
 
@@ -131,7 +131,7 @@ export default function InventoryManager() {
           { label: tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" }), variant: "outline", onClick: () => setDelId(null) },
           { label: tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger",  onClick: handleDelete },
         ]}>
-        <div style={{ fontSize: 14, color: T.inkSoft }}>The item and its stock history will be removed.</div>
+        <div style={{ fontSize: 14, color: T.inkSoft }}>{tc({ en: "The item and its stock history will be removed.", hi: "यह मद और इसका स्टॉक इतिहास हट जाएगा।", bn: "এই আইটেম ও এর মজুত ইতিহাস মুছে যাবে।" })}</div>
       </Dialog>
     </>
   );

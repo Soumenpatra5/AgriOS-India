@@ -138,7 +138,7 @@ export default function TaskManager() {
             <Dropdown label={tc({ en: "Assign to", hi: "सौंपें", bn: "বরাদ্দ করুন" })} value={form.assigneeId} onChange={(v) => setForm((f) => ({ ...f, assigneeId: v }))}
               options={[{ value: "", label: tc({ en: "Unassigned", hi: "अनासाइन्ड", bn: "বরাদ্দহীন" }) }, ...employees.map((e) => ({ value: e.id, label: e.name }))]} />
           )}
-          <Input label="Notes" placeholder="Optional" value={form.note} onChange={(v) => setForm((f) => ({ ...f, note: v }))} />
+          <Input label={tc({ en: "Notes", hi: "टिप्पणी", bn: "মন্তব্য" })} placeholder={tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} value={form.note} onChange={(v) => setForm((f) => ({ ...f, note: v }))} />
           <Button full onClick={add} disabled={!form.title}>{tc({ en: "Add Task", hi: "कार्य जोड़ें", bn: "কাজ যোগ করুন" })}</Button>
         </div>
       </BottomSheet>
@@ -148,7 +148,7 @@ export default function TaskManager() {
           { label: tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" }), variant: "outline", onClick: () => setDelId(null) },
           { label: tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger",  onClick: handleDelete },
         ]}>
-        <div style={{ fontSize: 14, color: T.inkSoft }}>This task will be permanently removed.</div>
+        <div style={{ fontSize: 14, color: T.inkSoft }}>{tc({ en: "This task will be permanently removed.", hi: "यह कार्य स्थायी रूप से हट जाएगा।", bn: "এই কাজ স্থায়ীভাবে মুছে যাবে।" })}</div>
       </Dialog>
     </>
   );

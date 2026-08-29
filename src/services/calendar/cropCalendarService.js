@@ -21,9 +21,11 @@ const STA  = { id: "staking",    label: "Staking",         icon: "Wrench"       
 const HAR  = { id: "harvest",    label: "Harvest",         icon: "Wheat"        };
 
 /* ── Crop definitions with agronomic task schedules (offsets from sowing) ── */
+/* name and season stay English — they go into AI prompts and are the
+   canonical crop key. i18n/seasonI18n are what the UI shows. */
 export const CROPS = [
   {
-    id: "paddy", name: "Paddy", icon: "Wheat", season: "Kharif", days: 120,
+    id: "paddy", name: "Paddy", icon: "Wheat", season: "Kharif", i18n: { en: "Paddy", hi: "धान", bn: "ধান" }, seasonI18n: { en: "Kharif", hi: "खरीफ़", bn: "খরিফ" }, days: 120,
     tasks: [
       { type: NUR, day: 0 },
       { type: TRA, day: 21 },
@@ -36,7 +38,7 @@ export const CROPS = [
     ],
   },
   {
-    id: "wheat", name: "Wheat", icon: "Wheat", season: "Rabi", days: 120,
+    id: "wheat", name: "Wheat", icon: "Wheat", season: "Rabi", i18n: { en: "Wheat", hi: "गेहूँ", bn: "গম" }, seasonI18n: { en: "Rabi", hi: "रबी", bn: "রবি" }, days: 120,
     tasks: [
       { type: IRR, day: 21,  note: "Crown root irrigation" },
       { type: FER, day: 21,  note: "1st dose — Urea" },
@@ -48,7 +50,7 @@ export const CROPS = [
     ],
   },
   {
-    id: "maize", name: "Maize", icon: "Sprout", season: "Kharif", days: 90,
+    id: "maize", name: "Maize", icon: "Sprout", season: "Kharif", i18n: { en: "Maize", hi: "मक्का", bn: "ভুট্টা" }, seasonI18n: { en: "Kharif", hi: "खरीफ़", bn: "খরিফ" }, days: 90,
     tasks: [
       { type: THN, day: 15 },
       { type: FER, day: 25,  note: "1st dose" },
@@ -59,7 +61,7 @@ export const CROPS = [
     ],
   },
   {
-    id: "cotton", name: "Cotton", icon: "Leaf", season: "Kharif", days: 180,
+    id: "cotton", name: "Cotton", icon: "Leaf", season: "Kharif", i18n: { en: "Cotton", hi: "कपास", bn: "তুলা" }, seasonI18n: { en: "Kharif", hi: "खरीफ़", bn: "খরিফ" }, days: 180,
     tasks: [
       { type: THN, day: 20 },
       { type: SPR, day: 30,  note: "1st insecticide" },
@@ -71,7 +73,7 @@ export const CROPS = [
     ],
   },
   {
-    id: "mustard", name: "Mustard", icon: "Sprout", season: "Rabi", days: 100,
+    id: "mustard", name: "Mustard", icon: "Sprout", season: "Rabi", i18n: { en: "Mustard", hi: "सरसों", bn: "সরিষা" }, seasonI18n: { en: "Rabi", hi: "रबी", bn: "রবি" }, days: 100,
     tasks: [
       { type: THN, day: 15 },
       { type: IRR, day: 30,  note: "1st irrigation" },
@@ -82,7 +84,7 @@ export const CROPS = [
     ],
   },
   {
-    id: "soybean", name: "Soybean", icon: "Sprout", season: "Kharif", days: 100,
+    id: "soybean", name: "Soybean", icon: "Sprout", season: "Kharif", i18n: { en: "Soybean", hi: "सोयाबीन", bn: "সয়াবিন" }, seasonI18n: { en: "Kharif", hi: "खरीफ़", bn: "খরিফ" }, days: 100,
     tasks: [
       { type: WED, day: 20 },
       { type: FER, day: 30,  note: "Micro-nutrient spray" },
@@ -92,7 +94,7 @@ export const CROPS = [
     ],
   },
   {
-    id: "potato", name: "Potato", icon: "Sprout", season: "Rabi", days: 90,
+    id: "potato", name: "Potato", icon: "Sprout", season: "Rabi", i18n: { en: "Potato", hi: "आलू", bn: "আলু" }, seasonI18n: { en: "Rabi", hi: "रबी", bn: "রবি" }, days: 90,
     tasks: [
       { type: EAR, day: 25 },
       { type: IRR, day: 25 },
@@ -103,7 +105,7 @@ export const CROPS = [
     ],
   },
   {
-    id: "tomato", name: "Tomato", icon: "Sprout", season: "Rabi", days: 90,
+    id: "tomato", name: "Tomato", icon: "Sprout", season: "Rabi", i18n: { en: "Tomato", hi: "टमाटर", bn: "টমেটো" }, seasonI18n: { en: "Rabi", hi: "रबी", bn: "রবি" }, days: 90,
     tasks: [
       { type: STA, day: 20 },
       { type: FER, day: 21,  note: "1st dose" },

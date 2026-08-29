@@ -41,6 +41,9 @@ function Section({ title, icon, children }) {
 
 /* Repeatable-row editor shared by fertilizer / protection / organic / labour / machinery / other. */
 function RowEditor({ title, icon, rows, setRows, fields, addLabel }) {
+  /* Its own useApp rather than a tc prop: it is a component, and threading tc
+     through five call sites just to reach one aria-label is noise. */
+  const { tc } = useApp();
   const update = (i, key, val) => {
     const next = [...rows];
     next[i] = { ...next[i], [key]: val };
@@ -53,14 +56,14 @@ function RowEditor({ title, icon, rows, setRows, fields, addLabel }) {
     <Section title={title} icon={icon}>
       {rows.length === 0 && (
         <div style={{ fontSize: 12.5, color: T.inkFaint, padding: "4px 2px 8px" }}>
-          No entries yet — add one below.
+          {tc({ en: "No entries yet — add one below.", hi: "अभी कोई प्रविष्टि नहीं — नीचे जोड़ें।", bn: "এখনও কোনও এন্ট্রি নেই — নিচে যোগ করুন।" })}
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {rows.map((row, i) => (
           <Card key={i} pad={12}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
-              <button onClick={() => remove(i)} aria-label="Remove row"
+              <button onClick={() => remove(i)} aria-label={tc({ en: "Remove row", hi: "पंक्ति हटाएँ", bn: "সারি সরান" })}
                 style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 2 }}>
                 <Icon name="Trash2" size={15} />
               </button>
@@ -223,8 +226,8 @@ export default function CropPlanner({ planId }) {
   if (!loaded) {
     return (
       <>
-        <AppBar title="Crop plan" onBack={pop} />
-        <div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>Loading…</div>
+        <AppBar title={tc({ en: "Crop plan", hi: "फ़सल योजना", bn: "ফসল পরিকল্পনা" })} onBack={pop} />
+        <div style={{ padding: 40, textAlign: "center", color: T.inkSoft }}>{tc({ en: "Loading…", hi: "लोड हो रहा है…", bn: "লোড হচ্ছে…" })}</div>
       </>
     );
   }
@@ -234,24 +237,24 @@ export default function CropPlanner({ planId }) {
       <AppBar title={tc({ en: editing ? "Edit crop plan" : "Crop input & cost planner", hi: editing ? "फसल योजना संपादित करें" : "फसल इनपुट व लागत योजना", bn: editing ? "ফসল পরিকল্পনা সম্পাদনা" : "ফসল ইনপুট ও খরচ পরিকল্পনা" })} onBack={pop} />
       <Screen gap={20}>
 
-        <Section title="Farm & field (optional)" icon="Map">
+        <Section title={tc({ en: "Farm & field (optional)", hi: "फार्म और खेत (वैकल्पिक)", bn: "খামার ও মাঠ (ঐচ্ছিক)" })} icon="Map">
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Dropdown label="Farm" value={farmId} onChange={(v) => { setFarmId(v); setFieldId(""); }} options={farmOptions} />
-            {farmId && <Dropdown label="Field" value={fieldId} onChange={onSelectField} options={fieldOptions} />}
+            <Dropdown label={tc({ en: "Farm", hi: "फार्म", bn: "খামার" })} value={farmId} onChange={(v) => { setFarmId(v); setFieldId(""); }} options={farmOptions} />
+            {farmId && <Dropdown label={tc({ en: "Field", hi: "खेत", bn: "মাঠ" })} value={fieldId} onChange={onSelectField} options={fieldOptions} />}
             {field?.currentCrop && (
               <div style={{ fontSize: 12, color: T.inkFaint }}>Previous crop on this field: {field.currentCrop}</div>
             )}
           </div>
         </Section>
 
-        <Section title="Crop & area" icon="Sprout">
+        <Section title={tc({ en: "Crop & area", hi: "फ़सल और क्षेत्रफल", bn: "ফসল ও আয়তন" })} icon="Sprout">
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Dropdown label="Crop" value={cropId} onChange={setCropId} options={cropOptions} />
-            {!cropId && <Input label="Crop name" value={customCropName} onChange={setCustomCropName} placeholder="e.g. Cauliflower" />}
-            <Input label="Variety / seed type (optional)" value={variety} onChange={setVariety} placeholder="e.g. Hybrid, Certified" />
+            <Dropdown label={tc({ en: "Crop", hi: "फ़सल", bn: "ফসল" })} value={cropId} onChange={setCropId} options={cropOptions} />
+            {!cropId && <Input label={tc({ en: "Crop name", hi: "फ़सल का नाम", bn: "ফসলের নাম" })} value={customCropName} onChange={setCustomCropName} placeholder={tc({ en: "e.g. Cauliflower", hi: "उदा. फूलगोभी", bn: "যেমন ফুলকপি" })} />}
+            <Input label={tc({ en: "Variety / seed type (optional)", hi: "किस्म / बीज प्रकार (वैकल्पिक)", bn: "জাত / বীজের ধরন (ঐচ্ছিক)" })} value={variety} onChange={setVariety} placeholder={tc({ en: "e.g. Hybrid, Certified", hi: "उदा. हाइब्रिड, प्रमाणित", bn: "যেমন হাইব্রিড, প্রত্যয়িত" })} />
             <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 10 }}>
-              <Input label="Area" value={num(areaValue)} onChange={setAreaValue} type="number" inputMode="decimal" placeholder="0" />
-              <Dropdown label="Unit" value={areaUnit} onChange={setAreaUnit} options={areaUnitOptions} />
+              <Input label={tc({ en: "Area", hi: "क्षेत्रफल", bn: "আয়তন" })} value={num(areaValue)} onChange={setAreaValue} type="number" inputMode="decimal" placeholder="0" />
+              <Dropdown label={tc({ en: "Unit", hi: "इकाई", bn: "একক" })} value={areaUnit} onChange={setAreaUnit} options={areaUnitOptions} />
             </div>
             {areaUnit !== "acre" && areaValue !== "" && (
               <div style={{ fontSize: 12, color: T.inkFaint }}>
@@ -261,28 +264,28 @@ export default function CropPlanner({ planId }) {
           </div>
         </Section>
 
-        <Section title="Seed" icon="Wheat">
+        <Section title={tc({ en: "Seed", hi: "बीज", bn: "বীজ" })} icon="Wheat">
           <Card pad={12}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <Input label="Seed rate (kg / acre)" value={num(seedRate)} onChange={setSeedRate} type="number" inputMode="decimal" placeholder="e.g. 50" />
-                <Input label="Seed price (₹ / kg)" value={num(seedPrice)} onChange={setSeedPrice} type="number" inputMode="decimal" prefix="₹" placeholder="e.g. 55" />
+                <Input label={tc({ en: "Seed rate (kg / acre)", hi: "बीज दर (किग्रा / एकड़)", bn: "বীজের হার (কেজি / একর)" })} value={num(seedRate)} onChange={setSeedRate} type="number" inputMode="decimal" placeholder={tc({ en: "e.g. 50", hi: "उदा. 50", bn: "যেমন ৫০" })} />
+                <Input label={tc({ en: "Seed price (₹ / kg)", hi: "बीज मूल्य (₹ / किग्रा)", bn: "বীজের দাম (₹ / কেজি)" })} value={num(seedPrice)} onChange={setSeedPrice} type="number" inputMode="decimal" prefix="₹" placeholder={tc({ en: "e.g. 55", hi: "उदा. 55", bn: "যেমন ৫৫" })} />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <Input label="Wastage %" value={num(wastagePct)} onChange={setWastagePct} type="number" inputMode="decimal" placeholder="0" />
-                <Input label="Seed treatment cost (₹)" value={num(seedTreatmentCost)} onChange={setSeedTreatmentCost} type="number" inputMode="decimal" prefix="₹" placeholder="0" />
+                <Input label={tc({ en: "Seed treatment cost (₹)", hi: "बीज उपचार लागत (₹)", bn: "বীজ শোধনের ব্যয় (₹)" })} value={num(seedTreatmentCost)} onChange={setSeedTreatmentCost} type="number" inputMode="decimal" prefix="₹" placeholder="0" />
               </div>
             </div>
           </Card>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
             <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg, padding: "13px 12px" }}>
-              <div style={{ fontSize: 11.5, color: T.inkSoft }}>Seed required (final)</div>
+              <div style={{ fontSize: 11.5, color: T.inkSoft }}>{tc({ en: "Seed required (final)", hi: "आवश्यक बीज (अंतिम)", bn: "প্রয়োজনীয় বীজ (চূড়ান্ত)" })}</div>
               <div style={{ fontFamily: T.display, fontSize: 17, fontWeight: 700, marginTop: 2 }}>{plan.seed.finalRequiredKg.toLocaleString("en-IN")} kg</div>
               {plan.seed.wastageKg > 0 && <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 2 }}>incl. {plan.seed.wastageKg} kg wastage</div>}
             </div>
             <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg, padding: "13px 12px" }}>
-              <div style={{ fontSize: 11.5, color: T.inkSoft }}>Total seed cost</div>
+              <div style={{ fontSize: 11.5, color: T.inkSoft }}>{tc({ en: "Total seed cost", hi: "कुल बीज लागत", bn: "মোট বীজের ব্যয়" })}</div>
               <div style={{ fontFamily: T.display, fontSize: 17, fontWeight: 700, color: T.primary, marginTop: 2 }}>₹{plan.seed.totalSeedCost.toLocaleString("en-IN")}</div>
             </div>
           </div>
@@ -299,7 +302,7 @@ export default function CropPlanner({ planId }) {
 
         {advanced && (
           <>
-            <RowEditor title="Fertilizer" icon="Leaf" rows={fertilizer} setRows={setFertilizer}
+            <RowEditor title={tc({ en: "Fertilizer", hi: "उर्वरक", bn: "সার" })} icon="Leaf" rows={fertilizer} setRows={setFertilizer}
               addLabel="Add fertilizer"
               fields={[
                 { key: "name", label: "Product (e.g. Urea, DAP)", full: true },
@@ -308,7 +311,7 @@ export default function CropPlanner({ planId }) {
                 { key: "price", label: "Price (₹ / kg or L)", type: "number", prefix: "₹" },
               ]} />
 
-            <RowEditor title="Crop protection" icon="ShieldCheck" rows={protection} setRows={setProtection}
+            <RowEditor title={tc({ en: "Crop protection", hi: "फ़सल सुरक्षा", bn: "ফসল সুরক্ষা" })} icon="ShieldCheck" rows={protection} setRows={setProtection}
               addLabel="Add pesticide / fungicide"
               fields={[
                 { key: "product", label: "Product", full: true },
@@ -317,7 +320,7 @@ export default function CropPlanner({ planId }) {
                 { key: "price", label: "Price (₹ / unit)", type: "number", prefix: "₹" },
               ]} />
 
-            <RowEditor title="Organic inputs" icon="Leaf" rows={organic} setRows={setOrganic}
+            <RowEditor title={tc({ en: "Organic inputs", hi: "जैविक इनपुट", bn: "জৈব উপকরণ" })} icon="Leaf" rows={organic} setRows={setOrganic}
               addLabel="Add organic input"
               fields={[
                 { key: "name", label: "Input (e.g. Vermicompost)", full: true },
@@ -326,22 +329,22 @@ export default function CropPlanner({ planId }) {
                 { key: "price", label: "Price (₹ / kg)", type: "number", prefix: "₹" },
               ]} />
 
-            <Section title="Irrigation" icon="Droplets">
+            <Section title={tc({ en: "Irrigation", hi: "सिंचाई", bn: "সেচ" })} icon="Droplets">
               <Card pad={12}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <Input label="No. of irrigations" value={num(irrigation.numIrrigations)} onChange={(v) => setIrrigation((s) => ({ ...s, numIrrigations: v }))} type="number" inputMode="decimal" />
-                    <Input label="Cost per irrigation (₹)" value={num(irrigation.waterCostPerIrrigation)} onChange={(v) => setIrrigation((s) => ({ ...s, waterCostPerIrrigation: v }))} type="number" inputMode="decimal" prefix="₹" />
+                    <Input label={tc({ en: "No. of irrigations", hi: "सिंचाई की संख्या", bn: "সেচের সংখ্যা" })} value={num(irrigation.numIrrigations)} onChange={(v) => setIrrigation((s) => ({ ...s, numIrrigations: v }))} type="number" inputMode="decimal" />
+                    <Input label={tc({ en: "Cost per irrigation (₹)", hi: "प्रति सिंचाई लागत (₹)", bn: "প্রতি সেচের ব্যয় (₹)" })} value={num(irrigation.waterCostPerIrrigation)} onChange={(v) => setIrrigation((s) => ({ ...s, waterCostPerIrrigation: v }))} type="number" inputMode="decimal" prefix="₹" />
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <Input label="Electricity / pump (₹)" value={num(irrigation.electricityCost)} onChange={(v) => setIrrigation((s) => ({ ...s, electricityCost: v }))} type="number" inputMode="decimal" prefix="₹" />
-                    <Input label="Diesel (₹)" value={num(irrigation.dieselCost)} onChange={(v) => setIrrigation((s) => ({ ...s, dieselCost: v }))} type="number" inputMode="decimal" prefix="₹" />
+                    <Input label={tc({ en: "Electricity / pump (₹)", hi: "बिजली / पंप (₹)", bn: "বিদ্যুৎ / পাম্প (₹)" })} value={num(irrigation.electricityCost)} onChange={(v) => setIrrigation((s) => ({ ...s, electricityCost: v }))} type="number" inputMode="decimal" prefix="₹" />
+                    <Input label={tc({ en: "Diesel (₹)", hi: "डीज़ल (₹)", bn: "ডিজেল (₹)" })} value={num(irrigation.dieselCost)} onChange={(v) => setIrrigation((s) => ({ ...s, dieselCost: v }))} type="number" inputMode="decimal" prefix="₹" />
                   </div>
                 </div>
               </Card>
             </Section>
 
-            <RowEditor title="Labour" icon="Users" rows={labour} setRows={setLabour}
+            <RowEditor title={tc({ en: "Labour", hi: "श्रम", bn: "শ্রম" })} icon="Users" rows={labour} setRows={setLabour}
               addLabel="Add labour entry"
               fields={[
                 { key: "type", label: "Activity (e.g. Weeding, Sowing)", full: true },
@@ -350,7 +353,7 @@ export default function CropPlanner({ planId }) {
                 { key: "wage", label: "Daily wage (₹)", type: "number", prefix: "₹" },
               ]} />
 
-            <RowEditor title="Machinery" icon="Tractor" rows={machinery} setRows={setMachinery}
+            <RowEditor title={tc({ en: "Machinery", hi: "मशीनरी", bn: "যন্ত্রপাতি" })} icon="Tractor" rows={machinery} setRows={setMachinery}
               addLabel="Add machine"
               fields={[
                 { key: "machine", label: "Machine (e.g. Tractor)", full: true },
@@ -360,18 +363,18 @@ export default function CropPlanner({ planId }) {
                 { key: "operatorCost", label: "Operator cost (₹)", type: "number", prefix: "₹" },
               ]} />
 
-            <RowEditor title="Other costs" icon="Receipt" rows={other} setRows={setOther}
+            <RowEditor title={tc({ en: "Other costs", hi: "अन्य लागत", bn: "অন্যান্য ব্যয়" })} icon="Receipt" rows={other} setRows={setOther}
               addLabel="Add other cost"
               fields={[
                 { key: "label", label: "Description (e.g. Transport, Packaging)", full: true },
                 { key: "amount", label: "Amount (₹)", type: "number", prefix: "₹" },
               ]} />
 
-            <Section title="Yield & expected selling price" icon="BarChart3">
+            <Section title={tc({ en: "Yield & expected selling price", hi: "उपज और अपेक्षित विक्रय मूल्य", bn: "ফলন ও প্রত্যাশিত বিক্রয় মূল্য" })} icon="BarChart3">
               <Card pad={12}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <Input label="Expected yield (qty / acre) — planning estimate" value={num(yieldPerAcre)} onChange={setYieldPerAcre} type="number" inputMode="decimal" placeholder="Not a guaranteed figure" />
-                  <Input label="Expected selling price (₹ / qty unit)" value={num(sellingPrice)} onChange={setSellingPrice} type="number" inputMode="decimal" prefix="₹"
+                  <Input label={tc({ en: "Expected yield (qty / acre) — planning estimate", hi: "अपेक्षित उपज (मात्रा / एकड़) — योजना अनुमान", bn: "প্রত্যাশিত ফলন (পরিমাণ / একর) — পরিকল্পনার অনুমান" })} value={num(yieldPerAcre)} onChange={setYieldPerAcre} type="number" inputMode="decimal" placeholder={tc({ en: "Not a guaranteed figure", hi: "यह गारंटीशुदा आँकड़ा नहीं है", bn: "এটি নিশ্চিত সংখ্যা নয়" })} />
+                  <Input label={tc({ en: "Expected selling price (₹ / qty unit)", hi: "अपेक्षित विक्रय मूल्य (₹ / इकाई)", bn: "প্রত্যাশিত বিক্রয় মূল্য (₹ / একক)" })} value={num(sellingPrice)} onChange={setSellingPrice} type="number" inputMode="decimal" prefix="₹"
                     placeholder={crop && crop.msp ? `MSP reference: ₹${crop.msp}/qtl` : "Data unavailable — enter your own value"} />
                   {usingMspFallback && (
                     <div style={{ fontSize: 11.5, color: T.inkFaint, display: "flex", gap: 6 }}>
@@ -383,8 +386,8 @@ export default function CropPlanner({ planId }) {
               </Card>
             </Section>
 
-            <Section title="Notes" icon="FileText">
-              <Input value={notes} onChange={setNotes} placeholder="Optional notes about this plan" />
+            <Section title={tc({ en: "Notes", hi: "टिप्पणी", bn: "মন্তব্য" })} icon="FileText">
+              <Input value={notes} onChange={setNotes} placeholder={tc({ en: "Optional notes about this plan", hi: "इस योजना के बारे में वैकल्पिक टिप्पणी", bn: "এই পরিকল্পনা সম্পর্কে ঐচ্ছিক মন্তব্য" })} />
             </Section>
           </>
         )}
@@ -394,7 +397,7 @@ export default function CropPlanner({ planId }) {
         <Button full onClick={save} disabled={!canSave || saving} icon="Save">
           {saving ? "Saving…" : editing ? "Update crop plan" : "Save crop plan"}
         </Button>
-        {!canSave && <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center" }}>Enter a crop name and area to save.</div>}
+        {!canSave && <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center" }}>{tc({ en: "Enter a crop name and area to save.", hi: "सहेजने के लिए फ़सल का नाम और क्षेत्रफल भरें।", bn: "সংরক্ষণ করতে ফসলের নাম ও আয়তন লিখুন।" })}</div>}
 
         <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center", lineHeight: 1.6 }}>
           This is a planning and estimation tool. Rates, doses, yields, and prices are what you enter — verify locally before purchase or sale.

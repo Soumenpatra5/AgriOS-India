@@ -90,7 +90,7 @@ export default function DeviceManager() {
             options={DEVICE_TYPES.map((t) => ({ value: t.id, label: t.i18n ? tc(t.i18n) : t.label }))} />
           <Dropdown label={tc({ en: "Connection", hi: "कनेक्शन", bn: "সংযোগ" })} value={form.protocol} onChange={(v) => setForm((f) => ({ ...f, protocol: v }))}
             options={PROTOCOLS.map((p) => ({ value: p, label: p }))} />
-          <Input label="Location" placeholder="e.g. Poultry shed 1" value={form.location} onChange={(v) => setForm((f) => ({ ...f, location: v }))} />
+          <Input label={tc({ en: "Location", hi: "स्थान", bn: "অবস্থান" })} placeholder={tc({ en: "e.g. Poultry shed 1", hi: "उदा. मुर्गी शेड 1", bn: "যেমন মুরগির শেড ১" })} value={form.location} onChange={(v) => setForm((f) => ({ ...f, location: v }))} />
           <Button full onClick={add} disabled={!form.name}>{tc({ en: "Register", hi: "दर्ज करें", bn: "নথিভুক্ত করুন" })}</Button>
         </div>
       </BottomSheet>
@@ -109,7 +109,7 @@ export default function DeviceManager() {
           { label: tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" }), variant: "outline", onClick: () => setDelId(null) },
           { label: tc({ en: "Remove", hi: "हटाएँ", bn: "সরান" }), variant: "danger",  onClick: handleDelete },
         ]}>
-        <div style={{ fontSize: 14, color: T.inkSoft }}>The device and its readings will be removed.</div>
+        <div style={{ fontSize: 14, color: T.inkSoft }}>{tc({ en: "The device and its readings will be removed.", hi: "यह उपकरण और इसकी रीडिंग हट जाएँगी।", bn: "এই ডিভাইস ও এর রিডিং মুছে যাবে।" })}</div>
       </Dialog>
     </>
   );

@@ -54,7 +54,7 @@ export default function FarmProfiles() {
           : farms.map((f) => (
             <RecordRow key={f.id} icon="House"
               title={f.name}
-              badge={f.id === activeId ? <Pill>ACTIVE</Pill> : null}
+              badge={f.id === activeId ? <Pill>{tc({ en: "ACTIVE", hi: "सक्रिय", bn: "সক্রিয়" })}</Pill> : null}
               subtitle={`${tc(farmService.typeI18n(f.type))}${f.sizeAcres ? ` · ${f.sizeAcres} ${tc({ en: "acres", hi: "एकड़", bn: "একর" })}` : ""}${f.village ? ` · ${f.village}` : ""}${f.district ? `, ${f.district}` : ""}`}
               onClick={f.id !== activeId ? () => activate(f.id) : undefined}
               right={f.id !== activeId ? (

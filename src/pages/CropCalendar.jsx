@@ -7,11 +7,21 @@ import { useApp } from "../store/AppStore.jsx";
 import { cropCalendarService, CROPS } from "../services/calendar/cropCalendarService.js";
 import { reminderService } from "../services/calendar/reminderService.js";
 
-const FILTERS = ["Upcoming", "Overdue", "Done"];
+/* id drives state; label is display only. */
+const FILTERS = [
+  { id: "Upcoming", label: { en: "Upcoming", hi: "आगामी",  bn: "আসন্ন"   } },
+  { id: "Overdue",  label: { en: "Overdue",  hi: "विलंबित", bn: "বিলম্বিত" } },
+  { id: "Done",     label: { en: "Done",     hi: "पूर्ण",   bn: "সম্পন্ন"  } },
+];
 
-const CROP_OPTIONS = [
-  { value: "", label: "Select crop…" },
-  ...CROPS.map((c) => ({ value: c.id, label: `${c.name} (${c.season})` })),
+/* Built inside the component, not at module scope: crop and season names are
+   localised and tc() only exists once the app context is available. */
+const cropOptions = (tc) => [
+  { value: "", label: tc({ en: "Select crop…", hi: "फ़सल चुनें…", bn: "ফসল বাছুন…" }) },
+  ...CROPS.map((c) => ({
+    value: c.id,
+    label: `${c.i18n ? tc(c.i18n) : c.name} (${c.seasonI18n ? tc(c.seasonI18n) : c.season})`,
+  })),
 ];
 
 const TODAY_STR = new Date().toISOString().slice(0, 10);
@@ -138,8 +148,8 @@ export default function CropCalendar() {
               <SectionHeader title={tc({en:"Tasks", hi:"कार्य", bn:"কাজ"})} />
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 {FILTERS.map((f) => (
-                  <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>
-                    {tc({Upcoming:{en:"Upcoming",hi:"आगामी",bn:"আসন্ন"}, Overdue:{en:"Overdue",hi:"विलंबित",bn:"বিলম্বিত"}, Done:{en:"Done",hi:"पूर्ण",bn:"সম্পন্ন"}}[f])}
+                  <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)}>
+                    {tc(f.label)}
                   </Chip>
                 ))}
               </div>
@@ -170,7 +180,7 @@ export default function CropCalendar() {
             label={tc({en:"Crop *", hi:"फसल *", bn:"ফসল *"})}
             value={form.cropId}
             onChange={(v) => setForm((f) => ({ ...f, cropId: v }))}
-            options={CROP_OPTIONS}
+            options={cropOptions(tc)}
           />
           <Input
             label={tc({en:"Sowing / planting date *", hi:"बुवाई / रोपण तिथि *", bn:"বপন / রোপণ তারিখ *"})}
@@ -220,14 +230,14 @@ function CropCard({ inst, onDelete }) {
   return (
     <div style={{ minWidth: 162, background: T.surface, border: `1px solid ${T.line}`,
       borderRadius: T.rLg, padding: 14, flexShrink: 0, position: "relative" }}>
-      <button onClick={onDelete} aria-label="Remove crop"
+      <button onClick={onDelete} aria-label={tc({ en: "Remove crop", hi: "फ़सल हटाएँ", bn: "ফসল সরান" })}
         style={{ position: "absolute", top: 8, right: 8, background: "none", border: "none",
           cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
         <Icon name="X" size={14} />
       </button>
       <IconTile name={def?.icon || "Sprout"} a="primary" size={36} iconSize={17} />
       <div style={{ fontFamily: T.display, fontSize: 15, fontWeight: 700,
-        color: T.ink, marginTop: 10 }}>{def?.name}</div>
+        color: T.ink, marginTop: 10 }}>{def?.i18n ? tc(def.i18n) : def?.name}</div>
       {inst.fieldName && (
         <div style={{ fontSize: 11.5, color: T.inkSoft }}>{inst.fieldName}</div>
       )}
@@ -268,7 +278,7 @@ function TaskRow({ task, i, onToggle, onReminder }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px",
       borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
-      <button onClick={onToggle} aria-label="Toggle done"
+      <button onClick={onToggle} aria-label={tc({ en: "Toggle done", hi: "पूर्ण बदलें", bn: "সম্পন্ন বদলান" })}
         style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, cursor: "pointer",
           display: "grid", placeItems: "center",
           border: `1.5px solid ${task.done ? T.primary : T.line}`,

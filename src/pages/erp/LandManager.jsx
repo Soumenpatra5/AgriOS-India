@@ -91,23 +91,23 @@ export default function LandManager() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Input label={tc({ en: "Parcel name", hi: "खंड का नाम", bn: "প্লটের নাম" })} placeholder={tc({ en: "e.g. North plot", hi: "उदा. उत्तरी खेत", bn: "যেমন উত্তরের প্লট" })} value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
           <Input label={tc({ en: "Area (acres)", hi: "क्षेत्रफल (एकड़)", bn: "আয়তন (একর)" })} type="number" placeholder="0" value={form.areaAcres} onChange={(v) => setForm((f) => ({ ...f, areaAcres: v }))} />
-          <Dropdown label="Soil type" value={form.soilType} onChange={(v) => setForm((f) => ({ ...f, soilType: v }))}
+          <Dropdown label={tc({ en: "Soil type", hi: "मिट्टी का प्रकार", bn: "মাটির ধরন" })} value={form.soilType} onChange={(v) => setForm((f) => ({ ...f, soilType: v }))}
             options={["", ...SOIL_TYPES].map((s) => ({ value: s, label: s || tc({ en: "Select…", hi: "चुनें…", bn: "বাছুন…" }) }))} />
-          <Dropdown label="Water source" value={form.waterSource} onChange={(v) => setForm((f) => ({ ...f, waterSource: v }))}
+          <Dropdown label={tc({ en: "Water source", hi: "जल स्रोत", bn: "জলের উৎস" })} value={form.waterSource} onChange={(v) => setForm((f) => ({ ...f, waterSource: v }))}
             options={["", ...WATER_SOURCES].map((s) => ({ value: s, label: s || tc({ en: "Select…", hi: "चुनें…", bn: "বাছুন…" }) }))} />
-          <Dropdown label="Ownership" value={form.ownership} onChange={(v) => setForm((f) => ({ ...f, ownership: v }))}
+          <Dropdown label={tc({ en: "Ownership", hi: "स्वामित्व", bn: "মালিকানা" })} value={form.ownership} onChange={(v) => setForm((f) => ({ ...f, ownership: v }))}
             options={OWNERSHIP.map((o) => ({ value: o.id, label: o.i18n ? tc(o.i18n) : o.label }))} />
           {form.ownership === "leased" && (
-            <Input label="Lease cost (₹/year)" type="number" placeholder="0" value={form.leaseCost} onChange={(v) => setForm((f) => ({ ...f, leaseCost: v }))} />
+            <Input label={tc({ en: "Lease cost (₹/year)", hi: "पट्टा लागत (₹/वर्ष)", bn: "ইজারা ব্যয় (₹/বছর)" })} type="number" placeholder="0" value={form.leaseCost} onChange={(v) => setForm((f) => ({ ...f, leaseCost: v }))} />
           )}
-          <Input label="Current crop (optional)" placeholder="e.g. Paddy" value={form.currentCrop} onChange={(v) => setForm((f) => ({ ...f, currentCrop: v }))} />
+          <Input label={tc({ en: "Current crop (optional)", hi: "वर्तमान फ़सल (वैकल्पिक)", bn: "বর্তমান ফসল (ঐচ্ছিক)" })} placeholder={tc({ en: "e.g. Paddy", hi: "उदा. धान", bn: "যেমন ধান" })} value={form.currentCrop} onChange={(v) => setForm((f) => ({ ...f, currentCrop: v }))} />
           <Button full onClick={add} disabled={!form.name || !form.areaAcres}>{tc({ en: "Add Parcel", hi: "खंड जोड़ें", bn: "প্লট যোগ করুন" })}</Button>
         </div>
       </BottomSheet>
 
-      <BottomSheet open={!!cropTarget} onClose={() => setCropTarget(null)} title="Set Current Crop">
+      <BottomSheet open={!!cropTarget} onClose={() => setCropTarget(null)} title={tc({ en: "Set Current Crop", hi: "वर्तमान फ़सल सेट करें", bn: "বর্তমান ফসল নির্ধারণ করুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Input label="Crop" placeholder="e.g. Mustard" value={cropName} onChange={setCropName} />
+          <Input label={tc({ en: "Crop", hi: "फ़सल", bn: "ফসল" })} placeholder={tc({ en: "e.g. Mustard", hi: "उदा. सरसों", bn: "যেমন সরিষা" })} value={cropName} onChange={setCropName} />
           <div style={{ fontSize: 12, color: T.inkSoft }}>
             Setting a crop adds it to this parcel's rotation history.
           </div>
@@ -120,7 +120,7 @@ export default function LandManager() {
           { label: tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" }), variant: "outline", onClick: () => setDelId(null) },
           { label: tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger",  onClick: handleDelete },
         ]}>
-        <div style={{ fontSize: 14, color: T.inkSoft }}>This parcel and its rotation history will be removed.</div>
+        <div style={{ fontSize: 14, color: T.inkSoft }}>{tc({ en: "This parcel and its rotation history will be removed.", hi: "यह खंड और इसका फ़सल-चक्र इतिहास हट जाएगा।", bn: "এই প্লট ও এর ফসল আবর্তনের ইতিহাস মুছে যাবে।" })}</div>
       </Dialog>
     </>
   );
