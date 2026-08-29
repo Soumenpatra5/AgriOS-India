@@ -13,13 +13,18 @@ import { rupee } from "../../utils/format.js";
 import StatTile from "../../components/erp/StatTile.jsx";
 import { EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
 
-const TABS = ["Team", "Attendance", "Wages"];
+/* id drives state and the render branches; label is display only. */
+const TABS = [
+  { id: "Team",       label: { en: "Team",       hi: "टीम",        bn: "দল"        } },
+  { id: "Attendance", label: { en: "Attendance", hi: "उपस्थिति",   bn: "উপস্থিতি"  } },
+  { id: "Wages",      label: { en: "Wages",      hi: "मज़दूरी",    bn: "মজুরি"     } },
+];
 const ymNow = () => new Date().toISOString().slice(0, 7);
 const initials = (n) => (n || "?").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const NEW_FORM = { name: "", designation: "field_worker", department: "", type: "permanent", phone: "", dailyWage: "", joiningDate: new Date().toISOString().slice(0, 10) };
 
 export default function EmployeeManager() {
-  const { pop, toast, push, can } = useApp();
+  const { pop, toast, push, can, tc } = useApp();
   const [tab, setTab]         = useState("Team");
   const [employees, setEmployees] = useState([]);
   const [todayMap, setTodayMap]   = useState({});
@@ -40,7 +45,7 @@ export default function EmployeeManager() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [docsExpiring, setDocsExpiring] = useState(0);
 
-  const designationOpts = employeeService.designations().map((d) => ({ value: d.id, label: d.label }));
+  const designationOpts = employeeService.designations().map((d) => ({ value: d.id, label: d.i18n ? tc(d.i18n) : d.label }));
 
   useEffect(() => {
     employeeService.getAll().then(setEmployees);
@@ -70,7 +75,7 @@ export default function EmployeeManager() {
       period: ymNow(), gross: payRow.gross, ...payForm, net: payNet, status: "paid",
     });
     auditService.log("payment.recorded", { employeeId: payRow.employee.id, employeeName: payRow.employee.name, detail: rupee(payNet) });
-    setPayRow(null); refresh(); toast("Payment recorded", "success");
+    setPayRow(null); refresh(); toast(tc({ en: "Payment recorded", hi: "भुगतान दर्ज हुआ", bn: "পেমেন্ট লেখা হয়েছে" }), "success");
   };
 
   const openMark = async (e) => {
@@ -81,7 +86,7 @@ export default function EmployeeManager() {
   };
   const saveMark = async () => {
     await employeeService.mark(markEmp.id, markForm);
-    setMarkEmp(null); refresh(); toast("Attendance saved", "success");
+    setMarkEmp(null); refresh(); toast(tc({ en: "Attendance saved", hi: "उपस्थिति सहेजी गई", bn: "উপস্থিতি সংরক্ষিত" }), "success");
   };
 
   const add = async () => {
@@ -89,19 +94,19 @@ export default function EmployeeManager() {
     const rec = await employeeService.add(form);
     auditService.log("employee.created", { employeeId: rec.id, employeeName: rec.name });
     setOpen(false); setForm(NEW_FORM);
-    refresh(); toast("Employee added", "success");
+    refresh(); toast(tc({ en: "Employee added", hi: "कर्मचारी जोड़ा गया", bn: "কর্মী যোগ হয়েছে" }), "success");
   };
 
   const mark = async (id, status) => {
     await employeeService.mark(id, status);
-    refresh(); toast(`Marked ${status}`, "success");
+    refresh(); toast(tc({ en: `Marked ${status}`, hi: `${status} दर्ज`, bn: `${status} লেখা হয়েছে` }), "success");
   };
 
   const handleDelete = async () => {
     const emp = employees.find((e) => e.id === delId);
     await employeeService.remove(delId);
     auditService.log("employee.removed", { employeeId: delId, employeeName: emp?.name });
-    setDelId(null); refresh(); toast("Removed", "info");
+    setDelId(null); refresh(); toast(tc({ en: "Removed", hi: "हटाया गया", bn: "সরানো হয়েছে" }), "info");
   };
 
   // Anyone with a positive worked-value today counts as present (present/half/late/overtime).
@@ -117,39 +122,39 @@ export default function EmployeeManager() {
 
   return (
     <>
-      <AppBar title="Team" onBack={pop} action={can("team.manage") && (
+      <AppBar title={tc({ en: "Team", hi: "टीम", bn: "দল" })} onBack={pop} action={can("team.manage") && (
         <button onClick={() => setOpen(true)}
           style={{ background: T.blue, border: "none", borderRadius: 12, padding: "8px 13px",
             cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6,
             fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
-          <Icon name="Plus" size={15} color="#fff" /> Add
+          <Icon name="Plus" size={15} color="#fff" /> {tc({ en: "Add", hi: "जोड़ें", bn: "যোগ" })}
         </button>
       )} />
 
       <div style={{ display: "flex", gap: 10, padding: "8px 16px 4px", overflowX: "auto" }}>
-        <StatTile a="blue" label="Employees" value={employees.length} />
-        <StatTile a="primary" label="Present Today" value={presentToday} />
-        {can("salary.view") && <StatTile a="orange" label="Wages This Month" value={rupee(totalWages)} minWidth={130} />}
-        <StatTile a="red" label="Docs Expiring" value={docsExpiring} />
+        <StatTile a="blue" label={tc({ en: "Employees", hi: "कर्मचारी", bn: "কর্মী" })} value={employees.length} />
+        <StatTile a="primary" label={tc({ en: "Present Today", hi: "आज उपस्थित", bn: "আজ উপস্থিত" })} value={presentToday} />
+        {can("salary.view") && <StatTile a="orange" label={tc({ en: "Wages This Month", hi: "इस माह मज़दूरी", bn: "এ মাসের মজুরি" })} value={rupee(totalWages)} minWidth={130} />}
+        <StatTile a="red" label={tc({ en: "Docs Expiring", hi: "दस्तावेज़ समाप्त", bn: "নথির মেয়াদ শেষ" })} value={docsExpiring} />
       </div>
 
       <div style={{ display: "flex", gap: 8, padding: "10px 16px 4px" }}>
-        {TABS.filter((t) => t !== "Wages" || can("salary.view")).map((t) => <Chip key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Chip>)}
+        {TABS.filter((t) => t.id !== "Wages" || can("salary.view")).map((t) => <Chip key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>{tc(t.label)}</Chip>)}
       </div>
 
       <div style={{ padding: "8px 16px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
-        {employees.length === 0 && <EmptyHint icon="Users" text="Add farm workers to track attendance and wages" />}
+        {employees.length === 0 && <EmptyHint icon="Users" text={tc({ en: "Add farm workers to track attendance and wages", hi: "उपस्थिति और मज़दूरी देखने के लिए कर्मचारी जोड़ें", bn: "উপস্থিতি ও মজুরি দেখতে কর্মী যোগ করুন" })} />}
 
         {tab === "Team" && employees.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ flex: 1, position: "relative" }}>
                 <Icon name="Search" size={15} style={{ position: "absolute", left: 10, top: 11, color: T.inkFaint, pointerEvents: "none" }} />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, code, phone, role…"
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tc({ en: "Search name, code, phone, role…", hi: "नाम, कोड, फ़ोन, भूमिका खोजें…", bn: "নাম, কোড, ফোন, ভূমিকা খুঁজুন…" })}
                   style={{ width: "100%", boxSizing: "border-box", padding: "9px 10px 9px 32px", borderRadius: T.rMd, border: `1px solid ${T.line}`, background: T.surface2, color: T.ink, fontSize: 13, fontFamily: T.body, outline: "none" }} />
               </div>
-              <button onClick={() => { const ok = employeeReports.exportRoster(employees); toast(ok ? "Roster exported" : "Nothing to export", ok ? "success" : "info"); }}
-                aria-label="Export CSV" style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 10, padding: 9, cursor: "pointer", color: T.ink, display: "flex" }}>
+              <button onClick={() => { const ok = employeeReports.exportRoster(employees); toast(ok ? tc({ en: "Roster exported", hi: "सूची निर्यात हुई", bn: "তালিকা রপ্তানি হয়েছে" }) : tc({ en: "Nothing to export", hi: "निर्यात के लिए कुछ नहीं", bn: "রপ্তানির কিছু নেই" }), ok ? "success" : "info"); }}
+                aria-label={tc({ en: "Export CSV", hi: "CSV निर्यात", bn: "CSV রপ্তানি" })} style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 10, padding: 9, cursor: "pointer", color: T.ink, display: "flex" }}>
                 <Icon name="Download" size={17} />
               </button>
             </div>
@@ -161,7 +166,7 @@ export default function EmployeeManager() {
         )}
 
         {tab === "Team" && filtered.length === 0 && employees.length > 0 && (
-          <div style={{ textAlign: "center", padding: "24px 0", color: T.inkFaint, fontSize: 13 }}>No employees match.</div>
+          <div style={{ textAlign: "center", padding: "24px 0", color: T.inkFaint, fontSize: 13 }}>{tc({ en: "No employees match.", hi: "कोई कर्मचारी नहीं मिला।", bn: "কোনও কর্মী মেলেনি।" })}</div>
         )}
 
         {tab === "Team" && filtered.map((e) => (
@@ -183,7 +188,7 @@ export default function EmployeeManager() {
                 <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 1 }}>{e.code || ""}</div>
               </div>
               {can("records.delete") && (
-              <button onClick={(ev) => { ev.stopPropagation(); setDelId(e.id); }} aria-label="Remove employee"
+              <button onClick={(ev) => { ev.stopPropagation(); setDelId(e.id); }} aria-label={tc({ en: "Remove employee", hi: "कर्मचारी हटाएँ", bn: "কর্মী সরান" })}
                 style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}>
                 <Icon name="Trash2" size={15} />
               </button>
@@ -195,11 +200,11 @@ export default function EmployeeManager() {
 
         {tab === "Attendance" && summary && employees.length > 0 && (
           <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, marginBottom: 4 }}>
-            <AttPill label="Present" value={summary.present + summary.late + summary.overtime} fg={T.primary} bg={T.primarySoft} />
-            <AttPill label="Absent" value={summary.absent} fg={T.red} bg={T.redSoft} />
-            <AttPill label="Leave" value={summary.leave} fg={T.blue} bg={T.blueSoft} />
-            <AttPill label="Half day" value={summary.halfday} fg={T.orange} bg={T.orangeSoft} />
-            <AttPill label="Not marked" value={summary.notMarked} fg={T.inkSoft} bg={T.surface2} />
+            <AttPill label={tc({ en: "Present", hi: "उपस्थित", bn: "উপস্থিত" })} value={summary.present + summary.late + summary.overtime} fg={T.primary} bg={T.primarySoft} />
+            <AttPill label={tc({ en: "Absent", hi: "अनुपस्थित", bn: "অনুপস্থিত" })} value={summary.absent} fg={T.red} bg={T.redSoft} />
+            <AttPill label={tc({ en: "Leave", hi: "छुट्टी", bn: "ছুটি" })} value={summary.leave} fg={T.blue} bg={T.blueSoft} />
+            <AttPill label={tc({ en: "Half day", hi: "आधा दिन", bn: "অর্ধ দিন" })} value={summary.halfday} fg={T.orange} bg={T.orangeSoft} />
+            <AttPill label={tc({ en: "Not marked", hi: "दर्ज नहीं", bn: "লেখা হয়নি" })} value={summary.notMarked} fg={T.inkSoft} bg={T.surface2} />
           </div>
         )}
 
@@ -214,7 +219,7 @@ export default function EmployeeManager() {
                     {e.name}
                     {meta && <Pill fg={T[meta.tone] || T.inkSoft} bg={meta.tone === "primary" ? T.primarySoft : meta.tone === "red" ? T.redSoft : meta.tone === "orange" ? T.orangeSoft : meta.tone === "blue" ? T.blueSoft : T.surface2}>{meta.label.toUpperCase()}</Pill>}
                   </div>
-                  <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>Mark today · tap ⓘ for shift & overtime</div>
+                  <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>{tc({ en: "Mark today · tap ⓘ for shift & overtime", hi: "आज दर्ज करें · शिफ़्ट और ओवरटाइम हेतु ⓘ दबाएँ", bn: "আজ লিখুন · শিফট ও ওভারটাইমের জন্য ⓘ চাপুন" })}</div>
                 </div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   {ATT_BTNS.map((b) => (
@@ -225,7 +230,7 @@ export default function EmployeeManager() {
                       {b.label}
                     </button>
                   ))}
-                  <button onClick={() => openMark(e)} aria-label="Attendance details"
+                  <button onClick={() => openMark(e)} aria-label={tc({ en: "Attendance details", hi: "उपस्थिति विवरण", bn: "উপস্থিতির বিবরণ" })}
                     style={{ width: 34, height: 34, borderRadius: 10, border: `1px solid ${T.line}`, cursor: "pointer",
                       background: T.surface, color: T.inkSoft, display: "grid", placeItems: "center" }}>
                     <Icon name="Clock" size={16} />
@@ -238,13 +243,13 @@ export default function EmployeeManager() {
 
         {tab === "Wages" && employees.length > 0 && (
           <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, marginBottom: 4 }}>
-            <AttPill label="Gross this month" value={rupee(wages.reduce((s, w) => s + w.gross, 0))} fg={T.ink} bg={T.surface2} />
-            <AttPill label="Paid" value={rupee(paid.paid)} fg={T.primary} bg={T.primarySoft} />
+            <AttPill label={tc({ en: "Gross this month", hi: "इस माह सकल", bn: "এ মাসের মোট" })} value={rupee(wages.reduce((s, w) => s + w.gross, 0))} fg={T.ink} bg={T.surface2} />
+            <AttPill label={tc({ en: "Paid", hi: "भुगतान", bn: "পরিশোধিত" })} value={rupee(paid.paid)} fg={T.primary} bg={T.primarySoft} />
           </div>
         )}
         {tab === "Wages" && (
           wages.length === 0
-            ? (employees.length > 0 && <EmptyHint icon="Banknote" text="Mark attendance to build this month's wage sheet" />)
+            ? (employees.length > 0 && <EmptyHint icon="Banknote" text={tc({ en: "Mark attendance to build this month's wage sheet", hi: "इस माह की मज़दूरी शीट बनाने के लिए उपस्थिति दर्ज करें", bn: "এ মাসের মজুরি শিট তৈরি করতে উপস্থিতি লিখুন" })} />)
             : wages.map((w) => (
               <Card key={w.employee.id} pad={13}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
@@ -271,33 +276,33 @@ export default function EmployeeManager() {
         )}
       </div>
 
-      <BottomSheet open={open} onClose={() => setOpen(false)} title="Add Employee">
+      <BottomSheet open={open} onClose={() => setOpen(false)} title={tc({ en: "Add Employee", hi: "कर्मचारी जोड़ें", bn: "কর্মী যোগ করুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Input label="Name" placeholder="e.g. Ramesh" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-          <Dropdown label="Designation" value={form.designation} onChange={(v) => setForm((f) => ({ ...f, designation: v }))} options={designationOpts} />
-          <Dropdown label="Department" value={form.department} onChange={(v) => setForm((f) => ({ ...f, department: v }))}
-            options={[{ value: "", label: "— Select —" }, ...DEPARTMENTS.map((d) => ({ value: d.id, label: d.label }))]} />
-          <Dropdown label="Employee type" value={form.type} onChange={(v) => setForm((f) => ({ ...f, type: v }))}
-            options={EMPLOYEE_TYPES.map((t) => ({ value: t.id, label: t.label }))} />
-          <Input label="Joining date" type="date" value={form.joiningDate} onChange={(v) => setForm((f) => ({ ...f, joiningDate: v }))} />
-          <Input label="Phone" placeholder="Optional" value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
-          <Input label="Daily wage (₹)" type="number" placeholder="0" value={form.dailyWage} onChange={(v) => setForm((f) => ({ ...f, dailyWage: v }))} />
-          <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center", lineHeight: 1.5 }}>Add more details (address, emergency contact, farm) after saving — tap the employee to open their profile.</div>
-          <Button full onClick={add} disabled={!form.name}>Add Employee</Button>
+          <Input label={tc({ en: "Name", hi: "नाम", bn: "নাম" })} placeholder={tc({ en: "e.g. Ramesh", hi: "उदा. रमेश", bn: "যেমন রমেশ" })} value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
+          <Dropdown label={tc({ en: "Designation", hi: "पदनाम", bn: "পদবি" })} value={form.designation} onChange={(v) => setForm((f) => ({ ...f, designation: v }))} options={designationOpts} />
+          <Dropdown label={tc({ en: "Department", hi: "विभाग", bn: "বিভাগ" })} value={form.department} onChange={(v) => setForm((f) => ({ ...f, department: v }))}
+            options={[{ value: "", label: tc({ en: "— Select —", hi: "— चुनें —", bn: "— বাছুন —" }) }, ...DEPARTMENTS.map((d) => ({ value: d.id, label: d.i18n ? tc(d.i18n) : d.label }))]} />
+          <Dropdown label={tc({ en: "Employee type", hi: "कर्मचारी प्रकार", bn: "কর্মীর ধরন" })} value={form.type} onChange={(v) => setForm((f) => ({ ...f, type: v }))}
+            options={EMPLOYEE_TYPES.map((t) => ({ value: t.id, label: t.i18n ? tc(t.i18n) : t.label }))} />
+          <Input label={tc({ en: "Joining date", hi: "नियुक्ति तिथि", bn: "যোগদানের তারিখ" })} type="date" value={form.joiningDate} onChange={(v) => setForm((f) => ({ ...f, joiningDate: v }))} />
+          <Input label={tc({ en: "Phone", hi: "फ़ोन", bn: "ফোন" })} placeholder={tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
+          <Input label={tc({ en: "Daily wage (₹)", hi: "दैनिक मज़दूरी (₹)", bn: "দৈনিক মজুরি (₹)" })} type="number" placeholder="0" value={form.dailyWage} onChange={(v) => setForm((f) => ({ ...f, dailyWage: v }))} />
+          <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center", lineHeight: 1.5 }}>{tc({ en: "Add more details (address, emergency contact, farm) after saving — tap the employee to open their profile.", hi: "सहेजने के बाद और विवरण (पता, आपात संपर्क, फार्म) जोड़ें — प्रोफ़ाइल खोलने के लिए कर्मचारी पर टैप करें।", bn: "সংরক্ষণের পর আরও বিবরণ (ঠিকানা, জরুরি যোগাযোগ, খামার) যোগ করুন — প্রোফাইল খুলতে কর্মীর উপর ট্যাপ করুন।" })}</div>
+          <Button full onClick={add} disabled={!form.name}>{tc({ en: "Add Employee", hi: "कर्मचारी जोड़ें", bn: "কর্মী যোগ করুন" })}</Button>
         </div>
       </BottomSheet>
 
       <BottomSheet open={!!markEmp} onClose={() => setMarkEmp(null)} title={markEmp ? `Attendance · ${markEmp.name}` : ""}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Dropdown label="Status" value={markForm.status} onChange={(v) => setMarkForm((f) => ({ ...f, status: v }))}
-            options={ATTENDANCE_STATUSES.map((a) => ({ value: a.id, label: a.label }))} />
+          <Dropdown label={tc({ en: "Status", hi: "स्थिति", bn: "অবস্থা" })} value={markForm.status} onChange={(v) => setMarkForm((f) => ({ ...f, status: v }))}
+            options={ATTENDANCE_STATUSES.map((a) => ({ value: a.id, label: a.i18n ? tc(a.i18n) : a.label }))} />
           <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1 }}><Input label="Check-in" type="time" value={markForm.checkIn} onChange={(v) => setMarkForm((f) => ({ ...f, checkIn: v }))} /></div>
-            <div style={{ flex: 1 }}><Input label="Check-out" type="time" value={markForm.checkOut} onChange={(v) => setMarkForm((f) => ({ ...f, checkOut: v }))} /></div>
+            <div style={{ flex: 1 }}><Input label={tc({ en: "Check-in", hi: "आगमन", bn: "প্রবেশ" })} type="time" value={markForm.checkIn} onChange={(v) => setMarkForm((f) => ({ ...f, checkIn: v }))} /></div>
+            <div style={{ flex: 1 }}><Input label={tc({ en: "Check-out", hi: "प्रस्थान", bn: "প্রস্থান" })} type="time" value={markForm.checkOut} onChange={(v) => setMarkForm((f) => ({ ...f, checkOut: v }))} /></div>
           </div>
-          <Input label="Overtime hours" type="number" placeholder="0" value={markForm.overtimeHours} onChange={(v) => setMarkForm((f) => ({ ...f, overtimeHours: v }))} />
-          <Input label="Remarks" placeholder="Optional" value={markForm.remarks} onChange={(v) => setMarkForm((f) => ({ ...f, remarks: v }))} />
-          <Button full onClick={saveMark}>Save attendance</Button>
+          <Input label={tc({ en: "Overtime hours", hi: "ओवरटाइम घंटे", bn: "ওভারটাইম ঘণ্টা" })} type="number" placeholder="0" value={markForm.overtimeHours} onChange={(v) => setMarkForm((f) => ({ ...f, overtimeHours: v }))} />
+          <Input label={tc({ en: "Remarks", hi: "टिप्पणी", bn: "মন্তব্য" })} placeholder={tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} value={markForm.remarks} onChange={(v) => setMarkForm((f) => ({ ...f, remarks: v }))} />
+          <Button full onClick={saveMark}>{tc({ en: "Save attendance", hi: "उपस्थिति सहेजें", bn: "উপস্থিতি সংরক্ষণ" })}</Button>
         </div>
       </BottomSheet>
 
@@ -309,31 +314,31 @@ export default function EmployeeManager() {
               <span style={{ fontSize: 14, fontWeight: 700 }}>{rupee(payRow.gross)}</span>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <div style={{ flex: 1 }}><Input label="Bonus (₹)" type="number" placeholder="0" value={payForm.bonus} onChange={(v) => setPayForm((f) => ({ ...f, bonus: v }))} /></div>
-              <div style={{ flex: 1 }}><Input label="Allowance (₹)" type="number" placeholder="0" value={payForm.allowance} onChange={(v) => setPayForm((f) => ({ ...f, allowance: v }))} /></div>
+              <div style={{ flex: 1 }}><Input label={tc({ en: "Bonus (₹)", hi: "बोनस (₹)", bn: "বোনাস (₹)" })} type="number" placeholder="0" value={payForm.bonus} onChange={(v) => setPayForm((f) => ({ ...f, bonus: v }))} /></div>
+              <div style={{ flex: 1 }}><Input label={tc({ en: "Allowance (₹)", hi: "भत्ता (₹)", bn: "ভাতা (₹)" })} type="number" placeholder="0" value={payForm.allowance} onChange={(v) => setPayForm((f) => ({ ...f, allowance: v }))} /></div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <div style={{ flex: 1 }}><Input label="Advance (₹)" type="number" placeholder="0" value={payForm.advance} onChange={(v) => setPayForm((f) => ({ ...f, advance: v }))} /></div>
-              <div style={{ flex: 1 }}><Input label="Deduction (₹)" type="number" placeholder="0" value={payForm.deduction} onChange={(v) => setPayForm((f) => ({ ...f, deduction: v }))} /></div>
+              <div style={{ flex: 1 }}><Input label={tc({ en: "Advance (₹)", hi: "अग्रिम (₹)", bn: "অগ্রিম (₹)" })} type="number" placeholder="0" value={payForm.advance} onChange={(v) => setPayForm((f) => ({ ...f, advance: v }))} /></div>
+              <div style={{ flex: 1 }}><Input label={tc({ en: "Deduction (₹)", hi: "कटौती (₹)", bn: "কর্তন (₹)" })} type="number" placeholder="0" value={payForm.deduction} onChange={(v) => setPayForm((f) => ({ ...f, deduction: v }))} /></div>
             </div>
-            <Dropdown label="Payment method" value={payForm.method} onChange={(v) => setPayForm((f) => ({ ...f, method: v }))}
+            <Dropdown label={tc({ en: "Payment method", hi: "भुगतान तरीका", bn: "পেমেন্ট পদ্ধতি" })} value={payForm.method} onChange={(v) => setPayForm((f) => ({ ...f, method: v }))}
               options={PAYMENT_METHODS.map((m) => ({ value: m.id, label: m.label }))} />
-            <Input label="Reference / notes" placeholder="Optional" value={payForm.reference} onChange={(v) => setPayForm((f) => ({ ...f, reference: v }))} />
+            <Input label={tc({ en: "Reference / notes", hi: "संदर्भ / टिप्पणी", bn: "রেফারেন্স / মন্তব্য" })} placeholder={tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} value={payForm.reference} onChange={(v) => setPayForm((f) => ({ ...f, reference: v }))} />
             <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 12px", borderRadius: T.rMd, background: T.primarySoft }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: T.primary }}>Net payable</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.primary }}>{tc({ en: "Net payable", hi: "शुद्ध देय", bn: "নিট প্রদেয়" })}</span>
               <span style={{ fontFamily: T.display, fontSize: 18, fontWeight: 800, color: T.primary }}>{rupee(payNet)}</span>
             </div>
-            <Button full onClick={savePay}>Record payment</Button>
+            <Button full onClick={savePay}>{tc({ en: "Record payment", hi: "भुगतान दर्ज करें", bn: "পেমেন্ট লিখুন" })}</Button>
           </div>
         )}
       </BottomSheet>
 
-      <Dialog open={!!delId} title="Remove employee?" onClose={() => setDelId(null)}
+      <Dialog open={!!delId} title={tc({ en: "Remove employee?", hi: "कर्मचारी हटाएँ?", bn: "কর্মী সরাবেন?" })} onClose={() => setDelId(null)}
         actions={[
           { label: "Cancel", variant: "outline", onClick: () => setDelId(null) },
           { label: "Remove", variant: "danger",  onClick: handleDelete },
         ]}>
-        <div style={{ fontSize: 14, color: T.inkSoft }}>The profile and attendance history will be removed.</div>
+        <div style={{ fontSize: 14, color: T.inkSoft }}>{tc({ en: "The profile and attendance history will be removed.", hi: "प्रोफ़ाइल और उपस्थिति इतिहास हट जाएगा।", bn: "প্রোফাইল ও উপস্থিতির ইতিহাস মুছে যাবে।" })}</div>
       </Dialog>
     </>
   );

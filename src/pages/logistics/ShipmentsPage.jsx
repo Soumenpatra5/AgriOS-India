@@ -81,9 +81,9 @@ export default function ShipmentsPage() {
             options={COMMODITIES.map((c) => ({ value: c, label: c }))} />
           <Input label={tc({en:"Quantity (kg)", hi:"मात्रा (किग्रा)", bn:"পরিমাণ (কেজি)"})} value={form.quantityKg} onChange={(v) => setForm({ ...form, quantityKg: v })} icon="Scale" type="number" />
           <Dropdown label={tc({en:"Pickup", hi:"पिकअप", bn:"পিকআপ"})} value={form.pickup} onChange={(v) => setForm({ ...form, pickup: v })}
-            options={PLACES.map((p) => ({ value: p.id, label: p.name }))} />
+            options={PLACES.map((p) => ({ value: p.id, label: p.i18n ? tc(p.i18n) : p.name }))} />
           <Dropdown label={tc({en:"Drop", hi:"ड्रॉप", bn:"ড্রপ"})} value={form.drop} onChange={(v) => setForm({ ...form, drop: v })}
-            options={PLACES.map((p) => ({ value: p.id, label: p.name }))} />
+            options={PLACES.map((p) => ({ value: p.id, label: p.i18n ? tc(p.i18n) : p.name }))} />
           <div style={{ background: T.surface2, borderRadius: T.rMd, padding: "10px 14px", fontSize: 12, color: T.inkSoft }}>
             {tc({en:"Est. distance", hi:"अनुमानित दूरी", bn:"আনুমানিক দূরত্ব"})} <b style={{ color: T.ink }}>{est.distanceKm} km</b> · {tc({en:"ETA", hi:"ईटीए", bn:"পৌঁছানোর সময়"})} <b style={{ color: T.ink }}>{Math.round(est.etaMinutes / 60 * 10) / 10} h</b> · {tc({en:"fuel", hi:"ईंधन", bn:"জ্বালানি"})} ~<b style={{ color: T.ink }}>{rupee(est.fuelCost)}</b>
           </div>

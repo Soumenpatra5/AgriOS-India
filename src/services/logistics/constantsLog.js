@@ -43,11 +43,11 @@ export const DRIVER_STATUS = {
 };
 
 export const WAREHOUSE_TYPES = [
-  { id: "dry",        label: "Dry Warehouse",   icon: "Warehouse", accent: "orange", cold: false },
-  { id: "cold",       label: "Cold Storage",    icon: "Snowflake", accent: "blue",   cold: true  },
-  { id: "controlled", label: "Controlled Atmosphere", icon: "Thermometer", accent: "blue", cold: true },
-  { id: "silo",       label: "Grain Silo",      icon: "Boxes",     accent: "yellow", cold: false },
-  { id: "packhouse",  label: "Pack House",      icon: "Package",   accent: "primary",cold: false },
+  { id: "dry",        label: "Dry Warehouse",   icon: "Warehouse", accent: "orange", cold: false, i18n: { en: "Dry Warehouse", hi: "सूखा गोदाम", bn: "শুকনো গুদাম" } },
+  { id: "cold",       label: "Cold Storage",    icon: "Snowflake", accent: "blue",   cold: true, i18n: { en: "Cold Storage", hi: "शीत भंडार", bn: "হিমঘর" }  },
+  { id: "controlled", label: "Controlled Atmosphere", icon: "Thermometer", accent: "blue", cold: true, i18n: { en: "Controlled Atmosphere", hi: "नियंत्रित वातावरण", bn: "নিয়ন্ত্রিত পরিবেশ" } },
+  { id: "silo",       label: "Grain Silo",      icon: "Boxes",     accent: "yellow", cold: false, i18n: { en: "Grain Silo", hi: "अनाज साइलो", bn: "শস্য সাইলো" } },
+  { id: "packhouse",  label: "Pack House",      icon: "Package",   accent: "primary",cold: false, i18n: { en: "Pack House", hi: "पैक हाउस", bn: "প্যাক হাউস" } },
 ];
 
 export const warehouseMeta = (id) =>
@@ -139,14 +139,14 @@ export const QUALITY_GRADES = ["A / FAQ", "B / Standard", "C / Fair", "Export Gr
 /* Preset pickup/drop locations (lat/lon carried through for distance/ETA).
    A geocoded free-text picker is deferred to the backend phase. */
 export const PLACES = [
-  { id: "barasat",  name: "Barasat",             lat: 22.72, lon: 88.48 },
-  { id: "kolkata",  name: "Kolkata Wholesale Mkt", lat: 22.57, lon: 88.36 },
-  { id: "hooghly",  name: "Hooghly",             lat: 22.90, lon: 88.39 },
-  { id: "burdwan",  name: "Burdwan",             lat: 23.24, lon: 87.86 },
-  { id: "siliguri", name: "Siliguri",            lat: 26.72, lon: 88.39 },
-  { id: "durgapur", name: "Durgapur",            lat: 23.55, lon: 87.29 },
-  { id: "nadia",    name: "Nadia",               lat: 23.47, lon: 88.55 },
-  { id: "haldia",   name: "Haldia Port",         lat: 22.06, lon: 88.06 },
+  { id: "barasat",  name: "Barasat",             lat: 22.72, lon: 88.48, i18n: { en: "Barasat", hi: "बारासात", bn: "বারাসাত" } },
+  { id: "kolkata",  name: "Kolkata Wholesale Mkt", lat: 22.57, lon: 88.36, i18n: { en: "Kolkata Wholesale Mkt", hi: "कोलकाता थोक मंडी", bn: "কলকাতা পাইকারি বাজার" } },
+  { id: "hooghly",  name: "Hooghly",             lat: 22.90, lon: 88.39, i18n: { en: "Hooghly", hi: "हुगली", bn: "হুগলি" } },
+  { id: "burdwan",  name: "Burdwan",             lat: 23.24, lon: 87.86, i18n: { en: "Burdwan", hi: "बर्दवान", bn: "বর্ধমান" } },
+  { id: "siliguri", name: "Siliguri",            lat: 26.72, lon: 88.39, i18n: { en: "Siliguri", hi: "सिलीगुड़ी", bn: "শিলিগুড়ি" } },
+  { id: "durgapur", name: "Durgapur",            lat: 23.55, lon: 87.29, i18n: { en: "Durgapur", hi: "दुर्गापुर", bn: "দুর্গাপুর" } },
+  { id: "nadia",    name: "Nadia",               lat: 23.47, lon: 88.55, i18n: { en: "Nadia", hi: "नदिया", bn: "নদিয়া" } },
+  { id: "haldia",   name: "Haldia Port",         lat: 22.06, lon: 88.06, i18n: { en: "Haldia Port", hi: "हल्दिया बंदरगाह", bn: "হলদিয়া বন্দর" } },
 ];
 
 export const placeById = (id) => PLACES.find((p) => p.id === id) || PLACES[0];

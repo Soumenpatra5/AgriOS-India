@@ -5,10 +5,10 @@
 import { repo } from "../erp/erpDb.js";
 
 export const ORDER_STATUS = [
-  { id: "open",      label: "Open"      },
-  { id: "delivered", label: "Delivered" },
-  { id: "paid",      label: "Paid"      },
-  { id: "cancelled", label: "Cancelled" },
+  { id: "open",      label: "Open"      , i18n: { en: "Open", hi: "खुला", bn: "খোলা" } },
+  { id: "delivered", label: "Delivered" , i18n: { en: "Delivered", hi: "वितरित", bn: "সরবরাহকৃত" } },
+  { id: "paid",      label: "Paid"      , i18n: { en: "Paid", hi: "भुगतान", bn: "পরিশোধিত" } },
+  { id: "cancelled", label: "Cancelled" , i18n: { en: "Cancelled", hi: "रद्द", bn: "বাতিল" } },
 ];
 
 const orders = repo("orders");

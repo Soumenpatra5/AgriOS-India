@@ -80,7 +80,7 @@ export default function WarehousePage() {
           <Chip active={filter === "all"} onClick={() => setFilter("all")}>{tc({en:"All", hi:"सभी", bn:"সব"})}</Chip>
           <Chip active={filter === "cold"} onClick={() => setFilter("cold")} icon="Snowflake">{tc({en:"Cold", hi:"शीत", bn:"ঠান্ডা"})}</Chip>
           {WAREHOUSE_TYPES.map((w) => (
-            <Chip key={w.id} active={filter === w.id} onClick={() => setFilter(w.id)} icon={w.icon}>{w.label}</Chip>
+            <Chip key={w.id} active={filter === w.id} onClick={() => setFilter(w.id)} icon={w.icon}>{w.i18n ? tc(w.i18n) : w.label}</Chip>
           ))}
         </div>
 
@@ -144,9 +144,9 @@ export default function WarehousePage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Input label={tc({en:"Facility Name", hi:"सुविधा का नाम", bn:"সুবিধার নাম"})} value={wh.name} onChange={(v) => setWh({ ...wh, name: v })} icon="Warehouse" />
           <Dropdown label={tc({en:"Type", hi:"प्रकार", bn:"ধরন"})} value={wh.type} onChange={(v) => setWh({ ...wh, type: v })}
-            options={WAREHOUSE_TYPES.map((w) => ({ value: w.id, label: w.label }))} />
+            options={WAREHOUSE_TYPES.map((w) => ({ value: w.id, label: w.i18n ? tc(w.i18n) : w.label }))} />
           <Dropdown label={tc({en:"Location", hi:"स्थान", bn:"অবস্থান"})} value={wh.place} onChange={(v) => setWh({ ...wh, place: v })}
-            options={PLACES.map((p) => ({ value: p.id, label: p.name }))} />
+            options={PLACES.map((p) => ({ value: p.id, label: p.i18n ? tc(p.i18n) : p.name }))} />
           <Input label={tc({en:"Capacity (tonnes)", hi:"क्षमता (टन)", bn:"ধারণক্ষমতা (টন)"})} value={wh.capacityKg} onChange={(v) => setWh({ ...wh, capacityKg: v })} icon="Boxes" type="number" />
           <Input label={tc({en:"Price (₹/tonne·month)", hi:"मूल्य (₹/टन·माह)", bn:"মূল্য (₹/টন·মাস)"})} value={wh.pricePerTonneMonth} onChange={(v) => setWh({ ...wh, pricePerTonneMonth: v })} icon="IndianRupee" type="number" />
           <Input label={tc({en:"Owner Name", hi:"मालिक का नाम", bn:"মালিকের নাম"})} value={wh.ownerName} onChange={(v) => setWh({ ...wh, ownerName: v })} icon="User" />

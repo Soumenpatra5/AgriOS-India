@@ -2,14 +2,16 @@
 
 import { repo } from "../erp/erpDb.js";
 
+/* label stays English — it is the stored contact type and goes into reports.
+   i18n is what the UI shows. */
 export const CONTACT_TYPES = [
-  { id: "customer",    label: "Customer"     },
-  { id: "buyer",       label: "Buyer"        },
-  { id: "wholesaler",  label: "Wholesaler"   },
-  { id: "retailer",    label: "Retailer"     },
-  { id: "distributor", label: "Distributor"  },
-  { id: "supplier",    label: "Supplier"     },
-  { id: "vendor",      label: "Vendor"       },
+  { id: "customer",    label: "Customer"     , i18n: { en: "Customer", hi: "ग्राहक", bn: "ক্রেতা" } },
+  { id: "buyer",       label: "Buyer"        , i18n: { en: "Buyer", hi: "खरीदार", bn: "ক্রয়কারী" } },
+  { id: "wholesaler",  label: "Wholesaler"   , i18n: { en: "Wholesaler", hi: "थोक विक्रेता", bn: "পাইকারি বিক্রেতা" } },
+  { id: "retailer",    label: "Retailer"     , i18n: { en: "Retailer", hi: "फुटकर विक्रेता", bn: "খুচরা বিক্রেতা" } },
+  { id: "distributor", label: "Distributor"  , i18n: { en: "Distributor", hi: "वितरक", bn: "পরিবেশক" } },
+  { id: "supplier",    label: "Supplier"     , i18n: { en: "Supplier", hi: "आपूर्तिकर्ता", bn: "সরবরাহকারী" } },
+  { id: "vendor",      label: "Vendor"       , i18n: { en: "Vendor", hi: "विक्रेता", bn: "বিক্রেতা" } },
 ];
 
 const SUPPLIER_TYPES = ["supplier", "vendor"];
