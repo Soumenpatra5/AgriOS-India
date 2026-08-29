@@ -206,8 +206,8 @@ export default function CRMManager() {
 
       <Dialog open={!!delTarget} title={tc({ en: "Delete?", hi: "हटाएँ?", bn: "মুছবেন?" })} onClose={() => setDelTarget(null)}
         actions={[
-          { label: "Cancel", variant: "outline", onClick: () => setDelTarget(null) },
-          { label: "Delete", variant: "danger",  onClick: handleDelete },
+          { label: tc({ en: "Cancel", hi: "रद्द करें", bn: "বাতিল" }), variant: "outline", onClick: () => setDelTarget(null) },
+          { label: tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger",  onClick: handleDelete },
         ]}>
         <div style={{ fontSize: 14, color: T.inkSoft }}>{tc({ en: "This record will be permanently removed.", hi: "यह रिकॉर्ड स्थायी रूप से हट जाएगा।", bn: "এই রেকর্ড স্থায়ীভাবে মুছে যাবে।" })}</div>
       </Dialog>

@@ -149,3 +149,11 @@ export function searchCrops(query) {
     c.category.includes(q),
   );
 }
+
+/* A crop's name in the farmer's language, falling back to English.
+
+   Each crop already carries hindi/bengali; two pages had their own copy of
+   this three-liner and the crop planner's dropdown had none at all, so a
+   Bengali farmer picked their crop from an English list. */
+export const localCropName = (crop, lang) =>
+  (lang === "bn" ? crop?.bengali : lang === "hi" ? crop?.hindi : null) || crop?.name || "";

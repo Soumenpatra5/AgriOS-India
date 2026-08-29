@@ -35,9 +35,12 @@ function Section({ title, icon, children }) {
 }
 
 const PERF_LABEL = {
-  no_target: { label: "No target set", fg: T.inkSoft, bg: T.surface2 },
-  on_or_better_than_target: { label: "On / better than target", fg: T.primary, bg: T.primarySoft },
-  worse_than_target: { label: "Worse than target", fg: T.red, bg: T.redSoft },
+  no_target: { label: "No target set", fg: T.inkSoft, bg: T.surface2,
+    i18n: { en: "No target set", hi: "कोई लक्ष्य तय नहीं", bn: "কোনও লক্ষ্য নির্ধারিত নেই" } },
+  on_or_better_than_target: { label: "On / better than target", fg: T.primary, bg: T.primarySoft,
+    i18n: { en: "On / better than target", hi: "लक्ष्य पर या बेहतर", bn: "লক্ষ্যে বা তার চেয়ে ভালো" } },
+  worse_than_target: { label: "Worse than target", fg: T.red, bg: T.redSoft,
+    i18n: { en: "Worse than target", hi: "लक्ष्य से कम", bn: "লক্ষ্যের চেয়ে খারাপ" } },
 };
 
 export default function FeedBatchDetail({ id }) {
@@ -79,7 +82,7 @@ export default function FeedBatchDetail({ id }) {
 
   const { batch } = summary;
   const perf = PERF_LABEL[summary.performanceStatus] || PERF_LABEL.no_target;
-  const feedItemOptions = [{ value: "", label: "Not linked to inventory" }, ...feedItems.map((i) => ({ value: i.id, label: `${i.name} (${i.qty} ${i.unit || "kg"} in stock)` }))];
+  const feedItemOptions = [{ value: "", label: tc({ en: "Not linked to inventory", hi: "स्टॉक से नहीं जुड़ा", bn: "মজুতের সঙ্গে যুক্ত নয়" }) }, ...feedItems.map((i) => ({ value: i.id, label: `${i.name} (${i.qty} ${i.unit || "kg"} in stock)` }))];
 
   const onSelectFeedItem = (setForm) => (id2) => setForm((f) => ({ ...f, feedItemId: id2, unitPrice: feedItems.find((i) => i.id === id2)?.unitPrice ?? f.unitPrice }));
 
@@ -161,7 +164,7 @@ export default function FeedBatchDetail({ id }) {
               </div>
             )}
             <div style={{ marginTop: 8, display: "inline-flex", fontSize: 11.5, fontWeight: 700, padding: "4px 10px", borderRadius: 7, color: perf.fg, background: perf.bg }}>
-              {perf.label}
+              {perf.i18n ? tc(perf.i18n) : perf.label}
             </div>
           </Card>
         </Section>

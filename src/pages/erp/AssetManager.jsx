@@ -103,10 +103,10 @@ export default function AssetManager() {
           <Input label="Date" type="date" value={maintForm.date} onChange={(v) => setMaintForm((f) => ({ ...f, date: v }))} />
           <Dropdown label={tc({ en: "Type", hi: "प्रकार", bn: "ধরন" })} value={maintForm.kind} onChange={(v) => setMaintForm((f) => ({ ...f, kind: v }))}
             options={[
-              { value: "service", label: "Routine Service" },
-              { value: "repair",  label: "Repair" },
-              { value: "insurance", label: "Insurance Renewal" },
-              { value: "other",   label: "Other" },
+              { value: "service",   label: tc({ en: "Routine Service", hi: "नियमित सर्विस", bn: "নিয়মিত সার্ভিস" }) },
+              { value: "repair",    label: tc({ en: "Repair", hi: "मरम्मत", bn: "মেরামত" }) },
+              { value: "insurance", label: tc({ en: "Insurance Renewal", hi: "बीमा नवीनीकरण", bn: "বিমা নবায়ন" }) },
+              { value: "other",     label: tc({ en: "Other", hi: "अन्य", bn: "অন্যান্য" }) },
             ]} />
           <Input label={tc({ en: "Cost (₹)", hi: "लागत (₹)", bn: "ব্যয় (₹)" })} type="number" placeholder="0" value={maintForm.cost} onChange={(v) => setMaintForm((f) => ({ ...f, cost: v }))} />
           <Input label={tc({ en: "Notes", hi: "टिप्पणी", bn: "মন্তব্য" })} placeholder={tc({ en: "What was done…", hi: "क्या किया गया…", bn: "কী করা হয়েছে…" })} value={maintForm.note} onChange={(v) => setMaintForm((f) => ({ ...f, note: v }))} />

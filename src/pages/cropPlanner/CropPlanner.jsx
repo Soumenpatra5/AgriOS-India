@@ -23,6 +23,7 @@ import { CROPS } from "../../services/market/cropData.js";
 import { farmService } from "../../services/farm/farmService.js";
 import { landService } from "../../services/land/landService.js";
 import PlanSummary from "../../components/cropPlanner/PlanSummary.jsx";
+import { localCropName } from "../../services/market/cropData.js";
 
 const num = (v) => (v === "" || v === null || v === undefined ? "" : v);
 const n2 = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -89,7 +90,7 @@ function RowEditor({ title, icon, rows, setRows, fields, addLabel }) {
 }
 
 export default function CropPlanner({ planId }) {
-  const { pop, push, tc, toast } = useApp();
+  const { pop, push, tc, toast, lang } = useApp();
   const editing = !!planId;
 
   const [loaded, setLoaded] = useState(!editing);
@@ -197,10 +198,10 @@ export default function CropPlanner({ planId }) {
 
   const plan = useMemo(() => computePlan(formInput), [formInput]);
 
-  const cropOptions = [{ value: "", label: "Other / not listed" }, ...CROPS.map((c) => ({ value: c.id, label: c.name }))];
+  const cropOptions = [{ value: "", label: tc({ en: "Other / not listed", hi: "अन्य / सूची में नहीं", bn: "অন্যান্য / তালিকায় নেই" }) }, ...CROPS.map((c) => ({ value: c.id, label: localCropName(c, lang) }))];
   const areaUnitOptions = AREA_UNIT_OPTIONS.map((u) => ({ value: u, label: tc(AREA_UNITS[u].label) }));
-  const farmOptions = [{ value: "", label: "No farm selected — manual entry" }, ...farms.map((f) => ({ value: f.id, label: f.name || "Unnamed farm" }))];
-  const fieldOptions = [{ value: "", label: "No field selected — manual entry" }, ...fields.map((f) => ({ value: f.id, label: f.name || "Unnamed field" }))];
+  const farmOptions = [{ value: "", label: tc({ en: "No farm selected — manual entry", hi: "कोई खेत नहीं चुना — स्वयं भरें", bn: "কোনও খামার বাছা হয়নি — নিজে লিখুন" }) }, ...farms.map((f) => ({ value: f.id, label: f.name || tc({ en: "Unnamed farm", hi: "बिना नाम का खेत", bn: "নামহীন খামার" }) }))];
+  const fieldOptions = [{ value: "", label: tc({ en: "No field selected — manual entry", hi: "कोई खेत-भाग नहीं चुना — स्वयं भरें", bn: "কোনও জমি বাছা হয়নি — নিজে লিখুন" }) }, ...fields.map((f) => ({ value: f.id, label: f.name || tc({ en: "Unnamed field", hi: "बिना नाम का खेत-भाग", bn: "নামহীন জমি" }) }))];
 
   const usingMspFallback = !sellingPrice && crop && crop.msp;
   const canSave = areaAcres > 0 && (cropId || customCropName.trim());
@@ -303,30 +304,30 @@ export default function CropPlanner({ planId }) {
         {advanced && (
           <>
             <RowEditor title={tc({ en: "Fertilizer", hi: "उर्वरक", bn: "সার" })} icon="Leaf" rows={fertilizer} setRows={setFertilizer}
-              addLabel="Add fertilizer"
+              addLabel={tc({ en: "Add fertilizer", hi: "उर्वरक जोड़ें", bn: "সার যোগ করুন" })}
               fields={[
-                { key: "name", label: "Product (e.g. Urea, DAP)", full: true },
-                { key: "rate", label: "Rate (kg or L / acre / app)", type: "number" },
-                { key: "applications", label: "No. of applications", type: "number", placeholder: "1" },
-                { key: "price", label: "Price (₹ / kg or L)", type: "number", prefix: "₹" },
+                { key: "name", label: tc({ en: "Product (e.g. Urea, DAP)", hi: "उत्पाद (जैसे यूरिया, DAP)", bn: "পণ্য (যেমন ইউরিয়া, DAP)" }), full: true },
+                { key: "rate", label: tc({ en: "Rate (kg or L / acre / app)", hi: "मात्रा (किग्रा या लीटर / एकड़ / छिड़काव)", bn: "পরিমাণ (কেজি বা লিটার / একর / প্রয়োগ)" }), type: "number" },
+                { key: "applications", label: tc({ en: "No. of applications", hi: "कितनी बार डाला", bn: "কতবার প্রয়োগ" }), type: "number", placeholder: "1" },
+                { key: "price", label: tc({ en: "Price (₹ / kg or L)", hi: "क़ीमत (₹ / किग्रा या लीटर)", bn: "দাম (₹ / কেজি বা লিটার)" }), type: "number", prefix: "₹" },
               ]} />
 
             <RowEditor title={tc({ en: "Crop protection", hi: "फ़सल सुरक्षा", bn: "ফসল সুরক্ষা" })} icon="ShieldCheck" rows={protection} setRows={setProtection}
-              addLabel="Add pesticide / fungicide"
+              addLabel={tc({ en: "Add pesticide / fungicide", hi: "कीटनाशक / फफूँदनाशक जोड़ें", bn: "কীটনাশক / ছত্রাকনাশক যোগ করুন" })}
               fields={[
-                { key: "product", label: "Product", full: true },
-                { key: "rate", label: "Rate (per acre / app)", type: "number" },
-                { key: "applications", label: "No. of applications", type: "number", placeholder: "1" },
-                { key: "price", label: "Price (₹ / unit)", type: "number", prefix: "₹" },
+                { key: "product", label: tc({ en: "Product", hi: "उत्पाद", bn: "পণ্য" }), full: true },
+                { key: "rate", label: tc({ en: "Rate (per acre / app)", hi: "मात्रा (प्रति एकड़ / छिड़काव)", bn: "পরিমাণ (প্রতি একর / প্রয়োগ)" }), type: "number" },
+                { key: "applications", label: tc({ en: "No. of applications", hi: "कितनी बार डाला", bn: "কতবার প্রয়োগ" }), type: "number", placeholder: "1" },
+                { key: "price", label: tc({ en: "Price (₹ / unit)", hi: "क़ीमत (₹ / इकाई)", bn: "দাম (₹ / একক)" }), type: "number", prefix: "₹" },
               ]} />
 
             <RowEditor title={tc({ en: "Organic inputs", hi: "जैविक इनपुट", bn: "জৈব উপকরণ" })} icon="Leaf" rows={organic} setRows={setOrganic}
-              addLabel="Add organic input"
+              addLabel={tc({ en: "Add organic input", hi: "जैविक इनपुट जोड़ें", bn: "জৈব উপকরণ যোগ করুন" })}
               fields={[
-                { key: "name", label: "Input (e.g. Vermicompost)", full: true },
-                { key: "rate", label: "Rate (kg / acre / app)", type: "number" },
-                { key: "applications", label: "No. of applications", type: "number", placeholder: "1" },
-                { key: "price", label: "Price (₹ / kg)", type: "number", prefix: "₹" },
+                { key: "name", label: tc({ en: "Input (e.g. Vermicompost)", hi: "इनपुट (जैसे वर्मीकम्पोस्ट)", bn: "উপকরণ (যেমন কেঁচো সার)" }), full: true },
+                { key: "rate", label: tc({ en: "Rate (kg / acre / app)", hi: "मात्रा (किग्रा / एकड़ / प्रयोग)", bn: "পরিমাণ (কেজি / একর / প্রয়োগ)" }), type: "number" },
+                { key: "applications", label: tc({ en: "No. of applications", hi: "कितनी बार डाला", bn: "কতবার প্রয়োগ" }), type: "number", placeholder: "1" },
+                { key: "price", label: tc({ en: "Price (₹ / kg)", hi: "क़ीमत (₹ / किग्रा)", bn: "দাম (₹ / কেজি)" }), type: "number", prefix: "₹" },
               ]} />
 
             <Section title={tc({ en: "Irrigation", hi: "सिंचाई", bn: "সেচ" })} icon="Droplets">
@@ -345,29 +346,29 @@ export default function CropPlanner({ planId }) {
             </Section>
 
             <RowEditor title={tc({ en: "Labour", hi: "श्रम", bn: "শ্রম" })} icon="Users" rows={labour} setRows={setLabour}
-              addLabel="Add labour entry"
+              addLabel={tc({ en: "Add labour entry", hi: "श्रम प्रविष्टि जोड़ें", bn: "শ্রমের এন্ট্রি যোগ করুন" })}
               fields={[
-                { key: "type", label: "Activity (e.g. Weeding, Sowing)", full: true },
-                { key: "workers", label: "Workers", type: "number" },
-                { key: "days", label: "Days", type: "number" },
-                { key: "wage", label: "Daily wage (₹)", type: "number", prefix: "₹" },
+                { key: "type", label: tc({ en: "Activity (e.g. Weeding, Sowing)", hi: "काम (जैसे निराई, बुवाई)", bn: "কাজ (যেমন আগাছা পরিষ্কার, বপন)" }), full: true },
+                { key: "workers", label: tc({ en: "Workers", hi: "मज़दूर", bn: "শ্রমিক" }), type: "number" },
+                { key: "days", label: tc({ en: "Days", hi: "दिन", bn: "দিন" }), type: "number" },
+                { key: "wage", label: tc({ en: "Daily wage (₹)", hi: "दैनिक मज़दूरी (₹)", bn: "দৈনিক মজুরি (₹)" }), type: "number", prefix: "₹" },
               ]} />
 
             <RowEditor title={tc({ en: "Machinery", hi: "मशीनरी", bn: "যন্ত্রপাতি" })} icon="Tractor" rows={machinery} setRows={setMachinery}
-              addLabel="Add machine"
+              addLabel={tc({ en: "Add machine", hi: "मशीन जोड़ें", bn: "যন্ত্র যোগ করুন" })}
               fields={[
-                { key: "machine", label: "Machine (e.g. Tractor)", full: true },
-                { key: "hours", label: "Hours", type: "number" },
-                { key: "ratePerHour", label: "Rate / hour (₹)", type: "number", prefix: "₹" },
-                { key: "fuelCost", label: "Fuel cost (₹)", type: "number", prefix: "₹" },
-                { key: "operatorCost", label: "Operator cost (₹)", type: "number", prefix: "₹" },
+                { key: "machine", label: tc({ en: "Machine (e.g. Tractor)", hi: "मशीन (जैसे ट्रैक्टर)", bn: "যন্ত্র (যেমন ট্রাক্টর)" }), full: true },
+                { key: "hours", label: tc({ en: "Hours", hi: "घंटे", bn: "ঘণ্টা" }), type: "number" },
+                { key: "ratePerHour", label: tc({ en: "Rate / hour (₹)", hi: "प्रति घंटा दर (₹)", bn: "প্রতি ঘণ্টার হার (₹)" }), type: "number", prefix: "₹" },
+                { key: "fuelCost", label: tc({ en: "Fuel cost (₹)", hi: "ईंधन लागत (₹)", bn: "জ্বালানির খরচ (₹)" }), type: "number", prefix: "₹" },
+                { key: "operatorCost", label: tc({ en: "Operator cost (₹)", hi: "चालक लागत (₹)", bn: "চালকের খরচ (₹)" }), type: "number", prefix: "₹" },
               ]} />
 
             <RowEditor title={tc({ en: "Other costs", hi: "अन्य लागत", bn: "অন্যান্য ব্যয়" })} icon="Receipt" rows={other} setRows={setOther}
-              addLabel="Add other cost"
+              addLabel={tc({ en: "Add other cost", hi: "अन्य लागत जोड़ें", bn: "অন্য খরচ যোগ করুন" })}
               fields={[
-                { key: "label", label: "Description (e.g. Transport, Packaging)", full: true },
-                { key: "amount", label: "Amount (₹)", type: "number", prefix: "₹" },
+                { key: "label", label: tc({ en: "Description (e.g. Transport, Packaging)", hi: "विवरण (जैसे परिवहन, पैकेजिंग)", bn: "বিবরণ (যেমন পরিবহন, প্যাকেজিং)" }), full: true },
+                { key: "amount", label: tc({ en: "Amount (₹)", hi: "राशि (₹)", bn: "পরিমাণ (₹)" }), type: "number", prefix: "₹" },
               ]} />
 
             <Section title={tc({ en: "Yield & expected selling price", hi: "उपज और अपेक्षित विक्रय मूल्य", bn: "ফলন ও প্রত্যাশিত বিক্রয় মূল্য" })} icon="BarChart3">

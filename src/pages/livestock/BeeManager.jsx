@@ -56,7 +56,7 @@ export default function BeeManager() {
   }, [tick]);
 
   const totalHoney = prods.reduce((s, p) => s + (Number(p.honeyKg) || 0), 0);
-  const hiveOptions = [{ value: "", label: "All hives" }, ...hives.map((h) => ({ value: h.id, label: h.name }))];
+  const hiveOptions = [{ value: "", label: tc({ en: "All hives", hi: "सभी छत्ते", bn: "সব মৌচাক" }) }, ...hives.map((h) => ({ value: h.id, label: h.name }))];
 
   const addHive = async () => {
     if (!hiveForm.name) return;

@@ -335,8 +335,8 @@ export default function EmployeeManager() {
 
       <Dialog open={!!delId} title={tc({ en: "Remove employee?", hi: "कर्मचारी हटाएँ?", bn: "কর্মী সরাবেন?" })} onClose={() => setDelId(null)}
         actions={[
-          { label: "Cancel", variant: "outline", onClick: () => setDelId(null) },
-          { label: "Remove", variant: "danger",  onClick: handleDelete },
+          { label: tc({ en: "Cancel", hi: "रद्द करें", bn: "বাতিল" }), variant: "outline", onClick: () => setDelId(null) },
+          { label: tc({ en: "Remove", hi: "हटाएँ", bn: "সরান" }), variant: "danger",  onClick: handleDelete },
         ]}>
         <div style={{ fontSize: 14, color: T.inkSoft }}>{tc({ en: "The profile and attendance history will be removed.", hi: "प्रोफ़ाइल और उपस्थिति इतिहास हट जाएगा।", bn: "প্রোফাইল ও উপস্থিতির ইতিহাস মুছে যাবে।" })}</div>
       </Dialog>

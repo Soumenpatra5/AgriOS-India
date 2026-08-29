@@ -6,12 +6,11 @@ import { useApp } from "../store/AppStore.jsx";
 import { MARKET_SECTIONS } from "../constants/content.js";
 import { marketService } from "../services/market/marketService.js";
 import { priceAlertService } from "../services/market/priceAlerts.js";
+import { localCropName } from "../services/market/cropData.js";
 
 const TOP_CROPS = ["paddy", "wheat", "mustard", "arhar", "potato", "milk"];
 
-const cropName = (crop, lang) =>
-  lang === "bn" ? (crop.bengali || crop.name) :
-  lang === "hi" ? (crop.hindi || crop.name) : crop.name;
+const cropName = localCropName;
 
 export default function Market() {
   const { t, tc, lang, push } = useApp();

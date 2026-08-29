@@ -116,10 +116,13 @@ export default function InventoryManager() {
       <BottomSheet open={!!moveTarget} onClose={() => setMoveTarget(null)} title={moveTarget ? `Stock: ${moveTarget.name}` : ""}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ fontSize: 13, color: T.inkSoft }}>
-            Current stock: <b style={{ color: T.ink }}>{moveTarget?.qty} {moveTarget?.unit}</b>
+            {tc({ en: "Current stock", hi: "मौजूदा स्टॉक", bn: "বর্তমান মজুত" })}: <b style={{ color: T.ink }}>{moveTarget?.qty} {moveTarget?.unit}</b>
           </div>
           <Dropdown label={tc({ en: "Movement", hi: "आवाजाही", bn: "চলাচল" })} value={moveForm.kind} onChange={(v) => setMoveForm((f) => ({ ...f, kind: v }))}
-            options={[{ value: "in", label: "Stock In (purchase/receive)" }, { value: "out", label: "Stock Out (use/issue)" }]} />
+            options={[
+              { value: "in",  label: tc({ en: "Stock In (purchase/receive)", hi: "स्टॉक आया (खरीद/प्राप्ति)", bn: "মজুত এল (ক্রয়/গ্রহণ)" }) },
+              { value: "out", label: tc({ en: "Stock Out (use/issue)", hi: "स्टॉक गया (उपयोग/निर्गम)", bn: "মজুত গেল (ব্যবহার/বিতরণ)" }) },
+            ]} />
           <Input label={tc({ en: "Quantity", hi: "मात्रा", bn: "পরিমাণ" })} type="number" placeholder="0" value={moveForm.qty} onChange={(v) => setMoveForm((f) => ({ ...f, qty: v }))} />
           <Input label={tc({ en: "Note", hi: "टिप्पणी", bn: "মন্তব্য" })} placeholder={tc({ en: "Optional", hi: "वैकल्पिक", bn: "ঐচ্ছিক" })} value={moveForm.note} onChange={(v) => setMoveForm((f) => ({ ...f, note: v }))} />
           <Button full onClick={doMove} disabled={!moveForm.qty}>{tc({ en: "Save Movement", hi: "आवाजाही सहेजें", bn: "চলাচল সংরক্ষণ" })}</Button>

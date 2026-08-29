@@ -111,11 +111,21 @@ for (const file of files) {
 
   /* Label tables live in services AND in components (AdminNav's rows, a
      picker's options), so this pass runs over everything. */
-  src.split("\n").forEach((line, i) => {
+  const lines = src.split("\n");
+  lines.forEach((line, i) => {
     if (!/\blabel:\s*"/.test(line)) return;
-    if (/i18n:/.test(line)) return;
-    const m = line.match(/\blabel:\s*"([^"]+)"/);
-    if (m && looksLikeCopy(m[1])) tableHits.push({ file: rel, line: i + 1, value: m[1] });
+    /* A long row wraps, putting i18n on the next line or two. Checking only
+       the label's own line reported those as untranslated forever. */
+    if (/i18n:/.test(line + (lines[i + 1] || "") + (lines[i + 2] || ""))) return;
+    /* Every label on the line, not just the first. A dropdown that declares
+       its options inline puts several on one line, and only the first was
+       ever reported — which is how InventoryManager's "Stock Out" hid behind
+       "Stock In". */
+    const re = /\blabel:\s*"([^"]+)"/g;
+    let m;
+    while ((m = re.exec(line)) !== null) {
+      if (looksLikeCopy(m[1])) tableHits.push({ file: rel, line: i + 1, value: m[1] });
+    }
   });
 }
 

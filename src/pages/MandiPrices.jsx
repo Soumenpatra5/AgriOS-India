@@ -8,10 +8,9 @@ import { marketService } from "../services/market/marketService.js";
 import { fetchLivePrice } from "../services/market/priceProxy.js";
 import { priceAlertService } from "../services/market/priceAlerts.js";
 import { rupee } from "../utils/format.js";
+import { localCropName } from "../services/market/cropData.js";
 
-const cropName = (crop, lang) =>
-  lang === "bn" ? (crop.bengali || crop.name) :
-  lang === "hi" ? (crop.hindi || crop.name) : crop.name;
+const cropName = localCropName;
 
 const catLabel = (cat, tc) => tc(cat.label);
 

@@ -13,9 +13,9 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 const fmtDate  = (d) => d ? new Date(d + "T12:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "No date";
 
 const PRIORITY_STYLE = {
-  high:   { fg: "red",    label: "HIGH"   },
-  medium: { fg: "orange", label: "MED"    },
-  low:    { fg: "blue",   label: "LOW"    },
+  high:   { fg: "red",    label: "HIGH", i18n: { en: "HIGH", hi: "उच्च", bn: "উচ্চ" } },
+  medium: { fg: "orange", label: "MED",  i18n: { en: "MED",  hi: "मध्यम", bn: "মাঝারি" } },
+  low:    { fg: "blue",   label: "LOW",  i18n: { en: "LOW",  hi: "कम",   bn: "কম" } },
 };
 
 export default function TaskManager() {
@@ -105,7 +105,7 @@ export default function TaskManager() {
                       opacity: t.status === "done" ? .6 : 1,
                       display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       {t.title}
-                      <Pill fg={fgOf(pr.fg)} bg={bgOf(pr.fg)}>{pr.label}</Pill>
+                      <Pill fg={fgOf(pr.fg)} bg={bgOf(pr.fg)}>{pr.i18n ? tc(pr.i18n) : pr.label}</Pill>
                       {t.recurrence && <Pill fg={T.blue} bg={T.blueSoft}>↻ {t.recurrence}</Pill>}
                     </div>
                     <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 3 }}>

@@ -61,7 +61,7 @@ export default function FishManager() {
     eventService.getForEnterprise("fish").then(setEvents);
   }, [tick]);
 
-  const pondOptions = [{ value: "", label: "Select pond…" }, ...ponds.map((p) => ({ value: p.id, label: p.name }))];
+  const pondOptions = [{ value: "", label: tc({ en: "Select pond…", hi: "तालाब चुनें…", bn: "পুকুর বাছুন…" }) }, ...ponds.map((p) => ({ value: p.id, label: p.name }))];
 
   const addPond = async () => {
     if (!pondForm.name) return;

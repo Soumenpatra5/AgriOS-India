@@ -134,8 +134,8 @@ export default function FeedInventory() {
 
       <Dialog open={!!delId} title={tc({ en: "Delete feed item?", hi: "चारा मद हटाएँ?", bn: "খাদ্য আইটেম মুছবেন?" })} onClose={() => setDelId(null)}
         actions={[
-          { label: "Cancel", variant: "outline", onClick: () => setDelId(null) },
-          { label: "Delete", variant: "danger", onClick: handleDelete },
+          { label: tc({ en: "Cancel", hi: "रद्द करें", bn: "বাতিল" }), variant: "outline", onClick: () => setDelId(null) },
+          { label: tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger", onClick: handleDelete },
         ]}>
         <div style={{ fontSize: 14, color: T.inkSoft }}>{tc({ en: "The item and its stock history will be removed.", hi: "यह आइटम और इसका स्टॉक इतिहास हटा दिया जाएगा।", bn: "এই আইটেম ও তার মজুতের ইতিহাস মুছে যাবে।" })}</div>
       </Dialog>
