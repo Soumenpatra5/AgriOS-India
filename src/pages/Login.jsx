@@ -25,12 +25,29 @@ const ERR = {
   "auth/network-request-failed": { en: "Network error — check your connection", hi: "नेटवर्क त्रुटि — कनेक्शन जाँचें", bn: "নেটওয়ার্ক ত্রুটি — সংযোগ পরীক্ষা করুন" },
   "auth/popup-blocked":        { en: "Popup blocked — allow popups and try again", hi: "पॉपअप अवरुद्ध — पॉपअप अनुमति दें", bn: "পপআপ ব্লক — পপআপ অনুমতি দিন" },
   "auth/account-exists-with-different-credential": { en: "Account exists with a different sign-in method", hi: "खाता पहले से अलग तरीके से जुड़ा है", bn: "অ্যাকাউন্ট অন্য সাইন-ইন পদ্ধতিতে আছে" },
+  /* Configuration faults, not user mistakes. Naming them plainly saves a
+     support round trip: both are fixed in the Firebase console, not by the
+     farmer retrying. */
+  "auth/unauthorized-domain":  { en: "This site isn't authorised for sign-in yet. Please report this.", hi: "यह साइट अभी साइन-इन के लिए अधिकृत नहीं है। कृपया सूचित करें।", bn: "এই সাইটটি এখনও সাইন-ইনের জন্য অনুমোদিত নয়। দয়া করে জানান।" },
+  "auth/operation-not-allowed": { en: "This sign-in method isn't switched on yet. Please report this.", hi: "यह साइन-इन तरीका अभी चालू नहीं है। कृपया सूचित करें।", bn: "এই সাইন-ইন পদ্ধতি এখনও চালু নয়। দয়া করে জানান।" },
+  "auth/popup-closed-by-user": { en: "Sign-in was cancelled", hi: "साइन-इन रद्द किया गया", bn: "সাইন-ইন বাতিল হয়েছে" },
+  "auth/cancelled-popup-request": { en: "Sign-in was cancelled", hi: "साइन-इन रद्द किया गया", bn: "সাইন-ইন বাতিল হয়েছে" },
 };
 
 function authError(err, tc) {
   const msg = ERR[err?.code];
   if (msg) return tc(msg);
-  return tc({ en: `Login failed (${err?.code || "unknown"})`, hi: `लॉगिन विफल (${err?.code || "अज्ञात"})`, bn: `লগইন ব্যর্থ (${err?.code || "অজানা"})` });
+
+  /* Not every failure is a FirebaseError. A popup blocked by the browser's
+     opener policy, or anything thrown after sign-in succeeds, arrives with no
+     .code at all — and printing "unknown" made those undiagnosable. Fall back
+     to whatever the error does carry. */
+  const detail = err?.code || err?.message || err?.name || "no details";
+  return tc({
+    en: `Login failed — ${detail}`,
+    hi: `लॉगिन विफल — ${detail}`,
+    bn: `লগইন ব্যর্থ — ${detail}`,
+  });
 }
 
 export default function Login() {
@@ -61,6 +78,7 @@ export default function Login() {
       const fbUser = await fn();
       fbLogin(fbUser);
     } catch (err) {
+      console.error("[login] social sign-in failed", { provider: id, code: err?.code, name: err?.name, err });
       if (err?.code !== "auth/popup-closed-by-user") setError(authError(err, tc));
     } finally { setSocialLoading(null); }
   };

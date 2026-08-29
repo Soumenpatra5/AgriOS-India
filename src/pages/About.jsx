@@ -68,6 +68,7 @@ export default function About() {
         </div>
 
         <div style={{ textAlign: "center", fontSize: 11.5, color: T.inkFaint, lineHeight: 1.7 }}>
+          {/* Names each language in its own script on purpose. mixed-script-ok */}
           {tc({ en: "Made for Indian farmers · English · हिन्दी · বাংলা", hi: "भारतीय किसानों के लिए · English · हिन्दी · বাংলা", bn: "ভারতীয় কৃষকদের জন্য · English · हिन्दी · বাংলা" })}
           <br />© 2026 AgriOS India
         </div>
