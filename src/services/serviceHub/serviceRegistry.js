@@ -169,15 +169,13 @@ export const SERVICE_REGISTRY = [
   { id: "insights",     category: "ai", icon: "Sparkles", accent: "blue", kind: "erpInsights", badge: "ai",
     title: { en: "AI insights", hi: "AI अंतर्दृष्टि", bn: "AI অন্তর্দৃষ্টি" }, desc: { en: "Smart alerts & recommendations", hi: "स्मार्ट अलर्ट व सिफ़ारिशें", bn: "স্মার্ট সতর্কতা ও সুপারিশ" }, keywords: "ai insight recommendation alert farm health score" },
   { id: "aiCommerce",   category: "ai", icon: "BrainCircuit", accent: "primary", kind: "aiCommerceHub", badge: "ai",
-    title: { en: "AI commerce", hi: "AI कॉमर्स", bn: "AI কমার্স" }, desc: { en: "Price, demand & market intelligence", hi: "मूल्य, माँग, बाज़ार बुद्धि", bn: "দাম, চাহিদা, বাজার বুদ্ধি" }, keywords: "ai commerce price demand forecast market intelligence recommendation" },
+    title: { en: "AI commerce", hi: "AI कॉमर्स", bn: "AI কমার্স" }, desc: { en: "Demand & market intelligence", hi: "माँग व बाज़ार बुद्धि", bn: "চাহিদা ও বাজার বুদ্ধি" }, keywords: "ai commerce demand forecast market intelligence recommendation" },
   { id: "mlops",        category: "ai", icon: "Cpu", accent: "blue", kind: "mlopsHub", badge: "ai",
     title: { en: "MLOps", hi: "MLOps", bn: "MLOps" }, desc: { en: "Datasets, models & training", hi: "डेटासेट, मॉडल, प्रशिक्षण", bn: "ডেটাসেট, মডেল, প্রশিক্ষণ" }, keywords: "mlops model dataset training annotation" },
 
   /* ── Government & schemes ── */
   { id: "schemes",      category: "government", icon: "Landmark", accent: "primary", kind: "schemeExplorer",
     title: { en: "Government schemes", hi: "सरकारी योजनाएँ", bn: "সরকারি স্কিম" }, desc: { en: "Subsidies, loans & benefits", hi: "सब्सिडी, ऋण, लाभ", bn: "ভর্তুকি, ঋণ, সুবিধা" }, keywords: "government scheme subsidy loan insurance benefit eligibility" },
-  { id: "mandi",        category: "government", icon: "Store", accent: "orange", kind: "mandiPrices",
-    title: { en: "Mandi prices", hi: "मंडी भाव", bn: "মান্ডি দর" }, desc: { en: "MSP & crop prices", hi: "MSP व फसल भाव", bn: "MSP ও ফসলের দর" }, keywords: "mandi price msp market rate crop" },
   { id: "nearby",       category: "government", icon: "MapPin", accent: "blue", kind: "nearby",
     title: { en: "Nearby offices", hi: "पास के कार्यालय", bn: "কাছের দপ্তর" }, desc: { en: "Banks, govt offices & more", hi: "बैंक, सरकारी दफ़्तर", bn: "ব্যাংক, সরকারি দপ্তর" }, keywords: "nearby bank government office location" },
 

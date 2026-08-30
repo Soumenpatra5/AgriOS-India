@@ -163,7 +163,7 @@ export default function Login() {
               {tc({ en: "Log in or sign up", hi: "लॉग इन या साइन अप करें", bn: "লগ ইন বা সাইন আপ করুন" })}
             </h1>
             <p style={{ fontSize: 14, color: T.inkSoft, margin: "0 0 28px", textAlign: "center", lineHeight: 1.5 }}>
-              {tc({ en: "Smart farming tools, market prices, AI advice, and more.", hi: "स्मार्ट खेती उपकरण, बाज़ार भाव, AI सलाह, और भी बहुत कुछ।", bn: "স্মার্ট কৃষি সরঞ্জাম, বাজার দর, AI পরামর্শ, এবং আরও অনেক কিছু।" })}
+              {tc({ en: "Smart farming tools, AI advice, and more.", hi: "स्मार्ट खेती उपकरण, AI सलाह, और भी बहुत कुछ।", bn: "স্মার্ট কৃষি সরঞ্জাম, AI পরামর্শ, এবং আরও অনেক কিছু।" })}
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

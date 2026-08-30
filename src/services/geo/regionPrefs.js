@@ -7,9 +7,9 @@
    time anything looks at it.
 
    BOTH shapes are kept. `stateId`/`districtId` are the structured truth;
-   `state`/`district` remain the denormalised display names, because
-   priceProxy.js and the scheme eligibility engine match on text and are not
-   part of this change. Dropping the names would have broken both. */
+   `state`/`district` remain the denormalised display names, because the
+   scheme eligibility engine matches on text and is not part of this change.
+   Dropping the names would have broken it. */
 
 import { preferences } from "../../customize/preferences.js";
 import { getState, getDistrict, upgradeLegacy, DEFAULT_COUNTRY_ID } from "./geoService.js";

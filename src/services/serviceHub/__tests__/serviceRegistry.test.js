@@ -7,7 +7,7 @@ import { SERVICE_CATEGORIES, SERVICE_REGISTRY, serviceById, servicesByCategory }
 const ROUTABLE_KINDS = new Set([
   "settings", "personalize", "farmDetails", "support", "privacy", "subscription", "payments",
   "documents", "security", "permissions", "about", "feature", "chat", "weather", "farmLocations",
-  "nearby", "mandiPrices", "schemeExplorer", "farmLedger", "cropCalendar", "diagnosticsHome",
+  "nearby", "schemeExplorer", "farmLedger", "cropCalendar", "diagnosticsHome",
   "diagnosticFlow", "diagnosticResult", "diagnosticHistory", "diagnosticConsent", "farmErp",
   "farmProfiles", "landManager", "erpTasks", "erpInventory", "erpAssets", "erpEmployees",
   "employeeDetail", "erpCrm", "erpProduction", "erpReports", "erpAnalytics", "erpInsights",
@@ -17,7 +17,7 @@ const ROUTABLE_KINDS = new Set([
   "mpCheckout", "mpOrders", "mpWishlist", "mpSeller", "svcMarketplace", "svcDetail", "svcProvider",
   "svcBooking", "svcMyBookings", "svcProviderDash", "logisticsHub", "logShipments",
   "logShipmentDetail", "logFleet", "logWarehouse", "logContracts", "logAuctions", "logProcurement",
-  "logExport", "logAnalytics", "aiCommerceHub", "aiRecs", "aiPricing", "aiForecast", "aiMatch",
+  "logExport", "logAnalytics", "aiCommerceHub", "aiRecs", "aiForecast", "aiMatch",
   "aiFraud", "aiBI", "mlopsHub", "datasetBrowser", "datasetDetail", "annotationWorkspace",
   "modelRegistryPage", "experimentList", "trainingDashboard", "monitoringDashboard",
   "apiKeyManager", "storage", "calculator", "cropPlanner", "cropPlanList", "cropPlanDetail",

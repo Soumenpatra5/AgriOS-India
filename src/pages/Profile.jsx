@@ -169,6 +169,7 @@ export default function Profile() {
         </button>
 
         <div style={{ textAlign: "center", fontSize: 11.5, color: T.inkFaint }}>{tc({ en: "AgriOS India · v2.0.0", hi: "AgriOS India · v2.0.0", bn: "AgriOS India · v2.0.0" })}</div>
+        <div style={{ textAlign: "center", fontSize: 11.5, color: T.inkFaint, marginTop: 3 }}>R &amp; D by Soumen</div>
       </div>
 
       <Dialog open={confirm} onClose={() => setConfirm(false)} title={t("logout") + "?"}

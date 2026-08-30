@@ -9,15 +9,13 @@ import { commerceAutomation } from "../../services/aiCommerce/commerceAutomation
 import { compact } from "../../utils/format.js";
 
 const MODULES_RAW = [
-  { kind: "aiRecs",     label: {en: "Recommendations", hi: "सुझाव", bn: "সুপারিশ"}, desc: {en: "Personalized & seasonal picks", hi: "व्यक्तिगत और मौसमी चयन", bn: "ব্যক্তিগত ও মৌসুমী বাছাই"}, icon: "Sparkles",   a: "blue"    },
-  { kind: "aiPricing",  label: {en: "Price Intelligence", hi: "मूल्य बुद्धिमत्ता", bn: "মূল্য বুদ্ধিমত্তা"}, desc: {en: "Forecasts & smart pricing", hi: "पूर्वानुमान और स्मार्ट मूल्य निर्धारण", bn: "পূর্বাভাস ও স্মার্ট মূল্য নির্ধারণ"},  icon: "TrendingUp", a: "primary" },
-  { kind: "aiForecast", label: {en: "Demand & Supply", hi: "माँग और आपूर्ति", bn: "চাহিদা ও সরবরাহ"}, desc: {en: "Market outlook by category", hi: "श्रेणी अनुसार बाजार दृष्टिकोण", bn: "বিভাগ অনুযায়ী বাজার দৃষ্টিভঙ্গি"},    icon: "Activity",   a: "orange"  },
+  { kind: "aiRecs",     label: {en: "Recommendations", hi: "सुझाव", bn: "সুপারিশ"}, desc: {en: "Personalized & seasonal picks", hi: "व्यक्तिगत और मौसमी चयन", bn: "ব্যক্তিগত ও মৌসুমী বাছাই"}, icon: "Sparkles",   a: "blue"    },  { kind: "aiForecast", label: {en: "Demand & Supply", hi: "माँग और आपूर्ति", bn: "চাহিদা ও সরবরাহ"}, desc: {en: "Market outlook by category", hi: "श्रेणी अनुसार बाजार दृष्टिकोण", bn: "বিভাগ অনুযায়ী বাজার দৃষ্টিভঙ্গি"},    icon: "Activity",   a: "orange"  },
   { kind: "aiMatch",    label: {en: "Matchmaking", hi: "मैचमेकिंग", bn: "ম্যাচমেকিং"},     desc: {en: "Buyer & seller scoring", hi: "खरीदार और विक्रेता स्कोरिंग", bn: "ক্রেতা ও বিক্রেতা স্কোরিং"},        icon: "Handshake",  a: "primary" },
   { kind: "aiFraud",    label: {en: "Fraud & Risk", hi: "धोखाधड़ी और जोखिम", bn: "জালিয়াতি ও ঝুঁকি"},    desc: {en: "Flagged listings & risk", hi: "चिह्नित सूचियाँ और जोखिम", bn: "চিহ্নিত তালিকা ও ঝুঁকি"},       icon: "ShieldAlert",a: "red"     },
   { kind: "aiBI",       label: {en: "Business Intelligence", hi: "बिजनेस इंटेलिजेंस", bn: "বিজনেস ইন্টেলিজেন্স"}, desc: {en: "Executive dashboards", hi: "कार्यकारी डैशबोर्ड", bn: "নির্বাহী ড্যাশবোর্ড"},    icon: "BarChart3",  a: "blue"    },
 ];
 
-const ALERT_ICON = { demand: "Activity", price: "TrendingUp", fraud: "ShieldAlert", inventory: "Package", buyer: "Handshake" };
+const ALERT_ICON = { demand: "Activity", fraud: "ShieldAlert", inventory: "Package", buyer: "Handshake" };
 
 export default function AICommerceHub() {
   const { pop, push, toast, tc } = useApp();

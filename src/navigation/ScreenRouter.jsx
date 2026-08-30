@@ -15,7 +15,6 @@ import Home from "../pages/Home.jsx";
 
 /* Everything else lazy-loaded on first visit */
 const AIHub              = lazy(() => import("../pages/AIHub.jsx"));
-const Market             = lazy(() => import("../pages/Market.jsx"));
 const Services           = lazy(() => import("../pages/Services.jsx"));
 const Profile            = lazy(() => import("../pages/Profile.jsx"));
 const Settings           = lazy(() => import("../pages/Settings.jsx"));
@@ -37,7 +36,6 @@ const AIChat             = lazy(() => import("../pages/AIChat.jsx"));
 const WeatherDashboard   = lazy(() => import("../pages/WeatherDashboard.jsx"));
 const FarmLocations      = lazy(() => import("../pages/FarmLocations.jsx"));
 const NearbyServices     = lazy(() => import("../pages/NearbyServices.jsx"));
-const MandiPrices        = lazy(() => import("../pages/MandiPrices.jsx"));
 const SchemeExplorer     = lazy(() => import("../pages/SchemeExplorer.jsx"));
 const FarmLedger         = lazy(() => import("../pages/FarmLedger.jsx"));
 const CropCalendar       = lazy(() => import("../pages/CropCalendar.jsx"));
@@ -100,7 +98,6 @@ const ExportPage         = lazy(() => import("../pages/logistics/ExportPage.jsx"
 const LogisticsAnalytics = lazy(() => import("../pages/logistics/LogisticsAnalytics.jsx"));
 const AICommerceHub      = lazy(() => import("../pages/aiCommerce/AICommerceHub.jsx"));
 const RecommendationsPage  = lazy(() => import("../pages/aiCommerce/RecommendationsPage.jsx"));
-const PriceIntelligencePage = lazy(() => import("../pages/aiCommerce/PriceIntelligencePage.jsx"));
 const ForecastPage       = lazy(() => import("../pages/aiCommerce/ForecastPage.jsx"));
 const MatchmakingPage    = lazy(() => import("../pages/aiCommerce/MatchmakingPage.jsx"));
 const FraudRiskPage      = lazy(() => import("../pages/aiCommerce/FraudRiskPage.jsx"));
@@ -133,7 +130,7 @@ const FeedDashboard       = lazy(() => import("../pages/feed/FeedDashboard.jsx")
 const FeedReports         = lazy(() => import("../pages/feed/FeedReports.jsx"));
 const AlertsCenter        = lazy(() => import("../pages/AlertsCenter.jsx"));
 
-const TAB_SCREENS = { home: Home, ai: AIHub, market: Market, services: Services, profile: Profile };
+const TAB_SCREENS = { home: Home, ai: AIHub, services: Services, profile: Profile };
 
 function LazyFallback() {
   return (
@@ -161,9 +158,7 @@ function StackScreen({ item }) {
   if (item.kind === "chat") return <AIChat {...item.props} />;
   if (item.kind === "weather") return <WeatherDashboard />;
   if (item.kind === "farmLocations") return <FarmLocations />;
-  if (item.kind === "nearby") return <NearbyServices />;
-  if (item.kind === "mandiPrices") return <MandiPrices />;
-  if (item.kind === "schemeExplorer") return <SchemeExplorer />;
+  if (item.kind === "nearby") return <NearbyServices />;  if (item.kind === "schemeExplorer") return <SchemeExplorer />;
   if (item.kind === "farmLedger") return <FarmLedger />;
   if (item.kind === "cropCalendar")      return <CropCalendar />;
   if (item.kind === "diagnosticsHome")   return <DiagnosticsHome />;
@@ -225,9 +220,7 @@ function StackScreen({ item }) {
   if (item.kind === "logExport")            return <ExportPage />;
   if (item.kind === "logAnalytics")         return <LogisticsAnalytics />;
   if (item.kind === "aiCommerceHub")        return <AICommerceHub />;
-  if (item.kind === "aiRecs")               return <RecommendationsPage />;
-  if (item.kind === "aiPricing")            return <PriceIntelligencePage />;
-  if (item.kind === "aiForecast")           return <ForecastPage />;
+  if (item.kind === "aiRecs")               return <RecommendationsPage />;  if (item.kind === "aiForecast")           return <ForecastPage />;
   if (item.kind === "aiMatch")              return <MatchmakingPage />;
   if (item.kind === "aiFraud")              return <FraudRiskPage />;
   if (item.kind === "aiBI")                 return <AICommerceBI />;

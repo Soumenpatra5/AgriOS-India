@@ -2,7 +2,7 @@
 
 **An AI-powered Farm Operating System PWA for Indian farmers.**
 
-AgriOS brings crop advice, disease diagnosis, live market prices, weather, a farm
+AgriOS brings crop advice, disease diagnosis, weather, a farm
 ledger, government schemes, livestock and ERP tools together in one offline-first,
 multilingual progressive web app — designed for low-end Android devices and
 intermittent connectivity.
@@ -20,8 +20,8 @@ intermittent connectivity.
   fully offline via a precaching service worker.
 - **Multilingual**: full UI in English, Hindi and Bengali; AI replies in 8 languages
   (adds Tamil, Telugu, Marathi, Punjabi, Odia).
-- **Farm tooling**: ledger with CSV export, crop calendar with reminders, mandi
-  price watch with alerts, weather dashboard, scheme explorer, livestock and ERP hubs.
+- **Farm tooling**: ledger with CSV export, crop calendar with reminders,
+  weather dashboard, scheme explorer, livestock and ERP hubs.
 - **PWA**: installable, push notifications (FCM), in-app update prompt, backup/restore.
 
 ## Tech stack
@@ -50,7 +50,7 @@ AI Gateway (src/ai/gateway)  ──►  serverless /api/ai/chat  ──►  LLM 
 Services (src/services/*)  ──►  local DB modules (IndexedDB)  ──►  syncRepo  ──►  Firestore
 ```
 
-- **Secrets never reach the browser.** LLM, weather, price and OTP keys live only in
+- **Secrets never reach the browser.** LLM, weather and OTP keys live only in
   `api/` (Vercel env). The client calls same-origin `/api/*` endpoints.
 - **Firebase is fully lazy.** The ~900 kB SDK is kept off the initial render path;
   a CI bundle check (`npm run check:bundle`) fails the build if it leaks back in.
@@ -58,7 +58,7 @@ Services (src/services/*)  ──►  local DB modules (IndexedDB)  ──►  s
 ### Project layout
 
 ```
-api/            Vercel serverless functions (AI proxy, auth/OTP, weather, prices)
+api/            Vercel serverless functions (AI proxy, auth/OTP, weather)
 src/ai/         AI gateway, agents, prompts, memory, tools, vision
 src/services/   Domain services (weather, market, calendar, ledger, livestock, erp, firebase…)
 src/pages/      Screens (lazy-loaded via ScreenRouter)
@@ -82,8 +82,8 @@ npm run dev            # http://localhost:5199
 ```
 
 The app runs without any keys — Firebase, AI and live feeds degrade gracefully
-(local-only data, curated MSP prices, offline behaviour). Add keys to enable
-sign-in, cloud sync and live AI/weather/prices.
+(local-only data, curated MSP reference figures, offline behaviour). Add keys to
+enable sign-in, cloud sync and live AI/weather.
 
 ### Environment variables
 
@@ -102,7 +102,6 @@ ANTHROPIC_API_KEY / OPENAI_API_KEY     # LLM providers
 FB_PROJECT_ID, FB_CLIENT_EMAIL, FB_PRIVATE_KEY   # Firebase Admin (verify auth)
 OTP_JWT_SECRET, TWOFACTOR_API_KEY, FAST2SMS_API_KEY   # phone OTP
 OPENWEATHER_API_KEY                    # live weather (falls back to Open-Meteo)
-DATAGOV_API_KEY, DATAGOV_RESOURCE_ID   # live mandi prices (Agmarknet)
 ```
 
 ## Scripts

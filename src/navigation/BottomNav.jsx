@@ -5,9 +5,7 @@ import { usePrefs } from "../customize/PreferencesProvider.jsx";
 
 const TABS = [
   { k: "home", label: "navHome", icon: "House" },
-  { k: "ai", label: "navAI", icon: "Sparkles" },
-  { k: "market", label: "navMarket", icon: "Store" },
-  { k: "services", label: "navServices", icon: "LayoutGrid" },
+  { k: "ai", label: "navAI", icon: "Sparkles" },  { k: "services", label: "navServices", icon: "LayoutGrid" },
   { k: "profile", label: "navProfile", icon: "User" },
 ];
 // Home & Profile are always kept so the user can never strand themselves.

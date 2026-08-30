@@ -18,8 +18,6 @@ const QUICK_TEMPLATES = [
     text: { en: "My crop leaves are turning yellow, what could be wrong?", hi: "मेरी फसल की पत्तियाँ पीली हो रही हैं, क्या समस्या हो सकती है?", bn: "আমার ফসলের পাতা হলুদ হয়ে যাচ্ছে, কী সমস্যা হতে পারে?" } },
   { cat: { en: "Government schemes", hi: "सरकारी योजनाएँ", bn: "সরকারি প্রকল্প" },
     text: { en: "Which government schemes can I apply for?", hi: "मुझे कौन सी सरकारी योजनाएँ मिल सकती हैं?", bn: "আমি কোন কোন সরকারি প্রকল্পের সুবিধা পেতে পারি?" } },
-  { cat: { en: "Market price", hi: "बाज़ार भाव", bn: "বাজার দর" },
-    text: { en: "What is the best time to sell my crop?", hi: "मेरी फसल बेचने का सबसे अच्छा समय कब है?", bn: "আমার ফসল বিক্রির সেরা সময় কখন?" } },
   { cat: { en: "Loan help", hi: "ऋण सहायता", bn: "ঋণ সহায়তা" },
     text: { en: "How do I apply for a Kisan Credit Card loan?", hi: "किसान क्रेडिट कार्ड ऋण के लिए कैसे आवेदन करूँ?", bn: "কিষান ক্রেডিট কার্ড ঋণের জন্য কীভাবে আবেদন করব?" } },
 ];

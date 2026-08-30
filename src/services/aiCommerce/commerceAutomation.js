@@ -6,7 +6,6 @@
 import { repo } from "./aiCommerceDb.js";
 import { featureStore } from "./featureStore.js";
 import { demandForecast } from "./demandForecast.js";
-import { pricePrediction } from "./pricePrediction.js";
 import { fraudDetection } from "./fraudDetection.js";
 import { buyerMatching } from "./buyerMatching.js";
 import { notificationService } from "../notifications/notificationService.js";
@@ -38,15 +37,6 @@ export const commerceAutomation = {
     if (top && top.level === "High") {
       push(await raise("demand", `High demand: ${top.label}`,
         `${top.label} demand is high right now (${top.demandIndex}/100). Consider stocking or listing.`, { dispatch }));
-    }
-
-    // 2. Price movement alert (paddy/wheat sample basket)
-    for (const id of ["paddy", "potato"]) {
-      const f = await pricePrediction.forecast(id);
-      if (f.found && f.direction !== "flat") {
-        push(await raise("price", `Price ${f.direction}: ${f.crop}`,
-          `${f.crop} likely to trend ${f.direction} (~₹${f.predicted}/${f.unit}). ${f.reasons[1]?.label || ""}`, { dispatch }));
-      }
     }
 
     // 3. Fraud alert (high severity)

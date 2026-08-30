@@ -19,7 +19,6 @@ import { vaccinationService } from "../livestock/vaccinationService.js";
 import { documentService } from "../employees/documentService.js";
 import { cropCalendarService } from "../calendar/cropCalendarService.js";
 import { feedAlertsService } from "../feed/feedAlertsService.js";
-import { priceAlertService } from "../market/priceAlerts.js";
 import { notificationService } from "../notifications/notificationService.js";
 import { storage } from "../../utils/storage.js";
 import { rupee } from "../../utils/format.js";
@@ -42,7 +41,7 @@ export const farmAlertsService = {
 
     /* Every source is independent — fetch them concurrently so opening the
        Alerts Center costs max(source latency), not the sum. */
-    const [inv, vaccMissed, vaccUpcoming, docs, overdue, dueSoon, feed, price] = await Promise.all([
+    const [inv, vaccMissed, vaccUpcoming, docs, overdue, dueSoon, feed] = await Promise.all([
       safe(() => inventoryService.alerts(farmId), { lowStock: [], expired: [], expiring: [] }),
       safe(() => vaccinationService.missed(), []),
       safe(() => vaccinationService.upcoming(14), []),
@@ -50,7 +49,6 @@ export const farmAlertsService = {
       safe(() => cropCalendarService.overdueTasks(), []),
       safe(() => cropCalendarService.upcomingTasks(3), []),
       safe(() => feedAlertsService.getAll(farmId), []),
-      safe(() => priceAlertService.getAll(), []),
     ]);
 
     /* Inventory (all categories) — low stock / expired / expiring soon */
@@ -72,10 +70,6 @@ export const farmAlertsService = {
 
     /* Feed alerts (already severity-tagged by feedAlertsService) */
     feed.forEach((a) => out.push(alert("feed", a.severity || "medium", a.title, a.message, "feedDashboard")));
-
-    /* Triggered price alerts the user set */
-    price.filter((a) => a.enabled && a.triggeredAt).forEach((a) =>
-      out.push(alert("price", "medium", "Price alert", `${a.cropName || "Crop"} ${a.direction === "above" ? "≥" : "≤"} ${rupee(a.targetPrice)}`, "mandiPrices")));
 
     return out.sort((a, b) => (SEV_WEIGHT[b.severity] || 0) - (SEV_WEIGHT[a.severity] || 0));
   },

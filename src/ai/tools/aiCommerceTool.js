@@ -1,21 +1,18 @@
 /* AI-commerce tool — lets the Commerce Advisor agent call the Phase 7D engines
-   (price forecast, recommendations, buyer match, demand outlook, fraud check).
+   (recommendations, buyer match, demand outlook, fraud check).
    Returns compact JSON with the explainable reasons so the model can narrate the
    "why". This is the bridge from the provider-agnostic AI gateway to the local
    decision engines — no engine logic is duplicated here. */
 
-import { pricePrediction } from "../../services/aiCommerce/pricePrediction.js";
 import { recommendationEngine } from "../../services/aiCommerce/recommendationEngine.js";
 import { buyerMatching } from "../../services/aiCommerce/buyerMatching.js";
 import { demandForecast } from "../../services/aiCommerce/demandForecast.js";
-import { smartPricing } from "../../services/aiCommerce/smartPricing.js";
 import { fraudDetection } from "../../services/aiCommerce/fraudDetection.js";
 
 export const aiCommerceTool = {
   name: "aiCommerce",
   description:
-    "Compute commerce decisions from the platform's own data. Use for: price forecasts and " +
-    "suggested selling prices (action='priceForecast' or 'suggestSell', pass `crop`), product " +
+    "Compute commerce decisions from the platform's own data. Use for: product " +
     "recommendations (action='recommend'), finding buyers for a commodity (action='buyers', pass " +
     "`crop`), demand outlook by category (action='demand'), or checking risky listings " +
     "(action='fraud'). Results include a confidence score and the reasons behind them — always " +
@@ -25,26 +22,17 @@ export const aiCommerceTool = {
     properties: {
       action: {
         type: "string",
-        enum: ["priceForecast", "suggestSell", "recommend", "buyers", "demand", "fraud"],
+        enum: ["recommend", "buyers", "demand", "fraud"],
         description: "Which commerce computation to run.",
       },
-      crop: { type: "string", description: "Crop/commodity name (for priceForecast, suggestSell, buyers)." },
-      grade: { type: "string", description: "Optional produce grade for suggestSell: premium | standard | fair." },
+      crop: { type: "string", description: "Crop/commodity name (for buyers)." },
     },
     required: ["action"],
   },
 
-  async run({ action, crop, grade }) {
+  async run({ action, crop }) {
     try {
       switch (action) {
-        case "priceForecast": {
-          const f = await pricePrediction.forecast(crop || "");
-          return JSON.stringify(f);
-        }
-        case "suggestSell": {
-          const s = await smartPricing.suggestSell(crop || "", { grade: grade || "standard" });
-          return JSON.stringify(s);
-        }
         case "recommend": {
           const r = await recommendationEngine.personalized({ limit: 5 });
           return JSON.stringify({

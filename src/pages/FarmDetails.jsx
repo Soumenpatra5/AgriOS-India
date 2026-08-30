@@ -54,7 +54,7 @@ export default function FarmDetails() {
             placeholder={tc({ en: "e.g. Soumen Patra", hi: "जैसे सौमेन पात्रा", bn: "যেমন সৌমেন পাত্র" })} />
           <LocationPicker value={region} onChange={setRegion} gps />
           <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: -6 }}>
-            {tc({ en: "Used for mandi prices & advice", hi: "मंडी भाव और सलाह के लिए", bn: "মান্ডি দর ও পরামর্শের জন্য" })}
+            {tc({ en: "Used for local advice", hi: "स्थानीय सलाह के लिए", bn: "স্থানীয় পরামর্শের জন্য" })}
           </div>
           <Field label={tc({ en: "Land size", hi: "ज़मीन का आकार", bn: "জমির আকার" })} value={land} onChange={setLand}
             placeholder={tc({ en: "e.g. 3 acre / 5 bigha", hi: "जैसे 3 एकड़ / 5 बीघा", bn: "যেমন ৩ একর / ৫ বিঘা" })} />
@@ -88,7 +88,7 @@ export default function FarmDetails() {
         </div>
 
         <div style={{ fontSize: 11.5, color: T.inkFaint, lineHeight: 1.6, textAlign: "center" }}>
-          {tc({ en: "These details personalize your AI advice, market prices and reminders.", hi: "ये विवरण आपकी AI सलाह, बाज़ार भाव और रिमाइंडर को व्यक्तिगत बनाते हैं।", bn: "এই বিবরণ আপনার AI পরামর্শ, বাজার দর ও রিমাইন্ডার ব্যক্তিগত করে।" })}
+          {tc({ en: "These details personalize your AI advice and reminders.", hi: "ये विवरण आपकी AI सलाह और रिमाइंडर को व्यक्तिगत बनाते हैं।", bn: "এই বিবরণ আপনার AI পরামর্শ ও রিমাইন্ডার ব্যক্তিগত করে।" })}
         </div>
 
         <button onClick={save}

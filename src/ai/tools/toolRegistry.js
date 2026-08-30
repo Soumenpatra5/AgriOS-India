@@ -7,7 +7,6 @@
 
 import { calculatorTool } from "./calculator.js";
 import { weatherTool } from "./weatherTool.js";
-import { marketTool } from "./marketTool.js";
 import { schemesTool } from "./schemesTool.js";
 import { aiCommerceTool } from "./aiCommerceTool.js";
 
@@ -26,7 +25,6 @@ const TOOLS = new Map(
   [
     calculatorTool,
     weatherTool,   // live as of Phase 4A
-    marketTool,    // live as of Phase 4B (MSP + seasonal band)
     schemesTool,   // live as of Phase 4B (eligibility engine)
     aiCommerceTool, // live as of Phase 7D (commerce decision engines)
     notConnected("pdf", "Generate a PDF document from content."),

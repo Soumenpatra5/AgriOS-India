@@ -25,9 +25,9 @@ export const ONBOARDING = [
       bn: "ডাক্তার, হিসাবরক্ষক, পরামর্শদাতা ও আরও — ভারতীয় চাষ বোঝে এমন স্মার্ট সাহায্য।" } },
   { icon: "TrendingUp", accent: "orange",
     title: { en: "Grow it like a business", hi: "व्यापार की तरह खेती बढ़ाएँ", bn: "ব্যবসার মতো চাষ বাড়ান" },
-    body: { en: "Market prices, government schemes, accounts and services — the tools to earn more, all in your language.",
-      hi: "बाज़ार भाव, सरकारी योजनाएँ, हिसाब और सेवाएँ — ज़्यादा कमाने के लिए सारे टूल, आपकी भाषा में।",
-      bn: "বাজার দর, সরকারি প্রকল্প, হিসাব ও সেবা — বেশি আয়ের সব সরঞ্জাম, আপনার ভাষায়।" } },
+    body: { en: "Government schemes, accounts and services — the tools to earn more, all in your language.",
+      hi: "सरकारी योजनाएँ, हिसाब और सेवाएँ — ज़्यादा कमाने के लिए सारे टूल, आपकी भाषा में।",
+      bn: "সরকারি প্রকল্প, হিসাব ও সেবা — বেশি আয়ের সব সরঞ্জাম, আপনার ভাষায়।" } },
 ];
 
 export const AI_TOOLS = [

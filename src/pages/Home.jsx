@@ -10,7 +10,6 @@ import { locationService } from "../services/location/locationService.js";
 import { ledgerService } from "../services/ledger/ledgerService.js";
 import { notificationService } from "../services/notifications/notificationService.js";
 import { cropCalendarService } from "../services/calendar/cropCalendarService.js";
-import { priceAlertService } from "../services/market/priceAlerts.js";
 import {
   QUICK_ACTIONS, TASKS, SCHEMES, NEWS, CALCULATORS, AI_TOOLS,
 } from "../constants/content.js";
@@ -38,9 +37,7 @@ export default function Home() {
   const calTasks  = useMemo(() => cropCalendarService.upcomingTasks(7), [calTick]);
   const todayItems = useMemo(() => {
     const overdue = cropCalendarService.overdueTasks().length;
-    const dueToday = cropCalendarService.upcomingTasks(0).length;
-    const alerts = priceAlertService.getAll().filter((a) => a.enabled && !a.triggeredAt).length;
-    return { overdue, dueToday, alerts };
+    const dueToday = cropCalendarService.upcomingTasks(0).length;    return { overdue, dueToday };
   }, [calTick]);
   const farmerFallback = { en: "Farmer", hi: "किसान", bn: "কৃষক" };
   const name = (user?.name || tc(farmerFallback)).split(" ")[0];
@@ -519,8 +516,8 @@ function StatTile({ label, value, accentColor, icon, bg }) {
 }
 
 function TodayCard({ items, tc, push }) {
-  const { overdue, dueToday, alerts } = items;
-  if (!overdue && !dueToday && !alerts) return null;
+  const { overdue, dueToday } = items;
+  if (!overdue && !dueToday) return null;
 
   const rows = [];
   if (overdue) rows.push({
@@ -532,11 +529,6 @@ function TodayCard({ items, tc, push }) {
     icon: "Sprout", color: T.primary, bg: T.primarySoft,
     label: tc({ en: `${dueToday} task${dueToday > 1 ? "s" : ""} due today`, hi: `आज ${dueToday} कार्य देय`, bn: `আজ ${dueToday}টি কাজ` }),
     onClick: () => push({ kind: "cropCalendar" }),
-  });
-  if (alerts) rows.push({
-    icon: "Bell", color: T.orange, bg: T.orangeSoft,
-    label: tc({ en: `${alerts} price alert${alerts > 1 ? "s" : ""} active`, hi: `${alerts} मूल्य अलर्ट सक्रिय`, bn: `${alerts}টি মূল্য সতর্কতা সক্রিয়` }),
-    onClick: () => push({ kind: "mandiPrices" }),
   });
 
   return (

@@ -54,8 +54,8 @@ export const DEFAULTS = {
   notifications: { push: true, sms: false, email: false },
 
   /* state/district are the denormalised display names; the *Id fields are the
-     structured truth (services/geo). Both are kept because priceProxy and the
-     scheme eligibility engine still match on text. */
+     structured truth (services/geo). Both are kept because the scheme
+     eligibility engine still matches on text. */
   region: { countryId: "IN", state: "", district: "", stateId: "", districtId: "" },
 
   offline: { mode: "auto" },     // auto | aggressive | off

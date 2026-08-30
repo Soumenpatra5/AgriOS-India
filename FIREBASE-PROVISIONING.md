@@ -101,7 +101,6 @@ If they are ever lost they must be reissued, not recovered:
 |---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com |
 | `TWOFACTOR_API_KEY` | 2factor.in dashboard |
-| `DATAGOV_API_KEY` | data.gov.in profile |
 | `OTP_JWT_SECRET` | any fresh random string — rotating it invalidates in-flight OTP tokens only |
 
 ## Moving projects

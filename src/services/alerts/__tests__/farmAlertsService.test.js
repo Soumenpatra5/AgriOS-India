@@ -3,7 +3,7 @@ import { farmAlertsService } from "../farmAlertsService.js";
 import { inventoryService } from "../../inventory/inventoryService.js";
 import { notificationService } from "../../notifications/notificationService.js";
 
-/* priceAlerts / cropCalendar read localStorage, absent in the node test env. */
+/* cropCalendar reads localStorage, absent in the node test env. */
 class MemLS { constructor(){this.m=new Map();} getItem(k){return this.m.has(k)?this.m.get(k):null;} setItem(k,v){this.m.set(k,String(v));} removeItem(k){this.m.delete(k);} clear(){this.m.clear();} }
 beforeEach(() => { globalThis.localStorage = new MemLS(); });
 

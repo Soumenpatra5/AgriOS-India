@@ -2,13 +2,11 @@
    optimal feed recommendation, price prediction, purchase optimization,
    waste prediction, FCR prediction, efficiency/profit optimization).
 
-   Mirrors src/services/market/priceProxy.js's dormant-until-configured
-   pattern: every method returns { unavailable: true } today rather than
+   Dormant-until-configured: every method returns { unavailable: true } today rather than
    a fabricated prediction. When a real model/service backs this, swap the
-   method bodies for real calls — the shape (predicted/range/confidence/
-   reasons/disclaimer) should follow src/services/aiCommerce/pricePrediction.js,
-   the app's existing convention for AI estimates. Nothing here invents
-   agricultural data. */
+   method bodies for real calls — the shape should stay
+   predicted/range/confidence/reasons/disclaimer, the app's convention for AI
+   estimates. Nothing here invents agricultural data. */
 
 const unavailable = (message) => ({ unavailable: true, message });
 

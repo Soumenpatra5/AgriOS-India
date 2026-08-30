@@ -5,7 +5,6 @@ import { AppBar, Card, Dialog } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { conversationStore, responseCache } from "../ai/index.js";
 import { reminderService } from "../services/calendar/reminderService.js";
-import { priceAlertService } from "../services/market/priceAlerts.js";
 import { errorLog } from "../utils/errorLog.js";
 import Restricted from "../components/Restricted.jsx";
 
@@ -41,7 +40,6 @@ export default function StorageManager() {
     chats: conversationStore.list().length,
     aiCache: responseCache.count(),
     reminders: reminderService.count(),
-    alerts: priceAlertService.getAll().length,
   };
   const errors = errorLog.all();
   const localBytes = localStorageBytes();
@@ -117,13 +115,9 @@ export default function StorageManager() {
               onClear={() => ask(tc({ en: "Clear AI cache?", hi: "AI कैश साफ़ करें?", bn: "AI ক্যাশ মুছবেন?" }),
                 tc({ en: "Cached answers used for instant offline replies will be removed.", hi: "तुरंत ऑफ़लाइन उत्तरों के लिए कैश किए गए जवाब हटा दिए जाएँगे।", bn: "তাৎক্ষণিক অফলাইন উত্তরের জন্য ক্যাশ করা জবাব মুছে যাবে।" }), clearCache)} />
             <DataRow icon="Bell" label={tc({ en: "Task reminders", hi: "कार्य रिमाइंडर", bn: "কাজের রিমাইন্ডার" })}
-              count={counts.reminders} clearLabel={tc({ en: "Clear", hi: "साफ़", bn: "মুছুন" })}
+              count={counts.reminders} last clearLabel={tc({ en: "Clear", hi: "साफ़", bn: "মুছুন" })}
               onClear={() => ask(tc({ en: "Clear all reminders?", hi: "सभी रिमाइंडर साफ़ करें?", bn: "সমস্ত রিমাইন্ডার মুছবেন?" }),
                 tc({ en: "Scheduled crop-task reminders will be cancelled.", hi: "निर्धारित फसल-कार्य रिमाइंडर रद्द कर दिए जाएँगे।", bn: "নির্ধারিত ফসল-কাজের রিমাইন্ডার বাতিল হবে।" }), clearReminders)} />
-            <DataRow icon="TrendingUp" label={tc({ en: "Price alerts", hi: "मूल्य अलर्ट", bn: "মূল্য সতর্কতা" })}
-              count={counts.alerts} last
-              clearLabel={counts.alerts ? tc({ en: "Manage", hi: "प्रबंधित", bn: "পরিচালনা" }) : ""}
-              onClear={counts.alerts ? () => push({ kind: "mandiPrices" }) : undefined} />
           </Card>
         </div>
 
