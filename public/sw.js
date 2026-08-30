@@ -8,10 +8,10 @@ try {
   importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js");
 
   firebase.initializeApp({
-    apiKey: "AIzaSyAa0Yj3COzXCMiOng3A6zNfJFyFhEnbjBU",
-    projectId: "agrios-india",
-    messagingSenderId: "300426325400",
-    appId: "1:300426325400:web:43cd4ac90b3a117e798fed",
+    apiKey: "AIzaSyBCJ1r7pqvJpqDiVgfjELMeBczwibuiBjU",
+    projectId: "agrios-india-app",
+    messagingSenderId: "210172538656",
+    appId: "1:210172538656:web:78ea1ec1a032ac35a2f145",
   });
 
   const messaging = firebase.messaging();
