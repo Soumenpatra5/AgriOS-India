@@ -32,6 +32,8 @@ export const SERVICE_CATEGORIES = [
    overrides — shows a "Soon" badge and routes to the coming-soon stub. */
 export const SERVICE_REGISTRY = [
   /* ── Farm management ── */
+  { id: "farmSpace",    category: "farm", icon: "Users", accent: "primary", kind: "farmSpace", badge: "new",
+    title: { en: "My Farm Space", hi: "मेरा फ़ार्म स्पेस", bn: "আমার ফার্ম স্পেস" }, desc: { en: "Work with your team — tasks, attendance, chat", hi: "टीम के साथ काम — कार्य, उपस्थिति, चैट", bn: "দলের সঙ্গে কাজ — কাজ, উপস্থিতি, চ্যাট" }, keywords: "farm space team collaborate shared tasks attendance announcements chat members invite worker manager" },
   { id: "erp",          category: "farm", icon: "LayoutGrid", accent: "primary", kind: "farmErp",
     title: { en: "Farm ERP", hi: "फार्म ERP", bn: "ফার্ম ERP" }, desc: { en: "Farms, land, assets, team, CRM & more", hi: "फार्म, ज़मीन, संपत्ति, टीम, CRM", bn: "খামার, জমি, সম্পদ, টিম, CRM" }, keywords: "erp management hub" },
   { id: "farmProfiles", category: "farm", icon: "House", accent: "primary", kind: "farmProfiles",

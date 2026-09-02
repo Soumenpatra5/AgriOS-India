@@ -9,7 +9,7 @@ const ROUTABLE_KINDS = new Set([
   "documents", "security", "permissions", "about", "feature", "chat", "weather", "farmLocations",
   "nearby", "schemeExplorer", "farmLedger", "cropCalendar", "diagnosticsHome",
   "diagnosticFlow", "diagnosticResult", "diagnosticHistory", "diagnosticConsent", "farmErp",
-  "farmProfiles", "landManager", "erpTasks", "erpInventory", "erpAssets", "erpEmployees",
+  "farmSpace", "farmProfiles", "landManager", "erpTasks", "erpInventory", "erpAssets", "erpEmployees",
   "employeeDetail", "erpCrm", "erpProduction", "erpReports", "erpAnalytics", "erpInsights",
   "erpDevices", "pigManager", "sheepManager", "vaccinationCalendar", "livestockHub",
   "poultryManager", "dairyManager", "goatManager", "fishManager", "beeManager",
