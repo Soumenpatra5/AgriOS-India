@@ -168,8 +168,13 @@ export default function Profile() {
           <Icon name="LogOut" size={18} /> {t("logout")}
         </button>
 
-        <div style={{ textAlign: "center", fontSize: 11.5, color: T.inkFaint }}>{tc({ en: "AgriOS India · v2.0.0", hi: "AgriOS India · v2.0.0", bn: "AgriOS India · v2.0.0" })}</div>
-        <div style={{ textAlign: "center", fontSize: 11.5, color: T.inkFaint, marginTop: 3 }}>R &amp; D by Soumen</div>
+        {/* Version and credit are one information block, so they share a single
+            flex child — as separate children the column’s 16px gap fell between
+            them and pulled the two lines visually apart. */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, textAlign: "center", fontSize: 11.5, color: T.inkFaint }}>
+          <div>{tc({ en: "AgriOS India · v2.0.0", hi: "AgriOS India · v2.0.0", bn: "AgriOS India · v2.0.0" })}</div>
+          <div>R &amp; D by Soumen</div>
+        </div>
       </div>
 
       <Dialog open={confirm} onClose={() => setConfirm(false)} title={t("logout") + "?"}
