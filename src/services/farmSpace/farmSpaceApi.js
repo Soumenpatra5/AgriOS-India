@@ -92,5 +92,14 @@ export const farmSpaceApi = {
   removeMember:  (spaceId, userId) => call("members.remove", { spaceId, payload: { userId } }),
   leaveSpace:    (spaceId) => call("members.leave", { spaceId }),
 
+  /* Tasks. The row-level narrowing a worker gets is applied server-side, so
+     these same calls return different rows for different members — the client
+     never asks for "only mine". */
+  listTasks:     (spaceId, params) => call("tasks.list", { spaceId, payload: params || {} }),
+  getTask:       (spaceId, taskId) => call("tasks.get", { spaceId, payload: { taskId } }),
+  taskSummary:   (spaceId) => call("tasks.summary", { spaceId }),
+  createTask:    (spaceId, payload) => call("tasks.create", { spaceId, payload }),
+  updateTask:    (spaceId, taskId, patch) => call("tasks.update", { spaceId, payload: { taskId, ...patch } }),
+  setTaskStatus: (spaceId, taskId, status, note) => call("tasks.setStatus", { spaceId, payload: { taskId, status, note } }),
   listAudit:     (spaceId, limit) => call("audit.list", { spaceId, payload: { limit } }),
 };

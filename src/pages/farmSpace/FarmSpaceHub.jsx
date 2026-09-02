@@ -22,7 +22,7 @@ const MENU = [
   { kind: "farmSpaceTeam",     perm: "farm.members.view",   icon: "Users",       a: "primary",
     label: { en: "Team",          hi: "टीम",            bn: "দল" },
     desc:  { en: "Members & roles", hi: "सदस्य और भूमिकाएँ", bn: "সদস্য ও ভূমিকা" } },
-  { kind: "farmSpaceTasks",    perm: "farm.tasks.view",     icon: "ClipboardList", a: "blue", phase: 3,
+  { kind: "farmSpaceTasks",    perm: "farm.tasks.view",     icon: "ClipboardList", a: "blue",
     label: { en: "Tasks",         hi: "कार्य",           bn: "কাজ" },
     desc:  { en: "Assign & track",  hi: "सौंपें और देखें",   bn: "বরাদ্দ ও ট্র্যাক" } },
   { kind: "farmSpaceAttendance", perm: "farm.attendance.view", icon: "CalendarCheck", a: "primary", phase: 4,

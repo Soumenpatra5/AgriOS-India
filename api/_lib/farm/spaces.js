@@ -94,7 +94,7 @@ export async function listSpaces(sql, userId) {
     select
       s.id, s.name, s.description, s.photo_url, s.location, s.status,
       s.owner_user_id, s.created_at,
-      m.role, m.permissions, m.joined_at,
+      m.user_id, m.role, m.permissions, m.joined_at,
       (select count(*)::int from farm_space_memberships x
         where x.space_id = s.id and x.status = 'active') as member_count
     from farm_space_memberships m

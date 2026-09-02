@@ -19,6 +19,7 @@ import { getSql } from "./_lib/db.js";
 import { HttpError } from "./_lib/http.js";
 import { authorize, requireUserRow } from "./_lib/farm/gate.js";
 import * as ops from "./_lib/farm/spaces.js";
+import * as tasks from "./_lib/farm/tasks.js";
 
 /* The routing table IS the permission model as far as the network is
    concerned. Reading this list should tell you exactly what each action
@@ -43,6 +44,16 @@ const ACTIONS = {
   "members.leave":       { permission: "farm.view",             run: ({ sql, membership, user }) => ops.leaveSpace(sql, membership, user.id) },
 
   "audit.list":          { permission: "farm.settings.manage",  run: ({ sql, membership, payload }) => ops.listAudit(sql, membership, payload) },
+
+  /* Tasks. Note that view/update are granted to workers too — the ROWS they
+     reach are narrowed inside the handler, which is where a "own" scope can be
+     applied as a where clause rather than trusted to the client. */
+  "tasks.list":          { permission: "farm.tasks.view",        run: ({ sql, membership, payload }) => tasks.listTasks(sql, membership, payload) },
+  "tasks.get":           { permission: "farm.tasks.view",        run: ({ sql, membership, payload }) => tasks.getTask(sql, membership, payload) },
+  "tasks.summary":       { permission: "farm.tasks.view",        run: ({ sql, membership }) => tasks.taskSummary(sql, membership) },
+  "tasks.create":        { permission: "farm.tasks.create",      run: ({ sql, membership, user, payload }) => tasks.createTask(sql, membership, user.id, payload) },
+  "tasks.update":        { permission: "farm.tasks.update",      run: ({ sql, membership, user, payload }) => tasks.updateTask(sql, membership, user.id, payload) },
+  "tasks.setStatus":     { permission: "farm.tasks.update",      run: ({ sql, membership, user, payload }) => tasks.setTaskStatus(sql, membership, user.id, payload) },
 };
 
 export default async function handler(req, res) {
