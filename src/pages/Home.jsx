@@ -1,8 +1,12 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { Card, IconTile, SectionHeader, Chip } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
+
+/* Lazy: most farmers work alone, so the Farm Space code should not be part
+   of the Home bundle they always load. */
+const FarmSpaceCard = lazy(() => import("../components/farmSpace/FarmSpaceCard.jsx"));
 import { usePrefs } from "../customize/PreferencesProvider.jsx";
 import { greetingKey, longDate, initials, rupee, compact } from "../utils/format.js";
 import { weatherService } from "../services/weather/weatherService.js";
@@ -211,6 +215,9 @@ export default function Home() {
 
       {/* today — needs attention */}
       <TodayCard items={todayItems} tc={tc} push={push} />
+
+      {/* my farm space — renders nothing unless the farmer is in one */}
+      <Suspense fallback={null}><FarmSpaceCard /></Suspense>
 
       {/* farm summary — finances gated by access role (M7) */}
       {can("finance.view") && (
