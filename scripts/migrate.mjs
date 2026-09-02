@@ -14,6 +14,31 @@ import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import postgres from "postgres";
+import { readFileSync } from "node:fs";
+
+/* .env is not read by node itself — only Vite loads it — so a DATABASE_URL put
+   there, as PROVISIONING.md instructs, was invisible here and the run no-opped
+   while reporting success. A migration runner that silently does nothing is the
+   worst way to fail. A real environment variable still wins, which is what CI
+   passes. */
+const LF = String.fromCharCode(10);
+function loadDotEnv() {
+  if (process.env.DATABASE_URL) return;
+  const KEY = "DATABASE_URL=";
+  try {
+    for (const raw of readFileSync(".env", "utf8").split(LF)) {
+      const line = raw.trim();
+      if (!line.startsWith(KEY)) continue;
+      let v = line.slice(KEY.length).trim();
+      const q = v.charCodeAt(0);
+      if ((q === 34 || q === 39) && v.charCodeAt(v.length - 1) === q) v = v.slice(1, -1);
+      if (v) process.env.DATABASE_URL = v;
+      break;
+    }
+  } catch { /* no .env — CI passes the real environment variable */ }
+}
+loadDotEnv();
+
 
 const url = process.env.DATABASE_URL;
 if (!url) {
