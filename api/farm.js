@@ -20,6 +20,7 @@ import { HttpError } from "./_lib/http.js";
 import { authorize, requireUserRow } from "./_lib/farm/gate.js";
 import * as ops from "./_lib/farm/spaces.js";
 import * as tasks from "./_lib/farm/tasks.js";
+import * as ops4 from "./_lib/farm/operations.js";
 
 /* The routing table IS the permission model as far as the network is
    concerned. Reading this list should tell you exactly what each action
@@ -54,6 +55,22 @@ const ACTIONS = {
   "tasks.create":        { permission: "farm.tasks.create",      run: ({ sql, membership, user, payload }) => tasks.createTask(sql, membership, user.id, payload) },
   "tasks.update":        { permission: "farm.tasks.update",      run: ({ sql, membership, user, payload }) => tasks.updateTask(sql, membership, user.id, payload) },
   "tasks.setStatus":     { permission: "farm.tasks.update",      run: ({ sql, membership, user, payload }) => tasks.setTaskStatus(sql, membership, user.id, payload) },
+
+  /* Attendance. view is granted to workers too; the rows they reach are their
+     own, narrowed in the query rather than trusted to the client. Marking
+     SOMEONE ELSE'S attendance is checked inside the handler, because a member
+     may always mark their own without holding the manage permission. */
+  "attendance.list":     { permission: "farm.attendance.view",   run: ({ sql, membership, payload }) => ops4.listAttendance(sql, membership, payload) },
+  "attendance.summary":  { permission: "farm.attendance.view",   run: ({ sql, membership, payload }) => ops4.attendanceSummary(sql, membership, payload) },
+  "attendance.mark":     { permission: "farm.attendance.view",   run: ({ sql, membership, user, payload }) => ops4.markAttendance(sql, membership, user.id, payload) },
+  "attendance.checkOut": { permission: "farm.attendance.view",   run: ({ sql, membership, user, payload }) => ops4.checkOut(sql, membership, user.id, payload) },
+
+  /* Announcements are read by every role — that is what they are for. */
+  "announcements.list":   { permission: "farm.view",                  run: ({ sql, membership, payload }) => ops4.listAnnouncements(sql, membership, payload) },
+  "announcements.create": { permission: "farm.announcement.create",   run: ({ sql, membership, user, payload }) => ops4.createAnnouncement(sql, membership, user.id, payload) },
+  "announcements.remove": { permission: "farm.view",                  run: ({ sql, membership, user, payload }) => ops4.removeAnnouncement(sql, membership, user.id, payload) },
+
+  "activity.list":        { permission: "farm.view",                  run: ({ sql, membership, payload }) => ops4.listActivity(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {

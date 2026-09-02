@@ -101,5 +101,17 @@ export const farmSpaceApi = {
   createTask:    (spaceId, payload) => call("tasks.create", { spaceId, payload }),
   updateTask:    (spaceId, taskId, patch) => call("tasks.update", { spaceId, payload: { taskId, ...patch } }),
   setTaskStatus: (spaceId, taskId, status, note) => call("tasks.setStatus", { spaceId, payload: { taskId, status, note } }),
+  /* Attendance. Marking your own needs no manage permission; marking someone
+     else's is refused server-side, so the client never has to know which. */
+  listAttendance:    (spaceId, params) => call("attendance.list", { spaceId, payload: params || {} }),
+  attendanceSummary: (spaceId, date) => call("attendance.summary", { spaceId, payload: { date } }),
+  markAttendance:    (spaceId, payload) => call("attendance.mark", { spaceId, payload }),
+  checkOut:          (spaceId, payload) => call("attendance.checkOut", { spaceId, payload: payload || {} }),
+
+  listAnnouncements:  (spaceId, limit) => call("announcements.list", { spaceId, payload: { limit } }),
+  createAnnouncement: (spaceId, payload) => call("announcements.create", { spaceId, payload }),
+  removeAnnouncement: (spaceId, announcementId) => call("announcements.remove", { spaceId, payload: { announcementId } }),
+
+  listActivity:  (spaceId, limit) => call("activity.list", { spaceId, payload: { limit } }),
   listAudit:     (spaceId, limit) => call("audit.list", { spaceId, payload: { limit } }),
 };
