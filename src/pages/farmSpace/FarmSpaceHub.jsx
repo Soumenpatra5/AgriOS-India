@@ -110,7 +110,7 @@ export default function FarmSpaceHub() {
   if (state === "error") {
     return <><AppBar title={title} onBack={pop} />
       <div style={{ padding: 20 }}>
-        <ErrorState message={farmErrorText(reason, tc)}
+        <ErrorState body={farmErrorText(reason, tc)}
           onRetry={reason === FARM_ERROR.UNCONFIGURED ? undefined : load} />
       </div></>;
   }
@@ -120,7 +120,7 @@ export default function FarmSpaceHub() {
       <div style={{ padding: 20 }}>
         <EmptyState icon="Users"
           title={tc({ en: "No Farm Space yet", hi: "अभी कोई फ़ार्म स्पेस नहीं", bn: "এখনও কোনও ফার্ম স্পেস নেই" })}
-          message={tc({ en: "Create one to work with your team — tasks, attendance and announcements shared with the people you invite. Your personal data stays private.",
+          body={tc({ en: "Create one to work with your team — tasks, attendance and announcements shared with the people you invite. Your personal data stays private.",
                         hi: "टीम के साथ काम करने के लिए एक बनाएँ — कार्य, उपस्थिति और घोषणाएँ उन लोगों के साथ साझा जिन्हें आप बुलाते हैं। आपका निजी डेटा निजी रहता है।",
                         bn: "দলের সঙ্গে কাজ করতে একটি তৈরি করুন — কাজ, উপস্থিতি ও ঘোষণা আপনি যাদের ডাকবেন তাদের সঙ্গে ভাগ করা। আপনার ব্যক্তিগত তথ্য ব্যক্তিগতই থাকে।" })} />
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>

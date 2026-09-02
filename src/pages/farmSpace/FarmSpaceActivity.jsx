@@ -76,7 +76,7 @@ export default function FarmSpaceActivity() {
   }
   if (state === "error") {
     return <><AppBar title={title} onBack={pop} />
-      <div style={{ padding: 20 }}><ErrorState message={farmErrorText(reason, tc)} onRetry={load} /></div></>;
+      <div style={{ padding: 20 }}><ErrorState body={farmErrorText(reason, tc)} onRetry={load} /></div></>;
   }
 
   return (
@@ -86,7 +86,7 @@ export default function FarmSpaceActivity() {
         {!items.length ? (
           <EmptyState icon="Activity"
             title={tc({ en: "Nothing yet", hi: "अभी कुछ नहीं", bn: "এখনও কিছু নেই" })}
-            message={tc({ en: "Tasks, announcements and attendance from your farm will show up here.",
+            body={tc({ en: "Tasks, announcements and attendance from your farm will show up here.",
                           hi: "आपके फ़ार्म के कार्य, घोषणाएँ और उपस्थिति यहाँ दिखेंगे।",
                           bn: "আপনার খামারের কাজ, ঘোষণা ও উপস্থিতি এখানে দেখা যাবে।" })} />
         ) : (

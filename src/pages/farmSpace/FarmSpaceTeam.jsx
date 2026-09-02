@@ -103,7 +103,7 @@ export default function FarmSpaceTeam() {
   }
   if (state === "error") {
     return <><AppBar title={title} onBack={pop} />
-      <div style={{ padding: 20 }}><ErrorState message={farmErrorText(reason, tc)} onRetry={load} /></div></>;
+      <div style={{ padding: 20 }}><ErrorState body={farmErrorText(reason, tc)} onRetry={load} /></div></>;
   }
 
   return (

@@ -84,7 +84,7 @@ export default function FarmSpaceAnnouncements() {
   }
   if (state === "error") {
     return <><AppBar title={title} onBack={pop} />
-      <div style={{ padding: 20 }}><ErrorState message={farmErrorText(reason, tc)} onRetry={load} /></div></>;
+      <div style={{ padding: 20 }}><ErrorState body={farmErrorText(reason, tc)} onRetry={load} /></div></>;
   }
 
   return (
@@ -101,7 +101,7 @@ export default function FarmSpaceAnnouncements() {
         {!items.length ? (
           <EmptyState icon="Megaphone"
             title={tc({ en: "No announcements", hi: "कोई घोषणा नहीं", bn: "কোনও ঘোষণা নেই" })}
-            message={canPost
+            body={canPost
               ? tc({ en: "Post a notice and everyone in this Farm Space will see it.",
                      hi: "सूचना डालें और इस फ़ार्म स्पेस के सभी लोग देखेंगे।",
                      bn: "একটি বিজ্ঞপ্তি দিন, এই ফার্ম স্পেসের সবাই দেখবে।" })

@@ -127,7 +127,7 @@ export default function FarmSpaceTasks() {
   }
   if (state === "error") {
     return <><AppBar title={title} onBack={pop} />
-      <div style={{ padding: 20 }}><ErrorState message={farmErrorText(reason, tc)} onRetry={load} /></div></>;
+      <div style={{ padding: 20 }}><ErrorState body={farmErrorText(reason, tc)} onRetry={load} /></div></>;
   }
 
   return (
@@ -152,7 +152,7 @@ export default function FarmSpaceTasks() {
         {!shown.length ? (
           <EmptyState icon="ClipboardList"
             title={tc({ en: "Nothing here", hi: "यहाँ कुछ नहीं", bn: "এখানে কিছু নেই" })}
-            message={canCreate
+            body={canCreate
               ? tc({ en: "Create a task and assign it to someone on your team.",
                      hi: "एक कार्य बनाएँ और अपनी टीम के किसी सदस्य को सौंपें।",
                      bn: "একটি কাজ তৈরি করে দলের কাউকে দিন।" })

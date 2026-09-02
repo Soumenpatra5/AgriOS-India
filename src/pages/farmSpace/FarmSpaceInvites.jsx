@@ -61,7 +61,7 @@ export default function FarmSpaceInvites() {
   }
   if (state === "error") {
     return <><AppBar title={title} onBack={pop} />
-      <div style={{ padding: 20 }}><ErrorState message={farmErrorText(reason, tc)} onRetry={load} /></div></>;
+      <div style={{ padding: 20 }}><ErrorState body={farmErrorText(reason, tc)} onRetry={load} /></div></>;
   }
 
   return (
@@ -71,7 +71,7 @@ export default function FarmSpaceInvites() {
         {!invites.length ? (
           <EmptyState icon="MailOpen"
             title={tc({ en: "No invitations", hi: "कोई निमंत्रण नहीं", bn: "কোনও আমন্ত্রণ নেই" })}
-            message={tc({ en: "When someone invites you to their Farm Space, it will appear here. Invitations are sent to your registered phone number.",
+            body={tc({ en: "When someone invites you to their Farm Space, it will appear here. Invitations are sent to your registered phone number.",
                           hi: "जब कोई आपको अपने फ़ार्म स्पेस में बुलाएगा, वह यहाँ दिखेगा। निमंत्रण आपके पंजीकृत मोबाइल नंबर पर आते हैं।",
                           bn: "কেউ আপনাকে তাদের ফার্ম স্পেসে ডাকলে এখানে দেখা যাবে। আমন্ত্রণ আপনার নিবন্ধিত মোবাইল নম্বরে আসে।" })} />
         ) : invites.map((i) => (

@@ -96,7 +96,7 @@ export default function FarmSpaceAttendance() {
   }
   if (state === "error") {
     return <><AppBar title={title} onBack={pop} />
-      <div style={{ padding: 20 }}><ErrorState message={farmErrorText(reason, tc)} onRetry={load} /></div></>;
+      <div style={{ padding: 20 }}><ErrorState body={farmErrorText(reason, tc)} onRetry={load} /></div></>;
   }
 
   return (
@@ -168,7 +168,7 @@ export default function FarmSpaceAttendance() {
           {!rows.length ? (
             <EmptyState icon="CalendarCheck"
               title={tc({ en: "Nothing marked yet", hi: "अभी कुछ चिह्नित नहीं", bn: "এখনও কিছু চিহ্নিত হয়নি" })}
-              message={tc({ en: "Attendance for today will appear here.",
+              body={tc({ en: "Attendance for today will appear here.",
                             hi: "आज की उपस्थिति यहाँ दिखेगी।",
                             bn: "আজকের উপস্থিতি এখানে দেখা যাবে।" })} />
           ) : (
