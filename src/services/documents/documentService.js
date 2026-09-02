@@ -25,14 +25,16 @@ import { repo } from "../erp/erpDb.js";
 import { storage as local } from "../../utils/storage.js";
 import { auditService } from "../employees/auditService.js";
 import {
-  EXPIRY_WINDOW_DAYS, MAX_OFFLINE_INLINE_BYTES, UPLOAD_TIMEOUT_MS,
-  DELETED_RETENTION_DAYS, previewKind,
+  EXPIRY_WINDOW_DAYS, DELETED_RETENTION_DAYS, previewKind,
 } from "./documentConfig.js";
+import * as fileStore from "./fileStore.js";
 
-/* fileData is a base64 blob: far past Firestore's 1 MB document limit, and
-   sensitive besides. It stays in local IndexedDB and never leaves. */
-const docs = repo("documents", { stripForSync: ["fileData"] });
-const versions = repo("documentVersions", { stripForSync: ["fileData"] });
+/* Neither field may leave this device. fileData is a base64 blob — far past
+   Firestore's 1 MB document limit, and sensitive besides. fileKey names a file
+   in this device's own file system, so on any other device it would be a
+   dangling reference to bytes that are not there. */
+const docs = repo("documents", { stripForSync: ["fileData", "fileKey"] });
+const versions = repo("documentVersions", { stripForSync: ["fileData", "fileKey"] });
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -103,7 +105,8 @@ function fromEmployeeRow(r) {
     title: r.name || "", note: r.note || "", number: r.number || "",
     fileName: r.fileName || "", mimeType: r.mimeType || "", size: r.size || 0,
     storage: r.storage || (r.fileUrl || r.fileData ? "local" : "none"),
-    storagePath: r.storagePath || "", fileUrl: r.fileUrl || "", fileData: r.fileData || "",
+    storagePath: r.storagePath || "", fileUrl: r.fileUrl || "",
+    fileKey: r.fileKey || "", fileData: r.fileData || "",
     issueDate: r.issueDate || "", expiryDate: r.expiryDate || "",
     status: r.status || "uploaded", verifiedDate: r.verifiedDate || "",
     uploadDate: r.uploadDate || today(),
@@ -118,7 +121,7 @@ function fromOwnerRow(r) {
     category: r.type || "other",
     title: r.title || "", note: r.note || "", number: "",
     fileName: "", mimeType: "", size: 0,
-    storage: "none", storagePath: "", fileUrl: "", fileData: "",
+    storage: "none", storagePath: "", fileUrl: "", fileKey: "", fileData: "",
     issueDate: "", expiryDate: "",
     status: "uploaded", verifiedDate: "",
     uploadDate: r.ts ? new Date(r.ts).toISOString().slice(0, 10) : today(),
@@ -231,10 +234,10 @@ export const documentService = {
       note, number, issueDate, expiryDate,
       uploadDate: today(), status: "uploaded", uploadedBy,
       fileName: file?.name || "", mimeType: file?.type || "", size: file?.size || 0,
-      storage: "none", storagePath: "", fileUrl: "", fileData: "",
+      storage: "none", storagePath: "", fileUrl: "", fileKey: "", fileData: "",
     };
 
-    if (file) Object.assign(rec, await putFile(file, { subjectType, subjectId, category, onProgress, ownerId }));
+    if (file) Object.assign(rec, await putFile(file, { onProgress }));
 
     let saved;
     try {
@@ -243,6 +246,7 @@ export const documentService = {
       /* The bytes landed but the metadata row did not, so nothing in the app
          will ever reference that object again. Delete it rather than leave an
          invisible file sitting in the farmer's storage quota (brief §29). */
+      if (rec.fileKey) await fileStore.remove(rec.fileKey).catch(() => {});
       if (rec.storagePath) {
         await import("../firebase/storage.js")
           .then((m) => m.deleteImage(rec.storagePath))
@@ -266,10 +270,7 @@ export const documentService = {
   async replaceFile(id, file, { onProgress, ownerId, uploadedBy = "", changeNote = "" } = {}) {
     const existing = await docs.getById(id);
     if (!existing) return null;
-    const stored = await putFile(file, {
-      subjectType: existing.subjectType, subjectId: existing.subjectId,
-      category: existing.category, onProgress, ownerId,
-    });
+    const stored = await putFile(file, { onProgress });
 
     /* Keep the outgoing file for the record types where losing a previous
        version would matter — a land record or a lease is evidence, and the
@@ -277,7 +278,7 @@ export const documentService = {
        else (a re-photographed soil card) is just churn, so the old object is
        deleted to reclaim the space. */
     const keep = !!categoryOf(existing.category).versioned;
-    const hadFile = !!(existing.fileUrl || existing.fileData);
+    const hadFile = !!(existing.fileKey || existing.fileUrl || existing.fileData);
 
     if (keep && hadFile) {
       const prior = await versions.getBy("documentId", id);
@@ -286,7 +287,8 @@ export const documentService = {
         version: prior.length + 1,
         fileName: existing.fileName || "", mimeType: existing.mimeType || "", size: existing.size || 0,
         storage: existing.storage || "", storagePath: existing.storagePath || "",
-        fileUrl: existing.fileUrl || "", fileData: existing.fileData || "",
+        fileUrl: existing.fileUrl || "", fileKey: existing.fileKey || "",
+        fileData: existing.fileData || "",
         changedBy: uploadedBy, changeNote,
         changedAt: new Date().toISOString(),
       });
@@ -299,9 +301,12 @@ export const documentService = {
       previousFileName: existing.fileName || "",
     });
 
+    /* Best effort: a leftover file is wasted bytes, never a correctness
+       problem, and must not fail the replace the farmer just did. */
+    if (!keep && existing.fileKey && existing.fileKey !== stored.fileKey) {
+      fileStore.remove(existing.fileKey).catch(() => {});
+    }
     if (!keep && existing.storagePath && existing.storagePath !== stored.storagePath) {
-      /* Best effort: a leftover object is wasted bytes, never a correctness
-         problem, and must not fail the replace the farmer just did. */
       import("../firebase/storage.js")
         .then((m) => m.deleteImage(existing.storagePath))
         .catch(() => {});
@@ -355,19 +360,23 @@ export const documentService = {
     const d = (await docs.getById(id)) || (await docs.deleted()).find((x) => x.id === id);
     const vs = await versions.getBy("documentId", id);
 
+    /* Best effort per file: one failure (already gone) must not strand the
+       rest, and the rows are removed either way — a file we could not reach is
+       a smaller problem than a row that never goes away. */
+    const keys = [d, ...vs].filter((x) => x?.fileKey).map((x) => x.fileKey);
+    await Promise.all(keys.map((k) => fileStore.remove(k).catch(() => {})));
+
+    /* Legacy cloud objects, from before documents moved to the device. */
     const paths = [d, ...vs].filter((x) => x?.storagePath).map((x) => x.storagePath);
     if (paths.length) {
       const { deleteImage } = await import("../firebase/storage.js").catch(() => ({}));
-      /* Best effort per object: one failure (already gone, offline) must not
-         strand the rest, and the rows are removed either way — a file we could
-         not reach is a smaller problem than a row that never goes away. */
       if (deleteImage) await Promise.all(paths.map((p) => deleteImage(p).catch(() => {})));
     }
 
     for (const v of vs) await versions.purge(v.id);
     await docs.purge(id);
     notify();
-    return { id, filesDeleted: paths.length, versions: vs.length };
+    return { id, filesDeleted: keys.length + paths.length, versions: vs.length };
   },
 
   /* Retention sweep: destroy files for documents deleted longer ago than the
@@ -390,10 +399,20 @@ export const documentService = {
     status, ...(status === "verified" ? { verifiedDate: today() } : {}),
   }),
 
-  /* Resolve a document to something openable. A cloud file is a URL; a local
-     one is base64, which browsers refuse to navigate to at top level, so it
-     becomes a blob URL the caller must revoke. */
+  /* Resolve a document to something openable. Device files and the legacy
+     inline copy both become blob URLs the caller must revoke — browsers
+     refuse to navigate to a data: URL at top level. A fileUrl only appears on
+     records written before storage moved to the device. */
   async openable(doc) {
+    if (doc?.fileKey) {
+      const blob = await fileStore.get(doc.fileKey);
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        return { url, revoke: () => URL.revokeObjectURL(url) };
+      }
+      /* Key recorded but the file is gone — the user cleared site data. Fall
+         through: an older record may still carry the bytes inline. */
+    }
     if (doc?.fileUrl) return { url: doc.fileUrl, revoke: null };
     if (!doc?.fileData) return null;
     try {
@@ -435,12 +454,9 @@ export function storagePathFor({ ownerId, subjectType, subjectId, category, ext 
   return `users/${ownerId}/documents/${subject}/${category}/${rand}${ext ? `.${ext}` : ""}`;
 }
 
-const cloudAvailable = () =>
-  !!import.meta.env?.VITE_FB_API_KEY && typeof navigator !== "undefined" && navigator.onLine !== false;
-
-/* FileReader.readAsDataURL is the efficient browser path — it encodes natively
-   rather than walking the bytes in JS — so it stays primary. The manual
-   fallback covers environments without it, which includes the test runner. */
+/* Base64 fallback for browsers without OPFS. FileReader encodes natively,
+   which is far cheaper than walking the bytes in JS; the manual path covers
+   environments without it, including the test runner. */
 async function toDataUrl(file) {
   if (typeof FileReader !== "undefined") {
     return new Promise((resolve, reject) => {
@@ -451,8 +467,7 @@ async function toDataUrl(file) {
     });
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
-  /* Chunked: String.fromCharCode(...wholeFile) overflows the call stack on
-     anything but a tiny file. */
+  /* Chunked: String.fromCharCode(...wholeFile) overflows the call stack. */
   let binary = "";
   const CHUNK = 0x8000;
   for (let i = 0; i < bytes.length; i += CHUNK) {
@@ -460,43 +475,33 @@ async function toDataUrl(file) {
   }
   return `data:${file.type || "application/octet-stream"};base64,${btoa(binary)}`;
 }
+/* Store the bytes on the device and describe where they went.
 
-/* Store the bytes and describe where they went. Cloud when we can, device
-   otherwise; a cloud failure falls back to the device rather than losing the
-   upload the farmer just waited for. */
-async function putFile(file, { subjectType, subjectId, category, onProgress, ownerId }) {
-  const uid = ownerId || local.get("user")?.uid;
-  const ext = (file.name.match(/\.([a-z0-9]+)$/i)?.[1] || "").toLowerCase();
+   This used to try Firebase Storage first and fall back to the device. That
+   cost every upload a flat 45 seconds: the Storage bucket does not exist, so
+   the request failed at the network layer, and the SDK treats a connection
+   failure as retryable — it backs off and retries for up to ten minutes,
+   emitting no progress the whole time, until the app's own timeout cancelled
+   it. The device was always where the file actually ended up; now it is where
+   the file goes directly.
 
-  if (cloudAvailable() && uid) {
-    const path = storagePathFor({ ownerId: uid, subjectType, subjectId, category, ext });
-    try {
-      const { uploadFileResumable } = await import("../firebase/storage.js");
-      const { promise, cancel } = uploadFileResumable(path, file, onProgress);
+   OPFS holds the Blob as a file. The base64 branch below is the fallback for
+   browsers that will not give us a file system, and is also what every
+   document written before this change still uses. */
+async function putFile(file, { onProgress } = {}) {
+  const ext = (file.name?.match(/.([a-z0-9]+)$/i)?.[1] || "").toLowerCase();
 
-      /* Bounded wait. The SDK retries internally for ~2 minutes, which on a
-         weak connection is two minutes of a motionless progress bar. Cancel
-         at the deadline and keep the file on the device instead — the farmer
-         gets their document saved either way. */
-      let timer;
-      const deadline = new Promise((_, reject) => {
-        timer = setTimeout(() => { cancel(); reject(new Error("upload-timeout")); }, UPLOAD_TIMEOUT_MS);
-      });
-      try {
-        const fileUrl = await Promise.race([promise, deadline]);
-        return { fileUrl, storagePath: path, storage: "cloud", fileData: "" };
-      } finally {
-        clearTimeout(timer);
-      }
-    } catch { /* fall through to the device */ }
+  const fileKey = await fileStore.put(file, ext);
+  if (fileKey) {
+    /* The write is the whole operation, so there is no meaningful partial
+       progress to report — but callers draw a bar from it, and a bar that
+       never reaches 100 reads as a hang. */
+    onProgress?.(100);
+    return { storage: "device", fileKey, fileData: "", storagePath: "", fileUrl: "" };
   }
 
-  /* Offline, signed out, or the upload failed. Keeping a huge scan inline
-     would bloat IndexedDB on a cheap phone, so oversized files are recorded
-     without their bytes and flagged for re-attachment. */
-  if (file.size > MAX_OFFLINE_INLINE_BYTES) {
-    return { storage: "pending", fileData: "", storagePath: "", fileUrl: "" };
-  }
+  /* No file system available. Keep the bytes inline as before, which is
+     slower and heavier but never loses the document. */
   onProgress?.(100);
-  return { storage: "local", fileData: await toDataUrl(file), storagePath: "", fileUrl: "" };
+  return { storage: "local", fileKey: "", fileData: await toDataUrl(file), storagePath: "", fileUrl: "" };
 }

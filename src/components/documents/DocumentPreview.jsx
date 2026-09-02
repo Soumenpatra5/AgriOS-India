@@ -25,7 +25,7 @@ export default function DocumentPreview({ doc, height = 260 }) {
     let revoke = null, alive = true;
     setState("loading"); setSrc(null);
 
-    if (!doc || (!doc.fileUrl && !doc.fileData)) { setState("none"); return undefined; }
+    if (!doc || (!doc.fileKey && !doc.fileUrl && !doc.fileData)) { setState("none"); return undefined; }
 
     documentService.openable(doc).then((r) => {
       if (!alive) { r?.revoke?.(); return; }

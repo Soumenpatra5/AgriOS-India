@@ -9,6 +9,7 @@ import {
 import { paymentService } from "../../services/employees/paymentService.js";
 import { leaveService, LEAVE_TYPES, leaveDays } from "../../services/employees/leaveService.js";
 import { documentService, DOC_TYPES } from "../../services/employees/documentService.js";
+import FilePicker from "../../components/documents/FilePicker.jsx";
 import { recordsService, SKILL_LEVELS, TRAINING_STATUSES } from "../../services/employees/recordsService.js";
 import { assetService, ASSET_CATEGORIES } from "../../services/assets/assetService.js";
 import { auditService } from "../../services/employees/auditService.js";
@@ -130,6 +131,7 @@ export default function EmployeeDetail({ id }) {
   const [documents, setDocuments] = useState([]);
   const [docOpen, setDocOpen] = useState(false);
   const [docForm, setDocForm] = useState({ type: "id_proof", name: "", number: "", issueDate: "", expiryDate: "" });
+  const [docProgress, setDocProgress] = useState(null);
   const [docFile, setDocFile] = useState(null);
   const [docBusy, setDocBusy] = useState(false);
   const [recs, setRecs] = useState({ skill: [], training: [], performance: [], asset: [] });
@@ -175,8 +177,9 @@ export default function EmployeeDetail({ id }) {
 
   const uploadDoc = async () => {
     setDocBusy(true);
+    if (docFile) setDocProgress(0);
     try {
-      await documentService.add({ employeeId: id, ...docForm }, docFile);
+      await documentService.add({ employeeId: id, ...docForm }, docFile, { onProgress: setDocProgress });
       setDocOpen(false);
       setDocForm({ type: "id_proof", name: "", number: "", issueDate: "", expiryDate: "" }); setDocFile(null);
       setTick((n) => n + 1);
@@ -189,20 +192,18 @@ export default function EmployeeDetail({ id }) {
                  bn: "নথি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।" }), "error");
       console.error("[documents] upload failed", err);
     } finally {
-      setDocBusy(false);
+      setDocBusy(false); setDocProgress(null);
     }
   };
   const openDoc = async (d) => {
-    if (d.fileUrl) { window.open(d.fileUrl, "_blank", "noopener"); return; }
-    if (!d.fileData) return;
-    // Browsers block top-frame navigation to data: URLs, so turn the locally
-    // stored base64 into a blob URL and open that instead.
-    try {
-      const blob = await (await fetch(d.fileData)).blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener");
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch { /* unreadable file */ }
+    /* openable() resolves whichever way this record holds its bytes — a file
+       on the device, an older inline copy, or a legacy cloud URL — and hands
+       back a URL plus how to release it. */
+    const opened = await documentService.openable(d);
+    if (!opened) return;
+    window.open(opened.url, "_blank", "noopener");
+    documentService.logDownload(d);
+    if (opened.revoke) setTimeout(opened.revoke, 60000);
   };
 
   const applyLeave = async () => {
@@ -461,7 +462,7 @@ export default function EmployeeDetail({ id }) {
                           </div>
                         </div>
                         {d.expiryDate && <span style={{ fontSize: 10.5, fontWeight: 700, color: efg, background: ebg, padding: "2px 7px", borderRadius: 6, flexShrink: 0 }}>{exp === "expiring_soon" ? "SOON" : exp.toUpperCase()}</span>}
-                        {(d.fileUrl || d.fileData) && (
+                        {(d.fileKey || d.fileUrl || d.fileData) && (
                           <button onClick={() => openDoc(d)} aria-label={tc({ en: "View", hi: "देखें", bn: "দেখুন" })} style={{ background: "none", border: "none", cursor: "pointer", color: T.inkSoft, padding: 4, display: "flex" }}><Icon name="Eye" size={16} /></button>
                         )}
                         {d.status !== "verified" && (
@@ -472,7 +473,7 @@ export default function EmployeeDetail({ id }) {
                     );
                   })}
                 </Card>}
-            <div style={{ fontSize: 11, color: T.inkFaint, textAlign: "center", lineHeight: 1.5 }}>{tc({ en: "Files upload to secure cloud storage when online, else saved on this device and synced later.", hi: "ऑनलाइन होने पर फ़ाइलें सुरक्षित क्लाउड में जाती हैं, अन्यथा इसी डिवाइस पर सहेजकर बाद में सिंक होती हैं।", bn: "অনলাইনে থাকলে ফাইল নিরাপদ ক্লাউডে যায়, নাহলে এই ডিভাইসে সংরক্ষিত হয়ে পরে সিঙ্ক হয়।" })}</div>
+            <div style={{ fontSize: 11, color: T.inkFaint, textAlign: "center", lineHeight: 1.5 }}>{tc({ en: "Files are stored privately on this device. They are not uploaded anywhere.", hi: "फ़ाइलें इसी डिवाइस पर निजी रूप से सहेजी जाती हैं। कहीं अपलोड नहीं होतीं।", bn: "ফাইল এই ডিভাইসেই ব্যক্তিগতভাবে সংরক্ষিত হয়। কোথাও আপলোড হয় না।" })}</div>
           </div>
         )}
 
@@ -551,13 +552,9 @@ export default function EmployeeDetail({ id }) {
             <div style={{ flex: 1 }}><Input label={tc({ en: "Issue date", hi: "जारी तिथि", bn: "প্রদানের তারিখ" })} type="date" value={docForm.issueDate} onChange={(v) => setDocForm((f) => ({ ...f, issueDate: v }))} /></div>
             <div style={{ flex: 1 }}><Input label={tc({ en: "Expiry date", hi: "समय-सीमा तिथि", bn: "মেয়াদ শেষের তারিখ" })} type="date" value={docForm.expiryDate} onChange={(v) => setDocForm((f) => ({ ...f, expiryDate: v }))} /></div>
           </div>
-          <label style={{ display: "block" }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft, marginBottom: 7 }}>{tc({ en: "File", hi: "फ़ाइल", bn: "ফাইল" })}</div>
-            <input type="file" accept="image/*,application/pdf" onChange={(e) => setDocFile(e.target.files?.[0] || null)}
-              style={{ width: "100%", fontSize: 13, color: T.ink }} />
-          </label>
+          <FilePicker file={docFile} onPick={setDocFile} progress={docProgress} disabled={docBusy} />
           <Button full onClick={uploadDoc} disabled={docBusy || (!docForm.name && !docFile)}>{docBusy
-              ? tc({ en: "Uploading…", hi: "अपलोड हो रहा है…", bn: "আপলোড হচ্ছে…" })
+              ? `${tc({ en: "Saving", hi: "सहेजा जा रहा है", bn: "সংরক্ষণ হচ্ছে" })}${docProgress === null ? "…" : ` ${docProgress}%`}`
               : tc({ en: "Save document", hi: "दस्तावेज़ सहेजें", bn: "নথি সংরক্ষণ করুন" })}</Button>
         </div>
       </BottomSheet>

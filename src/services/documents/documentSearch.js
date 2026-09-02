@@ -58,7 +58,7 @@ export function filterDocuments(list, filters = {}) {
   if (category) out = out.filter((d) => d.category === category);
   if (group) out = out.filter((d) => categoryOf(d.category).group === group);
   if (status) out = out.filter((d) => (d.status || "uploaded") === status);
-  if (hasFile !== null) out = out.filter((d) => !!(d.fileUrl || d.fileData) === hasFile);
+  if (hasFile !== null) out = out.filter((d) => !!(d.fileKey || d.fileUrl || d.fileData) === hasFile);
 
   if (expiry === "none") out = out.filter((d) => !d.expiryDate);
   else if (expiry) out = out.filter((d) => d.expiryDate && expiryState(d) === expiry);
@@ -86,7 +86,7 @@ export function facets(list) {
   const count = (fn) => live.filter(fn).length;
   return {
     total: live.length,
-    withFile: count((d) => !!(d.fileUrl || d.fileData)),
+    withFile: count((d) => !!(d.fileKey || d.fileUrl || d.fileData)),
     expired: count((d) => d.expiryDate && expiryState(d) === "expired"),
     expiringSoon: count((d) => d.expiryDate && expiryState(d) === "expiring_soon"),
     verified: count((d) => d.status === "verified"),

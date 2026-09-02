@@ -81,7 +81,7 @@ export default function DocumentDetail({ id }) {
 
   const cat = categoryOf(doc.category);
   const state = expiryState(doc);
-  const hasFile = !!(doc.fileUrl || doc.fileData);
+  const hasFile = !!(doc.fileKey || doc.fileUrl || doc.fileData);
   const mayDownload = can("documents.download") || can("profile.manage");
   const pending = isPending(doc);
   const state2 = uploadState(doc);
@@ -165,9 +165,10 @@ export default function DocumentDetail({ id }) {
               : tc({ en: "Uploaded", hi: "अपलोड किया", bn: "আপলোড করা" })} />
           <Row label={tc({ en: "Stored", hi: "संग्रहण", bn: "সংরক্ষণ" })}
             value={{
+              device:  tc({ en: "This device", hi: "इसी डिवाइस पर", bn: "এই ডিভাইসে" }),
               cloud:   tc({ en: "Private cloud folder", hi: "निजी क्लाउड फ़ोल्डर", bn: "ব্যক্তিগত ক্লাউড ফোল্ডার" }),
               local:   tc({ en: "This device", hi: "इसी डिवाइस पर", bn: "এই ডিভাইসে" }),
-              pending: tc({ en: "Waiting to upload", hi: "अपलोड की प्रतीक्षा", bn: "আপলোডের অপেক্ষায়" }),
+              pending: tc({ en: "Waiting to be stored", hi: "सहेजे जाने की प्रतीक्षा", bn: "সংরক্ষণের অপেক্ষায়" }),
               none:    tc({ en: "No file attached", hi: "कोई फ़ाइल नहीं", bn: "কোনও ফাইল নেই" }),
             }[doc.storage] || doc.storage} />
           {doc.replacedAt && (
@@ -182,13 +183,13 @@ export default function DocumentDetail({ id }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
                 {state2 === UPLOAD_STATE.FAILED
-                  ? tc({ en: "Upload failed", hi: "अपलोड विफल", bn: "আপলোড ব্যর্থ" })
-                  : tc({ en: "Waiting to upload", hi: "अपलोड की प्रतीक्षा", bn: "আপলোডের অপেক্ষায়" })}
+                  ? tc({ en: "Could not be stored", hi: "सहेजा नहीं जा सका", bn: "সংরক্ষণ করা যায়নি" })
+                  : tc({ en: "Waiting to be stored", hi: "सहेजे जाने की प्रतीक्षा", bn: "সংরক্ষণের অপেক্ষায়" })}
               </div>
               <div style={{ fontSize: 11.5, color: T.inkSoft }}>
-                {tc({ en: "The file is safe on this device and will go to your cloud folder when there is signal.",
-                       hi: "फ़ाइल इस डिवाइस पर सुरक्षित है और सिग्नल मिलते ही आपके क्लाउड फ़ोल्डर में चली जाएगी।",
-                       bn: "ফাইলটি এই ডিভাইসে নিরাপদ আছে এবং সিগন্যাল পেলে আপনার ক্লাউড ফোল্ডারে চলে যাবে।" })}
+                {tc({ en: "The file is safe and readable. It is still being moved into this device's file store.",
+                       hi: "फ़ाइल सुरक्षित और पठनीय है। इसे अभी इस डिवाइस के फ़ाइल स्टोर में ले जाया जा रहा है।",
+                       bn: "ফাইলটি নিরাপদ ও পড়ার যোগ্য। এটি এখনও এই ডিভাইসের ফাইল স্টোরে সরানো হচ্ছে।" })}
               </div>
             </div>
             <Button size="sm" variant="soft" disabled={retrying} onClick={retryUpload}>

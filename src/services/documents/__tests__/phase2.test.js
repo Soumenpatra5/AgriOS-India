@@ -94,13 +94,16 @@ describe("upload queue state", () => {
     expect(await queueSummary()).toEqual({ queued: 1, failed: 1, total: 2 });
   });
 
-  it("backs off between attempts instead of hammering a dead connection", () => {
+  it("backs off between attempts instead of retrying a file that will not move", () => {
+    /* The ladder is in seconds now, not minutes: moving bytes between two
+       places on the same device does not wait on a network, so a retry that
+       is going to work will work almost immediately. */
     const now = Date.parse("2026-06-01T12:00:00Z");
     expect(dueNow({ uploadAttempts: 0 }, now)).toBe(true);
-    /* One attempt a minute ago: the second try is due. */
-    expect(dueNow({ uploadAttempts: 1, lastAttemptAt: "2026-06-01T11:58:00Z" }, now)).toBe(true);
-    /* Two attempts, only a minute ago: the third waits five. */
-    expect(dueNow({ uploadAttempts: 2, lastAttemptAt: "2026-06-01T11:59:00Z" }, now)).toBe(false);
+    /* One attempt a minute ago: the second try is long due. */
+    expect(dueNow({ uploadAttempts: 1, lastAttemptAt: "2026-06-01T11:59:00Z" }, now)).toBe(true);
+    /* Two attempts, ten seconds ago: the third waits thirty. */
+    expect(dueNow({ uploadAttempts: 2, lastAttemptAt: "2026-06-01T11:59:50Z" }, now)).toBe(false);
     /* Past the ceiling it stops asking entirely. */
     expect(dueNow({ uploadAttempts: MAX_ATTEMPTS, lastAttemptAt: "2020-01-01T00:00:00Z" }, now)).toBe(false);
   });

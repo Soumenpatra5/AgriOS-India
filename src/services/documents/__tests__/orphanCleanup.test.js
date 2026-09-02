@@ -2,25 +2,35 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /* Brief §29: metadata and stored file must not drift apart.
 
-   The dangerous half is "upload succeeded, metadata write failed": the bytes
-   are sitting in the farmer's storage quota and nothing in the app will ever
+   The dangerous half is "file stored, metadata write failed": the bytes are
+   sitting in the device's file system and nothing in the app will ever
    reference them again, so nothing will ever clean them up either. This proves
-   the upload is rolled back when the row cannot be written.
+   the write is rolled back when the row cannot be saved.
 
-   The other half — metadata written, upload failed — is not an orphan at all:
-   the record is complete and readable, its file is on the device, and
-   uploadQueue retries it. That path is covered in phase2.test.js. */
+   The other half — metadata written, file not stored — is not an orphan at
+   all: the record is complete and readable from its inline copy, and the
+   migration sweep moves it later. That path is covered in phase2.test.js.
 
-const deleted = [];
-const uploaded = [];
+   Documents live on the device now, so the store being exercised here is OPFS
+   rather than Firebase Storage. The test environment has no file system, so
+   fileStore is mocked to make the device branch reachable at all. */
 
-vi.mock("../../firebase/storage.js", () => ({
-  uploadFileResumable: (path) => {
-    uploaded.push(path);
-    return { promise: Promise.resolve(`https://storage.example/${path}`), cancel() {} };
+const written = [];
+const removed = [];
+
+vi.mock("../fileStore.js", () => ({
+  available: () => Promise.resolve(true),
+  put: (_blob, ext) => {
+    const key = `key${written.length + 1}${ext ? `.${ext}` : ""}`;
+    written.push(key);
+    return Promise.resolve(key);
   },
-  deleteImage: (path) => { deleted.push(path); return Promise.resolve(); },
-  uploadImage: () => Promise.resolve("https://storage.example/x"),
+  get: () => Promise.resolve(null),
+  remove: (key) => { removed.push(key); return Promise.resolve(true); },
+  has: () => Promise.resolve(false),
+  usage: () => Promise.resolve({ files: 0, bytes: 0 }),
+  pruneOrphans: () => Promise.resolve(0),
+  newKey: () => "key",
 }));
 
 /* Make the metadata write fail, leaving everything else real. */
@@ -38,36 +48,32 @@ vi.mock("../../erp/erpDb.js", async (importOriginal) => {
 });
 
 const { documentService } = await import("../documentService.js");
-const { storage: local } = await import("../../../utils/storage.js");
 
 const pdf = () => new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "deed.pdf", { type: "application/pdf" });
 
 beforeEach(() => {
-  deleted.length = 0; uploaded.length = 0; failAdd = false;
-  /* A signed-in owner with a configured project is what sends putFile down the
-     cloud branch rather than storing on the device. */
-  local.set("user", { uid: "U1" });
-  import.meta.env.VITE_FB_API_KEY ||= "test-key";
+  written.length = 0; removed.length = 0; failAdd = false;
 });
 
-describe("orphaned uploads", () => {
-  it("deletes the uploaded file when the metadata row cannot be written", async () => {
+describe("orphaned document files", () => {
+  it("deletes the stored file when the metadata row cannot be written", async () => {
     failAdd = true;
 
     await expect(
-      documentService.add({ subjectType: "owner", category: "land", title: "Plot 42" }, pdf(), { ownerId: "U1" })
+      documentService.add({ subjectType: "owner", category: "land", title: "Plot 42" }, pdf())
     ).rejects.toThrow("quota exceeded");
 
-    expect(uploaded, "the file did reach storage").toHaveLength(1);
-    expect(deleted, "and was cleaned up again").toEqual(uploaded);
+    expect(written, "the file did reach the device store").toHaveLength(1);
+    expect(removed, "and was cleaned up again").toEqual(written);
   });
 
   it("keeps the file when the metadata row is written successfully", async () => {
     const saved = await documentService.add(
-      { subjectType: "owner", category: "land", title: "Plot 42" }, pdf(), { ownerId: "U1" });
+      { subjectType: "owner", category: "land", title: "Plot 42" }, pdf());
 
-    expect(saved.storage).toBe("cloud");
-    expect(saved.fileUrl).toContain("https://storage.example/users/U1/documents/owner/land/");
-    expect(deleted).toEqual([]);
+    expect(saved.storage).toBe("device");
+    expect(saved.fileKey).toBe(written[0]);
+    expect(saved.fileData, "no inline copy once the file store has it").toBe("");
+    expect(removed).toEqual([]);
   });
 });

@@ -244,9 +244,9 @@ export default function Documents() {
         )}
 
         <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center", lineHeight: 1.6 }}>
-          {tc({ en: "Files are stored privately — in your own cloud folder when online, on this device otherwise.",
-                hi: "फ़ाइलें निजी रूप से सहेजी जाती हैं — ऑनलाइन होने पर आपके अपने क्लाउड फ़ोल्डर में, वरना इसी डिवाइस पर।",
-                bn: "ফাইল ব্যক্তিগতভাবে সংরক্ষিত হয় — অনলাইনে থাকলে আপনার নিজের ক্লাউড ফোল্ডারে, নাহলে এই ডিভাইসে।" })}
+          {tc({ en: "Files are stored privately on this device. They are not uploaded anywhere.",
+                hi: "फ़ाइलें इसी डिवाइस पर निजी रूप से सहेजी जाती हैं। कहीं अपलोड नहीं होतीं।",
+                bn: "ফাইল এই ডিভাইসেই ব্যক্তিগতভাবে সংরক্ষিত হয়। কোথাও আপলোড হয় না।" })}
         </div>
       </div>
 
