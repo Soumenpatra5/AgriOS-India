@@ -31,7 +31,7 @@ const MENU = [
   { kind: "farmSpaceAnnouncements", perm: "farm.view",      icon: "Megaphone",   a: "orange",
     label: { en: "Announcements", hi: "घोषणाएँ",         bn: "ঘোষণা" },
     desc:  { en: "Notices for the farm", hi: "फ़ार्म की सूचनाएँ", bn: "খামারের বিজ্ঞপ্তি" } },
-  { kind: "farmSpaceChat",     perm: "farm.chat.view",      icon: "MessageCircle", a: "blue", phase: 5,
+  { kind: "farmSpaceChat",     perm: "farm.chat.view",      icon: "MessageCircle", a: "blue",
     label: { en: "Farm chat",     hi: "फ़ार्म चैट",       bn: "খামার চ্যাট" },
     desc:  { en: "Talk to the team", hi: "टीम से बात करें", bn: "দলের সঙ্গে কথা" } },
   { kind: "farmSpaceActivity", perm: "farm.view",           icon: "Activity",    a: "primary",
@@ -76,7 +76,7 @@ export function farmErrorText(reason, tc) {
 }
 
 export default function FarmSpaceHub() {
-  const { pop, push, tc, toast } = useApp();
+  const { pop, push, tc } = useApp();
   const [space, setSpace] = useState(null);
   const [state, setState] = useState("loading");   // loading | ready | error | none
   const [reason, setReason] = useState(null);
@@ -167,9 +167,7 @@ export default function FarmSpaceHub() {
           {visible.map((m) => (
             <Card key={m.kind} pad={0}>
               <button
-                onClick={() => (m.phase
-                  ? toast(tc({ en: "Coming in a later step.", hi: "अगले चरण में आ रहा है।", bn: "পরবর্তী ধাপে আসছে।" }))
-                  : push({ kind: m.kind }))}
+                onClick={() => push({ kind: m.kind })}
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "13px 12px",
                   background: "none", border: "none", cursor: "pointer", fontFamily: T.body, textAlign: "left" }}>
                 <IconTile name={m.icon} accent={m.a} />

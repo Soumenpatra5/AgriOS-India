@@ -21,6 +21,7 @@ import { authorize, requireUserRow } from "./_lib/farm/gate.js";
 import * as ops from "./_lib/farm/spaces.js";
 import * as tasks from "./_lib/farm/tasks.js";
 import * as ops4 from "./_lib/farm/operations.js";
+import * as chat from "./_lib/farm/chat.js";
 
 /* The routing table IS the permission model as far as the network is
    concerned. Reading this list should tell you exactly what each action
@@ -71,6 +72,14 @@ const ACTIONS = {
   "announcements.remove": { permission: "farm.view",                  run: ({ sql, membership, user, payload }) => ops4.removeAnnouncement(sql, membership, user.id, payload) },
 
   "activity.list":        { permission: "farm.view",                  run: ({ sql, membership, payload }) => ops4.listActivity(sql, membership, payload) },
+
+  /* Chat is the one area NOT narrowed by role: a channel where the workers
+     cannot see each other would not be a conversation. Membership is the whole
+     access rule. */
+  "chat.list":            { permission: "farm.chat.view",  run: ({ sql, membership, payload }) => chat.listMessages(sql, membership, payload) },
+  "chat.send":            { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => chat.sendMessage(sql, membership, user.id, payload) },
+  "chat.remove":          { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => chat.removeMessage(sql, membership, user.id, payload) },
+  "chat.unread":          { permission: "farm.chat.view",  run: ({ sql, membership, payload }) => chat.unreadCount(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {

@@ -113,5 +113,12 @@ export const farmSpaceApi = {
   removeAnnouncement: (spaceId, announcementId) => call("announcements.remove", { spaceId, payload: { announcementId } }),
 
   listActivity:  (spaceId, limit) => call("activity.list", { spaceId, payload: { limit } }),
+
+  /* Chat. `since` fetches only what arrived after a timestamp, which is what
+     makes polling cheap enough to do while the screen is open. */
+  listMessages:  (spaceId, params) => call("chat.list", { spaceId, payload: params || {} }),
+  sendMessage:   (spaceId, payload) => call("chat.send", { spaceId, payload }),
+  removeMessage: (spaceId, messageId) => call("chat.remove", { spaceId, payload: { messageId } }),
+  unreadCount:   (spaceId, since) => call("chat.unread", { spaceId, payload: { since } }),
   listAudit:     (spaceId, limit) => call("audit.list", { spaceId, payload: { limit } }),
 };

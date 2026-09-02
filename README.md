@@ -22,6 +22,11 @@ intermittent connectivity.
   (adds Tamil, Telugu, Marathi, Punjabi, Odia).
 - **Farm tooling**: ledger with CSV export, crop calendar with reminders,
   weather dashboard, scheme explorer, livestock and ERP hubs.
+- **My Farm Space**: the app's only shared surface — a farm the owner invites
+  people into, with roles, tasks, attendance, announcements, an activity feed
+  and a farm chat. Everything else in AgriOS stays personal: profile, AI
+  history, payments and personal documents are never shared with members.
+  Authorization is server-enforced in Postgres (`api/farm.js`), not in the UI.
 - **PWA**: installable, push notifications (FCM), in-app update prompt, backup/restore.
 
 ## Tech stack
