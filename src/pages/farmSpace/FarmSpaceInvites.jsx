@@ -8,10 +8,14 @@ import { farmErrorText } from "./FarmSpaceHub.jsx";
 
 /* Invitations addressed to this user.
 
-   The server matches these on the invitee's own phone number, not on
+   The server matches these on the invitee's own account id, not on
    possession of an invitation id — so this list can only ever contain
    invitations genuinely meant for the signed-in person, and accepting one
    someone else was sent is refused even if its id is known. */
+
+function invitedOn(iso) {
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
 
 export default function FarmSpaceInvites() {
   const { pop, tc, toast } = useApp();
@@ -71,9 +75,9 @@ export default function FarmSpaceInvites() {
         {!invites.length ? (
           <EmptyState icon="MailOpen"
             title={tc({ en: "No invitations", hi: "कोई निमंत्रण नहीं", bn: "কোনও আমন্ত্রণ নেই" })}
-            body={tc({ en: "When someone invites you to their Farm Space, it will appear here. Invitations are sent to your registered phone number.",
-                          hi: "जब कोई आपको अपने फ़ार्म स्पेस में बुलाएगा, वह यहाँ दिखेगा। निमंत्रण आपके पंजीकृत मोबाइल नंबर पर आते हैं।",
-                          bn: "কেউ আপনাকে তাদের ফার্ম স্পেসে ডাকলে এখানে দেখা যাবে। আমন্ত্রণ আপনার নিবন্ধিত মোবাইল নম্বরে আসে।" })} />
+            body={tc({ en: "When someone invites you to their Farm Space using your AgriOS User ID, it will appear here.",
+                          hi: "जब कोई आपकी AgriOS यूज़र आईडी से आपको अपने फ़ार्म स्पेस में बुलाएगा, वह यहाँ दिखेगा।",
+                          bn: "কেউ আপনার AgriOS ইউজার আইডি দিয়ে তাদের ফার্ম স্পেসে ডাকলে এখানে দেখা যাবে।" })} />
         ) : invites.map((i) => (
           <Card key={i.id} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -86,6 +90,12 @@ export default function FarmSpaceInvites() {
                 <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 1 }}>
                   {tc({ en: "Invited as", hi: "इस भूमिका में", bn: "যে ভূমিকায়" })} {tc(farmSpaceService.roleLabel(i.role))}
                 </div>
+                {i.invited_by_name && (
+                  <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
+                    {tc({ en: "Invited by", hi: "आमंत्रणकर्ता", bn: "আমন্ত্রণকারী" })} {i.invited_by_name}
+                    {" · "}{invitedOn(i.created_at)}
+                  </div>
+                )}
               </div>
             </div>
 

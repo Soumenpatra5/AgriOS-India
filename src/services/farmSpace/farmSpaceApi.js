@@ -79,6 +79,9 @@ export const farmSpaceApi = {
   myInvitations:     () => call("invitations.mine"),
   acceptInvitation:  (invitationId) => call("invitations.accept", { payload: { invitationId } }),
   declineInvitation: (invitationId) => call("invitations.decline", { payload: { invitationId } }),
+  /* Confirming who a User ID belongs to before sending an invitation. Not
+     space-scoped — answered from the caller's own identity, like listSpaces. */
+  lookupUser:        (agriosUserId) => call("users.lookup", { payload: { agriosUserId } }),
 
   /* Space-scoped — the server re-checks membership on every one of these; the
      spaceId travelling from the client is a lookup key, never a claim. */
@@ -89,7 +92,11 @@ export const farmSpaceApi = {
   deleteSpace:   (spaceId) => call("spaces.delete", { spaceId }),
 
   listMembers:   (spaceId) => call("members.list", { spaceId }),
+  /* payload is { agriosUserId, role } — invitations are addressed to an
+     account directly, never to a phone number. */
   invite:        (spaceId, payload) => call("members.invite", { spaceId, payload }),
+  pendingInvites: (spaceId) => call("members.pendingInvites", { spaceId }),
+  cancelInvitation: (spaceId, invitationId) => call("invitations.cancel", { spaceId, payload: { invitationId } }),
   setMemberRole: (spaceId, userId, role) => call("members.setRole", { spaceId, payload: { userId, role } }),
   removeMember:  (spaceId, userId) => call("members.remove", { spaceId, payload: { userId } }),
   leaveSpace:    (spaceId) => call("members.leave", { spaceId }),

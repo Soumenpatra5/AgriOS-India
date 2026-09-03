@@ -11,6 +11,7 @@
 import { HttpError } from "../http.js";
 import { audit, requireMembership, requireScope } from "./gate.js";
 import { ROLES, canAssignRole } from "./permissions.js";
+import { normalizeAgriosUserId } from "../agriosId.js";
 
 const MAX_NAME = 80;
 const MAX_DESC = 500;
@@ -54,18 +55,16 @@ export function normalizeEmail(raw) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
 }
 
+/* Invitations identify their target by AgriOS User ID, not phone — a
+   phone-matched invitation only ever worked for someone who had signed in
+   BY phone, which meant it silently never bound for anyone who used Google,
+   Apple, Facebook or email instead. A User ID names the account directly, so
+   an invitation created against it either finds the right person or is
+   refused at creation time — never one that sends successfully and then sits
+   forever, unseeable by the person it was meant for. */
 export function validateInviteInput(input = {}) {
-  const phone = normalizePhone(input.phone);
-  const email = normalizeEmail(input.email);
-  if (!phone && !email) return { error: "a valid phone or email is required" };
-
-  /* Identity is phone-based: the users table mirrors a Firebase uid, a phone
-     and a name, and has no email column, so an email-only invitation could be
-     created but never matched to anyone or accepted. Refusing it here makes
-     that a visible error at invite time instead of an invitation that appears
-     to send and silently never arrives. The email column stays in the schema
-     for when email identity exists. */
-  if (!phone) return { error: "a phone number is required — email invitations are not supported yet" };
+  const agriosUserId = normalizeAgriosUserId(input.agriosUserId);
+  if (!agriosUserId) return { error: "a valid AgriOS User ID is required" };
 
   const role = String(input.role ?? "worker");
   if (!ROLES.includes(role)) return { error: `role must be one of: ${ROLES.join(", ")}` };
@@ -73,7 +72,7 @@ export function validateInviteInput(input = {}) {
      second owner and lock the original out of their own farm. */
   if (role === "owner") return { error: "cannot invite someone as owner; transfer ownership instead" };
 
-  return { value: { phone, email, role } };
+  return { value: { agriosUserId, role } };
 }
 
 /* Unguessable, and not derived from the space or user — an invitation token is
@@ -176,6 +175,21 @@ export async function listMembers(sql, membership) {
      order by m.joined_at asc`;
 }
 
+/* The sender's side of the invitation list — distinct from listMyInvitations,
+   which is the recipient's. This is what the Team screen shows so a manager
+   can see who they have already invited, and cancel a pending one. */
+export async function listSpaceInvitations(sql, membership) {
+  return sql`
+    select i.id, i.role, i.status, i.created_at, i.expires_at,
+           target.name as invited_name, target.agrios_user_id
+      from farm_space_invitations i
+      left join users target on target.id = i.invited_user_id
+     where i.space_id = ${membership.space_id}
+       and i.status = 'pending'
+       and i.expires_at > now()
+     order by i.created_at desc`;
+}
+
 export async function setMemberRole(sql, membership, actorUserId, { userId, role }) {
   if (!ROLES.includes(role)) throw new HttpError(400, `role must be one of: ${ROLES.join(", ")}`);
   if (!canAssignRole(membership.role, role)) {
@@ -226,6 +240,16 @@ export async function leaveSpace(sql, membership, actorUserId) {
 
 /* ── invitations ──────────────────────────────────────────────────────────── */
 
+/* Deliberately minimal: an inviter needs to confirm they have the right
+   person before sending an invitation, not learn anything else about them.
+   No phone, no email, nothing that would make harvesting User IDs worth
+   doing — a name and the id echoed back is all "confirm invitation?" needs. */
+export async function lookupUserByAgriosId(sql, agriosUserId) {
+  const [user] = await sql`
+    select id, name, agrios_user_id from users where agrios_user_id = ${agriosUserId} limit 1`;
+  return user || null;
+}
+
 export async function createInvitation(sql, membership, actorUserId, input) {
   const { value, error } = validateInviteInput(input);
   if (error) throw new HttpError(400, error);
@@ -233,44 +257,57 @@ export async function createInvitation(sql, membership, actorUserId, input) {
     throw new HttpError(403, "You cannot invite someone at or above your own role");
   }
 
+  const target = await lookupUserByAgriosId(sql, value.agriosUserId);
+  if (!target) throw new HttpError(404, "No AgriOS account has that User ID");
+  if (target.id === actorUserId) throw new HttpError(400, "You cannot invite yourself");
+
   /* Someone already in the space does not need an invitation, and issuing one
      would let a manager quietly re-role an existing member on accept. */
-  const [existing] = await sql`
-    select m.id from farm_space_memberships m
-      join users u on u.id = m.user_id
-     where m.space_id = ${membership.space_id} and m.status = 'active'
-       and ((${value.phone}::text is not null and u.phone = ${value.phone})
-         or (${value.email}::text is not null and u.name = ${value.email}))
+  const [existingMember] = await sql`
+    select id from farm_space_memberships
+     where space_id = ${membership.space_id} and user_id = ${target.id} and status = 'active'
      limit 1`;
-  if (existing) throw new HttpError(409, "That person is already a member");
+  if (existingMember) throw new HttpError(409, "That person is already a member");
+
+  /* A second invitation while one is already pending would let the roster of
+     "who has an open invite" drift from what a manager actually intended. */
+  const [existingInvite] = await sql`
+    select id from farm_space_invitations
+     where space_id = ${membership.space_id} and invited_user_id = ${target.id}
+       and status = 'pending' and expires_at > now()
+     limit 1`;
+  if (existingInvite) throw new HttpError(409, "That person already has a pending invitation to this Farm Space");
 
   const expires = new Date(Date.now() + INVITE_TTL_DAYS * 86400000).toISOString();
   const [invite] = await sql`
     insert into farm_space_invitations
-      (space_id, phone, email, role, token, invited_by, expires_at)
-    values (${membership.space_id}, ${value.phone}, ${value.email}, ${value.role},
+      (space_id, invited_user_id, role, token, invited_by, expires_at)
+    values (${membership.space_id}, ${target.id}, ${value.role},
             ${newInviteToken()}, ${actorUserId}, ${expires})
     returning *`;
 
   await audit(sql, { spaceId: membership.space_id, actorUserId, action: "member.invited",
-    targetType: "invitation", targetId: invite.id, meta: { role: value.role } });
-  return invite;
+    targetType: "invitation", targetId: invite.id, meta: { role: value.role, invitedUserId: target.id } });
+  return { ...invite, invited_name: target.name };
 }
 
-/* Invitations addressed to THIS user, matched on the contact details their
-   account carries. Deliberately not matched on token alone: a leaked token
-   should not let a different account join in the invitee's place. */
+/* Invitations addressed to THIS user, matched on their own internal id —
+   never on phone, and never on the invitation's token alone. A leaked token
+   must not let a different account accept in the invitee's place, and an
+   id-based match works identically regardless of how the invitee originally
+   signed in. */
 export async function listMyInvitations(sql, user) {
-  const phone = normalizePhone(user.phone);
   return sql`
     select i.id, i.role, i.created_at, i.expires_at,
-           s.id as space_id, s.name as space_name
+           s.id as space_id, s.name as space_name,
+           inviter.name as invited_by_name
       from farm_space_invitations i
       join farm_spaces s on s.id = i.space_id
+      left join users inviter on inviter.id = i.invited_by
      where i.status = 'pending'
        and i.expires_at > now()
        and s.deleted_at is null
-       and (${phone}::text is not null and i.phone = ${phone})
+       and i.invited_user_id = ${user.id}
      order by i.created_at desc`;
 }
 
@@ -278,15 +315,13 @@ export async function listMyInvitations(sql, user) {
    it re-checks that the invitation is for this user rather than trusting the
    id: a caller can pass any invitation id they like. */
 export async function acceptInvitation(sql, user, { invitationId }) {
-  const phone = normalizePhone(user.phone);
-
   const membership = await sql.begin(async (tx) => {
     const [invite] = await tx`
       select * from farm_space_invitations
        where id = ${invitationId} and status = 'pending' and expires_at > now()
        for update`;
     if (!invite) throw new HttpError(404, "Invitation not found");
-    if (!phone || invite.phone !== phone) throw new HttpError(404, "Invitation not found");
+    if (invite.invited_user_id !== user.id) throw new HttpError(404, "Invitation not found");
 
     await tx`update farm_space_invitations
                 set status = 'accepted', accepted_by = ${user.id}
@@ -311,15 +346,32 @@ export async function acceptInvitation(sql, user, { invitationId }) {
 }
 
 export async function declineInvitation(sql, user, { invitationId }) {
-  const phone = normalizePhone(user.phone);
   const [invite] = await sql`
     select * from farm_space_invitations
      where id = ${invitationId} and status = 'pending' limit 1`;
-  if (!invite || !phone || invite.phone !== phone) throw new HttpError(404, "Invitation not found");
+  if (!invite || invite.invited_user_id !== user.id) throw new HttpError(404, "Invitation not found");
 
   await sql`update farm_space_invitations set status = 'declined', accepted_by = ${user.id}
              where id = ${invite.id}`;
   return { declined: true };
+}
+
+/* The inviter's side of undoing an invitation — distinct from decline, which
+   is the recipient's. Scoped through requireScope like any other row a
+   handler is about to touch, so a manager of Farm Space A can never revoke
+   an invitation that belongs to Farm Space B, however they came to know its
+   id. */
+export async function cancelInvitation(sql, membership, actorUserId, { invitationId }) {
+  const [invite] = await sql`
+    select * from farm_space_invitations
+     where id = ${invitationId} and status = 'pending' limit 1`;
+  requireScope(invite, membership);
+
+  await sql`update farm_space_invitations set status = 'revoked' where id = ${invite.id}`;
+
+  await audit(sql, { spaceId: membership.space_id, actorUserId, action: "member.invite_cancelled",
+    targetType: "invitation", targetId: invite.id });
+  return { cancelled: true };
 }
 
 /* ── ownership and lifecycle ──────────────────────────────────────────────── */

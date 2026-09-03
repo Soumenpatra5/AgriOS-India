@@ -17,11 +17,29 @@
 
 import { getSql } from "./_lib/db.js";
 import { HttpError } from "./_lib/http.js";
+import { rateLimit } from "./_lib/rateLimit.js";
 import { authorize, requireUserRow } from "./_lib/farm/gate.js";
+import { normalizeAgriosUserId } from "./_lib/agriosId.js";
 import * as ops from "./_lib/farm/spaces.js";
 import * as tasks from "./_lib/farm/tasks.js";
 import * as ops4 from "./_lib/farm/operations.js";
 import * as chat from "./_lib/farm/chat.js";
+
+/* Confirming who a User ID belongs to before sending an invitation. The id
+   space (32^8, no clustering the way a phone number range has) makes blind
+   guessing impractical on its own, but this is rate-limited anyway — the same
+   defense-in-depth every other identity-adjacent endpoint in this app gets,
+   not because a realistic attack is expected to work. */
+async function lookupUser({ sql, user, payload }) {
+  if (await rateLimit({ key: `farm:lookup:${user.id}`, max: 30, windowMs: 3_600_000 })) {
+    throw new HttpError(429, "Too many lookups. Please try again in a while.");
+  }
+  const id = normalizeAgriosUserId(payload?.agriosUserId);
+  if (!id) throw new HttpError(400, "Enter a valid AgriOS User ID");
+  const found = await ops.lookupUserByAgriosId(sql, id);
+  if (!found) throw new HttpError(404, "No AgriOS account has that User ID");
+  return found;
+}
 
 /* The routing table IS the permission model as far as the network is
    concerned. Reading this list should tell you exactly what each action
@@ -33,6 +51,10 @@ const ACTIONS = {
   "invitations.mine":    { space: false, run: ({ sql, user }) => ops.listMyInvitations(sql, user) },
   "invitations.accept":  { space: false, run: ({ sql, user, payload }) => ops.acceptInvitation(sql, user, payload) },
   "invitations.decline": { space: false, run: ({ sql, user, payload }) => ops.declineInvitation(sql, user, payload) },
+  /* Confirming a User ID before inviting — deliberately not space-scoped:
+     the space-scoped permission check happens at members.invite, this step
+     only answers "does this id belong to an account, and whose". */
+  "users.lookup":        { space: false, run: lookupUser },
 
   /* --- space-scoped: gate runs all six steps before these are reached --- */
   "spaces.get":          { permission: "farm.view",             run: ({ membership }) => membership },
@@ -45,10 +67,12 @@ const ACTIONS = {
   "spaces.delete":       { permission: "farm.settings.manage",  run: ({ sql, membership, user }) => ops.deleteSpace(sql, membership, user.id) },
 
   "members.list":        { permission: "farm.members.view",     run: ({ sql, membership }) => ops.listMembers(sql, membership) },
+  "members.pendingInvites": { permission: "farm.members.manage", run: ({ sql, membership }) => ops.listSpaceInvitations(sql, membership) },
   "members.invite":      { permission: "farm.members.manage",   run: ({ sql, membership, user, payload }) => ops.createInvitation(sql, membership, user.id, payload) },
   "members.setRole":     { permission: "farm.members.manage",   run: ({ sql, membership, user, payload }) => ops.setMemberRole(sql, membership, user.id, payload) },
   "members.remove":      { permission: "farm.members.manage",   run: ({ sql, membership, user, payload }) => ops.removeMember(sql, membership, user.id, payload) },
   "members.leave":       { permission: "farm.view",             run: ({ sql, membership, user }) => ops.leaveSpace(sql, membership, user.id) },
+  "invitations.cancel":  { permission: "farm.members.manage",   run: ({ sql, membership, user, payload }) => ops.cancelInvitation(sql, membership, user.id, payload) },
 
   "audit.list":          { permission: "farm.settings.manage",  run: ({ sql, membership, payload }) => ops.listAudit(sql, membership, payload) },
 

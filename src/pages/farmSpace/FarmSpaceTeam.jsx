@@ -32,14 +32,19 @@ export default function FarmSpaceTeam() {
   const { pop, tc, toast } = useApp();
   const [space, setSpace] = useState(null);
   const [members, setMembers] = useState([]);
+  const [pendingInvites, setPendingInvites] = useState([]);
   const [state, setState] = useState("loading");
   const [reason, setReason] = useState(null);
 
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [idInput, setIdInput] = useState("");
+  const [found, setFound] = useState(null);       // { id, name, agrios_user_id } once looked up
+  const [lookupError, setLookupError] = useState("");
+  const [looking, setLooking] = useState(false);
   const [role, setRole] = useState("worker");
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(null);
+  const [confirmCancel, setConfirmCancel] = useState(null);
 
   const load = useCallback(async () => {
     setState("loading");
@@ -48,6 +53,9 @@ export default function FarmSpaceTeam() {
       if (!active) { setState("error"); setReason(FARM_ERROR.NOT_FOUND); return; }
       setSpace(active);
       setMembers(await farmSpaceService.members(active.id));
+      if (farmSpaceService.can(active, "farm.members.manage")) {
+        farmSpaceApi.pendingInvites(active.id).then(setPendingInvites).catch(() => setPendingInvites([]));
+      }
       setState("ready");
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
@@ -59,19 +67,52 @@ export default function FarmSpaceTeam() {
 
   const canManage = farmSpaceService.can(space, "farm.members.manage");
 
+  const resetInvite = () => {
+    setInviteOpen(false); setIdInput(""); setFound(null); setLookupError(""); setRole("worker");
+  };
+
+  /* Step 1: confirm which account the id belongs to. Deliberately a separate
+     tap from "send" — typing a wrong character in an id is easy, and this is
+     the one screen in the app where a mistake means inviting a stranger into
+     a farm's shared work rather than just showing the wrong data. */
+  const findUser = async () => {
+    if (!idInput.trim() || looking) return;
+    setLooking(true); setLookupError(""); setFound(null);
+    try {
+      setFound(await farmSpaceApi.lookupUser(idInput.trim()));
+    } catch (err) {
+      setLookupError(err?.status === 400 || err?.status === 404 ? err.message : farmErrorText(err?.reason, tc));
+    } finally { setLooking(false); }
+  };
+
   const invite = async () => {
-    if (!phone.trim() || busy) return;
+    if (!found || busy) return;
     setBusy(true);
     try {
-      await farmSpaceApi.invite(space.id, { phone: phone.trim(), role });
-      toast(tc({ en: "Invitation sent.", hi: "निमंत्रण भेजा गया।", bn: "আমন্ত্রণ পাঠানো হয়েছে।" }), "success");
-      setInviteOpen(false); setPhone(""); setRole("worker");
+      await farmSpaceApi.invite(space.id, { agriosUserId: found.agrios_user_id, role });
+      toast(tc({ en: `Invitation sent to ${found.name || "them"}.`,
+                 hi: `${found.name || "उन्हें"} को निमंत्रण भेजा गया।`,
+                 bn: `${found.name || "তাঁকে"} আমন্ত্রণ পাঠানো হয়েছে।` }), "success");
+      resetInvite();
+      farmSpaceApi.pendingInvites(space.id).then(setPendingInvites).catch(() => {});
     } catch (err) {
-      /* The server's message is written for a farmer — "that person is already
-         a member", "a phone number is required" — so it is shown as-is rather
-         than flattened into a generic failure. */
-      toast(err?.status === 400 || err?.status === 409 ? err.message : farmErrorText(err?.reason, tc), "error");
+      /* The server's message is written for a farmer — "that person is
+         already a member", "that person already has a pending invitation" —
+         so it is shown as-is rather than flattened into a generic failure. */
+      toast(err?.status === 400 || err?.status === 409 || err?.status === 404 ? err.message : farmErrorText(err?.reason, tc), "error");
     } finally { setBusy(false); }
+  };
+
+  const cancelInvite = async () => {
+    const invite_ = confirmCancel;
+    setConfirmCancel(null);
+    try {
+      await farmSpaceApi.cancelInvitation(space.id, invite_.id);
+      setPendingInvites((list) => list.filter((i) => i.id !== invite_.id));
+      toast(tc({ en: "Invitation cancelled.", hi: "निमंत्रण रद्द किया गया।", bn: "আমন্ত্রণ বাতিল হয়েছে।" }));
+    } catch (err) {
+      toast(farmErrorText(err?.reason, tc), "error");
+    }
   };
 
   const changeRole = async (m, next) => {
@@ -155,6 +196,32 @@ export default function FarmSpaceTeam() {
           ))}
         </Card>
 
+        {canManage && pendingInvites.length > 0 && (
+          <Card pad={0}>
+            <div style={{ padding: "12px 12px 4px", fontSize: 12.5, fontWeight: 600, color: T.inkSoft }}>
+              {tc({ en: "Pending invitations", hi: "लंबित निमंत्रण", bn: "মুলতুবি আমন্ত্রণ" })}
+            </div>
+            {pendingInvites.map((i, idx) => (
+              <div key={i.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px",
+                borderTop: idx ? `1px solid ${T.lineSoft}` : "none" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>
+                    {i.invited_name || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" })}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 1 }}>
+                    {tc(farmSpaceService.roleLabel(i.role))} · {i.agrios_user_id}
+                  </div>
+                </div>
+                <button onClick={() => setConfirmCancel(i)}
+                  aria-label={tc({ en: "Cancel invitation", hi: "निमंत्रण रद्द करें", bn: "আমন্ত্রণ বাতিল করুন" })}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, display: "flex" }}>
+                  <Icon name="UserX" size={16} />
+                </button>
+              </div>
+            ))}
+          </Card>
+        )}
+
         {canManage && members.some((m) => m.role !== "owner") && (
           <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft }}>
@@ -175,23 +242,58 @@ export default function FarmSpaceTeam() {
         )}
       </div>
 
-      <BottomSheet open={inviteOpen} onClose={() => setInviteOpen(false)}
+      <BottomSheet open={inviteOpen} onClose={resetInvite}
         title={tc({ en: "Invite a member", hi: "सदस्य बुलाएँ", bn: "সদস্য ডাকুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <Input label={tc({ en: "Mobile number", hi: "मोबाइल नंबर", bn: "মোবাইল নম্বর" })}
-            placeholder="98765 43210" type="tel" inputMode="numeric" prefix="+91"
-            value={phone} onChange={setPhone} maxLength={13} />
-          <Dropdown label={tc({ en: "Role", hi: "भूमिका", bn: "ভূমিকা" })}
-            value={role} onChange={setRole} options={ROLE_OPTIONS(tc, space.role)} />
-          <div style={{ fontSize: 11.5, color: T.inkFaint, lineHeight: 1.55 }}>
-            {tc({ en: "They'll see this invitation when they sign in to AgriOS with that number. They will only ever see this farm's shared work — never your personal data.",
-                  hi: "उस नंबर से AgriOS में साइन इन करने पर उन्हें यह निमंत्रण दिखेगा। उन्हें केवल इस फ़ार्म का साझा काम दिखेगा — आपका निजी डेटा कभी नहीं।",
-                  bn: "সেই নম্বরে AgriOS-এ সাইন ইন করলে তাঁরা এই আমন্ত্রণ দেখবেন। তাঁরা কেবল এই খামারের ভাগ করা কাজ দেখবেন — আপনার ব্যক্তিগত তথ্য কখনও নয়।" })}
-          </div>
-          <Button full onClick={invite} disabled={busy || !phone.trim()}>
-            {busy ? tc({ en: "Sending…", hi: "भेजा जा रहा है…", bn: "পাঠানো হচ্ছে…" })
-                  : tc({ en: "Send invitation", hi: "निमंत्रण भेजें", bn: "আমন্ত্রণ পাঠান" })}
-          </Button>
+          {!found ? (
+            <>
+              <Input label={tc({ en: "AgriOS User ID", hi: "AgriOS यूज़र आईडी", bn: "AgriOS ইউজার আইডি" })}
+                placeholder="AGRI-8F42K7M9"
+                value={idInput} onChange={(v) => { setIdInput(v); setLookupError(""); }} maxLength={20} />
+              {lookupError && (
+                <div style={{ fontSize: 12.5, color: T.red }}>{lookupError}</div>
+              )}
+              <div style={{ fontSize: 11.5, color: T.inkFaint, lineHeight: 1.55 }}>
+                {tc({ en: "Ask them for their AgriOS User ID — it's on their Profile screen.",
+                      hi: "उनसे उनकी AgriOS यूज़र आईडी माँगें — यह उनकी प्रोफ़ाइल स्क्रीन पर है।",
+                      bn: "তাঁর AgriOS ইউজার আইডি জিজ্ঞাসা করুন — এটি তাঁর প্রোফাইল স্ক্রিনে আছে।" })}
+              </div>
+              <Button full onClick={findUser} disabled={looking || !idInput.trim()}>
+                {looking ? tc({ en: "Finding…", hi: "खोजा जा रहा है…", bn: "খোঁজা হচ্ছে…" })
+                         : tc({ en: "Find", hi: "खोजें", bn: "খুঁজুন" })}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Card style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0, display: "grid", placeItems: "center",
+                  background: T.primarySoft, color: T.primary, fontWeight: 700, fontFamily: T.display }}>
+                  {(found.name || "?").trim().charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: T.ink }}>
+                    {found.name || tc({ en: "AgriOS member", hi: "AgriOS सदस्य", bn: "AgriOS সদস্য" })}
+                  </div>
+                  <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>{found.agrios_user_id}</div>
+                </div>
+                <button onClick={() => { setFound(null); setIdInput(""); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, fontSize: 12, fontWeight: 600, fontFamily: T.body }}>
+                  {tc({ en: "Change", hi: "बदलें", bn: "বদলান" })}
+                </button>
+              </Card>
+              <Dropdown label={tc({ en: "Role", hi: "भूमिका", bn: "ভূমিকা" })}
+                value={role} onChange={setRole} options={ROLE_OPTIONS(tc, space.role)} />
+              <div style={{ fontSize: 11.5, color: T.inkFaint, lineHeight: 1.55 }}>
+                {tc({ en: "They will see this invitation next time they sign in. They will only ever see this farm's shared work — never your personal data.",
+                      hi: "अगली बार साइन इन करने पर उन्हें यह निमंत्रण दिखेगा। उन्हें केवल इस फ़ार्म का साझा काम दिखेगा — आपका निजी डेटा कभी नहीं।",
+                      bn: "পরের বার সাইন ইন করলে তাঁরা এই আমন্ত্রণ দেখবেন। তাঁরা কেবল এই খামারের ভাগ করা কাজ দেখবেন — আপনার ব্যক্তিগত তথ্য কখনও নয়।" })}
+              </div>
+              <Button full onClick={invite} disabled={busy}>
+                {busy ? tc({ en: "Sending…", hi: "भेजा जा रहा है…", bn: "পাঠানো হচ্ছে…" })
+                      : tc({ en: "Send invitation", hi: "निमंत्रण भेजें", bn: "আমন্ত্রণ পাঠান" })}
+              </Button>
+            </>
+          )}
         </div>
       </BottomSheet>
 
@@ -204,6 +306,16 @@ export default function FarmSpaceTeam() {
         confirmLabel={tc({ en: "Remove", hi: "हटाएँ", bn: "সরান" })}
         cancelLabel={tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" })}
         onConfirm={remove} />
+
+      <Dialog open={!!confirmCancel} onClose={() => setConfirmCancel(null)}
+        title={tc({ en: "Cancel this invitation?", hi: "यह निमंत्रण रद्द करें?", bn: "এই আমন্ত্রণ বাতিল করবেন?" })}
+        body={tc({ en: "They will no longer be able to accept it.",
+                   hi: "अब वे इसे स्वीकार नहीं कर पाएँगे।",
+                   bn: "তাঁরা আর এটি গ্রহণ করতে পারবেন না।" })}
+        icon="UserX" danger
+        confirmLabel={tc({ en: "Cancel invitation", hi: "निमंत्रण रद्द करें", bn: "আমন্ত্রণ বাতিল করুন" })}
+        cancelLabel={tc({ en: "Keep it", hi: "रखें", bn: "রাখুন" })}
+        onConfirm={cancelInvite} />
     </>
   );
 }

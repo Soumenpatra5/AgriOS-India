@@ -4,6 +4,7 @@ import Icon from "../../components/Icon.jsx";
 import { Card } from "../index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, onFarmSpaceChanged } from "../../services/farmSpace/farmSpaceService.js";
+import { notificationService } from "../../services/notifications/notificationService.js";
 
 /* The Farm Space entry point on Home.
 
@@ -15,6 +16,31 @@ import { farmSpaceService, onFarmSpaceChanged } from "../../services/farmSpace/f
    Failures are silent here for the same reason: Home must not show an error
    about a feature the user may not even use. The hub, which the user opens
    deliberately, is where a real explanation belongs. */
+
+/* Home is where a farmer lands first, so it is the one place that announces a
+   new invitation — the same seen-once pattern FarmSpaceTasks.jsx uses for new
+   tasks, so returning to a screen that already showed one does not re-alert.
+
+   The first call this session only records what already exists; it never
+   dispatches — otherwise every already-pending invitation would notify on
+   every fresh sign-in, not just ones that arrive from here on. */
+const seen = new Set();
+let announcedFirstLoad = false;
+function announceNew(invitations, tc) {
+  const canDispatch = notificationService.isEnabled?.();
+  for (const i of invitations) {
+    if (seen.has(i.id)) continue;
+    seen.add(i.id);
+    if (announcedFirstLoad && canDispatch) {
+      notificationService.dispatch(
+        tc({ en: "Farm Space invitation", hi: "फ़ार्म स्पेस निमंत्रण", bn: "ফার্ম স্পেস আমন্ত্রণ" }),
+        tc({ en: `Invited to ${i.space_name}`, hi: `${i.space_name} में बुलाया गया`, bn: `${i.space_name}-এ ডাকা হয়েছে` }),
+        `farm-invite-${i.id}`,
+      );
+    }
+  }
+  announcedFirstLoad = true;
+}
 
 export default function FarmSpaceCard() {
   const { push, tc } = useApp();
@@ -33,6 +59,7 @@ export default function FarmSpaceCard() {
         ]);
         if (!alive) return;
         setInvites(invitations.length);
+        announceNew(invitations, tc);
         setSpace(spaces.length ? (await farmSpaceService.active()) ?? spaces[0] : null);
       } catch { /* Home stays quiet — see the note above. */ }
       finally { if (alive) setReady(true); }
@@ -41,7 +68,7 @@ export default function FarmSpaceCard() {
     load();
     const off = onFarmSpaceChanged(load);
     return () => { alive = false; off(); };
-  }, []);
+  }, [tc]);
 
   if (!ready || (!space && !invites)) return null;
 

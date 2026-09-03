@@ -46,6 +46,13 @@ beforeAll(async () => {
   process.env.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
   pglite = await PGlite.create();
   await pglite.exec(await readFile(new URL("../../../supabase/migrations/0001_commerce_foundation.sql", import.meta.url), "utf8"));
+  /* ensureUser() is shared with Farm Space, used at the start of every
+     authenticated request here too, and 0007 touches farm_space_invitations
+     as well as users — so 0002 has to exist first, exactly as it always does
+     in any real environment (0007 has never once run without it already
+     being there). */
+  await pglite.exec(await readFile(new URL("../../../supabase/migrations/0002_farm_space.sql", import.meta.url), "utf8"));
+  await pglite.exec(await readFile(new URL("../../../supabase/migrations/0007_agrios_user_id.sql", import.meta.url), "utf8"));
   // Bind to an OS-assigned ephemeral port (port 0) so parallel vitest workers
   // never collide on a fixed port; getServerConn() reports the resolved host:port.
   server = new PGLiteSocketServer({ db: pglite, port: 0, host: "127.0.0.1" });

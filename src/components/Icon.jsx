@@ -30,6 +30,7 @@ import {
   Container, Gavel, FileSignature, IndianRupee, Route, Fuel, Calendar,
   BrainCircuit, Flame, PackageX, Dot,
   PanelLeftOpen, PanelLeftClose, ToggleLeft, CalendarCheck, GripVertical, GitCompare, Award,
+  Fingerprint, MailOpen, UserPlus, UserX,
 } from "lucide-react";
 
 const REGISTRY = {
@@ -61,6 +62,7 @@ const REGISTRY = {
   Container, Gavel, FileSignature, IndianRupee, Route, Fuel, Calendar,
   BrainCircuit, Flame, PackageX, Dot,
   PanelLeftOpen, PanelLeftClose, ToggleLeft, CalendarCheck, GripVertical, GitCompare, Award,
+  Fingerprint, MailOpen, UserPlus, UserX,
 };
 
 export default function Icon({ name, size = 20, color = "currentColor", strokeWidth = 2, style }) {

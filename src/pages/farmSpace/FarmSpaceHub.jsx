@@ -3,7 +3,7 @@ import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, Button, EmptyState, ErrorState, Spinner, IconTile } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
-import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
+import { farmSpaceService, onFarmSpaceChanged, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 
 /* My Farm Space — the hub.
 
@@ -202,6 +202,8 @@ export default function FarmSpaceHub({ asTab = false }) {
           <SwitchSpace />
         </Card>
 
+        <PendingInviteBanner />
+
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {visible.map((m) => (
             <Card key={m.kind} pad={0}>
@@ -251,5 +253,45 @@ function SwitchSpace() {
         color: T.primary, fontSize: 12.5, fontWeight: 600, fontFamily: T.body, flexShrink: 0 }}>
       {tc({ en: "Switch", hi: "बदलें", bn: "বদলান" })}
     </button>
+  );
+}
+
+/* Reaching a pending invitation used to depend on having NO Farm Space yet —
+   the empty state above offers it, but someone who already belongs to one
+   and receives a second invitation had no way in at all. This is the fix:
+   shown whenever there is something waiting, regardless of what else the hub
+   is showing. */
+function PendingInviteBanner() {
+  const { push, tc } = useApp();
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    const load = () => farmSpaceService.invitations().then((i) => { if (alive) setCount(i.length); }).catch(() => {});
+    load();
+    const off = onFarmSpaceChanged(load);
+    return () => { alive = false; off(); };
+  }, []);
+
+  if (!count) return null;
+  return (
+    <Card pad={0}>
+      <button onClick={() => push({ kind: "farmSpaceInvites" })}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "13px 12px",
+          background: "none", border: "none", cursor: "pointer", fontFamily: T.body, textAlign: "left" }}>
+        <IconTile name="MailOpen" accent="orange" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>
+            {tc({ en: count > 1 ? `${count} farm invitations` : "You've been invited to a farm",
+                  hi: count > 1 ? `${count} फ़ार्म निमंत्रण` : "आपको एक फ़ार्म में बुलाया गया है",
+                  bn: count > 1 ? `${count}টি খামার আমন্ত্রণ` : "আপনাকে একটি খামারে ডাকা হয়েছে" })}
+          </div>
+          <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
+            {tc({ en: "Tap to accept or decline", hi: "स्वीकारने या मना करने के लिए टैप करें", bn: "গ্রহণ বা প্রত্যাখ্যান করতে ট্যাপ করুন" })}
+          </div>
+        </div>
+        <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
+      </button>
+    </Card>
   );
 }

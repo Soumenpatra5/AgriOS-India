@@ -25,9 +25,11 @@ import {
 import {
   createSpace, updateSpace, archiveSpace, listSpaces,
   listMembers, setMemberRole, removeMember, leaveSpace,
-  createInvitation, acceptInvitation, listMyInvitations, listAudit,
+  createInvitation, acceptInvitation, declineInvitation, cancelInvitation,
+  listMyInvitations, listSpaceInvitations, lookupUserByAgriosId, listAudit,
 } from "../farm/spaces.js";
 import { memberCan, canAssignRole, scopeForRole } from "../farm/permissions.js";
+import { generateAgriosUserId } from "../agriosId.js";
 
 let db, sql;
 
@@ -61,20 +63,27 @@ function makeSql(pg) {
 
 const m0001 = new URL("../../../supabase/migrations/0001_commerce_foundation.sql", import.meta.url);
 const m0002 = new URL("../../../supabase/migrations/0002_farm_space.sql", import.meta.url);
+const m0007 = new URL("../../../supabase/migrations/0007_agrios_user_id.sql", import.meta.url);
+const m0008 = new URL("../../../supabase/migrations/0008_invitation_by_user_id.sql", import.meta.url);
 
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(await readFile(m0001, "utf8"));
   await db.exec(await readFile(m0002, "utf8"));
+  await db.exec(await readFile(m0007, "utf8"));
+  await db.exec(await readFile(m0008, "utf8"));
   sql = makeSql(db);
 }, 40000);
 
 let A, B, W, O, farmA, farmB, memA, memB, memW;
 
+/* agrios_user_id is NOT NULL — real ensureUser() generates it, so the seed
+   does the same here rather than leaving the column to a migration default
+   that does not exist. */
 async function seedUser(uid, phone, name = uid) {
   const r = await db.query(
-    `insert into users (firebase_uid, phone, name) values ($1,$2,$3) returning *`,
-    [uid, phone, name],
+    `insert into users (firebase_uid, phone, name, agrios_user_id) values ($1,$2,$3,$4) returning *`,
+    [uid, phone, name, generateAgriosUserId()],
   );
   return r.rows[0];
 }
@@ -295,27 +304,48 @@ describe("membership lifecycle", () => {
 
 describe("invitations", () => {
   it("only reaches the invited person, and lets them join", async () => {
-    await createInvitation(sql, memA, A.id, { phone: "9000000004", role: "worker" });
+    await createInvitation(sql, memA, A.id, { agriosUserId: O.agrios_user_id, role: "worker" });
 
     expect(await listMyInvitations(sql, B), "not addressed to B").toEqual([]);
     const mine = await listMyInvitations(sql, O);
     expect(mine).toHaveLength(1);
     expect(mine[0].space_name).toBe("AgriOS Farm");
+    expect(mine[0].invited_by_name).toBe("Soumen");
 
     await acceptInvitation(sql, O, { invitationId: mine[0].id });
     const m = await requireMembership(sql, O.id, farmA.id);
     expect(m.role).toBe("worker");
   });
 
-  it("cannot be accepted by someone it was not addressed to", async () => {
-    await createInvitation(sql, memA, A.id, { phone: "9000000004", role: "worker" });
+  it("cannot be accepted or declined by someone it was not addressed to", async () => {
+    await createInvitation(sql, memA, A.id, { agriosUserId: O.agrios_user_id, role: "worker" });
     const [invite] = await sql`select id from farm_space_invitations limit 1`;
 
     /* B holds a real account and a real invitation id — and still cannot use
-       it, because acceptance is matched on the invitee's own contact details
-       rather than on possession of the id. */
+       it, because acceptance is matched on the invitee's own account id
+       rather than on possession of the invitation id. */
     expect(await statusOf(() => acceptInvitation(sql, B, { invitationId: invite.id }))).toBe(404);
+    expect(await statusOf(() => declineInvitation(sql, B, { invitationId: invite.id }))).toBe(404);
     expect(await statusOf(() => requireMembership(sql, B.id, farmA.id))).toBe(404);
+  });
+
+  it("the recipient can decline, and it can no longer be accepted afterward", async () => {
+    await createInvitation(sql, memA, A.id, { agriosUserId: O.agrios_user_id, role: "worker" });
+    const [mine] = await listMyInvitations(sql, O);
+
+    await declineInvitation(sql, O, { invitationId: mine.id });
+    expect(await listMyInvitations(sql, O)).toEqual([]);
+    expect(await statusOf(() => acceptInvitation(sql, O, { invitationId: mine.id }))).toBe(404);
+    expect(await statusOf(() => requireMembership(sql, O.id, farmA.id))).toBe(404);
+  });
+
+  it("an expired invitation is neither visible nor acceptable", async () => {
+    await createInvitation(sql, memA, A.id, { agriosUserId: O.agrios_user_id, role: "worker" });
+    await db.query(`update farm_space_invitations set expires_at = now() - interval '1 day'`);
+
+    expect(await listMyInvitations(sql, O), "an expired invite must not appear as pending").toEqual([]);
+    const [invite] = await sql`select id from farm_space_invitations`;
+    expect(await statusOf(() => acceptInvitation(sql, O, { invitationId: invite.id }))).toBe(404);
   });
 
   it("refuses to invite above the inviter's own role", async () => {
@@ -323,34 +353,78 @@ describe("invitations", () => {
       [farmA.id, W.id]);
     const managerW = await requireMembership(sql, W.id, farmA.id);
 
-    expect(await statusOf(() => createInvitation(sql, managerW, W.id, { phone: "9000000004", role: "manager" }))).toBe(403);
-    expect(await statusOf(() => createInvitation(sql, managerW, W.id, { phone: "9000000004", role: "owner" }))).toBe(400);
+    expect(await statusOf(() => createInvitation(sql, managerW, W.id, { agriosUserId: O.agrios_user_id, role: "manager" }))).toBe(403);
+    expect(await statusOf(() => createInvitation(sql, managerW, W.id, { agriosUserId: O.agrios_user_id, role: "owner" }))).toBe(400);
   });
 
-  it("refuses an email-only invitation rather than silently never delivering it", async () => {
-    /* users has no email column, so such an invitation could be created but
-       never matched or accepted. It must fail at invite time, loudly. */
-    expect(await statusOf(() => createInvitation(sql, memA, A.id,
-      { email: "someone@example.com", role: "worker" }))).toBe(400);
+  it("refuses a User ID that no account has, rather than creating an unreachable invitation", async () => {
+    expect(await statusOf(() => createInvitation(sql, memA, A.id, { agriosUserId: "AGRI-00000000", role: "worker" }))).toBe(404);
     expect(await sql`select * from farm_space_invitations`).toEqual([]);
   });
-  it("rejects an invitation with no usable contact", async () => {
-    expect(await statusOf(() => createInvitation(sql, memA, A.id, { phone: "123", role: "worker" }))).toBe(400);
+
+  it("rejects an invitation with no usable AgriOS User ID", async () => {
+    expect(await statusOf(() => createInvitation(sql, memA, A.id, { agriosUserId: "not-an-id", role: "worker" }))).toBe(400);
     expect(await statusOf(() => createInvitation(sql, memA, A.id, {}))).toBe(400);
   });
 
+  it("refuses to let someone invite themselves", async () => {
+    expect(await statusOf(() => createInvitation(sql, memA, A.id, { agriosUserId: A.agrios_user_id, role: "worker" }))).toBe(400);
+  });
+
   it("will not invite someone who is already a member", async () => {
-    expect(await statusOf(() => createInvitation(sql, memA, A.id, { phone: "9000000003", role: "worker" }))).toBe(409);
+    expect(await statusOf(() => createInvitation(sql, memA, A.id, { agriosUserId: W.agrios_user_id, role: "worker" }))).toBe(409);
+  });
+
+  it("will not create a second pending invitation for the same person", async () => {
+    await createInvitation(sql, memA, A.id, { agriosUserId: O.agrios_user_id, role: "worker" });
+    expect(await statusOf(() => createInvitation(sql, memA, A.id, { agriosUserId: O.agrios_user_id, role: "manager" }))).toBe(409);
   });
 
   it("lets a previously removed member rejoin", async () => {
     await removeMember(sql, memA, A.id, { userId: W.id });
-    await createInvitation(sql, memA, A.id, { phone: "9000000003", role: "supervisor" });
+    await createInvitation(sql, memA, A.id, { agriosUserId: W.agrios_user_id, role: "supervisor" });
     const [mine] = await listMyInvitations(sql, W);
 
     await acceptInvitation(sql, W, { invitationId: mine.id });
     const back = await requireMembership(sql, W.id, farmA.id);
     expect(back.role, "rejoins at the invited role").toBe("supervisor");
+  });
+
+  it("lookupUserByAgriosId returns only a name and id, or nothing at all", async () => {
+    const found = await lookupUserByAgriosId(sql, O.agrios_user_id);
+    expect(found).toEqual({ id: O.id, name: "Outsider", agrios_user_id: O.agrios_user_id });
+    expect(await lookupUserByAgriosId(sql, "AGRI-00000000")).toBeNull();
+  });
+
+  it("the inviter can cancel a pending invitation, and it can no longer be accepted", async () => {
+    await createInvitation(sql, memA, A.id, { agriosUserId: O.agrios_user_id, role: "worker" });
+    const [mine] = await listMyInvitations(sql, O);
+
+    await cancelInvitation(sql, memA, A.id, { invitationId: mine.id });
+    expect(await listMyInvitations(sql, O)).toEqual([]);
+    expect(await statusOf(() => acceptInvitation(sql, O, { invitationId: mine.id }))).toBe(404);
+  });
+
+  it("listSpaceInvitations shows the sender's pending invites, not accepted or cancelled ones", async () => {
+    await createInvitation(sql, memA, A.id, { agriosUserId: O.agrios_user_id, role: "worker" });
+    await createInvitation(sql, memA, A.id, { agriosUserId: B.agrios_user_id, role: "manager" });
+
+    const [forO] = await listMyInvitations(sql, O);
+    await acceptInvitation(sql, O, { invitationId: forO.id });
+
+    const pending = await listSpaceInvitations(sql, memA);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].invited_name).toBe("Priya");
+    expect(pending[0].role).toBe("manager");
+  });
+
+  it("cannot cancel an invitation belonging to a different Farm Space", async () => {
+    await createInvitation(sql, memB, B.id, { agriosUserId: O.agrios_user_id, role: "worker" });
+    const [inviteB] = await sql`select id from farm_space_invitations`;
+
+    /* memA is a real, authorized membership — just of the wrong space. The
+       same requireScope() every other handler uses is what stops this. */
+    expect(await statusOf(() => cancelInvitation(sql, memA, A.id, { invitationId: inviteB.id }))).toBe(404);
   });
 });
 
@@ -358,7 +432,7 @@ describe("invitations", () => {
 
 describe("audit trail", () => {
   it("records membership and settings changes, scoped to the space", async () => {
-    await createInvitation(sql, memA, A.id, { phone: "9000000004", role: "worker" });
+    await createInvitation(sql, memA, A.id, { agriosUserId: O.agrios_user_id, role: "worker" });
     await setMemberRole(sql, memA, A.id, { userId: W.id, role: "supervisor" });
     await updateSpace(sql, memA, A.id, { name: "AgriOS Farm 2" });
 

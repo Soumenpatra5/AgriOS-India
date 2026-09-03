@@ -6,6 +6,8 @@ import { PROFILE_ITEMS } from "../constants/content.js";
 import { initials } from "../utils/format.js";
 import { useState, useEffect } from "react";
 import { pendingSyncCount, flushNow } from "../services/firebase/syncManager.js";
+import { commerceApi } from "../services/commerce/commerceApi.js";
+import { shareText } from "../utils/share.js";
 import AccessModeCard from "../components/AccessModeCard.jsx";
 
 /* Cheap env check — avoids importing firebase/config (and the Firestore SDK)
@@ -25,7 +27,7 @@ const PROVIDER_LABELS = {
 const OWNER_ONLY_ITEMS = new Set(["subscription", "payments", "documents"]);
 
 export default function Profile() {
-  const { t, tc, user, push, logout, toast, can } = useApp();
+  const { t, tc, user, push, logout, toast, can, updateUser } = useApp();
   const online = useOnline();
   const [confirm, setConfirm] = useState(false);
   const [pending, setPending] = useState(0);
@@ -37,6 +39,25 @@ export default function Profile() {
     pendingSyncCount().then((n) => { if (alive) setPending(n); });
     return () => { alive = false; };
   }, []);
+
+  /* The AgriOS User ID lives in Postgres (ensureUser's row), not in the
+     Firebase user object AppStore otherwise builds `user` from — so it is
+     fetched once, lazily, only when this screen is actually opened and only
+     if not already known, rather than adding a network call to every login. */
+  useEffect(() => {
+    if (!fbEnabled || user?.agrios_user_id || !online) return;
+    let alive = true;
+    commerceApi.me().then((data) => {
+      if (alive && data?.user?.agrios_user_id) updateUser({ agrios_user_id: data.user.agrios_user_id });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [user?.agrios_user_id, online, updateUser]);
+
+  const copyUserId = async () => {
+    if (!user?.agrios_user_id) return;
+    const r = await shareText(user.agrios_user_id, "My AgriOS User ID");
+    if (r === "copied") toast(tc({ en: "Copied!", hi: "कॉपी हो गया!", bn: "কপি হয়েছে!" }), "success");
+  };
 
   const retrySync = async () => {
     if (!online) { toast(tc({ en: "Still offline", hi: "अभी भी ऑफ़लाइन", bn: "এখনও অফলাইন" }), "info"); return; }
@@ -98,6 +119,32 @@ export default function Profile() {
           </div>
           <button onClick={() => tap("farm")} style={{ background: T.surface2, border: "none", borderRadius: 12, padding: "8px 10px", cursor: "pointer", color: T.primary, fontSize: 12.5, fontWeight: 600, fontFamily: T.body }}>{tc({ en: "Edit", hi: "बदलें", bn: "সম্পাদনা" })}</button>
         </Card>
+
+        {/* AgriOS User ID — the permanent id someone shares to be invited to a
+            Farm Space by. Shown only once known; nothing breaks while it is
+            still loading, it simply is not here yet. */}
+        {user?.agrios_user_id && (
+          <Card style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: "grid", placeItems: "center",
+              background: T.primarySoft, color: T.primary }}>
+              <Icon name="Fingerprint" size={18} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11.5, color: T.inkSoft }}>
+                {tc({ en: "AgriOS User ID", hi: "AgriOS यूज़र आईडी", bn: "AgriOS ইউজার আইডি" })}
+              </div>
+              <div style={{ fontFamily: T.display, fontSize: 15.5, fontWeight: 700, color: T.ink, letterSpacing: .3, marginTop: 1 }}>
+                {user.agrios_user_id}
+              </div>
+            </div>
+            <button onClick={copyUserId}
+              aria-label={tc({ en: "Copy User ID", hi: "यूज़र आईडी कॉपी करें", bn: "ইউজার আইডি কপি করুন" })}
+              style={{ background: T.surface2, border: "none", borderRadius: 12, padding: "8px 10px", cursor: "pointer",
+                color: T.primary, fontSize: 12.5, fontWeight: 600, fontFamily: T.body, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              <Icon name="Copy" size={14} /> {tc({ en: "Copy", hi: "कॉपी", bn: "কপি" })}
+            </button>
+          </Card>
+        )}
 
         {/* sync status */}
         {fbEnabled && (pending > 0 || !online) && (
