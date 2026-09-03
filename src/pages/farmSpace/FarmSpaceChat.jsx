@@ -146,7 +146,11 @@ export default function FarmSpaceChat() {
     <>
       <AppBar title={title} onBack={pop} />
 
-      <div style={{ padding: "8px 16px 96px", display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* Bottom padding clears the composer, which itself now sits 76px above
+         the bottom nav (see the composer below) — so this is the original
+         composer clearance plus that same 76px, not just the composer's own
+         height. */}
+      <div style={{ padding: "8px 16px calc(172px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 8 }}>
         {!messages.length && !pending.length && (
           <div style={{ padding: "40px 20px", textAlign: "center", color: T.inkSoft, fontSize: 13.5, lineHeight: 1.6 }}>
             {tc({ en: "No messages yet. Anything you write here is seen by everyone in this Farm Space — and by nobody outside it.",
@@ -174,9 +178,15 @@ export default function FarmSpaceChat() {
         <div ref={bottomRef} />
       </div>
 
-      {/* composer */}
-      <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, background: T.surface,
-        borderTop: `1px solid ${T.line}`, padding: "10px 12px calc(10px + env(safe-area-inset-bottom))",
+      {/* composer — the bottom nav is always rendered (ScreenRouter.jsx) and
+         sits at bottom:0 with z-index:30, so a composer positioned the same
+         way is not just behind it visually but literally unclickable there:
+         it must clear the nav's own height instead. 76px is the value this
+         app already uses for that (UpdateBanner.jsx positions the same way,
+         above the same bar). */}
+      <div style={{ position: "fixed", left: 0, right: 0, bottom: "calc(76px + env(safe-area-inset-bottom))",
+        zIndex: 20, background: T.surface,
+        borderTop: `1px solid ${T.line}`, padding: "10px 12px",
         display: "flex", gap: 9, alignItems: "flex-end" }}>
         <textarea
           value={draft}
