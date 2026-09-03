@@ -287,7 +287,7 @@ function CreateSheet({ open, space, tc, toast, onClose, onCreated }) {
 
   useEffect(() => {
     if (!open || !space) return;
-    farmSpaceApi.listMembers(space.id).then(setMembers).catch(() => setMembers([]));
+    farmSpaceService.members(space.id).then(setMembers).catch(() => setMembers([]));
   }, [open, space]);
 
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));

@@ -54,7 +54,7 @@ export default function FarmSpaceAttendance() {
 
       /* Only a manager needs the roster, and only they are allowed it. */
       if (farmSpaceService.can(active, "farm.attendance.manage")) {
-        farmSpaceApi.listMembers(active.id).then(setMembers).catch(() => setMembers([]));
+        farmSpaceService.members(active.id).then(setMembers).catch(() => setMembers([]));
       }
       setState("ready");
     } catch (err) {

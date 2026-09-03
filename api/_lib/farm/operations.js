@@ -128,23 +128,27 @@ export async function attendanceSummary(sql, membership, { date = null } = {}) {
   const { scope, userId } = visibilityFor(membership, "attendance");
   const d = date && isDate(date) ? date : today();
 
+  /* The member count used to be a second round trip. It has no correlation to
+     the attendance rows above it, so Postgres computes it once (an InitPlan)
+     rather than per row — folding it in here removes a whole request, not
+     just a line of code. */
   const [row] = await sql`
     select
       count(*) filter (where status = 'present')::int  as present,
       count(*) filter (where status = 'absent')::int   as absent,
       count(*) filter (where status = 'leave')::int    as on_leave,
-      count(*) filter (where status = 'half_day')::int as half_day
+      count(*) filter (where status = 'half_day')::int as half_day,
+      case when ${scope}::text = 'all'
+        then (select count(*)::int from farm_space_memberships
+               where space_id = ${membership.space_id} and status = 'active')
+        else 1
+      end as members
     from farm_attendance
     where space_id = ${membership.space_id}
       and date = ${d}::date
       and (${scope}::text = 'all' or user_id = ${userId})`;
 
-  const [members] = scope === "all"
-    ? await sql`select count(*)::int as n from farm_space_memberships
-                 where space_id = ${membership.space_id} and status = 'active'`
-    : [{ n: 1 }];
-
-  return { ...row, members: members.n, date: d };
+  return { ...row, date: d };
 }
 
 /* ── announcements ────────────────────────────────────────────────────────── */

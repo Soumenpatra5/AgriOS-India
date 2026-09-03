@@ -43,7 +43,7 @@ export default function FarmSpaceSettings() {
         description: active.description || "",
         location: active.location || "",
       });
-      setMembers(await farmSpaceApi.listMembers(active.id).catch(() => []));
+      setMembers(await farmSpaceService.members(active.id).catch(() => []));
       setState("ready");
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
@@ -61,16 +61,21 @@ export default function FarmSpaceSettings() {
     "error",
   );
 
+  /* Each of these already gets back exactly what changed — updateSpace and
+     archiveSpace `returning *` the updated row — so the cache is patched with
+     that response directly instead of paying for a full spaces.list round
+     trip just to learn what the mutation itself already told us. */
   const save = async () => {
     if (!form.name.trim() || saving) return;
     setSaving(true);
     try {
-      await farmSpaceApi.updateSpace(space.id, {
+      const updated = await farmSpaceApi.updateSpace(space.id, {
         name: form.name.trim(),
         description: form.description.trim(),
         location: form.location.trim(),
       });
-      await farmSpaceService.spaces({ fresh: true });
+      farmSpaceService.patchSpace(space.id, updated);
+      setSpace((s) => ({ ...s, ...updated }));
       toast(tc({ en: "Saved.", hi: "सहेजा गया।", bn: "সংরক্ষিত হয়েছে।" }), "success");
     } catch (err) { say(err); } finally { setSaving(false); }
   };
@@ -78,8 +83,8 @@ export default function FarmSpaceSettings() {
   const archive = async () => {
     setConfirm(null);
     try {
-      await farmSpaceApi.archiveSpace(space.id);
-      await farmSpaceService.spaces({ fresh: true });
+      const updated = await farmSpaceApi.archiveSpace(space.id);
+      farmSpaceService.patchSpace(space.id, updated);
       toast(tc({ en: "Farm Space archived.", hi: "फ़ार्म स्पेस संग्रहित।", bn: "ফার্ম স্পেস আর্কাইভ হয়েছে।" }));
       pop();
     } catch (err) { say(err); }
@@ -89,7 +94,10 @@ export default function FarmSpaceSettings() {
     setConfirm(null);
     try {
       await farmSpaceApi.transferOwnership(space.id, transferTo);
-      await farmSpaceService.spaces({ fresh: true });
+      /* The response is just the space row (owner_user_id) — the field that
+         matters for THIS user, their own role dropping to manager, is known
+         locally without needing it echoed back. */
+      farmSpaceService.patchSpace(space.id, { owner_user_id: transferTo, role: "manager" });
       const who = members.find((m) => m.user_id === transferTo);
       toast(tc({ en: `${who?.name || "They"} is now the owner. You are a manager.`,
                  hi: `${who?.name || "वे"} अब मालिक हैं। आप प्रबंधक हैं।`,
@@ -102,8 +110,8 @@ export default function FarmSpaceSettings() {
     setDeleteOpen(false);
     try {
       await farmSpaceApi.deleteSpace(space.id);
+      farmSpaceService.removeSpaceFromCache(space.id);
       farmSpaceService.setActive(null);
-      await farmSpaceService.spaces({ fresh: true });
       toast(tc({ en: "Farm Space deleted.", hi: "फ़ार्म स्पेस हटा दिया गया।", bn: "ফার্ম স্পেস মুছে ফেলা হয়েছে।" }));
       pop(); pop();
     } catch (err) { say(err); }

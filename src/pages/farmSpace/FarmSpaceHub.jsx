@@ -81,22 +81,55 @@ export default function FarmSpaceHub({ asTab = false }) {
   const [state, setState] = useState("loading");   // loading | ready | error | none
   const [reason, setReason] = useState(null);
 
+  /* Resolves an already-fetched spaces list to what the hub should show,
+     without deciding what to DO about ambiguity — that is load()'s call,
+     because it depends on whether this list is the trusted server answer or
+     just what a cache happened to remember. */
+  const resolve = useCallback(async (spaces) => {
+    if (!spaces.length) return { kind: "none" };
+    const active = await farmSpaceService.active();
+    return active ? { kind: "ready", space: active } : { kind: "ambiguous" };
+  }, []);
+
+  /* Cache-first: if the hub (or the picker, or the Home card) already fetched
+     the space list this session, paint it immediately — a farmer switching
+     from Tasks back to the hub should not wait on a network round trip to see
+     something they were just looking at seconds ago. A background request
+     still confirms it against the server, silently, so the screen catches up
+     if something changed elsewhere; only the FIRST load of the session (no
+     cache yet) is allowed to show a spinner or an error. */
   const load = useCallback(async () => {
-    setState("loading");
+    const cached = farmSpaceService.peekSpaces();
+    let paintedFromCache = false;
+
+    if (cached) {
+      const result = await resolve(cached);
+      if (result.kind === "ready") {
+        setSpace(result.space); setState("ready"); paintedFromCache = true;
+      } else if (result.kind === "none") {
+        setState("none"); paintedFromCache = true;
+      }
+      /* "ambiguous" (more than one space, none chosen) is not painted from a
+         cache — whether to send the farmer to the picker is decided from the
+         server's current truth below, never from a list that might be stale. */
+    }
+    if (!paintedFromCache) setState("loading");
+
     try {
       const spaces = await farmSpaceService.spaces({ fresh: true });
-      if (!spaces.length) { setState("none"); return; }
-      const active = await farmSpaceService.active();
-      /* More than one space and none chosen: ask, rather than guessing — data
-         must never leak between spaces, including by picking the wrong one. */
-      if (!active) { push({ kind: "farmSpacePicker" }); setState("none"); return; }
-      setSpace(active);
-      setState("ready");
+      const result = await resolve(spaces);
+      if (result.kind === "ready") { setSpace(result.space); setState("ready"); }
+      else if (result.kind === "none") { setState("none"); }
+      else { push({ kind: "farmSpacePicker" }); setState("none"); }
     } catch (err) {
-      setReason(err?.reason || FARM_ERROR.FAILED);
-      setState("error");
+      /* A failed background refresh must not tear down a screen that was
+         already showing something correct a moment ago. */
+      if (!paintedFromCache) {
+        setReason(err?.reason || FARM_ERROR.FAILED);
+        setState("error");
+      }
     }
-  }, [push]);
+  }, [push, resolve]);
 
   useEffect(() => { load(); }, [load]);
 

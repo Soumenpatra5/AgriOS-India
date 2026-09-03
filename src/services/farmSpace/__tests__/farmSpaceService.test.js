@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const api = {
   listSpaces: vi.fn(),
+  listMembers: vi.fn(),
   myInvitations: vi.fn(),
   acceptInvitation: vi.fn(),
   declineInvitation: vi.fn(),
@@ -113,6 +114,109 @@ describe("caching", () => {
     expect(farmSpaceService.activeId()).toBeNull();
     await farmSpaceService.spaces();
     expect(api.listSpaces, "cache was dropped").toHaveBeenCalledTimes(2);
+  });
+
+  it("shares one in-flight request across concurrent callers, fresh or not", async () => {
+    /* The hub and its own SwitchSpace child both ask for the list on mount.
+       On a cold cache that used to mean two identical requests racing —
+       this is what stops it. */
+    let resolveApi;
+    api.listSpaces.mockReturnValue(new Promise((r) => { resolveApi = r; }));
+
+    const p1 = farmSpaceService.spaces();
+    const p2 = farmSpaceService.spaces({ fresh: true });
+    resolveApi([space()]);
+    const [a, b] = await Promise.all([p1, p2]);
+
+    expect(a).toEqual(b);
+    expect(api.listSpaces).toHaveBeenCalledTimes(1);
+  });
+
+  it("peekSpaces reads the cache without ever fetching", async () => {
+    expect(farmSpaceService.peekSpaces()).toBeNull();
+    api.listSpaces.mockResolvedValue([space()]);
+    await farmSpaceService.spaces();
+    expect(farmSpaceService.peekSpaces()).toHaveLength(1);
+    expect(api.listSpaces).toHaveBeenCalledTimes(1);
+  });
+
+  it("patchSpace applies a mutation's own response without a refetch", async () => {
+    api.listSpaces.mockResolvedValue([space()]);
+    await farmSpaceService.spaces();
+
+    farmSpaceService.patchSpace("space-a", { name: "Renamed Farm" });
+    expect(farmSpaceService.peekSpaces()[0].name).toBe("Renamed Farm");
+    expect(api.listSpaces, "no round trip was needed to learn this").toHaveBeenCalledTimes(1);
+  });
+
+  it("removeSpaceFromCache drops a deleted space locally", async () => {
+    api.listSpaces.mockResolvedValue([space(), space({ id: "space-b" })]);
+    await farmSpaceService.spaces();
+
+    farmSpaceService.removeSpaceFromCache("space-b");
+    expect(farmSpaceService.peekSpaces().map((s) => s.id)).toEqual(["space-a"]);
+  });
+});
+
+describe("members cache", () => {
+  const roster = () => [{ user_id: "u1", role: "worker", name: "Bijoy" }];
+
+  it("serves repeat reads from cache, kept separately per space", async () => {
+    api.listMembers.mockResolvedValue(roster());
+    await farmSpaceService.members("space-a");
+    await farmSpaceService.members("space-a");
+    expect(api.listMembers).toHaveBeenCalledTimes(1);
+
+    await farmSpaceService.members("space-b");
+    expect(api.listMembers, "a different space is not the same cache entry").toHaveBeenCalledTimes(2);
+  });
+
+  it("shares one in-flight request per space", async () => {
+    /* Team, the task-creation sheet and Settings can all mount around the
+       same time and each used to fire their own listMembers call. */
+    let resolveApi;
+    api.listMembers.mockReturnValue(new Promise((r) => { resolveApi = r; }));
+
+    const p1 = farmSpaceService.members("space-a");
+    const p2 = farmSpaceService.members("space-a");
+    resolveApi(roster());
+    await Promise.all([p1, p2]);
+
+    expect(api.listMembers).toHaveBeenCalledTimes(1);
+  });
+
+  it("patchMember updates one row without a refetch", async () => {
+    api.listMembers.mockResolvedValue(roster());
+    await farmSpaceService.members("space-a");
+
+    farmSpaceService.patchMember("space-a", "u1", { role: "manager" });
+    expect(farmSpaceService.peekMembers("space-a")[0].role).toBe("manager");
+    expect(api.listMembers).toHaveBeenCalledTimes(1);
+  });
+
+  it("removeMemberFromCache drops a removed member", async () => {
+    api.listMembers.mockResolvedValue(roster());
+    await farmSpaceService.members("space-a");
+
+    farmSpaceService.removeMemberFromCache("space-a", "u1");
+    expect(farmSpaceService.peekMembers("space-a")).toEqual([]);
+  });
+
+  it("invalidateMembers forces the next read back to the network", async () => {
+    api.listMembers.mockResolvedValue(roster());
+    await farmSpaceService.members("space-a");
+
+    farmSpaceService.invalidateMembers("space-a");
+    expect(farmSpaceService.peekMembers("space-a")).toBeNull();
+    await farmSpaceService.members("space-a");
+    expect(api.listMembers).toHaveBeenCalledTimes(2);
+  });
+
+  it("reset clears the member cache too", async () => {
+    api.listMembers.mockResolvedValue(roster());
+    await farmSpaceService.members("space-a");
+    farmSpaceService.reset();
+    expect(farmSpaceService.peekMembers("space-a")).toBeNull();
   });
 });
 

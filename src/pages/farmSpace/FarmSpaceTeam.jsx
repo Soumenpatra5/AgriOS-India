@@ -47,7 +47,7 @@ export default function FarmSpaceTeam() {
       const active = await farmSpaceService.active();
       if (!active) { setState("error"); setReason(FARM_ERROR.NOT_FOUND); return; }
       setSpace(active);
-      setMembers(await farmSpaceApi.listMembers(active.id));
+      setMembers(await farmSpaceService.members(active.id));
       setState("ready");
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
@@ -78,6 +78,7 @@ export default function FarmSpaceTeam() {
     try {
       await farmSpaceApi.setMemberRole(space.id, m.user_id, next);
       setMembers((list) => list.map((x) => (x.user_id === m.user_id ? { ...x, role: next } : x)));
+      farmSpaceService.patchMember(space.id, m.user_id, { role: next });
     } catch (err) {
       toast(err?.status === 403 || err?.status === 409 ? err.message : farmErrorText(err?.reason, tc), "error");
     }
@@ -89,6 +90,7 @@ export default function FarmSpaceTeam() {
     try {
       await farmSpaceApi.removeMember(space.id, m.user_id);
       setMembers((list) => list.filter((x) => x.user_id !== m.user_id));
+      farmSpaceService.removeMemberFromCache(space.id, m.user_id);
       toast(tc({ en: `${m.name || "Member"} removed.`, hi: `${m.name || "सदस्य"} हटाया गया।`, bn: `${m.name || "সদস্য"} সরানো হয়েছে।` }));
     } catch (err) {
       toast(err?.status === 409 ? err.message : farmErrorText(err?.reason, tc), "error");
