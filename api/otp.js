@@ -98,7 +98,7 @@ const ACTIONS = {
   "otp.request": ({ sql, req, payload }) => issue(sql, req, payload),
   "otp.resend":  ({ sql, req, payload }) => issue(sql, req, payload),
 
-  async "otp.verify"({ sql, payload }) {
+  async "otp.verify"({ sql, req, payload }) {
     const { phone } = await verifyChallenge(sql, payload);
 
     if (!customTokenConfigured()) {
@@ -109,7 +109,8 @@ const ACTIONS = {
        up with Google and now signs in by WhatsApp must land in the same
        AgriOS account, not a second one. */
     const { uid, isNew } = await resolveUidForPhone(sql, phone);
-    const customToken = await mintCustomToken(uid, { phone_number: toE164(phone) });
+    /* req carries the x-vercel-oidc-token header the signer needs. */
+    const customToken = await mintCustomToken(uid, { phone_number: toE164(phone) }, req);
 
     console.log(`firebase_session_success new=${isNew} phone=${forLog(phone)}`);
     /* isNew tells the client whether to collect a name, nothing more. It is

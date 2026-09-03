@@ -50,14 +50,18 @@ export function customTokenConfigured() {
 
 /* ── federation ───────────────────────────────────────────────────────────── */
 
-/* Vercel injects a fresh OIDC token per invocation once federation is enabled
-   on the project. Its absence means the project setting is off, which is a
-   configuration problem rather than a runtime one. */
-function vercelOidcToken() {
-  const token = env("VERCEL_OIDC_TOKEN");
+/* Where Vercel puts the OIDC token depends on where the code is running, and
+   getting this wrong looks exactly like "federation is not switched on":
+
+     - inside a FUNCTION it arrives as the x-vercel-oidc-token REQUEST HEADER
+     - during builds and in local dev it is the VERCEL_OIDC_TOKEN env var
+
+   This reads the header first and falls back to the variable, so the same code
+   works in a deployed function and on a developer's machine. */
+export function oidcTokenFrom(req) {
+  const header = req?.headers?.["x-vercel-oidc-token"];
+  const token = (Array.isArray(header) ? header[0] : header) || env("VERCEL_OIDC_TOKEN");
   if (!token) {
-    /* Vercel injects this per invocation once OIDC Federation is enabled on
-       the project. Its absence is a project setting, not a runtime fault. */
     console.error("otp_signing_unavailable reason=no-vercel-oidc-token");
     throw new HttpError(503, "Phone sign-in is not configured on this server.");
   }
@@ -68,7 +72,7 @@ function vercelOidcToken() {
    names the pool and provider, which is what ties this exchange to the trust
    relationship configured in GCP — a token from any other Vercel project does
    not match it. */
-async function federatedAccessToken() {
+async function federatedAccessToken(oidcToken) {
   const audience = "//iam.googleapis.com/projects/" + env("GCP_PROJECT_NUMBER")
     + "/locations/global/workloadIdentityPools/" + env("GCP_WORKLOAD_IDENTITY_POOL_ID")
     + "/providers/" + env("GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID");
@@ -82,7 +86,7 @@ async function federatedAccessToken() {
       requestedTokenType: "urn:ietf:params:oauth:token-type:access_token",
       scope: CLOUD_PLATFORM,
       subjectTokenType: "urn:ietf:params:oauth:token-type:jwt",
-      subjectToken: vercelOidcToken(),
+      subjectToken: oidcToken,
     }),
   });
 
@@ -97,8 +101,8 @@ async function federatedAccessToken() {
 
 /* Ask Google to sign the token. The claims are the same either way; only who
    holds the key differs. */
-async function signViaFederation(claims) {
-  const accessToken = await federatedAccessToken();
+async function signViaFederation(claims, oidcToken) {
+  const accessToken = await federatedAccessToken(oidcToken);
   const sa = env("GCP_SERVICE_ACCOUNT_EMAIL");
 
   const res = await fetch(`${IAM_CREDENTIALS}/projects/-/serviceAccounts/${encodeURIComponent(sa)}:signJwt`, {
@@ -137,7 +141,7 @@ async function signLocally(claims) {
 /* Firebase caps custom tokens at one hour; they are exchanged for a real
    session immediately, so a short life costs nothing and limits the damage if
    one is intercepted in transit. */
-export async function mintCustomToken(uid, claims = {}) {
+export async function mintCustomToken(uid, claims = {}, req = null) {
   const mode = signingMode();
   if (!mode) {
     /* Which variables are missing, by name only — enough to fix a typo in a
@@ -163,7 +167,9 @@ export async function mintCustomToken(uid, claims = {}) {
     claims,
   };
 
-  return mode === "federation" ? signViaFederation(payload) : signLocally(payload);
+  return mode === "federation"
+    ? signViaFederation(payload, oidcTokenFrom(req))
+    : signLocally(payload);
 }
 
 /* Which Firebase account does this phone belong to?

@@ -104,7 +104,6 @@ describe("the token Firebase will accept", () => {
 describe("federation", () => {
   it("exchanges the Vercel token and asks Google to sign", async () => {
     wifEnv();
-    process.env.VERCEL_OIDC_TOKEN = "vercel-oidc-token";
     const calls = [];
 
     vi.stubGlobal("fetch", async (url, opts) => {
@@ -115,7 +114,8 @@ describe("federation", () => {
       return new Response(JSON.stringify({ signedJwt: "signed.by.google" }), { status: 200 });
     });
 
-    const jwt = await mintCustomToken("phone:919876543210", { phone_number: "+919876543210" });
+    const req = { headers: { "x-vercel-oidc-token": "vercel-oidc-token" } };
+    const jwt = await mintCustomToken("phone:919876543210", { phone_number: "+919876543210" }, req);
     expect(jwt).toBe("signed.by.google");
 
     /* The exchange must present Vercel's token against the pool that trusts
@@ -135,19 +135,53 @@ describe("federation", () => {
     expect(claims.iss).toBe(process.env.GCP_SERVICE_ACCOUNT_EMAIL);
   });
 
-  it("fails cleanly when Vercel has not issued an OIDC token", async () => {
-    wifEnv();   // federation configured, but the project setting is off
-    expect(await statusOf(() => mintCustomToken("uid-1"))).toBe(503);
+  it("fails cleanly when the request carries no OIDC token", async () => {
+    wifEnv();   // federation configured, but the header is absent
+    expect(await statusOf(() => mintCustomToken("uid-1", {}, { headers: {} }))).toBe(503);
+  });
+
+  it("reads the token from the request header, not the environment", async () => {
+    /* Inside a Vercel function the token arrives as x-vercel-oidc-token;
+       VERCEL_OIDC_TOKEN only exists during builds and local dev. Reading the
+       wrong one looks exactly like "federation is switched off". */
+    wifEnv();
+    let sent = null;
+    vi.stubGlobal("fetch", async (url, opts) => {
+      const body = JSON.parse(opts.body);
+      if (String(url).includes("sts.googleapis.com")) {
+        sent = body.subjectToken;
+        return new Response(JSON.stringify({ access_token: "ya29.fake" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ signedJwt: "signed.by.google" }), { status: 200 });
+    });
+
+    await mintCustomToken("uid-1", {}, { headers: { "x-vercel-oidc-token": "from-header" } });
+    expect(sent).toBe("from-header");
+  });
+
+  it("still accepts the environment variable, for builds and local dev", async () => {
+    wifEnv();
+    process.env.VERCEL_OIDC_TOKEN = "from-env";
+    let sent = null;
+    vi.stubGlobal("fetch", async (url, opts) => {
+      if (String(url).includes("sts.googleapis.com")) {
+        sent = JSON.parse(opts.body).subjectToken;
+        return new Response(JSON.stringify({ access_token: "ya29.fake" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ signedJwt: "signed" }), { status: 200 });
+    });
+
+    await mintCustomToken("uid-1", {}, { headers: {} });
+    expect(sent).toBe("from-env");
   });
 
   it("says nothing about Google's error to whoever is signing in", async () => {
     wifEnv();
-    process.env.VERCEL_OIDC_TOKEN = "vercel-oidc-token";
     vi.stubGlobal("fetch", async () => new Response(
       JSON.stringify({ error: { message: "workloadIdentityPools/vercel: subject not authorised" } }), { status: 403 }));
 
     let caught;
-    try { await mintCustomToken("uid-1"); } catch (e) { caught = e; }
+    try { await mintCustomToken("uid-1", {}, { headers: { "x-vercel-oidc-token": "t" } }); } catch (e) { caught = e; }
     expect(caught.status).toBe(503);
     /* The pool name and the subject stay in the server log, not the response. */
     expect(caught.message).not.toMatch(/workloadIdentityPools|subject|403/);
