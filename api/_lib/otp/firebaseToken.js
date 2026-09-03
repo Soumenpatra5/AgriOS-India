@@ -56,6 +56,9 @@ export function customTokenConfigured() {
 function vercelOidcToken() {
   const token = env("VERCEL_OIDC_TOKEN");
   if (!token) {
+    /* Vercel injects this per invocation once OIDC Federation is enabled on
+       the project. Its absence is a project setting, not a runtime fault. */
+    console.error("otp_signing_unavailable reason=no-vercel-oidc-token");
     throw new HttpError(503, "Phone sign-in is not configured on this server.");
   }
   return token;
@@ -136,7 +139,16 @@ async function signLocally(claims) {
    one is intercepted in transit. */
 export async function mintCustomToken(uid, claims = {}) {
   const mode = signingMode();
-  if (!mode) throw new HttpError(503, "Phone sign-in is not configured on this server.");
+  if (!mode) {
+    /* Which variables are missing, by name only — enough to fix a typo in a
+       dashboard without putting any value in a log. */
+    const missing = ["GCP_PROJECT_NUMBER", "GCP_WORKLOAD_IDENTITY_POOL_ID",
+      "GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID", "GCP_SERVICE_ACCOUNT_EMAIL"]
+      .filter((k) => !env(k));
+    console.error("otp_signing_unavailable reason=not-configured missing=" + (missing.join(",") || "none"));
+    throw new HttpError(503, "Phone sign-in is not configured on this server.");
+  }
+  console.log("otp_signing mode=" + mode);
 
   const issuer = mode === "federation" ? env("GCP_SERVICE_ACCOUNT_EMAIL") : env("FB_CLIENT_EMAIL");
   const now = Math.floor(Date.now() / 1000);
