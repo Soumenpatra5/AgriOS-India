@@ -10,11 +10,13 @@ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 
-import { requireMembership } from "../farm/gate.js";
+import { requireMembership, requirePermission } from "../farm/gate.js";
 import { createSpace } from "../farm/spaces.js";
 import { createTask } from "../farm/tasks.js";
 import {
   sendMessage, listMessages, removeMessage, unreadCount, validateMessageInput,
+  editMessage, hideMessageForSelf, reactToMessage, removeReaction,
+  pinMessage, unpinMessage, listPinnedMessages, REACTION_EMOJI,
 } from "../farm/chat.js";
 
 let db, sql;
@@ -46,7 +48,7 @@ const mig = (n) => new URL(`../../../supabase/migrations/${n}`, import.meta.url)
 beforeAll(async () => {
   db = new PGlite();
   for (const m of ["0001_commerce_foundation.sql", "0002_farm_space.sql", "0003_farm_tasks.sql",
-                   "0004_farm_operations.sql", "0005_farm_chat.sql"]) {
+                   "0004_farm_operations.sql", "0005_farm_chat.sql", "0009_farm_chat_reply_react_pin.sql"]) {
     await db.exec(await readFile(mig(m), "utf8"));
   }
   sql = makeSql(db);
@@ -130,17 +132,218 @@ describe("isolation", () => {
 });
 
 describe("moderation", () => {
-  it("lets a sender remove their own message", async () => {
+  it("lets a sender remove their own message — as a tombstone, not a silent gap", async () => {
+    /* Silently dropping the row would mean another member's poll never
+       learns the message was removed — a listener watching the same
+       created_at range would just never see anything change. */
     const mine = await sendMessage(sql, memW, W.id, { body: "oops" });
     expect(await statusOf(() => removeMessage(sql, memW, W.id, { messageId: mine.id }))).toBe(200);
-    expect(await listMessages(sql, memW, {})).toEqual([]);
+
+    const [row] = await listMessages(sql, memW, {});
+    expect(row.deleted).toBe(true);
+    expect(row.body).toBeNull();
   });
 
-  it("stops a member removing somebody else's", async () => {
+  it("stops a member removing somebody else's — owner and manager both can", async () => {
     const theirs = await sendMessage(sql, memM, M.id, { body: "manager says" });
     expect(await statusOf(() => removeMessage(sql, memW, W.id, { messageId: theirs.id }))).toBe(403);
     /* The owner, who manages the space, can. */
     expect(await statusOf(() => removeMessage(sql, memA, A.id, { messageId: theirs.id }))).toBe(200);
+  });
+
+  it("a manager — not only the owner — can remove someone else's message", async () => {
+    /* farm.members.manage, not farm.settings.manage: managers already run
+       the roster, so they moderate the channel too, not just the owner. */
+    const theirs = await sendMessage(sql, memW, W.id, { body: "worker says" });
+    expect(await statusOf(() => removeMessage(sql, memM, M.id, { messageId: theirs.id }))).toBe(200);
+  });
+
+  it("lets a sender remove their own recent message for everyone, but not an old one", async () => {
+    const mine = await sendMessage(sql, memW, W.id, { body: "recent" });
+    expect(await statusOf(() => removeMessage(sql, memW, W.id, { messageId: mine.id }))).toBe(200);
+
+    await db.query(`update farm_chat_messages set created_at = now() - interval '2 hours', deleted_at = null
+                      where id = $1`, [mine.id]);
+    expect(await statusOf(() => removeMessage(sql, memW, W.id, { messageId: mine.id }))).toBe(409);
+  });
+
+  it("a manager can remove an old message for everyone regardless of the time window", async () => {
+    const old = await sendMessage(sql, memW, W.id, { body: "ancient" });
+    await db.query(`update farm_chat_messages set created_at = now() - interval '2 hours' where id = $1`, [old.id]);
+    expect(await statusOf(() => removeMessage(sql, memM, M.id, { messageId: old.id }))).toBe(200);
+  });
+});
+
+describe("delete for me", () => {
+  it("hides a message from one viewer without touching anyone else's copy", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "visible to most" });
+    expect(await statusOf(() => hideMessageForSelf(sql, memW, W.id, { messageId: msg.id }))).toBe(200);
+
+    expect((await listMessages(sql, memW, {})).map((m) => m.body)).toEqual([]);
+    expect((await listMessages(sql, memM, {})).map((m) => m.body)).toEqual(["visible to most"]);
+  });
+
+  it("hiding twice is not an error", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "x" });
+    await hideMessageForSelf(sql, memW, W.id, { messageId: msg.id });
+    expect(await statusOf(() => hideMessageForSelf(sql, memW, W.id, { messageId: msg.id }))).toBe(200);
+  });
+
+  it("refuses to hide a message belonging to another farm", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "Farm A" });
+    expect(await statusOf(() => hideMessageForSelf(sql, memB, B.id, { messageId: msg.id }))).toBe(404);
+  });
+});
+
+describe("editing", () => {
+  it("lets a sender edit their own message and marks it edited", async () => {
+    const mine = await sendMessage(sql, memW, W.id, { body: "typo" });
+    const edited = await editMessage(sql, memW, W.id, { messageId: mine.id, body: "fixed" });
+    expect(edited.body).toBe("fixed");
+    expect(edited.edited_at).not.toBeNull();
+  });
+
+  it("refuses to edit somebody else's message, even for a manager", async () => {
+    /* Deleting someone else's message is moderation; rewriting their words
+       is not something any role gets to do. */
+    const theirs = await sendMessage(sql, memW, W.id, { body: "worker says" });
+    expect(await statusOf(() => editMessage(sql, memM, M.id, { messageId: theirs.id, body: "manager says" }))).toBe(403);
+  });
+
+  it("refuses to edit a message that has aged out of the window", async () => {
+    const mine = await sendMessage(sql, memW, W.id, { body: "old" });
+    await db.query(`update farm_chat_messages set created_at = now() - interval '2 hours' where id = $1`, [mine.id]);
+    expect(await statusOf(() => editMessage(sql, memW, W.id, { messageId: mine.id, body: "too late" }))).toBe(409);
+  });
+
+  it("refuses to edit into an empty message", async () => {
+    const mine = await sendMessage(sql, memW, W.id, { body: "hello" });
+    expect(await statusOf(() => editMessage(sql, memW, W.id, { messageId: mine.id, body: "   " }))).toBe(400);
+  });
+});
+
+describe("reactions", () => {
+  it("lets a member react, and shows who reacted with what", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "shed is clean" });
+    await reactToMessage(sql, memW, W.id, { messageId: msg.id, emoji: REACTION_EMOJI[0] });
+
+    const [row] = await listMessages(sql, memM, {});
+    expect(row.reactions).toEqual([{ user_id: W.id, name: "Amit", emoji: REACTION_EMOJI[0] }]);
+  });
+
+  it("reacting again replaces the member's own reaction rather than adding a second", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "x" });
+    await reactToMessage(sql, memW, W.id, { messageId: msg.id, emoji: REACTION_EMOJI[0] });
+    await reactToMessage(sql, memW, W.id, { messageId: msg.id, emoji: REACTION_EMOJI[1] });
+
+    const [row] = await listMessages(sql, memM, {});
+    expect(row.reactions).toHaveLength(1);
+    expect(row.reactions[0].emoji).toBe(REACTION_EMOJI[1]);
+  });
+
+  it("removeReaction takes only the caller's own reaction off", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "x" });
+    await reactToMessage(sql, memW, W.id, { messageId: msg.id, emoji: REACTION_EMOJI[0] });
+    await reactToMessage(sql, memM, M.id, { messageId: msg.id, emoji: REACTION_EMOJI[0] });
+    await removeReaction(sql, memW, W.id, { messageId: msg.id });
+
+    const [row] = await listMessages(sql, memM, {});
+    expect(row.reactions.map((r) => r.user_id)).toEqual([M.id]);
+  });
+
+  it("refuses a reaction outside the supported set", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "x" });
+    expect(await statusOf(() => reactToMessage(sql, memW, W.id, { messageId: msg.id, emoji: "💩🔥" }))).toBe(400);
+  });
+
+  it("refuses to react to a message in another farm", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "Farm A" });
+    expect(await statusOf(() => reactToMessage(sql, memB, B.id, { messageId: msg.id, emoji: REACTION_EMOJI[0] }))).toBe(404);
+  });
+
+  it("refuses to remove a reaction from a message that was deleted for everyone", async () => {
+    /* Regression check: removeReaction must exclude a deleted row the same
+       way reactToMessage and pinMessage already do — otherwise its
+       oneMessage() response could hand the message's real body back to the
+       client, un-tombstoning something that was correctly deleted. */
+    const msg = await sendMessage(sql, memW, W.id, { body: "temporary" });
+    await reactToMessage(sql, memM, M.id, { messageId: msg.id, emoji: REACTION_EMOJI[0] });
+    await removeMessage(sql, memW, W.id, { messageId: msg.id });
+
+    expect(await statusOf(() => removeReaction(sql, memM, M.id, { messageId: msg.id }))).toBe(404);
+    const [row] = (await listMessages(sql, memM, {})).filter((m) => m.id === msg.id);
+    expect(row.deleted).toBe(true);
+    expect(row.body).toBeNull();
+  });
+
+  it("reacting bumps updated_at, so a poll on an old message picks it up", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "old news" });
+    const cursor = msg.created_at;
+    await reactToMessage(sql, memW, W.id, { messageId: msg.id, emoji: REACTION_EMOJI[0] });
+
+    /* created_at has not moved, so a created_at-based poll would miss this —
+       the whole reason listMessages now filters on updated_at instead. */
+    const polled = await listMessages(sql, memM, { since: cursor });
+    expect(polled.map((m) => m.id)).toContain(msg.id);
+  });
+});
+
+describe("pinning", () => {
+  it("lets a manager pin a message, and it shows up in the pinned list", async () => {
+    const msg = await sendMessage(sql, memW, W.id, { body: "vaccination at 10am" });
+    await pinMessage(sql, memM, M.id, { messageId: msg.id });
+
+    const pinned = await listPinnedMessages(sql, memM);
+    expect(pinned).toHaveLength(1);
+    expect(pinned[0].id).toBe(msg.id);
+    expect(pinned[0].pinned_by_name).toBe("Raju");
+  });
+
+  it("refuses to let a worker pin a message", async () => {
+    /* pinMessage() itself only checks scope — like spaces.update and every
+       other action gated by a single permission, the actual "may this role
+       do this at all" check is the router's authorize() step, run before
+       the handler is ever reached. Simulating that step here is what
+       actually proves a worker is refused, not calling pinMessage directly
+       and hoping it happens to re-check something it was never asked to. */
+    expect(() => requirePermission(memW, "farm.members.manage")).toThrow();
+    expect(() => requirePermission(memM, "farm.members.manage")).not.toThrow();
+  });
+
+  it("unpin removes it from the pinned list", async () => {
+    const msg = await sendMessage(sql, memW, W.id, { body: "x" });
+    await pinMessage(sql, memM, M.id, { messageId: msg.id });
+    await unpinMessage(sql, memM, M.id, { messageId: msg.id });
+    expect(await listPinnedMessages(sql, memM)).toEqual([]);
+  });
+
+  it("refuses to pin a message in another farm", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "Farm A" });
+    expect(await statusOf(() => pinMessage(sql, memB, B.id, { messageId: msg.id }))).toBe(404);
+  });
+});
+
+describe("replies", () => {
+  it("carries a preview of the message it replies to", async () => {
+    const original = await sendMessage(sql, memM, M.id, { body: "feed the goats" });
+    const reply = await sendMessage(sql, memW, W.id, { body: "done", parentMessageId: original.id });
+
+    expect(reply.reply_to).toEqual({ id: original.id, sender_name: "Raju", body: "feed the goats", deleted: false });
+  });
+
+  it("shows the parent as deleted, not resurrected, once it is removed", async () => {
+    const original = await sendMessage(sql, memM, M.id, { body: "feed the goats" });
+    const reply = await sendMessage(sql, memW, W.id, { body: "done", parentMessageId: original.id });
+    await removeMessage(sql, memM, M.id, { messageId: original.id });
+
+    const [row] = (await listMessages(sql, memW, {})).filter((m) => m.id === reply.id);
+    expect(row.reply_to.deleted).toBe(true);
+    expect(row.reply_to.body).toBeNull();
+  });
+
+  it("refuses to reply to a message in another farm", async () => {
+    const bMsg = await sendMessage(sql, memB, B.id, { body: "Green Valley" });
+    expect(await statusOf(() => sendMessage(sql, memM, M.id, { body: "hi", parentMessageId: bMsg.id }))).toBe(404);
   });
 });
 

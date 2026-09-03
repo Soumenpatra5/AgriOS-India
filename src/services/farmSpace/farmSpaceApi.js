@@ -128,6 +128,14 @@ export const farmSpaceApi = {
   listMessages:  (spaceId, params) => call("chat.list", { spaceId, payload: params || {} }),
   sendMessage:   (spaceId, payload) => call("chat.send", { spaceId, payload }),
   removeMessage: (spaceId, messageId) => call("chat.remove", { spaceId, payload: { messageId } }),
+  /* "Delete for me" — hides the message from this viewer only. */
+  hideMessage:   (spaceId, messageId) => call("chat.hide", { spaceId, payload: { messageId } }),
+  editMessage:   (spaceId, messageId, body) => call("chat.edit", { spaceId, payload: { messageId, body } }),
+  reactToMessage:  (spaceId, messageId, emoji) => call("chat.react", { spaceId, payload: { messageId, emoji } }),
+  removeReaction:  (spaceId, messageId) => call("chat.unreact", { spaceId, payload: { messageId } }),
+  pinMessage:      (spaceId, messageId) => call("chat.pin", { spaceId, payload: { messageId } }),
+  unpinMessage:    (spaceId, messageId) => call("chat.unpin", { spaceId, payload: { messageId } }),
+  listPinnedMessages: (spaceId) => call("chat.pinned", { spaceId }),
   unreadCount:   (spaceId, since) => call("chat.unread", { spaceId, payload: { since } }),
   listAudit:     (spaceId, limit) => call("audit.list", { spaceId, payload: { limit } }),
 };

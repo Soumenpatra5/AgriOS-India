@@ -328,11 +328,23 @@ export const farmSpaceService = {
      reopens chat sees what they last had on screen, not an older page that
      is missing messages they already read. Deduped by id and capped at 50,
      same as the page itself. */
-  appendChatMessages(spaceId, added) {
+  /* An upsert, not a pure append — polling now returns EXISTING messages
+     that changed (a reaction, an edit, a pin, a delete), not only brand new
+     ones, since listMessages filters on updated_at rather than created_at.
+     A known id is replaced in place, preserving its position; only a truly
+     new id is appended. Replacing-in-place matters: appending it again would
+     duplicate the bubble, and silently dropping it (the old behaviour) is
+     exactly the bug that made a reaction never show up without a reload. */
+  appendChatMessages(spaceId, incoming) {
     _chatCache.update(spaceId, (list) => {
       const base = list || [];
-      const known = new Set(base.map((m) => m.id));
-      const merged = [...base, ...added.filter((m) => !known.has(m.id))];
+      const byId = new Map(base.map((m) => [m.id, m]));
+      const fresh = [];
+      for (const m of incoming) {
+        if (byId.has(m.id)) byId.set(m.id, m);
+        else fresh.push(m);
+      }
+      const merged = [...base.map((m) => byId.get(m.id)), ...fresh];
       return merged.slice(-50);
     });
   },

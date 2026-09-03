@@ -108,6 +108,16 @@ const ACTIONS = {
   "chat.list":            { permission: "farm.chat.view",  run: ({ sql, membership, payload }) => chat.listMessages(sql, membership, payload) },
   "chat.send":            { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => chat.sendMessage(sql, membership, user.id, payload) },
   "chat.remove":          { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => chat.removeMessage(sql, membership, user.id, payload) },
+  "chat.hide":            { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => chat.hideMessageForSelf(sql, membership, user.id, payload) },
+  "chat.edit":            { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => chat.editMessage(sql, membership, user.id, payload) },
+  "chat.react":           { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => chat.reactToMessage(sql, membership, user.id, payload) },
+  "chat.unreact":         { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => chat.removeReaction(sql, membership, user.id, payload) },
+  /* Pin/unpin are the two chat actions gated at farm.members.manage rather
+     than farm.chat.*: moderating what stays pinned in the channel is the
+     same authority that already runs the roster, not a new tier. */
+  "chat.pin":             { permission: "farm.members.manage", run: ({ sql, membership, user, payload }) => chat.pinMessage(sql, membership, user.id, payload) },
+  "chat.unpin":           { permission: "farm.members.manage", run: ({ sql, membership, user, payload }) => chat.unpinMessage(sql, membership, user.id, payload) },
+  "chat.pinned":          { permission: "farm.chat.view",  run: ({ sql, membership }) => chat.listPinnedMessages(sql, membership) },
   "chat.unread":          { permission: "farm.chat.view",  run: ({ sql, membership, payload }) => chat.unreadCount(sql, membership, payload) },
 };
 

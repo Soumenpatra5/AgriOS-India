@@ -430,6 +430,27 @@ describe("chat initial-page cache", () => {
     expect(farmSpaceService.peekChatInitial("space-a")).toHaveLength(50);
   });
 
+  it("appendChatMessages replaces an existing message in place, in place — a reaction/edit must not duplicate or reorder it", async () => {
+    /* Polling now returns messages that only CHANGED (a reaction, an edit, a
+       pin), not just brand new ones — the old append-only version silently
+       dropped these, which was the actual bug: a reaction never showed up
+       without a full reload. */
+    api.listMessages.mockResolvedValue([
+      { id: "m1", body: "first", created_at: "t1" },
+      { id: "m2", body: "second", created_at: "t2" },
+    ]);
+    await farmSpaceService.chatInitial("space-a");
+
+    farmSpaceService.appendChatMessages("space-a", [
+      { id: "m1", body: "first", created_at: "t1", reactions: [{ user_id: "u1", emoji: "👍" }] },
+      { id: "m3", body: "third", created_at: "t3" },
+    ]);
+
+    const list = farmSpaceService.peekChatInitial("space-a");
+    expect(list.map((m) => m.id)).toEqual(["m1", "m2", "m3"]);
+    expect(list[0].reactions).toEqual([{ user_id: "u1", emoji: "👍" }]);
+  });
+
   it("appending before anything is cached is a no-op, not a crash", () => {
     /* Same convention as patchTask/patchMember: in practice load() always
        populates the cache before poll() or send() can fire, so this is a

@@ -31,6 +31,7 @@ import {
   BrainCircuit, Flame, PackageX, Dot,
   PanelLeftOpen, PanelLeftClose, ToggleLeft, CalendarCheck, GripVertical, GitCompare, Award,
   Fingerprint, MailOpen, UserPlus, UserX,
+  Pin, PinOff, CornerUpLeft, SmilePlus,
 } from "lucide-react";
 
 const REGISTRY = {
@@ -63,6 +64,7 @@ const REGISTRY = {
   BrainCircuit, Flame, PackageX, Dot,
   PanelLeftOpen, PanelLeftClose, ToggleLeft, CalendarCheck, GripVertical, GitCompare, Award,
   Fingerprint, MailOpen, UserPlus, UserX,
+  Pin, PinOff, CornerUpLeft, SmilePlus,
 };
 
 export default function Icon({ name, size = 20, color = "currentColor", strokeWidth = 2, style }) {
