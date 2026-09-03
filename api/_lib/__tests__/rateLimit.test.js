@@ -62,3 +62,44 @@ describe("rateLimit with Upstash", () => {
     expect(await rateLimit({ key: "orders:u2-" + Math.random(), max: 5, windowMs: 60000 })).toBe(false);
   });
 });
+
+describe("a broken Upstash config is visible, not silent", () => {
+  const KEYS = ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN",
+                "KV_REST_API_URL", "KV_REST_API_TOKEN"];
+  const save = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
+  beforeEach(() => { for (const k of KEYS) delete process.env[k]; });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    for (const k of KEYS) {
+      if (save[k] === undefined) delete process.env[k]; else process.env[k] = save[k];
+    }
+  });
+
+  it("accepts the KV_REST_API_* names Vercel's Upstash integration creates", () => {
+    /* Which pair you get depends on how the store was made. Reading only one
+       would leave the limiter off while the dashboard says it is connected. */
+    process.env.KV_REST_API_URL = "https://x.upstash.io";
+    process.env.KV_REST_API_TOKEN = "tok";
+    expect(rateLimitConfigured()).toBe(true);
+  });
+
+  it("logs when it falls back, so a wrong token cannot hide", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://x.upstash.io";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "wrong";
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 401 });
+
+    /* The complaint is throttled to once a minute so an outage cannot flood
+       the log, and an earlier test in this file has already spent that
+       minute. Move past it rather than depending on test order. */
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 3_600_000);
+
+    await rateLimit({ key: "k-" + Math.random(), max: 5, windowMs: 60000 });
+
+    expect(err).toHaveBeenCalled();
+    const line = err.mock.calls[0].join(" ");
+    expect(line).toContain("rate_limit_degraded");
+    /* The token must never reach the log. */
+    expect(line).not.toContain("wrong");
+  });
+});

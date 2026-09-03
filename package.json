@@ -13,7 +13,8 @@
     "migrate": "node scripts/migrate.mjs",
     "release-stale": "node scripts/release-stale.mjs",
     "check:db": "node scripts/check-db.mjs",
-    "check:scripts": "node scripts/check-scripts.mjs"
+    "check:scripts": "node scripts/check-scripts.mjs",
+    "check:upstash": "node scripts/check-upstash.mjs"
   },
   "dependencies": {
     "firebase": "^12.16.0",

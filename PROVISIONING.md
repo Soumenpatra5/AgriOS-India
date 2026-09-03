@@ -46,7 +46,7 @@ Until provisioned, the app degrades gracefully to the local marketplace.
 VITE_COMMERCE_API=1          # client sources the marketplace from /api/commerce/*
 CRON_SECRET=<random>         # secures the reservation-timeout cron (vercel.json)
 ORDER_RESERVATION_TTL_MIN=30
-UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN   # optional: fleet-wide rate limit
+UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN   # fleet-wide rate limit
 ```
 
 ## 4. Verify end to end
@@ -70,7 +70,7 @@ UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN   # optional: fleet-wide rate 
 | `VITE_COMMERCE_API=1` | Vercel (public) | switch client to the backend |
 | `CRON_SECRET`, `ORDER_RESERVATION_TTL_MIN` | Vercel (server) | reservation cron |
 | `PLATFORM_COMMISSION_BPS` | Vercel (server) | Route settlement split |
-| `UPSTASH_REDIS_REST_URL/TOKEN` | Vercel (server) | shared rate limiting |
+| `UPSTASH_REDIS_REST_URL/TOKEN` | Vercel (server) | shared rate limiting — verify with `npm run check:upstash` |
 
 ## Not covered here — Firebase
 
