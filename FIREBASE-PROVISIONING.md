@@ -100,8 +100,6 @@ If they are ever lost they must be reissued, not recovered:
 | Variable | Where to reissue |
 |---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com |
-| `TWOFACTOR_API_KEY` | 2factor.in dashboard |
-| `OTP_JWT_SECRET` | any fresh random string — rotating it invalidates in-flight OTP tokens only |
 
 ## Moving projects
 

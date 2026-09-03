@@ -105,7 +105,6 @@ Server (Vercel env only — **never** prefixed `VITE_`):
 ```
 ANTHROPIC_API_KEY / OPENAI_API_KEY     # LLM providers
 FB_PROJECT_ID, FB_CLIENT_EMAIL, FB_PRIVATE_KEY   # Firebase Admin (verify auth)
-OTP_JWT_SECRET, TWOFACTOR_API_KEY, FAST2SMS_API_KEY   # phone OTP
 OPENWEATHER_API_KEY                    # live weather (falls back to Open-Meteo)
 ```
 
