@@ -75,7 +75,7 @@ export function farmErrorText(reason, tc) {
   }
 }
 
-export default function FarmSpaceHub() {
+export default function FarmSpaceHub({ asTab = false }) {
   const { pop, push, tc } = useApp();
   const [space, setSpace] = useState(null);
   const [state, setState] = useState("loading");   // loading | ready | error | none
@@ -101,14 +101,20 @@ export default function FarmSpaceHub() {
   useEffect(() => { load(); }, [load]);
 
   const title = tc({ en: "My Farm Space", hi: "मेरा फ़ार्म स्पेस", bn: "আমার ফার্ম স্পেস" });
+  /* As the tab root there is nothing beneath this screen to return to, so the
+     back arrow is omitted and the heading takes the larger tab-root style the
+     other four tabs use. */
+  const bar = asTab
+    ? <AppBar title={title} large />
+    : <AppBar title={title} onBack={pop} />;
 
   if (state === "loading") {
-    return <><AppBar title={title} onBack={pop} />
+    return <>{bar}
       <div style={{ padding: 60, display: "grid", placeItems: "center" }}><Spinner /></div></>;
   }
 
   if (state === "error") {
-    return <><AppBar title={title} onBack={pop} />
+    return <>{bar}
       <div style={{ padding: 20 }}>
         <ErrorState body={farmErrorText(reason, tc)}
           onRetry={reason === FARM_ERROR.UNCONFIGURED ? undefined : load} />
@@ -116,7 +122,7 @@ export default function FarmSpaceHub() {
   }
 
   if (state === "none" || !space) {
-    return <><AppBar title={title} onBack={pop} />
+    return <>{bar}
       <div style={{ padding: 20 }}>
         <EmptyState icon="Users"
           title={tc({ en: "No Farm Space yet", hi: "अभी कोई फ़ार्म स्पेस नहीं", bn: "এখনও কোনও ফার্ম স্পেস নেই" })}
@@ -139,7 +145,7 @@ export default function FarmSpaceHub() {
 
   return (
     <>
-      <AppBar title={title} onBack={pop} />
+      {bar}
       <div style={{ padding: `4px 16px 24px`, display: "flex", flexDirection: "column", gap: 16 }}>
 
         {/* which space, and who you are inside it — the two facts that decide

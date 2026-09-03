@@ -38,7 +38,7 @@ export const DEFAULTS = {
 
   nav: {
     // which bottom-nav tabs are visible (home & profile are always kept)
-    tabs: { home: true, ai: true, market: true, services: true, profile: true },
+    tabs: { home: true, farmSpace: true, ai: true, services: true, profile: true },
   },
 
   layout: {

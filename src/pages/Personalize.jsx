@@ -23,9 +23,9 @@ const WIDGET_LABELS = {
   news:         { en: "News", hi: "समाचार", bn: "খবর" },
 };
 const TAB_LABELS = {
-  ai:       { en: "AI", hi: "AI", bn: "AI" },
-  market:   { en: "Market", hi: "बाज़ार", bn: "বাজার" },
-  services: { en: "Services", hi: "सेवाएँ", bn: "সেবা" },
+  farmSpace: { en: "Farm Space", hi: "फ़ार्म स्पेस", bn: "ফার্ম স্পেস" },
+  ai:        { en: "AI", hi: "AI", bn: "AI" },
+  services:  { en: "Services", hi: "सेवाएँ", bn: "সেবা" },
 };
 
 function Section({ title, children }) {

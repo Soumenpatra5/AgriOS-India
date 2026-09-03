@@ -141,7 +141,8 @@ const FeedDashboard       = lazy(() => import("../pages/feed/FeedDashboard.jsx")
 const FeedReports         = lazy(() => import("../pages/feed/FeedReports.jsx"));
 const AlertsCenter        = lazy(() => import("../pages/AlertsCenter.jsx"));
 
-const TAB_SCREENS = { home: Home, ai: AIHub, services: Services, profile: Profile };
+const FarmSpaceTab = () => <FarmSpaceHub asTab />;
+const TAB_SCREENS = { home: Home, farmSpace: FarmSpaceTab, ai: AIHub, services: Services, profile: Profile };
 
 function LazyFallback() {
   return (
