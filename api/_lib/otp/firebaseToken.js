@@ -6,55 +6,152 @@
    Space gate, every protected endpoint — is built on one. signInWithCustomToken
    produces exactly that, so the rest of the app needs no changes at all.
 
-   A custom token is an RS256 JWT signed with a service-account private key.
-   There is no keyless route: api/_middleware/verifyAuth.js verifies tokens with
-   Google's PUBLIC keys, which is why it needs no secret, but minting requires
-   the private half. That is a deliberate, approved reversal of the earlier
-   no-service-account decision.
+   A custom token is an RS256 JWT signed by a service account. There are two
+   ways to produce that signature, and this file prefers the one where no
+   private key exists:
 
-   Signed with jose, already a dependency — firebase-admin would pull in a large
-   tree to do this one thing. */
+   1. WORKLOAD IDENTITY FEDERATION (preferred). Vercel issues a short-lived
+      OIDC token proving which project and environment is running. Google
+      exchanges it for an access token, then signs the JWT on its own side via
+      the IAM Credentials API. No key is ever created, stored or rotated.
+
+      This is not merely tidier. Google now blocks service-account key creation
+      by default — the project hit exactly that — and points at federation as
+      the alternative. Fighting that default would have meant turning off a
+      protection across the whole organisation.
+
+   2. A LOCAL PRIVATE KEY, if FB_PRIVATE_KEY happens to be set. Kept as a
+      fallback for environments where federation is not available, and because
+      it makes the signing path testable without a network. */
 
 import { SignJWT, importPKCS8 } from "jose";
 import { HttpError } from "../http.js";
 
 const AUD = "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit";
+const STS = "https://sts.googleapis.com/v1/token";
+const IAM_CREDENTIALS = "https://iamcredentials.googleapis.com/v1";
+const CLOUD_PLATFORM = "https://www.googleapis.com/auth/cloud-platform";
+
+const env = (k) => process.env[k] || "";
+
+/* Which signer is available. Federation first: if both are configured, the
+   keyless path is the one that runs. */
+export function signingMode() {
+  const wif = env("GCP_PROJECT_NUMBER") && env("GCP_WORKLOAD_IDENTITY_POOL_ID")
+    && env("GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID") && env("GCP_SERVICE_ACCOUNT_EMAIL");
+  if (wif) return "federation";
+  if (env("FB_CLIENT_EMAIL") && env("FB_PRIVATE_KEY")) return "private-key";
+  return null;
+}
+
+export function customTokenConfigured() {
+  return signingMode() !== null;
+}
+
+/* ── federation ───────────────────────────────────────────────────────────── */
+
+/* Vercel injects a fresh OIDC token per invocation once federation is enabled
+   on the project. Its absence means the project setting is off, which is a
+   configuration problem rather than a runtime one. */
+function vercelOidcToken() {
+  const token = env("VERCEL_OIDC_TOKEN");
+  if (!token) {
+    throw new HttpError(503, "Phone sign-in is not configured on this server.");
+  }
+  return token;
+}
+
+/* Trade Vercel's proof-of-identity for a Google access token. The audience
+   names the pool and provider, which is what ties this exchange to the trust
+   relationship configured in GCP — a token from any other Vercel project does
+   not match it. */
+async function federatedAccessToken() {
+  const audience = "//iam.googleapis.com/projects/" + env("GCP_PROJECT_NUMBER")
+    + "/locations/global/workloadIdentityPools/" + env("GCP_WORKLOAD_IDENTITY_POOL_ID")
+    + "/providers/" + env("GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID");
+
+  const res = await fetch(STS, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      audience,
+      grantType: "urn:ietf:params:oauth:grant-type:token-exchange",
+      requestedTokenType: "urn:ietf:params:oauth:token-type:access_token",
+      scope: CLOUD_PLATFORM,
+      subjectTokenType: "urn:ietf:params:oauth:token-type:jwt",
+      subjectToken: vercelOidcToken(),
+    }),
+  });
+
+  if (!res.ok) {
+    /* Google's reply names the pool, the provider and often the subject —
+       useful in a log, not something to hand to whoever is signing in. */
+    console.error("otp_wif_exchange_failed", res.status, (await res.text()).slice(0, 300));
+    throw new HttpError(503, "Phone sign-in is not configured on this server.");
+  }
+  return (await res.json()).access_token;
+}
+
+/* Ask Google to sign the token. The claims are the same either way; only who
+   holds the key differs. */
+async function signViaFederation(claims) {
+  const accessToken = await federatedAccessToken();
+  const sa = env("GCP_SERVICE_ACCOUNT_EMAIL");
+
+  const res = await fetch(`${IAM_CREDENTIALS}/projects/-/serviceAccounts/${encodeURIComponent(sa)}:signJwt`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+    body: JSON.stringify({ payload: JSON.stringify(claims) }),
+  });
+
+  if (!res.ok) {
+    console.error("otp_wif_sign_failed", res.status, (await res.text()).slice(0, 300));
+    throw new HttpError(503, "Phone sign-in is not configured on this server.");
+  }
+  return (await res.json()).signedJwt;
+}
+
+/* ── local key (fallback) ─────────────────────────────────────────────────── */
 
 /* Vercel stores multi-line values with literal \n, and pasting a PEM through a
    web form mangles it in exactly that way. Repairing it here is the difference
    between a working deploy and an hour lost to an opaque key error. */
 function privateKeyPem() {
-  const raw = process.env.FB_PRIVATE_KEY;
+  const raw = env("FB_PRIVATE_KEY");
   if (!raw) throw new HttpError(503, "Phone sign-in is not configured on this server.");
   return raw.includes("\\n") ? raw.replace(/\\n/g, "\n") : raw;
 }
 
-function clientEmail() {
-  const email = process.env.FB_CLIENT_EMAIL;
-  if (!email) throw new HttpError(503, "Phone sign-in is not configured on this server.");
-  return email;
+async function signLocally(claims) {
+  const key = await importPKCS8(privateKeyPem(), "RS256");
+  return new SignJWT(claims)
+    .setProtectedHeader({ alg: "RS256" })
+    .sign(key);
 }
 
-export function customTokenConfigured() {
-  return !!(process.env.FB_CLIENT_EMAIL && process.env.FB_PRIVATE_KEY);
-}
+/* ── the token ────────────────────────────────────────────────────────────── */
 
 /* Firebase caps custom tokens at one hour; they are exchanged for a real
    session immediately, so a short life costs nothing and limits the damage if
    one is intercepted in transit. */
 export async function mintCustomToken(uid, claims = {}) {
-  const key = await importPKCS8(privateKeyPem(), "RS256");
-  const email = clientEmail();
+  const mode = signingMode();
+  if (!mode) throw new HttpError(503, "Phone sign-in is not configured on this server.");
+
+  const issuer = mode === "federation" ? env("GCP_SERVICE_ACCOUNT_EMAIL") : env("FB_CLIENT_EMAIL");
   const now = Math.floor(Date.now() / 1000);
 
-  return new SignJWT({ uid, claims })
-    .setProtectedHeader({ alg: "RS256" })
-    .setIssuer(email)
-    .setSubject(email)
-    .setAudience(AUD)
-    .setIssuedAt(now)
-    .setExpirationTime(now + 3600)
-    .sign(key);
+  const payload = {
+    iss: issuer,
+    sub: issuer,
+    aud: AUD,
+    iat: now,
+    exp: now + 3600,
+    uid,
+    claims,
+  };
+
+  return mode === "federation" ? signViaFederation(payload) : signLocally(payload);
 }
 
 /* Which Firebase account does this phone belong to?
