@@ -3,6 +3,7 @@ import {
   signInWithPhoneNumber,
   signInWithPopup,
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   fetchSignInMethodsForEmail,
@@ -88,6 +89,23 @@ export async function checkEmailExists(email) {
 
 export async function resetPassword(email) {
   await sendPasswordResetEmail(requireAuth(), email);
+}
+
+/* ── Custom token (WhatsApp OTP) ──────────────────────────────────────────── */
+
+/* Exchange a server-minted custom token for a real Firebase session.
+
+   The WhatsApp code is verified by our own backend, which then mints a Firebase
+   custom token for the account that phone belongs to. Signing in with it here
+   is what makes the rest of the app work unchanged: onAuthStateChanged fires,
+   getIdToken() starts returning, and every protected endpoint — including the
+   Farm Space gate — sees an ordinary Firebase user.
+
+   The token is used once and never stored; the session that replaces it is
+   what persists. */
+export async function signInWithToken(customToken) {
+  const result = await signInWithCustomToken(requireAuth(), customToken);
+  return result.user;
 }
 
 /* ── Social providers ────────────────────────────────────────────────────── */

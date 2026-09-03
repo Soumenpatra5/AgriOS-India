@@ -6,14 +6,18 @@ import { Spinner } from "../components/index.js";
 const Login = lazy(() => import("./Login.jsx"));
 const OtpVerify = lazy(() => import("./OtpVerify.jsx"));
 
+/* The two-step phone sign-in. Login collects the number and asks the server to
+   send a code; the challenge it gets back is what OtpVerify needs to check the
+   answer. Held here rather than in either screen so going back and starting
+   again cannot leave a stale challenge behind. */
 export default function AuthFlow() {
-  const [phone, setPhone] = useState(null);
+  const [challenge, setChallenge] = useState(null);
 
   return (
     <Suspense fallback={<div style={{ display: "grid", placeItems: "center", height: "100vh" }}><Spinner /></div>}>
-      {phone
-        ? <OtpVerify phone={phone} onBack={() => setPhone(null)} />
-        : <Login onNext={(ph) => setPhone(ph)} />}
+      {challenge
+        ? <OtpVerify {...challenge} onBack={() => setChallenge(null)} />
+        : <Login onNext={setChallenge} />}
     </Suspense>
   );
 }

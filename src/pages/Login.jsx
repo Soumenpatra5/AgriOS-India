@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { otpApi } from "../services/auth/otpApi.js";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { useApp } from "../store/AppStore.jsx";
@@ -54,7 +55,7 @@ function authError(err, tc) {
   });
 }
 
-export default function Login() {
+export default function Login({ onNext }) {
   const { login, t, tc } = useApp();
   const [step, setStep] = useState("main");
   const [mode, setMode] = useState("login"); // "login" or "signup"
@@ -65,8 +66,36 @@ export default function Login() {
   const [socialLoading, setSocialLoading] = useState(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [phone, setPhone] = useState("");
+  const [channels, setChannels] = useState(null);   // null until asked
 
   useEffect(() => { setupRecaptcha("recaptcha-container"); }, []);
+
+  /* Which delivery methods this deployment can actually offer. Asked once,
+     when the farmer opens the phone step, so the screen never shows a button
+     that is certain to fail. */
+  useEffect(() => {
+    if (step !== "phone" || channels) return;
+    otpApi.channels().then(setChannels).catch(() => setChannels({ whatsapp: false, sms: false }));
+  }, [step, channels]);
+
+  const digits = phone.replace(/\D/g, "").slice(-10);
+  const phoneValid = /^[6-9]\d{9}$/.test(digits);
+
+  const requestCode = async (channel) => {
+    if (!phoneValid || loading) return;
+    setError(""); setLoading(true);
+    try {
+      const res = await otpApi.request(digits, channel);
+      /* Hand the challenge up; AuthFlow swaps in the OTP screen. */
+      onNext?.({ phone: digits, channel, challengeId: res.challengeId,
+                 resendInSeconds: res.resendInSeconds });
+    } catch (err) {
+      setError(err?.message || tc({ en: "Could not send the code. Please try again.",
+                                    hi: "कोड नहीं भेजा जा सका। फिर कोशिश करें।",
+                                    bn: "কোড পাঠানো যায়নি। আবার চেষ্টা করুন।" }));
+    } finally { setLoading(false); }
+  };
 
   const fbLogin = (fbUser) => {
     login({
@@ -298,28 +327,70 @@ export default function Login() {
             <button onClick={() => { setStep("main"); setError(""); }}
               style={{ position: "absolute", top: 16, left: 16, background: "none", border: "none",
                 cursor: "pointer", fontSize: 20, color: T.inkFaint, padding: 4 }}>←</button>
-            <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 28px", color: T.ink,
+            <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 8px", color: T.ink,
               textAlign: "center", fontFamily: "inherit" }}>{tc({ en: "Phone login", hi: "फ़ोन लॉगिन", bn: "ফোন লগইন" })}</h1>
+            <p style={{ fontSize: 13.5, color: T.inkSoft, textAlign: "center", margin: "0 0 22px" }}>
+              {tc({ en: "We'll send a 6-digit code to your number.",
+                    hi: "हम आपके नंबर पर 6 अंकों का कोड भेजेंगे।",
+                    bn: "আমরা আপনার নম্বরে ৬ সংখ্যার কোড পাঠাব।" })}
+            </p>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "flex", gap: 8 }}>
                 <div style={{ padding: "13px 14px", borderRadius: 12, border: `1px solid ${T.line}`,
                   background: T.surface2, color: T.inkSoft, fontSize: 15, fontFamily: "inherit", flexShrink: 0 }}>
                   +91
                 </div>
                 <input placeholder={tc({ en: "Mobile number", hi: "मोबाइल नंबर", bn: "মোবাইল নম্বর" })} autoFocus
+                  value={phone} onChange={(e) => { setPhone(e.target.value); setError(""); }}
+                  type="tel" inputMode="numeric" maxLength={13}
+                  aria-label={tc({ en: "Mobile number", hi: "मोबाइल नंबर", bn: "মোবাইল নম্বর" })}
                   style={{ ...inputStyle, flex: 1, width: "auto" }}
                   onFocus={focusGreen} onBlur={blurLine} />
               </div>
 
-              <div style={{ padding: "10px 14px", borderRadius: 10, background: T.orangeSoft,
-                fontSize: 13, color: T.orange, textAlign: "center" }}>
-                {tc({ en: "Phone login requires Firebase Blaze plan — use Google or Email instead", hi: "फ़ोन लॉगिन के लिए Firebase Blaze प्लान चाहिए — Google या ईमेल से लॉगिन करें", bn: "ফোন লগইনের জন্য Firebase Blaze প্ল্যান দরকার — Google বা ইমেইল ব্যবহার করুন" })}
-              </div>
+              {/* The delivery choice appears only once the number is usable —
+                  offering it before then invites tapping a button that cannot
+                  work yet. */}
+              {phoneValid && (
+                <>
+                  <div style={{ fontSize: 13, color: T.inkSoft, textAlign: "center", marginTop: 2 }}>
+                    {tc({ en: "How would you like to receive your code?",
+                          hi: "आप कोड कैसे प्राप्त करना चाहेंगे?",
+                          bn: "আপনি কোডটি কীভাবে পেতে চান?" })}
+                  </div>
+
+                  <button onClick={() => requestCode("whatsapp")}
+                    disabled={loading || channels?.whatsapp === false}
+                    style={{ ...btnStyle, opacity: channels?.whatsapp === false ? .5 : 1,
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 9 }}>
+                    <Icon name="MessageCircle" size={18} />
+                    {loading
+                      ? tc({ en: "Sending…", hi: "भेजा जा रहा है…", bn: "পাঠানো হচ্ছে…" })
+                      : tc({ en: "Send on WhatsApp", hi: "WhatsApp पर भेजें", bn: "WhatsApp-এ পাঠান" })}
+                  </button>
+
+                  {/* SMS is shown only where the server says it can deliver.
+                      A button that always fails is worse than no button. */}
+                  {channels?.sms && (
+                    <button onClick={() => requestCode("sms")} disabled={loading} style={btnStyle}>
+                      {tc({ en: "Send by SMS instead", hi: "इसके बजाय SMS भेजें", bn: "বরং SMS পাঠান" })}
+                    </button>
+                  )}
+
+                  {channels && !channels.whatsapp && (
+                    <div style={{ padding: "10px 14px", borderRadius: 10, background: T.orangeSoft,
+                      fontSize: 13, color: T.orange, textAlign: "center" }}>
+                      {tc({ en: "Phone sign-in isn't switched on yet — please use Google or email.",
+                            hi: "फ़ोन लॉगिन अभी चालू नहीं है — Google या ईमेल इस्तेमाल करें।",
+                            bn: "ফোন লগইন এখনও চালু হয়নি — Google বা ইমেইল ব্যবহার করুন।" })}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </>
         )}
-
         {error && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14,
             padding: "12px 14px", borderRadius: 10, background: T.redSoft, border: `1px solid ${T.red}` }}>
