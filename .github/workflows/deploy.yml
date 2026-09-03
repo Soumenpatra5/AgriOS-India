@@ -56,8 +56,13 @@ jobs:
       github.event.workflow_run.conclusion == 'success'
 
     env:
-      VERCEL_ORG_ID: team_eCowB4XHckU90LFmbU9Hwjhr
-      VERCEL_PROJECT_ID: prj_9BGSAWJJ6qoT9VNdTGOsGwNu9z70
+      # These belong to the LIVE project, agri-os-india on the personal
+      # (Hobby) account that owns it — not the old, abandoned agrios-india
+      # project these were previously copied from by mistake, which meant
+      # this workflow, even once its token was fixed, would have silently
+      # redeployed the WRONG site on every push.
+      VERCEL_ORG_ID: team_uD6Bnm4QzkphHldMcOlt434X
+      VERCEL_PROJECT_ID: prj_4yI3aqyggbdFjEzdfSv1QZbvHo8D
 
     steps:
       - name: Checkout the commit CI validated
