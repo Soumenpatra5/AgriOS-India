@@ -98,10 +98,10 @@ export default function FarmSpaceSettings() {
          matters for THIS user, their own role dropping to manager, is known
          locally without needing it echoed back. */
       farmSpaceService.patchSpace(space.id, { owner_user_id: transferTo, role: "manager" });
-      const who = members.find((m) => m.user_id === transferTo);
-      toast(tc({ en: `${who?.name || "They"} is now the owner. You are a manager.`,
-                 hi: `${who?.name || "वे"} अब मालिक हैं। आप प्रबंधक हैं।`,
-                 bn: `${who?.name || "তিনি"} এখন মালিক। আপনি ম্যানেজার।` }), "success");
+      const who = farmSpaceService.displayName(members.find((m) => m.user_id === transferTo));
+      toast(tc({ en: `${who || "They"} is now the owner. You are a manager.`,
+                 hi: `${who || "वे"} अब मालिक हैं। आप प्रबंधक हैं।`,
+                 bn: `${who || "তিনি"} এখন মালিক। আপনি ম্যানেজার।` }), "success");
       pop();
     } catch (err) { say(err); }
   };
@@ -213,7 +213,7 @@ export default function FarmSpaceSettings() {
                 <>
                   <Dropdown value={transferTo} onChange={setTransferTo}
                     options={[{ value: "", label: tc({ en: "Choose a member", hi: "सदस्य चुनें", bn: "সদস্য বাছুন" }) },
-                      ...others.map((m) => ({ value: m.user_id, label: m.name || m.phone || "—" }))]} />
+                      ...others.map((m) => ({ value: m.user_id, label: farmSpaceService.displayName(m) || "—" }))]} />
                   <Button full variant="soft" disabled={!transferTo}
                     onClick={() => setConfirm("transfer")}>
                     {tc({ en: "Transfer", hi: "हस्तांतरित करें", bn: "হস্তান্তর করুন" })}

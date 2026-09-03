@@ -42,6 +42,15 @@ function cursorFrom(list, current) {
    than dropping the update or appending a duplicate; append anything new.
    Existing positions are preserved, so an old message updated by a reaction
    does not jump to the bottom of the conversation. */
+/* A sender's name, or the best fallback available — phone, then their
+   permanent AgriOS User ID — mirroring farmSpaceService.displayName() and
+   the server's own bestName(). A provider that never supplied a display
+   name is not a rare case, and leaving the sender line blank is exactly as
+   confusing as showing the generic word "Member" everywhere else. */
+function senderName(m) {
+  return m?.sender_name || m?.sender_phone || m?.sender_agrios_id || null;
+}
+
 function mergeMessages(prev, incoming) {
   const byId = new Map(prev.map((m) => [m.id, m]));
   const appended = [];
@@ -96,7 +105,14 @@ export default function FarmSpaceChat() {
         newestRef.current = cursorFrom(list, null) || null;
         setState("ready");
       } catch (err) {
+        /* A cache that is truthy but genuinely empty must not let a failing
+           background refresh hide behind it silently — see FarmSpaceTasks.jsx
+           for the full reasoning. Polling would likely correct this within a
+           few seconds anyway, but if the SAME failure is also breaking
+           polling, silence here would mean a broken chat with no signal at
+           all that anything is wrong. */
         if (!paintedFromCache) throw err;
+        toast(farmErrorText(err?.reason, tc), "error");
       }
 
       farmSpaceApi.listPinnedMessages(active.id).then(setPinned).catch(() => {});
@@ -104,7 +120,7 @@ export default function FarmSpaceChat() {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
     }
-  }, []);
+  }, [tc, toast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -308,7 +324,7 @@ export default function FarmSpaceChat() {
         {pending.map((p) => (
           <Bubble key={p.localId} own
             m={{ body: p.body, sender_name: null, created_at: null, reply_to: p.replyPreview
-              ? { sender_name: p.replyPreview.sender_name, body: p.replyPreview.body, deleted: p.replyPreview.deleted }
+              ? { sender_name: senderName(p.replyPreview), body: p.replyPreview.body, deleted: p.replyPreview.deleted }
               : null }}
             tc={tc}
             footer={p.state === OUTBOX_FAILED
@@ -338,7 +354,7 @@ export default function FarmSpaceChat() {
               <div style={{ fontSize: 11.5, fontWeight: 700, color: T.primary }}>
                 {editing
                   ? tc({ en: "Editing", hi: "संपादन", bn: "সম্পাদনা" })
-                  : tc({ en: `Replying to ${replyTo.sender_name || ""}`, hi: `${replyTo.sender_name || ""} को उत्तर`, bn: `${replyTo.sender_name || ""}-কে উত্তর` })}
+                  : tc({ en: `Replying to ${senderName(replyTo) || ""}`, hi: `${senderName(replyTo) || ""} को उत्तर`, bn: `${senderName(replyTo) || ""}-কে উত্তর` })}
               </div>
               <div style={{ fontSize: 12, color: T.inkSoft, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {(editing || replyTo)?.body}
@@ -415,7 +431,7 @@ export default function FarmSpaceChat() {
             </div>
           ) : pinned.map((m) => (
             <Card key={m.id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: T.inkSoft }}>{m.sender_name}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: T.inkSoft }}>{senderName(m)}</div>
               <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.45 }}>{m.body}</div>
             </Card>
           ))}
@@ -474,8 +490,8 @@ function Bubble({ m, own, myUserId, tc, footer, onOpen, onReact }) {
     <div style={{ display: "flex", justifyContent: own ? "flex-end" : "flex-start" }}>
       <div style={{ maxWidth: "82%", display: "flex", flexDirection: "column", gap: 3,
         alignItems: own ? "flex-end" : "flex-start" }}>
-        {!own && m.sender_name && (
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.inkSoft, padding: "0 4px" }}>{m.sender_name}</div>
+        {!own && senderName(m) && (
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.inkSoft, padding: "0 4px" }}>{senderName(m)}</div>
         )}
         <button onClick={onOpen} disabled={!onOpen}
           style={{ background: "none", border: "none", padding: 0, cursor: onOpen ? "pointer" : "default",

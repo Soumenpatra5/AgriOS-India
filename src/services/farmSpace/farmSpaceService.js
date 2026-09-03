@@ -226,6 +226,15 @@ export const farmSpaceService = {
 
   roleLabel(role) { return ROLE_META[role]?.label ?? { en: role, hi: role, bn: role }; },
 
+  /* A member's name, or the best fallback available — a phone-signed-in
+     member's number, otherwise their permanent AgriOS User ID. Not signing
+     in by phone AND having no name set on the provider's profile (a Google
+     account with no display name is not a rare case) previously meant every
+     such member showed as the identical word "Member", indistinguishable
+     from one another. Returns null, not a translated string, so the call
+     site decides the final "Member" wording in the right language. */
+  displayName(member) { return member?.name || member?.phone || member?.agrios_user_id || null; },
+
   /* ── members ────────────────────────────────────────────────────────────── */
 
   /* The roster for one space, cached per space id. Team, the task-creation

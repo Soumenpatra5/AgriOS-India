@@ -109,9 +109,12 @@ export async function listAttendance(sql, membership, { date = null, limit = 100
   const capped = Math.min(Math.max(Number(limit) || 100, 1), 200);
   const d = date && isDate(date) ? date : null;
 
+  /* member_phone/member_agrios_id ride along so the client has a real
+     fallback when member_name is null, the same reasoning as tasks'
+     assignee_phone/assignee_agrios_id. */
   return sql`
     select a.id, a.user_id, a.date, a.status, a.check_in, a.check_out, a.note,
-           u.name as member_name
+           u.name as member_name, u.phone as member_phone, u.agrios_user_id as member_agrios_id
       from farm_attendance a
       join users u on u.id = a.user_id
      where a.space_id = ${membership.space_id}

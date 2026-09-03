@@ -47,7 +47,7 @@ function ago(iso, tc) {
 }
 
 export default function FarmSpaceActivity() {
-  const { pop, tc } = useApp();
+  const { pop, tc, toast } = useApp();
   const [items, setItems] = useState([]);
   const [state, setState] = useState("loading");
   const [reason, setReason] = useState(null);
@@ -74,13 +74,17 @@ export default function FarmSpaceActivity() {
         setItems(await farmSpaceService.activity(active.id, { fresh: true }));
         setState("ready");
       } catch (err) {
+        /* A cache that is truthy but genuinely empty must not let a failing
+           background refresh hide behind it silently — see FarmSpaceTasks.jsx
+           for the full reasoning. */
         if (!paintedFromCache) throw err;
+        toast(farmErrorText(err?.reason, tc), "error");
       }
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
     }
-  }, []);
+  }, [tc, toast]);
 
   useEffect(() => { load(); }, [load]);
 

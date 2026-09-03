@@ -19,6 +19,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { requireMembership } from "../farm/gate.js";
 import { createSpace } from "../farm/spaces.js";
 import { createTask, setTaskStatus } from "../farm/tasks.js";
+import { generateAgriosUserId } from "../agriosId.js";
 import {
   markAttendance, checkOut, listAttendance, attendanceSummary,
   createAnnouncement, listAnnouncements, removeAnnouncement,
@@ -55,7 +56,10 @@ const today = () => new Date().toISOString().slice(0, 10);
 beforeAll(async () => {
   db = new PGlite();
   for (const m of ["0001_commerce_foundation.sql", "0002_farm_space.sql",
-                   "0003_farm_tasks.sql", "0004_farm_operations.sql"]) {
+                   "0003_farm_tasks.sql", "0004_farm_operations.sql",
+                   /* listAttendance now selects the member's agrios_user_id
+                      as a name fallback. */
+                   "0007_agrios_user_id.sql"]) {
     await db.exec(await readFile(mig(m), "utf8"));
   }
   sql = makeSql(db);
@@ -65,8 +69,8 @@ let A, B, M, W, V, farmA, farmB, memA, memB, memM, memW, memV;
 
 async function seedUser(uid, phone, name = uid) {
   return (await db.query(
-    `insert into users (firebase_uid, phone, name) values ($1,$2,$3) returning *`,
-    [uid, phone, name])).rows[0];
+    `insert into users (firebase_uid, phone, name, agrios_user_id) values ($1,$2,$3,$4) returning *`,
+    [uid, phone, name, generateAgriosUserId()])).rows[0];
 }
 async function join(spaceId, userId, role) {
   await db.query(

@@ -132,7 +132,8 @@ export default function FarmSpaceTeam() {
       await farmSpaceApi.removeMember(space.id, m.user_id);
       setMembers((list) => list.filter((x) => x.user_id !== m.user_id));
       farmSpaceService.removeMemberFromCache(space.id, m.user_id);
-      toast(tc({ en: `${m.name || "Member"} removed.`, hi: `${m.name || "सदस्य"} हटाया गया।`, bn: `${m.name || "সদস্য"} সরানো হয়েছে।` }));
+      const who = farmSpaceService.displayName(m) || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" });
+      toast(tc({ en: `${who} removed.`, hi: `${who} हटाया गया।`, bn: `${who} সরানো হয়েছে।` }));
     } catch (err) {
       toast(err?.status === 409 ? err.message : farmErrorText(err?.reason, tc), "error");
     }
@@ -167,21 +168,28 @@ export default function FarmSpaceTeam() {
         </div>
 
         <Card pad={0}>
-          {members.map((m, i) => (
+          {members.map((m, i) => {
+            /* A missing name falls back to phone, then to the permanent
+               AgriOS User ID — never a generic "Member" that makes every
+               nameless member read as the same person. Phone is only
+               repeated on the second line when a real name is already
+               showing on the first, so nothing displays twice. */
+            const name = farmSpaceService.displayName(m) || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" });
+            return (
             <div key={m.user_id}
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 12px",
                 borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
               <div style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, display: "grid", placeItems: "center",
                 background: T.surface2, color: T.inkSoft, fontWeight: 700, fontFamily: T.display }}>
-                {(m.name || "?").trim().charAt(0).toUpperCase()}
+                {name.trim().charAt(0).toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>
-                  {m.name || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" })}
+                  {name}
                 </div>
                 <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
                   {tc(farmSpaceService.roleLabel(m.role))}
-                  {m.phone ? ` · ${m.phone}` : ""}
+                  {m.name && m.phone ? ` · ${m.phone}` : ""}
                 </div>
               </div>
 
@@ -193,7 +201,8 @@ export default function FarmSpaceTeam() {
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
         </Card>
 
         {canManage && pendingInvites.length > 0 && (
@@ -230,7 +239,7 @@ export default function FarmSpaceTeam() {
             {members.filter((m) => m.role !== "owner").map((m) => (
               <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: T.ink }}>
-                  {m.name || m.phone || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" })}
+                  {farmSpaceService.displayName(m) || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" })}
                 </div>
                 <div style={{ width: 150 }}>
                   <Dropdown value={m.role} onChange={(v) => changeRole(m, v)}

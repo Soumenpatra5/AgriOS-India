@@ -164,10 +164,15 @@ export async function archiveSpace(sql, membership, actorUserId) {
 
 /* ── members ──────────────────────────────────────────────────────────────── */
 
+/* agrios_user_id is included specifically so the client has something real
+   to fall back to when name is null — a farmer who signed in with a Google
+   account that has no display name set is not a rare case, and "Member" for
+   every such person makes a roster of three people indistinguishable from
+   each other. */
 export async function listMembers(sql, membership) {
   return sql`
     select m.id, m.user_id, m.role, m.status, m.permissions, m.joined_at,
-           u.name, u.phone
+           u.name, u.phone, u.agrios_user_id
       from farm_space_memberships m
       join users u on u.id = m.user_id
      where m.space_id = ${membership.space_id}

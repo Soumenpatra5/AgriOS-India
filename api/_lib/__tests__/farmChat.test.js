@@ -13,6 +13,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { requireMembership, requirePermission } from "../farm/gate.js";
 import { createSpace } from "../farm/spaces.js";
 import { createTask } from "../farm/tasks.js";
+import { generateAgriosUserId } from "../agriosId.js";
 import {
   sendMessage, listMessages, removeMessage, unreadCount, validateMessageInput,
   editMessage, hideMessageForSelf, reactToMessage, removeReaction,
@@ -48,7 +49,10 @@ const mig = (n) => new URL(`../../../supabase/migrations/${n}`, import.meta.url)
 beforeAll(async () => {
   db = new PGlite();
   for (const m of ["0001_commerce_foundation.sql", "0002_farm_space.sql", "0003_farm_tasks.sql",
-                   "0004_farm_operations.sql", "0005_farm_chat.sql", "0009_farm_chat_reply_react_pin.sql"]) {
+                   "0004_farm_operations.sql", "0005_farm_chat.sql",
+                   /* listMessages/oneMessage now select agrios_user_id as a
+                      sender-name fallback, before 0009 touches chat itself. */
+                   "0007_agrios_user_id.sql", "0009_farm_chat_reply_react_pin.sql"]) {
     await db.exec(await readFile(mig(m), "utf8"));
   }
   sql = makeSql(db);
@@ -58,8 +62,8 @@ let A, B, M, W, farmA, farmB, memA, memB, memM, memW;
 
 async function seedUser(uid, phone, name = uid) {
   return (await db.query(
-    `insert into users (firebase_uid, phone, name) values ($1,$2,$3) returning *`,
-    [uid, phone, name])).rows[0];
+    `insert into users (firebase_uid, phone, name, agrios_user_id) values ($1,$2,$3,$4) returning *`,
+    [uid, phone, name, generateAgriosUserId()])).rows[0];
 }
 async function statusOf(fn) {
   try { await fn(); return 200; } catch (e) { return e?.status ?? 500; }

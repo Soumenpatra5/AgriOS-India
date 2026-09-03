@@ -55,13 +55,17 @@ export default function FarmSpaceAnnouncements() {
         setItems(await farmSpaceService.announcements(active.id, { fresh: true }));
         setState("ready");
       } catch (err) {
+        /* A cache that is truthy but genuinely empty must not let a failing
+           background refresh hide behind it silently — see FarmSpaceTasks.jsx
+           for the full reasoning. */
         if (!paintedFromCache) throw err;
+        toast(farmErrorText(err?.reason, tc), "error");
       }
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
     }
-  }, []);
+  }, [tc, toast]);
 
   useEffect(() => { load(); }, [load]);
 

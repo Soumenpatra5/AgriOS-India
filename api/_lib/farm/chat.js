@@ -201,7 +201,8 @@ export async function unpinMessage(sql, membership, actorUserId, { messageId }) 
 
 export async function listPinnedMessages(sql, membership) {
   const rows = await withReactionsAndReplies(sql, sql`
-    select m.*, u.name as sender_name, pu.name as pinned_by_name
+    select m.*, u.name as sender_name, u.phone as sender_phone, u.agrios_user_id as sender_agrios_id,
+           pu.name as pinned_by_name
       from farm_chat_messages m
       left join users u on u.id = m.sender_user_id
       left join users pu on pu.id = m.pinned_by
@@ -223,13 +224,23 @@ export async function listPinnedMessages(sql, membership) {
    unrelated action. */
 async function oneMessage(sql, membership, messageId) {
   const rows = await withReactionsAndReplies(sql, sql`
-    select m.*, u.name as sender_name, (m.deleted_at is not null) as deleted
+    select m.*, u.name as sender_name, u.phone as sender_phone, u.agrios_user_id as sender_agrios_id,
+           (m.deleted_at is not null) as deleted
       from farm_chat_messages m
       left join users u on u.id = m.sender_user_id
      where m.id = ${messageId} and m.space_id = ${membership.space_id}`);
   const row = rows[0];
   if (!row) return row;
   return row.deleted ? { ...row, body: null, attachments: [], reactions: [], reply_to: null } : row;
+}
+
+/* A sender's name, or the best fallback available — phone, then their
+   permanent AgriOS User ID — never blank. A provider that never supplied a
+   display name (a Google account with none set) is not a rare case, and a
+   blank sender line is exactly as confusing as the client's own "Member"
+   fallback this mirrors (farmSpaceService.displayName). */
+function bestName(row) {
+  return row.sender_name || row.sender_phone || row.sender_agrios_id || null;
 }
 
 /* Attaches reactions (who reacted, with what) and a lightweight preview of
@@ -254,7 +265,8 @@ async function withReactionsAndReplies(sql, rowsPromise) {
          where r.message_id = any(${ids})
          order by r.created_at`,
     parentIds.length
-      ? sql`select m.id, m.body, m.deleted_at, u.name as sender_name
+      ? sql`select m.id, m.body, m.deleted_at,
+                   u.name as sender_name, u.phone as sender_phone, u.agrios_user_id as sender_agrios_id
               from farm_chat_messages m left join users u on u.id = m.sender_user_id
              where m.id = any(${parentIds})`
       : [],
@@ -272,8 +284,12 @@ async function withReactionsAndReplies(sql, rowsPromise) {
     return {
       ...m,
       reactions: byMessage.get(m.id) || [],
+      /* reply_to is a nested, already-resolved shape (unlike the top-level
+         message, which hands sender_name/phone/agrios_id to the client
+         separately) — resolved here so the client does not need a second
+         fallback chain just for a reply preview. */
       reply_to: parent
-        ? { id: parent.id, sender_name: parent.sender_name, body: parent.deleted_at ? null : parent.body, deleted: !!parent.deleted_at }
+        ? { id: parent.id, sender_name: bestName(parent), body: parent.deleted_at ? null : parent.body, deleted: !!parent.deleted_at }
         : null,
     };
   });
@@ -293,7 +309,7 @@ export async function listMessages(sql, membership, { limit = 50, before = null,
 
   const rows = await withReactionsAndReplies(sql, sql`
     select m.id, m.body, m.attachments, m.task_id, m.created_at, m.updated_at,
-           m.sender_user_id, u.name as sender_name,
+           m.sender_user_id, u.name as sender_name, u.phone as sender_phone, u.agrios_user_id as sender_agrios_id,
            m.parent_message_id, m.edited_at, m.pinned_at, m.pinned_by,
            t.title as task_title,
            (m.deleted_at is not null) as deleted

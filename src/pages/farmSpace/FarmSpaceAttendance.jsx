@@ -66,13 +66,17 @@ export default function FarmSpaceAttendance() {
         setSummary(sum);
         setState("ready");
       } catch (err) {
+        /* A cache that is truthy but genuinely empty must not let a failing
+           background refresh hide behind it silently — see FarmSpaceTasks.jsx
+           for the full reasoning; same trap, same fix, here and below. */
         if (!paintedFromCache) throw err;
+        toast(farmErrorText(err?.reason, tc), "error");
       }
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
     }
-  }, []);
+  }, [tc, toast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -199,7 +203,9 @@ export default function FarmSpaceAttendance() {
                   <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "11px 12px",
                     borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{r.member_name}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>
+                        {r.member_name || r.member_phone || r.member_agrios_id}
+                      </div>
                       {r.note && <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 1 }}>{r.note}</div>}
                     </div>
                     <span style={{ background: bg, color: fg, borderRadius: 99, padding: "2.5px 8px",
@@ -246,7 +252,7 @@ function MarkForOthers({ members, rows, tc, busy, onMark }) {
         <>
           <Dropdown value={who} onChange={setWho}
             options={[{ value: "", label: tc({ en: "Choose a member", hi: "सदस्य चुनें", bn: "সদস্য বাছুন" }) },
-              ...unmarked.map((m) => ({ value: m.user_id, label: m.name || m.phone || "—" }))]} />
+              ...unmarked.map((m) => ({ value: m.user_id, label: farmSpaceService.displayName(m) || "—" }))]} />
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
               <Dropdown value={status} onChange={setStatus}

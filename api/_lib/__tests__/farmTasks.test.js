@@ -17,6 +17,7 @@ import { PGlite } from "@electric-sql/pglite";
 
 import { requireMembership } from "../farm/gate.js";
 import { createSpace } from "../farm/spaces.js";
+import { generateAgriosUserId } from "../agriosId.js";
 import {
   listTasks, getTask, createTask, updateTask, setTaskStatus, taskSummary,
   validateTaskInput, withOverdue,
@@ -53,6 +54,9 @@ beforeAll(async () => {
   await db.exec(await readFile(mig("0001_commerce_foundation.sql"), "utf8"));
   await db.exec(await readFile(mig("0002_farm_space.sql"), "utf8"));
   await db.exec(await readFile(mig("0003_farm_tasks.sql"), "utf8"));
+  /* listTasks/getTask now select the assignee's agrios_user_id as a name
+     fallback. */
+  await db.exec(await readFile(mig("0007_agrios_user_id.sql"), "utf8"));
   sql = makeSql(db);
 }, 40000);
 
@@ -60,8 +64,8 @@ let A, B, M, S, W, V, farmA, farmB, memA, memB, memM, memS, memW, memV;
 
 async function seedUser(uid, phone, name = uid) {
   return (await db.query(
-    `insert into users (firebase_uid, phone, name) values ($1,$2,$3) returning *`,
-    [uid, phone, name])).rows[0];
+    `insert into users (firebase_uid, phone, name, agrios_user_id) values ($1,$2,$3,$4) returning *`,
+    [uid, phone, name, generateAgriosUserId()])).rows[0];
 }
 async function join(spaceId, userId, role) {
   await db.query(

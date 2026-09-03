@@ -107,12 +107,20 @@ export default function FarmSpaceTasks() {
         setState("ready");
       } catch (err) {
         if (!paintedFromCache) throw err;
+        /* A cache that was truthy but genuinely empty — `[]`, from before any
+           task existed — used to make this failure invisible: the screen was
+           already showing "nothing here" for a legitimate reason, so nothing
+           looked wrong when the background refresh silently failed too. Told
+           here instead, since a real bug hiding behind a real empty state is
+           exactly what a silent background refresh must not be allowed to
+           produce. */
+        toast(farmErrorText(err?.reason, tc), "error");
       }
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
     }
-  }, [tc]);
+  }, [tc, toast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -225,7 +233,7 @@ function TaskRow({ task, tc, onOpen }) {
             <StatusPill status={task.status} overdue={task.overdue} tc={tc} />
           </div>
           <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
-            {task.assignee_name || tc({ en: "Unassigned", hi: "किसी को नहीं", bn: "কাউকে দেওয়া হয়নি" })}
+            {task.assignee_name || task.assignee_phone || task.assignee_agrios_id || tc({ en: "Unassigned", hi: "किसी को नहीं", bn: "কাউকে দেওয়া হয়নি" })}
             {task.unit ? ` · ${task.unit}` : ""}
             {task.due_date ? ` · ${tc({ en: "due", hi: "देय", bn: "সময়" })} ${String(task.due_date).slice(0, 10)}` : ""}
           </div>
@@ -252,7 +260,7 @@ function TaskSheet({ task, space, busy, tc, onClose, onMove }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <StatusPill status={task.status} overdue={task.overdue} tc={tc} />
           <span style={{ fontSize: 12.5, color: T.inkSoft }}>
-            {task.assignee_name || tc({ en: "Unassigned", hi: "किसी को नहीं", bn: "কাউকে দেওয়া হয়নি" })}
+            {task.assignee_name || task.assignee_phone || task.assignee_agrios_id || tc({ en: "Unassigned", hi: "किसी को नहीं", bn: "কাউকে দেওয়া হয়নি" })}
           </span>
         </div>
 
@@ -342,7 +350,7 @@ function CreateSheet({ open, space, tc, toast, onClose, onCreated }) {
         <Dropdown label={tc({ en: "Assign to", hi: "किसे सौंपें", bn: "কাকে দেবেন" })}
           value={form.assigned_to} onChange={set("assigned_to")}
           options={[{ value: "", label: tc({ en: "Nobody yet", hi: "अभी किसी को नहीं", bn: "এখনও কাউকে নয়" }) },
-            ...members.map((m) => ({ value: m.user_id, label: m.name || m.phone || "—" }))]} />
+            ...members.map((m) => ({ value: m.user_id, label: farmSpaceService.displayName(m) || "—" }))]} />
 
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1 }}>

@@ -135,9 +135,13 @@ export async function listTasks(sql, membership, { status = null, limit = 100 } 
   const { scope, userId } = visibilityFor(membership, "tasks");
   const capped = Math.min(Math.max(Number(limit) || 100, 1), 200);
 
+  /* assignee_phone/assignee_agrios_id ride along so the client has a real
+     fallback when assignee_name is null (a provider that never supplied a
+     display name) — otherwise a task that IS assigned reads as "Unassigned",
+     which is actively misleading, not just unhelpful. */
   const rows = await sql`
     select t.*,
-           a.name as assignee_name,
+           a.name as assignee_name, a.phone as assignee_phone, a.agrios_user_id as assignee_agrios_id,
            c.name as creator_name
       from farm_tasks t
       left join users a on a.id = t.assigned_to
@@ -156,7 +160,8 @@ export async function listTasks(sql, membership, { status = null, limit = 100 } 
 
 export async function getTask(sql, membership, { taskId }) {
   const [row] = await sql`
-    select t.*, a.name as assignee_name, c.name as creator_name
+    select t.*, a.name as assignee_name, a.phone as assignee_phone, a.agrios_user_id as assignee_agrios_id,
+           c.name as creator_name
       from farm_tasks t
       left join users a on a.id = t.assigned_to
       left join users c on c.id = t.created_by

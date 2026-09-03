@@ -38,6 +38,21 @@ beforeEach(() => {
   storage.remove("farm:activeSpace");
 });
 
+describe("displayName", () => {
+  it("prefers name, then phone, then the AgriOS User ID", () => {
+    expect(farmSpaceService.displayName({ name: "Priya", phone: "9000000001", agrios_user_id: "AGRI-X" })).toBe("Priya");
+    expect(farmSpaceService.displayName({ name: null, phone: "9000000001", agrios_user_id: "AGRI-X" })).toBe("9000000001");
+    expect(farmSpaceService.displayName({ name: null, phone: null, agrios_user_id: "AGRI-X" })).toBe("AGRI-X");
+  });
+
+  it("returns null, not a hardcoded word, when nothing identifies the member", () => {
+    /* The final "Member" fallback is a translated string, decided by the
+       call site — this must not bake in an English default underneath it. */
+    expect(farmSpaceService.displayName({})).toBeNull();
+    expect(farmSpaceService.displayName(null)).toBeNull();
+  });
+});
+
 describe("permission mirror", () => {
   it("uses the server's own matrix, so the UI cannot drift from it", () => {
     /* Imported from api/_lib/farm/permissions.js — if this import ever broke,
