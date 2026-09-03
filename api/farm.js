@@ -38,6 +38,11 @@ const ACTIONS = {
   "spaces.get":          { permission: "farm.view",             run: ({ membership }) => membership },
   "spaces.update":       { permission: "farm.settings.manage",  run: ({ sql, membership, user, payload }) => ops.updateSpace(sql, membership, user.id, payload) },
   "spaces.archive":      { permission: "farm.settings.manage",  run: ({ sql, membership, user }) => ops.archiveSpace(sql, membership, user.id) },
+  /* Both re-check role === "owner" inside the handler: farm.settings.manage is
+     owner-only today, but a custom-role override could grant it, and neither of
+     these should ever be reachable by anyone but the owner. */
+  "spaces.transfer":     { permission: "farm.settings.manage",  run: ({ sql, membership, user, payload }) => ops.transferOwnership(sql, membership, user.id, payload) },
+  "spaces.delete":       { permission: "farm.settings.manage",  run: ({ sql, membership, user }) => ops.deleteSpace(sql, membership, user.id) },
 
   "members.list":        { permission: "farm.members.view",     run: ({ sql, membership }) => ops.listMembers(sql, membership) },
   "members.invite":      { permission: "farm.members.manage",   run: ({ sql, membership, user, payload }) => ops.createInvitation(sql, membership, user.id, payload) },

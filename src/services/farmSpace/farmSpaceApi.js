@@ -85,6 +85,8 @@ export const farmSpaceApi = {
   getSpace:      (spaceId) => call("spaces.get", { spaceId }),
   updateSpace:   (spaceId, payload) => call("spaces.update", { spaceId, payload }),
   archiveSpace:  (spaceId) => call("spaces.archive", { spaceId }),
+  transferOwnership: (spaceId, userId) => call("spaces.transfer", { spaceId, payload: { userId } }),
+  deleteSpace:   (spaceId) => call("spaces.delete", { spaceId }),
 
   listMembers:   (spaceId) => call("members.list", { spaceId }),
   invite:        (spaceId, payload) => call("members.invite", { spaceId, payload }),

@@ -322,6 +322,61 @@ export async function declineInvitation(sql, user, { invitationId }) {
   return { declined: true };
 }
 
+/* ── ownership and lifecycle ──────────────────────────────────────────────── */
+
+/* Hand the farm to someone else.
+
+   The outgoing owner is demoted to manager rather than removed: the brief is
+   explicit that they should not lose their membership, and a farm where handing
+   over the keys also locks you out is one nobody would ever hand over. Both role
+   rows and the space's owner column move in a single transaction — a half-applied
+   transfer would leave a farm with two owners or none. */
+export async function transferOwnership(sql, membership, actorUserId, { userId }) {
+  if (membership.role !== "owner") throw new HttpError(403, "Only the owner can transfer ownership");
+  if (!userId || String(userId) === String(actorUserId)) {
+    throw new HttpError(400, "Choose a different member to transfer ownership to");
+  }
+
+  const [target] = await sql`
+    select * from farm_space_memberships
+     where space_id = ${membership.space_id} and user_id = ${userId} and status = 'active' limit 1`;
+  requireScope(target, membership);
+
+  const moved = await sql.begin(async (tx) => {
+    await tx`update farm_spaces set owner_user_id = ${userId} where id = ${membership.space_id}`;
+    await tx`update farm_space_memberships set role = 'owner'
+              where space_id = ${membership.space_id} and user_id = ${userId}`;
+    await tx`update farm_space_memberships set role = 'manager'
+              where space_id = ${membership.space_id} and user_id = ${actorUserId}`;
+    const [s] = await tx`select * from farm_spaces where id = ${membership.space_id}`;
+    return s;
+  });
+
+  await audit(sql, { spaceId: membership.space_id, actorUserId, action: "space.ownership_transferred",
+    targetType: "user", targetId: userId, meta: { from: actorUserId } });
+  return moved;
+}
+
+/* Soft delete. The rows stay, so the audit trail and everyone's work survive,
+   and nothing referencing this space suddenly points at nothing. It disappears
+   from every member's list because every read already filters deleted_at.
+
+   Deliberately NOT a hard delete: farm_space_memberships, tasks, attendance,
+   announcements and chat all cascade from this row, so a real delete would
+   destroy months of a team's work behind one confirmation dialog. */
+export async function deleteSpace(sql, membership, actorUserId) {
+  if (membership.role !== "owner") throw new HttpError(403, "Only the owner can delete a Farm Space");
+
+  const [row] = await sql`
+    update farm_spaces set deleted_at = now(), status = 'archived'
+     where id = ${membership.space_id} and deleted_at is null
+     returning id, name`;
+  if (!row) throw new HttpError(404, "Farm Space not found");
+
+  await audit(sql, { spaceId: membership.space_id, actorUserId, action: "space.deleted",
+    targetType: "space", targetId: membership.space_id, meta: { name: row.name } });
+  return { deleted: true };
+}
 export async function listAudit(sql, membership, { limit = 50 } = {}) {
   const capped = Math.min(Math.max(Number(limit) || 50, 1), 200);
   return sql`
