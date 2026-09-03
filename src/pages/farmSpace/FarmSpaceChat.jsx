@@ -8,6 +8,8 @@ import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
 import { useFarmPoll } from "../../hooks/useFarmPoll.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 import { REACTION_EMOJI, OWN_DELETE_WINDOW_MS } from "../../../api/_lib/farm/chat.js";
+import { uploadChatAttachment, attachmentKindForFile, ATTACHMENT_KIND_RULES } from "../../services/farmSpace/farmChatUpload.js";
+import { senderName, formatDuration, AttachmentDraftChip, ActionRow, Bubble } from "./chatBubble.jsx";
 
 /* Farm chat.
 
@@ -42,15 +44,6 @@ function cursorFrom(list, current) {
    than dropping the update or appending a duplicate; append anything new.
    Existing positions are preserved, so an old message updated by a reaction
    does not jump to the bottom of the conversation. */
-/* A sender's name, or the best fallback available — phone, then their
-   permanent AgriOS User ID — mirroring farmSpaceService.displayName() and
-   the server's own bestName(). A provider that never supplied a display
-   name is not a rare case, and leaving the sender line blank is exactly as
-   confusing as showing the generic word "Member" everywhere else. */
-function senderName(m) {
-  return m?.sender_name || m?.sender_phone || m?.sender_agrios_id || null;
-}
-
 function mergeMessages(prev, incoming) {
   const byId = new Map(prev.map((m) => [m.id, m]));
   const appended = [];
@@ -77,6 +70,31 @@ export default function FarmSpaceChat() {
   const [pinnedOpen, setPinnedOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null); // { message, forEveryone }
 
+  const [attachSheetOpen, setAttachSheetOpen] = useState(false);
+  const [attachmentDrafts, setAttachmentDrafts] = useState([]); // pre-send, each uploading/done/error
+  const mediaInputRef = useRef(null);
+  const docInputRef = useRef(null);
+
+  const [members, setMembers] = useState([]);
+  const [mentionQuery, setMentionQuery] = useState(null);   // partial name text right before the caret, or null
+  const [mentionPicks, setMentionPicks] = useState([]);     // [{ userId, name }] chosen this compose session
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [highlightId, setHighlightId] = useState(null);
+  const messageRefs = useRef({});
+
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const recorderRef = useRef(null);
+  const recordChunksRef = useRef([]);
+  const recordStartRef = useRef(0);
+  const recordCancelRef = useRef(false);
+  const recordTimerRef = useRef(null);
+
+  const textareaRef = useRef(null);
   const bottomRef = useRef(null);
   const newestRef = useRef(null);                 // timestamp cursor for polling
 
@@ -116,6 +134,13 @@ export default function FarmSpaceChat() {
       }
 
       farmSpaceApi.listPinnedMessages(active.id).then(setPinned).catch(() => {});
+
+      /* For @mention autocomplete only — never load-bearing for the screen
+         itself, so a stale cache or a failed background refresh is fine
+         either way. */
+      const cachedMembers = farmSpaceService.peekMembers(active.id);
+      if (cachedMembers) setMembers(cachedMembers);
+      farmSpaceService.members(active.id, { fresh: true }).then(setMembers).catch(() => {});
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
@@ -143,16 +168,253 @@ export default function FarmSpaceChat() {
   /* Follow the conversation as it grows, the way a chat should. */
   useEffect(() => { bottomRef.current?.scrollIntoView({ block: "end" }); }, [messages.length, pending.length]);
 
+  /* Debounced so typing "urea" does not fire four separate searches for
+     "u", "ur", "ure", "urea" — the sheet stays open across keystrokes, only
+     the request is delayed until typing pauses. */
+  useEffect(() => {
+    if (!searchOpen || !space) return;
+    const q = searchQuery.trim();
+    if (!q) { setSearchResults([]); setSearching(false); return; }
+    setSearching(true);
+    const t = setTimeout(() => {
+      farmSpaceApi.searchMessages(space.id, q)
+        .then(setSearchResults)
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery, searchOpen, space]);
+
   const patchLocal = (updated) => {
     setMessages((prev) => mergeMessages(prev, [updated]));
     farmSpaceService.appendChatMessages(space.id, [updated]);
   };
 
+  /* A picked file becomes a draft immediately (own local id, own upload
+     lifecycle) rather than waiting for Send — the upload to Blob happens
+     while the farmer is still typing, so tapping Send does not then sit
+     waiting on a slow rural connection with nothing on screen to show for
+     it. Only a `status: "done"` draft is ever included in what Send sends. */
+  const MAX_DRAFT_ATTACHMENTS = 4;
+
+  const addAttachmentDraft = (file) => {
+    if (attachmentDrafts.length >= MAX_DRAFT_ATTACHMENTS) {
+      toast(tc({ en: "Up to 4 attachments per message.", hi: "प्रति संदेश अधिकतम 4 अनुलग्नक।", bn: "প্রতি বার্তায় সর্বোচ্চ ৪টি সংযুক্তি।" }), "error");
+      return;
+    }
+    const kind = attachmentKindForFile(file);
+    const rules = ATTACHMENT_KIND_RULES[kind];
+    if (file.size > rules.maxBytes) {
+      toast(tc({ en: "This file is too large to send.", hi: "यह फ़ाइल भेजने के लिए बहुत बड़ी है।", bn: "এই ফাইলটি পাঠানোর জন্য খুব বড়।" }), "error");
+      return;
+    }
+
+    const localId = `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const previewUrl = (kind === "image" || kind === "video") ? URL.createObjectURL(file) : null;
+    setAttachmentDrafts((d) => [...d, {
+      localId, kind, name: file.name, size: file.size, type: file.type, previewUrl,
+      status: "uploading", progress: 0,
+    }]);
+
+    uploadChatAttachment(space.id, file, kind, {
+      onProgress: (pct) => setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, progress: pct } : x))),
+    }).then((result) => {
+      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "done", url: result.url } : x)));
+    }).catch((err) => {
+      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "error", error: err?.message } : x)));
+    });
+  };
+
+  const removeAttachmentDraft = (localId) => {
+    setAttachmentDrafts((d) => {
+      const found = d.find((x) => x.localId === localId);
+      if (found?.previewUrl) URL.revokeObjectURL(found.previewUrl);
+      return d.filter((x) => x.localId !== localId);
+    });
+  };
+
+  /* Coordinates only, resolved once at share-time — this is a location
+     ATTACHMENT (a single point in the conversation, like WhatsApp's), not
+     the farm's live/active location LocationPicker manages elsewhere. */
+  const shareLocation = async () => {
+    if (attachmentDrafts.length >= MAX_DRAFT_ATTACHMENTS) {
+      toast(tc({ en: "Up to 4 attachments per message.", hi: "प्रति संदेश अधिकतम 4 अनुलग्नक।", bn: "প্রতি বার্তায় সর্বোচ্চ ৪টি সংযুক্তি।" }), "error");
+      return;
+    }
+    const localId = `att-${Date.now()}-loc`;
+    setAttachmentDrafts((d) => [...d, { localId, kind: "location", status: "uploading" }]);
+    try {
+      const { locationService } = await import("../../services/location/locationService.js");
+      const pos = await locationService.currentPosition();
+      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId
+        ? { ...x, status: "done", lat: pos.lat, lng: pos.lon, label: pos.name }
+        : x)));
+    } catch (err) {
+      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "error", error: err?.message } : x)));
+    }
+  };
+
+  const attachmentsPayloadFrom = (drafts) => drafts.filter((d) => d.status === "done").map((d) => {
+    if (d.kind === "location") return { kind: "location", lat: d.lat, lng: d.lng, label: d.label };
+    const a = { kind: d.kind, url: d.url, name: d.name, size: d.size, type: d.type };
+    if (d.kind === "audio" && d.duration != null) a.duration = d.duration;
+    return a;
+  });
+
+  /* A recorded voice note becomes an attachment draft exactly like a picked
+     file (same upload lifecycle, same MAX_DRAFT_ATTACHMENTS cap) — it just
+     starts life as a Blob from MediaRecorder instead of a file input, and
+     carries a duration nothing else does. */
+  const addVoiceDraft = (blob, seconds) => {
+    if (attachmentDrafts.length >= MAX_DRAFT_ATTACHMENTS) {
+      toast(tc({ en: "Up to 4 attachments per message.", hi: "प्रति संदेश अधिकतम 4 अनुलग्नक।", bn: "প্রতি বার্তায় সর্বোচ্চ ৪টি সংযুক্তি।" }), "error");
+      return;
+    }
+    const kind = "audio";
+    const rules = ATTACHMENT_KIND_RULES[kind];
+    if (blob.size > rules.maxBytes) {
+      toast(tc({ en: "This recording is too long to send.", hi: "यह रिकॉर्डिंग भेजने के लिए बहुत लंबी है।", bn: "এই রেকর্ডিং পাঠানোর জন্য খুব দীর্ঘ।" }), "error");
+      return;
+    }
+    const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
+    const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: blob.type || "audio/webm" });
+    const localId = `att-${Date.now()}-voice`;
+
+    setAttachmentDrafts((d) => [...d, {
+      localId, kind, name: file.name, size: file.size, type: file.type, duration: seconds,
+      status: "uploading", progress: 0,
+    }]);
+    uploadChatAttachment(space.id, file, kind, {
+      onProgress: (pct) => setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, progress: pct } : x))),
+    }).then((result) => {
+      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "done", url: result.url } : x)));
+    }).catch((err) => {
+      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "error", error: err?.message } : x)));
+    });
+  };
+
+  const startRecording = async () => {
+    if (attachmentDrafts.length >= MAX_DRAFT_ATTACHMENTS) {
+      toast(tc({ en: "Up to 4 attachments per message.", hi: "प्रति संदेश अधिकतम 4 अनुलग्नक।", bn: "প্রতি বার্তায় সর্বোচ্চ ৪টি সংযুক্তি।" }), "error");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = ["audio/webm", "audio/mp4", "audio/ogg"].find((t) => window.MediaRecorder?.isTypeSupported?.(t)) || "";
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recordChunksRef.current = [];
+      recordCancelRef.current = false;
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) recordChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const seconds = Math.round((Date.now() - recordStartRef.current) / 1000);
+        if (!recordCancelRef.current && seconds >= 1 && recordChunksRef.current.length) {
+          const blob = new Blob(recordChunksRef.current, { type: recorder.mimeType || mimeType || "audio/webm" });
+          addVoiceDraft(blob, seconds);
+        }
+      };
+      recorderRef.current = recorder;
+      recordStartRef.current = Date.now();
+      recorder.start();
+      setRecording(true);
+      setRecordSeconds(0);
+      recordTimerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+    } catch {
+      toast(tc({ en: "Couldn't access the microphone — check the app's permissions.",
+                  hi: "माइक्रोफ़ोन तक पहुँच नहीं मिली — ऐप की अनुमतियाँ जाँचें।",
+                  bn: "মাইক্রোফোন অ্যাক্সেস করা যায়নি — অ্যাপের অনুমতি পরীক্ষা করুন।" }), "error");
+    }
+  };
+
+  const stopRecording = (cancel = false) => {
+    recordCancelRef.current = cancel;
+    clearInterval(recordTimerRef.current);
+    recorderRef.current?.stop();
+    setRecording(false);
+  };
+
+  /* If the farmer leaves the screen mid-recording, the mic must not stay
+     hot in the background — stop() also releases the media stream's tracks
+     (see recorder.onstop above). */
+  useEffect(() => () => {
+    clearInterval(recordTimerRef.current);
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recordCancelRef.current = true;
+      recorderRef.current.stop();
+    }
+  }, []);
+
+  /* Typing "@" starts a mention; the picker stays open only while the text
+     right before the caret is "@partialName" with no space in between —
+     leaving that word (a space, or moving the caret elsewhere) closes it.
+     `null` (not "") is the closed state, since an empty query ("@" with
+     nothing typed yet) must still show the full member list. */
+  const onDraftChange = (e) => {
+    const val = e.target.value;
+    const pos = e.target.selectionStart;
+    setDraft(val);
+    const before = val.slice(0, pos);
+    const m = before.match(/(?:^|\s)@([^\s@]{0,30})$/);
+    setMentionQuery(m ? m[1] : null);
+  };
+
+  const mentionMatches = mentionQuery == null ? [] : members
+    .filter((mem) => mem.user_id !== space?.user_id)
+    .filter((mem) => (farmSpaceService.displayName(mem) || "").toLowerCase().includes(mentionQuery.toLowerCase()))
+    .slice(0, 5);
+
+  /* Replaces the "@partial" text the caret is sitting in with "@FullName ",
+     and remembers the id so send() can resolve it back — the server is the
+     one that actually verifies this id names a real, active member (see
+     chat.js's sendMessage); this is only bookkeeping for what to send. */
+  const pickMention = (member) => {
+    const name = farmSpaceService.displayName(member) || "Member";
+    const val = draft;
+    const pos = textareaRef.current?.selectionStart ?? val.length;
+    const before = val.slice(0, pos);
+    const match = before.match(/(?:^|\s)@([^\s@]{0,30})$/);
+    if (!match) { setMentionQuery(null); return; }
+    const atIndex = before.lastIndexOf("@");
+    const head = val.slice(0, atIndex);
+    const tail = val.slice(pos);
+    const inserted = `@${name} `;
+    setDraft(head + inserted + tail);
+    setMentionQuery(null);
+    setMentionPicks((picks) => [...picks.filter((p) => p.userId !== member.user_id), { userId: member.user_id, name }]);
+
+    const caret = head.length + inserted.length;
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(caret, caret);
+    });
+  };
+
+  /* Only a pick whose "@Name" text is still actually present in the body
+     counts — backspacing over it (or editing it away) un-mentions them
+     without needing separate bookkeeping for that. */
+  const mentionsPayloadFrom = (body, picks) => picks.filter((p) => body.includes(`@${p.name}`)).map((p) => p.userId);
+
+  const openSearch = () => { setSearchOpen(true); setSearchQuery(""); setSearchResults([]); };
+
+  const jumpToMessage = (id) => {
+    setSearchOpen(false);
+    const el = messageRefs.current[id];
+    if (!el) {
+      toast(tc({ en: "That message isn't in the recent view — scroll up to find it.",
+                  hi: "वह संदेश हाल के दृश्य में नहीं है — उसे खोजने के लिए ऊपर स्क्रॉल करें।",
+                  bn: "সেই বার্তাটি সাম্প্রতিক দৃশ্যে নেই — এটি খুঁজতে উপরে স্ক্রল করুন।" }), "error");
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightId(id);
+    setTimeout(() => setHighlightId((cur) => (cur === id ? null : cur)), 1600);
+  };
+
   const send = async () => {
     const body = draft.trim();
-    if (!body || !space) return;
 
     if (editing) {
+      if (!body) return;
       const id = editing.id;
       setEditing(null); setDraft("");
       try {
@@ -164,16 +426,28 @@ export default function FarmSpaceChat() {
       return;
     }
 
+    if (!space) return;
+    if (attachmentDrafts.some((d) => d.status === "uploading")) {
+      toast(tc({ en: "Still uploading — hang on a moment.", hi: "अभी अपलोड हो रहा है — थोड़ा इंतज़ार करें।", bn: "এখনও আপলোড হচ্ছে — একটু অপেক্ষা করুন।" }), "error");
+      return;
+    }
+    const attachments = attachmentsPayloadFrom(attachmentDrafts);
+    if (!body && !attachments.length) return;
+    const mentions = mentionsPayloadFrom(body, mentionPicks);
+
     const parentMessageId = replyTo?.id || null;
     const replyPreview = replyTo;
     setReplyTo(null);
 
     const localId = `local-${Date.now()}`;
-    setPending((p) => [...p, { localId, body, state: OUTBOX_SENDING, replyPreview }]);
+    setPending((p) => [...p, { localId, body, attachments, mentions, state: OUTBOX_SENDING, replyPreview }]);
     setDraft("");
+    setAttachmentDrafts([]);
+    setMentionPicks([]);
+    setMentionQuery(null);
 
     try {
-      const saved = await farmSpaceApi.sendMessage(space.id, { body, parentMessageId });
+      const saved = await farmSpaceApi.sendMessage(space.id, { body, parentMessageId, attachments, mentions });
       setPending((p) => p.filter((x) => x.localId !== localId));
       setMessages((prev) => (prev.some((m) => m.id === saved.id) ? prev : [...prev, saved]));
       newestRef.current = cursorFrom([saved], newestRef.current);
@@ -190,7 +464,7 @@ export default function FarmSpaceChat() {
   const retry = async (item) => {
     setPending((p) => p.map((x) => (x.localId === item.localId ? { ...x, state: OUTBOX_SENDING } : x)));
     try {
-      const saved = await farmSpaceApi.sendMessage(space.id, { body: item.body, parentMessageId: item.replyPreview?.id || null });
+      const saved = await farmSpaceApi.sendMessage(space.id, { body: item.body, parentMessageId: item.replyPreview?.id || null, attachments: item.attachments || [], mentions: item.mentions || [] });
       setPending((p) => p.filter((x) => x.localId !== item.localId));
       setMessages((prev) => [...prev, saved]);
       newestRef.current = cursorFrom([saved], newestRef.current);
@@ -210,8 +484,11 @@ export default function FarmSpaceChat() {
   const closeActions = () => setActionsFor(null);
 
   const doReply = (m) => { setReplyTo(m); setEditing(null); closeActions(); };
-  const doStartEdit = (m) => { setEditing(m); setDraft(m.body || ""); setReplyTo(null); closeActions(); };
-  const doCancelCompose = () => { setEditing(null); setReplyTo(null); setDraft(""); };
+  /* Editing rewrites text only (editMessage never touches attachments), so
+     any attachment mid-upload for a still-unsent message is dropped rather
+     than left stranded in limbo while the composer is repurposed. */
+  const doStartEdit = (m) => { setEditing(m); setDraft(m.body || ""); setReplyTo(null); setAttachmentDrafts([]); setMentionPicks([]); setMentionQuery(null); closeActions(); };
+  const doCancelCompose = () => { setEditing(null); setReplyTo(null); setDraft(""); setAttachmentDrafts([]); setMentionPicks([]); setMentionQuery(null); };
 
   const doCopy = async (m) => {
     closeActions();
@@ -263,7 +540,7 @@ export default function FarmSpaceChat() {
     closeActions();
     try {
       await farmSpaceApi.removeMessage(space.id, m.id);
-      patchLocal({ ...m, deleted: true, body: null, attachments: [], reactions: [], reply_to: null });
+      patchLocal({ ...m, deleted: true, body: null, attachments: [], mentions: [], reactions: [], reply_to: null });
       setPinned((list) => list.filter((p) => p.id !== m.id));
     } catch (err) {
       toast(err?.status === 409 ? err.message : farmErrorText(err?.reason, tc), "error");
@@ -281,11 +558,21 @@ export default function FarmSpaceChat() {
       <div style={{ padding: 20 }}><ErrorState body={farmErrorText(reason, tc)} onRetry={load} /></div></>;
   }
 
-  const composerHeight = (replyTo || editing) ? 132 : 76;
+  const hasReadyAttachment = attachmentDrafts.some((d) => d.status === "done");
+  const attachmentsUploading = attachmentDrafts.some((d) => d.status === "uploading");
+  const canSend = editing ? !!draft.trim() : (!!draft.trim() || hasReadyAttachment) && !attachmentsUploading;
+  const mentionDropdownOpen = mentionQuery != null && mentionMatches.length > 0;
+  const composerHeight = 76 + (replyTo || editing ? 56 : 0) + (attachmentDrafts.length > 0 ? 72 : 0)
+    + (mentionDropdownOpen ? Math.min(mentionMatches.length * 42, 168) + 12 : 0);
 
   return (
     <>
-      <AppBar title={title} onBack={pop} />
+      <AppBar title={title} onBack={pop} action={
+        <button onClick={openSearch} aria-label={tc({ en: "Search", hi: "खोजें", bn: "খুঁজুন" })}
+          style={{ background: "none", border: "none", cursor: "pointer", color: T.inkSoft, padding: 6, display: "flex" }}>
+          <Icon name="Search" size={19} />
+        </button>
+      } />
 
       {pinned.length > 0 && (
         <button onClick={() => setPinnedOpen(true)}
@@ -317,13 +604,17 @@ export default function FarmSpaceChat() {
         )}
 
         {messages.map((m) => (
-          <Bubble key={m.id} m={m} own={mine(m)} myUserId={space?.user_id} tc={tc}
-            onOpen={() => openActions(m)} onReact={(emoji) => doReact(m, emoji)} />
+          <div key={m.id} ref={(el) => { messageRefs.current[m.id] = el; }}
+            style={{ borderRadius: 14, transition: "background-color .6s ease",
+              backgroundColor: highlightId === m.id ? T.primarySoft : "transparent" }}>
+            <Bubble m={m} own={mine(m)} myUserId={space?.user_id} tc={tc}
+              onOpen={() => openActions(m)} onReact={(emoji) => doReact(m, emoji)} />
+          </div>
         ))}
 
         {pending.map((p) => (
           <Bubble key={p.localId} own
-            m={{ body: p.body, sender_name: null, created_at: null, reply_to: p.replyPreview
+            m={{ body: p.body, attachments: p.attachments, mentions: p.mentions, sender_name: null, created_at: null, reply_to: p.replyPreview
               ? { sender_name: senderName(p.replyPreview), body: p.replyPreview.body, deleted: p.replyPreview.deleted }
               : null }}
             tc={tc}
@@ -366,27 +657,145 @@ export default function FarmSpaceChat() {
             </button>
           </div>
         )}
-        <div style={{ padding: "10px 12px", display: "flex", gap: 9, alignItems: "flex-end" }}>
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            rows={1}
-            placeholder={tc({ en: "Message your team…", hi: "टीम को संदेश…", bn: "দলকে বার্তা…" })}
-            aria-label={tc({ en: "Message", hi: "संदेश", bn: "বার্তা" })}
-            style={{ flex: 1, resize: "none", maxHeight: 120, padding: "10px 12px", borderRadius: 14,
-              border: `1px solid ${T.line}`, background: T.surface2, color: T.ink,
-              fontFamily: T.body, fontSize: 14.5, lineHeight: 1.4, outline: "none" }} />
-          <button onClick={send} disabled={!draft.trim()}
-            aria-label={tc({ en: "Send", hi: "भेजें", bn: "পাঠান" })}
-            style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
-              background: draft.trim() ? T.primary : T.surface2,
-              color: draft.trim() ? "#fff" : T.inkFaint,
-              cursor: draft.trim() ? "pointer" : "default", display: "grid", placeItems: "center" }}>
-            <Icon name={editing ? "Check" : "Send"} size={18} />
-          </button>
-        </div>
+
+        {attachmentDrafts.length > 0 && (
+          <div style={{ display: "flex", gap: 8, padding: "8px 12px 0", overflowX: "auto" }}>
+            {attachmentDrafts.map((d) => (
+              <AttachmentDraftChip key={d.localId} draft={d} tc={tc} onRemove={() => removeAttachmentDraft(d.localId)} />
+            ))}
+          </div>
+        )}
+
+        <input ref={mediaInputRef} type="file" accept="image/*,video/*" style={{ display: "none" }}
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addAttachmentDraft(f); }} />
+        <input ref={docInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" style={{ display: "none" }}
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addAttachmentDraft(f); }} />
+
+        {mentionQuery != null && mentionMatches.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "6px 8px",
+            borderBottom: `1px solid ${T.lineSoft}`, maxHeight: 168, overflowY: "auto" }}>
+            {mentionMatches.map((mem) => (
+              <button key={mem.user_id} onClick={() => pickMention(mem)}
+                style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 8px", borderRadius: 10,
+                  background: "none", border: "none", cursor: "pointer", textAlign: "left", fontFamily: T.body }}>
+                <div style={{ width: 28, height: 28, borderRadius: 999, background: T.primarySoft, color: T.primary,
+                  display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                  {(farmSpaceService.displayName(mem) || "?").slice(0, 1).toUpperCase()}
+                </div>
+                <span style={{ fontSize: 13.5, color: T.ink, fontWeight: 600 }}>{farmSpaceService.displayName(mem)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {recording ? (
+          <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => stopRecording(true)}
+              aria-label={tc({ en: "Discard recording", hi: "रिकॉर्डिंग रद्द करें", bn: "রেকর্ডিং বাতিল করুন" })}
+              style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
+                background: T.surface2, color: T.red, cursor: "pointer", display: "grid", placeItems: "center" }}>
+              <Icon name="Trash2" size={18} />
+            </button>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 9, height: 9, borderRadius: 999, background: T.red, animation: "ag-pulse 1s ease-in-out infinite" }} />
+              <span style={{ fontSize: 14, color: T.ink, fontWeight: 600 }}>
+                {tc({ en: "Recording…", hi: "रिकॉर्ड हो रहा है…", bn: "রেকর্ড হচ্ছে…" })} {formatDuration(recordSeconds)}
+              </span>
+            </div>
+            <button onClick={() => stopRecording(false)}
+              aria-label={tc({ en: "Stop and add to message", hi: "रोकें और संदेश में जोड़ें", bn: "থামুন এবং বার্তায় যোগ করুন" })}
+              style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
+                background: T.primary, color: "#fff", cursor: "pointer", display: "grid", placeItems: "center" }}>
+              <Icon name="Check" size={18} />
+            </button>
+          </div>
+        ) : (
+          <div style={{ padding: "10px 12px", display: "flex", gap: 9, alignItems: "flex-end" }}>
+            <button onClick={() => setAttachSheetOpen(true)} disabled={!!editing}
+              aria-label={tc({ en: "Attach", hi: "संलग्न करें", bn: "সংযুক্ত করুন" })}
+              style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
+                background: T.surface2, color: editing ? T.inkFaint : T.inkSoft,
+                cursor: editing ? "default" : "pointer", display: "grid", placeItems: "center" }}>
+              <Icon name="Paperclip" size={18} />
+            </button>
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={onDraftChange}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              rows={1}
+              placeholder={tc({ en: "Message your team…", hi: "टीम को संदेश…", bn: "দলকে বার্তা…" })}
+              aria-label={tc({ en: "Message", hi: "संदेश", bn: "বার্তা" })}
+              style={{ flex: 1, resize: "none", maxHeight: 120, padding: "10px 12px", borderRadius: 14,
+                border: `1px solid ${T.line}`, background: T.surface2, color: T.ink,
+                fontFamily: T.body, fontSize: 14.5, lineHeight: 1.4, outline: "none" }} />
+            {canSend ? (
+              <button onClick={send}
+                aria-label={tc({ en: "Send", hi: "भेजें", bn: "পাঠান" })}
+                style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
+                  background: T.primary, color: "#fff", cursor: "pointer", display: "grid", placeItems: "center" }}>
+                <Icon name={editing ? "Check" : "Send"} size={18} />
+              </button>
+            ) : (
+              <button onClick={startRecording} disabled={!!editing}
+                aria-label={tc({ en: "Record a voice message", hi: "आवाज़ संदेश रिकॉर्ड करें", bn: "ভয়েস বার্তা রেকর্ড করুন" })}
+                style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
+                  background: T.surface2, color: editing ? T.inkFaint : T.inkSoft,
+                  cursor: editing ? "default" : "pointer", display: "grid", placeItems: "center" }}>
+                <Icon name="Mic" size={18} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      <BottomSheet open={attachSheetOpen} onClose={() => setAttachSheetOpen(false)}
+        title={tc({ en: "Attach", hi: "संलग्न करें", bn: "সংযুক্ত করুন" })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <ActionRow icon="ImagePlus" label={tc({ en: "Photo or video", hi: "फ़ोटो या वीडियो", bn: "ছবি বা ভিডিও" })}
+            onClick={() => { setAttachSheetOpen(false); mediaInputRef.current?.click(); }} />
+          <ActionRow icon="FileText" label={tc({ en: "Document", hi: "दस्तावेज़", bn: "নথি" })}
+            onClick={() => { setAttachSheetOpen(false); docInputRef.current?.click(); }} />
+          <ActionRow icon="MapPin" label={tc({ en: "Location", hi: "स्थान", bn: "অবস্থান" })}
+            onClick={() => { setAttachSheetOpen(false); shareLocation(); }} />
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={searchOpen} onClose={() => setSearchOpen(false)}
+        title={tc({ en: "Search messages", hi: "संदेश खोजें", bn: "বার্তা খুঁজুন" })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ position: "relative" }}>
+            <Icon name="Search" size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: T.inkFaint }} />
+            <input autoFocus value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={tc({ en: "Search this chat…", hi: "इस चैट में खोजें…", bn: "এই চ্যাটে খুঁজুন…" })}
+              aria-label={tc({ en: "Search messages", hi: "संदेश खोजें", bn: "বার্তা খুঁজুন" })}
+              style={{ width: "100%", padding: "11px 14px 11px 34px", borderRadius: T.rMd, border: `1px solid ${T.line}`,
+                background: T.surface2, color: T.ink, fontFamily: T.body, fontSize: 14.5, outline: "none", boxSizing: "border-box" }} />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: "56vh", overflowY: "auto" }}>
+            {searching && <div style={{ padding: "16px 0", display: "grid", placeItems: "center" }}><Spinner size={18} /></div>}
+            {!searching && searchQuery.trim() && searchResults.length === 0 && (
+              <div style={{ padding: "20px 0", textAlign: "center", color: T.inkFaint, fontSize: 13 }}>
+                {tc({ en: "No messages found.", hi: "कोई संदेश नहीं मिला।", bn: "কোনও বার্তা পাওয়া যায়নি।" })}
+              </div>
+            )}
+            {!searching && searchResults.map((m) => (
+              <button key={m.id} onClick={() => jumpToMessage(m.id)}
+                style={{ textAlign: "left", padding: "10px 11px", borderRadius: T.rMd, border: `1px solid ${T.line}`,
+                  background: T.surface, cursor: "pointer", fontFamily: T.body, display: "flex", flexDirection: "column", gap: 3 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: T.inkSoft }}>{senderName(m)}</span>
+                  <span style={{ fontSize: 10.5, color: T.inkFaint, flexShrink: 0 }}>
+                    {m.created_at ? new Date(m.created_at).toLocaleDateString() : ""}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: T.ink, lineHeight: 1.4 }}>{highlightSnippet(m.body, searchQuery.trim())}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </BottomSheet>
 
       <BottomSheet open={!!actionsFor} onClose={closeActions}
         title={tc({ en: "Message", hi: "संदेश", bn: "বার্তা" })}>
@@ -457,107 +866,27 @@ export default function FarmSpaceChat() {
   );
 }
 
-function ActionRow({ icon, label, onClick, danger }) {
+/* A search result's body, trimmed to a window around the first match with
+   the match itself marked — so a farmer scanning results sees WHY each one
+   matched, not just that it did. Falls back to a plain lead-in when the
+   term somehow is not literally in the body (shouldn't happen, since the
+   server's own ILIKE is what selected this row — defensive, not load-bearing). */
+function highlightSnippet(body, query) {
+  const text = body || "";
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text.slice(0, 140);
+  const start = Math.max(0, idx - 40);
+  const end = Math.min(text.length, idx + query.length + 60);
   return (
-    <button onClick={onClick}
-      style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "11px 8px",
-        background: "none", border: "none", cursor: "pointer", fontFamily: T.body, textAlign: "left" }}>
-      <Icon name={icon} size={18} style={{ color: danger ? T.red : T.inkSoft }} />
-      <span style={{ fontSize: 14.5, fontWeight: 500, color: danger ? T.red : T.ink }}>{label}</span>
-    </button>
+    <>
+      {start > 0 ? "…" : ""}
+      {text.slice(start, idx)}
+      <mark style={{ background: T.primarySoft, color: T.primary, borderRadius: 3, padding: "0 2px" }}>
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length, end)}
+      {end < text.length ? "…" : ""}
+    </>
   );
 }
 
-function Bubble({ m, own, myUserId, tc, footer, onOpen, onReact }) {
-  const time = m.created_at
-    ? new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : "";
-
-  if (m.deleted) {
-    return (
-      <div style={{ display: "flex", justifyContent: own ? "flex-end" : "flex-start" }}>
-        <div style={{ maxWidth: "82%", padding: "9px 12px", borderRadius: 16,
-          background: T.surface2, fontSize: 13, fontStyle: "italic", color: T.inkFaint,
-          display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon name="Trash2" size={13} />
-          {tc({ en: "This message was deleted", hi: "यह संदेश हटा दिया गया", bn: "এই বার্তাটি মুছে ফেলা হয়েছে" })}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", justifyContent: own ? "flex-end" : "flex-start" }}>
-      <div style={{ maxWidth: "82%", display: "flex", flexDirection: "column", gap: 3,
-        alignItems: own ? "flex-end" : "flex-start" }}>
-        {!own && senderName(m) && (
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.inkSoft, padding: "0 4px" }}>{senderName(m)}</div>
-        )}
-        <button onClick={onOpen} disabled={!onOpen}
-          style={{ background: "none", border: "none", padding: 0, cursor: onOpen ? "pointer" : "default",
-            display: "block", textAlign: "inherit", font: "inherit", color: "inherit" }}>
-          <div style={{ background: own ? T.primary : T.surface2, color: own ? "#fff" : T.ink,
-            borderRadius: 16, padding: "9px 12px", fontSize: 14, lineHeight: 1.45, textAlign: "left" }}>
-            {m.reply_to && (
-              <div style={{ borderLeft: `3px solid ${own ? "rgba(255,255,255,.6)" : T.primary}`, paddingLeft: 8, marginBottom: 5,
-                opacity: .85 }}>
-                <div style={{ fontSize: 11, fontWeight: 700 }}>{m.reply_to.sender_name}</div>
-                <div style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {m.reply_to.deleted
-                    ? tc({ en: "Original message deleted", hi: "मूल संदेश हटाया गया", bn: "মূল বার্তা মুছে ফেলা হয়েছে" })
-                    : (m.reply_to.body || tc({ en: "Attachment", hi: "अनुलग्नक", bn: "সংযুক্তি" }))}
-                </div>
-              </div>
-            )}
-            <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.body}</span>
-          </div>
-        </button>
-
-        {m.reactions?.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-            {groupReactions(m.reactions, myUserId).map(({ emoji, count, mine: isMine }) => (
-              <button key={emoji} onClick={() => onReact?.(emoji)}
-                style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 7px", borderRadius: 99,
-                  border: `1px solid ${isMine ? T.primary : T.line}`, background: isMine ? T.primarySoft : T.surface,
-                  cursor: onReact ? "pointer" : "default", fontSize: 12 }}>
-                <span>{emoji}</span>
-                {count > 1 && <span style={{ fontSize: 10.5, fontWeight: 700, color: T.inkSoft }}>{count}</span>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {m.task_title && (
-          <div style={{ fontSize: 11, color: T.inkSoft, padding: "0 4px", display: "flex", alignItems: "center", gap: 4 }}>
-            <Icon name="ClipboardList" size={11} /> {m.task_title}
-          </div>
-        )}
-        <div style={{ padding: "0 4px", display: "flex", alignItems: "center", gap: 5 }}>
-          {footer ?? (
-            <>
-              {m.pinned_at && <Icon name="Pin" size={10} style={{ color: T.inkFaint }} />}
-              <span style={{ fontSize: 10.5, color: T.inkFaint }}>
-                {time}{m.edited_at ? ` · ${tc({ en: "edited", hi: "संपादित", bn: "সম্পাদিত" })}` : ""}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* One reaction per member (server-enforced) — grouped here purely for
-   display, so "3 people picked 👍" reads as one pill, not three. `mine`
-   marks the pill the viewer tapped, whichever emoji it turned out to be. */
-function groupReactions(reactions, myUserId) {
-  const order = [];
-  const byEmoji = new Map();
-  for (const r of reactions) {
-    if (!byEmoji.has(r.emoji)) { byEmoji.set(r.emoji, { emoji: r.emoji, count: 0, mine: false }); order.push(r.emoji); }
-    const g = byEmoji.get(r.emoji);
-    g.count += 1;
-    if (r.user_id === myUserId) g.mine = true;
-  }
-  return order.map((e) => byEmoji.get(e));
-}

@@ -24,6 +24,7 @@ import * as ops from "./_lib/farm/spaces.js";
 import * as tasks from "./_lib/farm/tasks.js";
 import * as ops4 from "./_lib/farm/operations.js";
 import * as chat from "./_lib/farm/chat.js";
+import * as dm from "./_lib/farm/dm.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -119,6 +120,18 @@ const ACTIONS = {
   "chat.unpin":           { permission: "farm.members.manage", run: ({ sql, membership, user, payload }) => chat.unpinMessage(sql, membership, user.id, payload) },
   "chat.pinned":          { permission: "farm.chat.view",  run: ({ sql, membership }) => chat.listPinnedMessages(sql, membership) },
   "chat.unread":          { permission: "farm.chat.view",  run: ({ sql, membership, payload }) => chat.unreadCount(sql, membership, payload) },
+  "chat.search":          { permission: "farm.chat.view",  run: ({ sql, membership, payload }) => chat.searchMessages(sql, membership, payload) },
+
+  /* 1:1 direct messages — a second, separate surface from the group channel
+     above (see dm.js). Still gated by the chat permissions: a DM is Farm
+     Space chat activity between two of its members, not a new tier. */
+  "dm.conversations":     { permission: "farm.chat.view",  run: ({ sql, membership, user }) => dm.listConversations(sql, membership, user.id) },
+  "dm.open":              { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => dm.openConversation(sql, membership, user.id, payload) },
+  "dm.list":              { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.listDmMessages(sql, membership, user.id, payload) },
+  "dm.send":              { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => dm.sendDm(sql, membership, user.id, payload) },
+  "dm.edit":              { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => dm.editDm(sql, membership, user.id, payload) },
+  "dm.remove":            { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.removeDm(sql, membership, user.id, payload) },
+  "dm.hide":              { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.hideDmForSelf(sql, membership, user.id, payload) },
 };
 
 export default async function handler(req, res) {

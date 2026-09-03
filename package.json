@@ -17,6 +17,7 @@
     "check:upstash": "node scripts/check-upstash.mjs"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.0",
     "firebase": "^12.16.0",
     "jose": "^6.1.0",
     "lucide-react": "^0.469.0",

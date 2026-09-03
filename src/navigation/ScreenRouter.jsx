@@ -82,6 +82,8 @@ const FarmSpaceAttendance = lazy(() => import("../pages/farmSpace/FarmSpaceAtten
 const FarmSpaceAnnounce   = lazy(() => import("../pages/farmSpace/FarmSpaceAnnouncements.jsx"));
 const FarmSpaceActivity   = lazy(() => import("../pages/farmSpace/FarmSpaceActivity.jsx"));
 const FarmSpaceChat       = lazy(() => import("../pages/farmSpace/FarmSpaceChat.jsx"));
+const FarmSpaceDmInbox    = lazy(() => import("../pages/farmSpace/FarmSpaceDmInbox.jsx"));
+const FarmSpaceDm         = lazy(() => import("../pages/farmSpace/FarmSpaceDm.jsx"));
 const FarmSpaceSettings   = lazy(() => import("../pages/farmSpace/FarmSpaceSettings.jsx"));
 const MarketplaceHub     = lazy(() => import("../pages/marketplace/MarketplaceHub.jsx"));
 const ProductDetail      = lazy(() => import("../pages/marketplace/ProductDetail.jsx"));
@@ -217,6 +219,8 @@ function StackScreen({ item }) {
   if (item.kind === "farmSpaceAnnouncements") return <FarmSpaceAnnounce />;
   if (item.kind === "farmSpaceActivity")    return <FarmSpaceActivity />;
   if (item.kind === "farmSpaceChat")        return <FarmSpaceChat />;
+  if (item.kind === "farmSpaceDmInbox")     return <FarmSpaceDmInbox />;
+  if (item.kind === "farmSpaceDm")          return <FarmSpaceDm {...(item.props || {})} />;
   if (item.kind === "farmSpaceSettings")    return <FarmSpaceSettings />;
   if (item.kind === "marketplace")          return <MarketplaceHub      {...(item.props || {})} />;
   if (item.kind === "mpProduct")            return <ProductDetail       {...(item.props || {})} />;

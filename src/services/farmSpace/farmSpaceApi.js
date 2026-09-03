@@ -137,5 +137,17 @@ export const farmSpaceApi = {
   unpinMessage:    (spaceId, messageId) => call("chat.unpin", { spaceId, payload: { messageId } }),
   listPinnedMessages: (spaceId) => call("chat.pinned", { spaceId }),
   unreadCount:   (spaceId, since) => call("chat.unread", { spaceId, payload: { since } }),
+  searchMessages: (spaceId, query) => call("chat.search", { spaceId, payload: { query } }),
   listAudit:     (spaceId, limit) => call("audit.list", { spaceId, payload: { limit } }),
+
+  /* 1:1 direct messages — a second, separate surface from the group channel
+     above; each call carries a conversationId the way chat.* calls carry a
+     messageId, scoped within the same space. */
+  listConversations: (spaceId) => call("dm.conversations", { spaceId }),
+  openConversation:  (spaceId, otherUserId) => call("dm.open", { spaceId, payload: { otherUserId } }),
+  listDmMessages:    (spaceId, conversationId, params) => call("dm.list", { spaceId, payload: { conversationId, ...(params || {}) } }),
+  sendDm:            (spaceId, conversationId, payload) => call("dm.send", { spaceId, payload: { conversationId, ...payload } }),
+  editDm:            (spaceId, conversationId, messageId, body) => call("dm.edit", { spaceId, payload: { conversationId, messageId, body } }),
+  removeDm:          (spaceId, conversationId, messageId) => call("dm.remove", { spaceId, payload: { conversationId, messageId } }),
+  hideDm:            (spaceId, conversationId, messageId) => call("dm.hide", { spaceId, payload: { conversationId, messageId } }),
 };

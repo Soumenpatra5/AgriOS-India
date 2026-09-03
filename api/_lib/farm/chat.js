@@ -20,11 +20,13 @@
    conduct in this farm". */
 
 import { HttpError } from "../http.js";
+import { deleteAttachment } from "../blobStore.js";
+import { validateAttachments } from "./chatAttachments.js";
 import { audit, requireScope } from "./gate.js";
 import { memberCan } from "./permissions.js";
 
 const MAX_BODY = 2000;
-const MAX_ATTACHMENTS = 4;
+const MAX_MENTIONS = 20;
 
 /* A member may delete their OWN message for everyone within this window;
    after it, only removing it for themselves is left. Whoever holds
@@ -43,21 +45,23 @@ export const REACTION_EMOJI = ["👍", "❤️", "😂", "😮", "😢", "🙏",
 export function validateMessageInput(input = {}) {
   const body = String(input.body ?? "").trim();
 
-  const list = Array.isArray(input.attachments) ? input.attachments.slice(0, MAX_ATTACHMENTS) : [];
-  const attachments = list.map((a) => ({
-    name: String(a?.name ?? "").slice(0, 200),
-    size: Number(a?.size) || 0,
-    type: String(a?.type ?? "").slice(0, 100),
-  }));
+  const { attachments, error: attachmentError } = validateAttachments(input.attachments);
+  if (attachmentError) return { error: attachmentError };
 
   /* Matches the database constraint rather than trusting it: a clear 400 is
      better than a constraint violation surfacing as a 500. */
   if (!body && !attachments.length) return { error: "a message needs text or an attachment" };
   if (body.length > MAX_BODY) return { error: `message must be ${MAX_BODY} characters or fewer` };
 
+  /* Who the client SAYS is mentioned — shape only. sendMessage below is what
+     actually verifies each id names a real, currently active member of this
+     space before any of them is stored; nothing here is trusted on its own. */
+  const mentionsRaw = Array.isArray(input.mentions) ? input.mentions.slice(0, MAX_MENTIONS) : [];
+  const mentions = [...new Set(mentionsRaw.map((id) => String(id ?? "").trim()).filter(Boolean))];
+
   const taskId = input.taskId || null;
   const parentMessageId = input.parentMessageId || null;
-  return { value: { body: body || null, attachments, taskId, parentMessageId } };
+  return { value: { body: body || null, attachments, mentions, taskId, parentMessageId } };
 }
 
 export async function sendMessage(sql, membership, actorUserId, input) {
@@ -78,10 +82,24 @@ export async function sendMessage(sql, membership, actorUserId, input) {
     requireScope(parent, membership);
   }
 
+  /* Re-resolved against real membership rather than trusted as sent — a
+     client claiming "user X is mentioned" is only honored if X is actually
+     an active member of THIS space right now. Anyone else named is silently
+     dropped, the same way an over-cap attachment list is silently trimmed
+     rather than rejected outright. */
+  let mentions = value.mentions;
+  if (mentions.length) {
+    const rows = await sql`
+      select user_id from farm_space_memberships
+       where space_id = ${membership.space_id} and status = 'active' and user_id = any(${mentions})`;
+    const valid = new Set(rows.map((r) => String(r.user_id)));
+    mentions = mentions.filter((id) => valid.has(id));
+  }
+
   const [row] = await sql`
-    insert into farm_chat_messages (space_id, sender_user_id, body, attachments, task_id, parent_message_id)
+    insert into farm_chat_messages (space_id, sender_user_id, body, attachments, mentions, task_id, parent_message_id)
     values (${membership.space_id}, ${actorUserId}, ${value.body},
-            ${sql.json(value.attachments)}, ${value.taskId}, ${value.parentMessageId})
+            ${sql.json(value.attachments)}, ${sql.json(mentions)}, ${value.taskId}, ${value.parentMessageId})
     returning id`;
 
   return oneMessage(sql, membership, row.id);
@@ -131,6 +149,15 @@ export async function removeMessage(sql, membership, actorUserId, { messageId })
   await sql`update farm_chat_messages set deleted_at = now() where id = ${messageId}`;
   await audit(sql, { spaceId: membership.space_id, actorUserId, action: "chat.removed",
     targetType: "message", targetId: messageId });
+
+  /* Delete-for-everyone frees the actual file too, not just the row — a
+     location attachment has no url and is skipped. Best-effort and after
+     the fact: a farmer who was told the message was removed must see that
+     succeed even if the blob delete itself fails (deleteAttachment already
+     swallows its own errors; see blobStore.js). */
+  const attachments = Array.isArray(row.attachments) ? row.attachments : [];
+  await Promise.all(attachments.filter((a) => a?.url).map((a) => deleteAttachment(a.url)));
+
   return { removed: true };
 }
 
@@ -231,7 +258,7 @@ async function oneMessage(sql, membership, messageId) {
      where m.id = ${messageId} and m.space_id = ${membership.space_id}`);
   const row = rows[0];
   if (!row) return row;
-  return row.deleted ? { ...row, body: null, attachments: [], reactions: [], reply_to: null } : row;
+  return row.deleted ? { ...row, body: null, attachments: [], mentions: [], reactions: [], reply_to: null } : row;
 }
 
 /* A sender's name, or the best fallback available — phone, then their
@@ -308,7 +335,7 @@ export async function listMessages(sql, membership, { limit = 50, before = null,
   const capped = Math.min(Math.max(Number(limit) || 50, 1), 100);
 
   const rows = await withReactionsAndReplies(sql, sql`
-    select m.id, m.body, m.attachments, m.task_id, m.created_at, m.updated_at,
+    select m.id, m.body, m.attachments, m.mentions, m.task_id, m.created_at, m.updated_at,
            m.sender_user_id, u.name as sender_name, u.phone as sender_phone, u.agrios_user_id as sender_agrios_id,
            m.parent_message_id, m.edited_at, m.pinned_at, m.pinned_by,
            t.title as task_title,
@@ -329,12 +356,51 @@ export async function listMessages(sql, membership, { limit = 50, before = null,
   /* A tombstone, not a blank row: the client needs to know a message was
      here and removed, distinct from one that was never sent. */
   const shaped = rows.map((m) => (m.deleted
-    ? { ...m, body: null, attachments: [], reactions: [], reply_to: null }
+    ? { ...m, body: null, attachments: [], mentions: [], reactions: [], reply_to: null }
     : m));
 
   /* Returned oldest-first, which is the order a conversation is read in. The
      query stays newest-first so the limit takes the most recent messages. */
   return shaped.reverse();
+}
+
+/* Escapes ILIKE's own wildcard characters in a search term typed by a
+   farmer, not by a developer — "50%" must search for the literal text "50%",
+   not "50" followed by anything. The backslash itself is escaped first so a
+   term that already contains one is not turned into a different escape. */
+function escapeLike(s) {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/* A plain substring search over the body, newest match first — no separate
+   index, the same "simple and plenty fast at this scale" call the rest of
+   this file already makes (see withReactionsAndReplies). Deleted messages
+   and ones hidden from this viewer are excluded the same way listMessages
+   excludes them; a search that surfaced a tombstone's old body back would
+   defeat delete-for-everyone. */
+export async function searchMessages(sql, membership, { query = "", limit = 30 } = {}) {
+  const q = String(query ?? "").trim();
+  if (!q) return [];
+  const capped = Math.min(Math.max(Number(limit) || 30, 1), 100);
+  const pattern = `%${escapeLike(q)}%`;
+
+  return withReactionsAndReplies(sql, sql`
+    select m.id, m.body, m.attachments, m.mentions, m.task_id, m.created_at, m.updated_at,
+           m.sender_user_id, u.name as sender_name, u.phone as sender_phone, u.agrios_user_id as sender_agrios_id,
+           m.parent_message_id, m.edited_at, m.pinned_at, m.pinned_by,
+           t.title as task_title
+      from farm_chat_messages m
+      left join users u on u.id = m.sender_user_id
+      left join farm_tasks t on t.id = m.task_id
+     where m.space_id = ${membership.space_id}
+       and m.deleted_at is null
+       and m.body ilike ${pattern} escape '\\'
+       and not exists (
+         select 1 from farm_chat_message_hides h
+          where h.message_id = m.id and h.user_id = ${membership.user_id}
+       )
+     order by m.created_at desc
+     limit ${capped}`);
 }
 
 /* How many messages have arrived since the caller last looked. Cheap enough to

@@ -6,9 +6,16 @@
    role. Membership is the whole access rule — which makes the cross-farm
    tests here the important ones. */
 
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
+
+/* removeMessage's delete-for-everyone path frees the actual Blob file too
+   (see chat.js) — mocked here so this suite never makes a real network call
+   to Vercel, and so the deletion can be asserted rather than only inferred
+   from the row's own state. */
+vi.mock("../blobStore.js", () => ({ deleteAttachment: vi.fn(async () => {}) }));
+import { deleteAttachment } from "../blobStore.js";
 
 import { requireMembership, requirePermission } from "../farm/gate.js";
 import { createSpace } from "../farm/spaces.js";
@@ -17,7 +24,7 @@ import { generateAgriosUserId } from "../agriosId.js";
 import {
   sendMessage, listMessages, removeMessage, unreadCount, validateMessageInput,
   editMessage, hideMessageForSelf, reactToMessage, removeReaction,
-  pinMessage, unpinMessage, listPinnedMessages, REACTION_EMOJI,
+  pinMessage, unpinMessage, listPinnedMessages, searchMessages, REACTION_EMOJI,
 } from "../farm/chat.js";
 
 let db, sql;
@@ -52,7 +59,8 @@ beforeAll(async () => {
                    "0004_farm_operations.sql", "0005_farm_chat.sql",
                    /* listMessages/oneMessage now select agrios_user_id as a
                       sender-name fallback, before 0009 touches chat itself. */
-                   "0007_agrios_user_id.sql", "0009_farm_chat_reply_react_pin.sql"]) {
+                   "0007_agrios_user_id.sql", "0009_farm_chat_reply_react_pin.sql",
+                   "0010_farm_chat_mentions_search.sql"]) {
     await db.exec(await readFile(mig(m), "utf8"));
   }
   sql = makeSql(db);
@@ -175,6 +183,21 @@ describe("moderation", () => {
     const old = await sendMessage(sql, memW, W.id, { body: "ancient" });
     await db.query(`update farm_chat_messages set created_at = now() - interval '2 hours' where id = $1`, [old.id]);
     expect(await statusOf(() => removeMessage(sql, memM, M.id, { messageId: old.id }))).toBe(200);
+  });
+
+  it("frees the Blob file for each real attachment when removed for everyone, skipping a location", async () => {
+    deleteAttachment.mockClear();
+    const url = "https://abc123.public.blob.vercel-storage.com/farm-chat/space1/shed.jpg";
+    const withAttachments = await sendMessage(sql, memW, W.id, {
+      body: "photo",
+      attachments: [
+        { kind: "image", url, name: "shed.jpg", size: 10, type: "image/jpeg" },
+        { kind: "location", lat: 22.57, lng: 88.36, label: "Farm" },
+      ],
+    });
+    await removeMessage(sql, memW, W.id, { messageId: withAttachments.id });
+    expect(deleteAttachment).toHaveBeenCalledTimes(1);
+    expect(deleteAttachment).toHaveBeenCalledWith(url);
   });
 });
 
@@ -385,27 +408,132 @@ describe("paging and polling", () => {
   });
 });
 
+describe("mentions", () => {
+  it("keeps a mention naming a real, active member of this space", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "@Amit please check shed 1", mentions: [W.id] });
+    expect(msg.mentions).toEqual([W.id]);
+  });
+
+  it("drops a mention naming someone who is not an active member of this space", async () => {
+    /* B is real, but a member of farmB, not farmA — the space sendMessage is
+       being called against. Never trusted just because the id is valid. */
+    const msg = await sendMessage(sql, memM, M.id, { body: "hi", mentions: [B.id] });
+    expect(msg.mentions).toEqual([]);
+  });
+
+  it("drops a mention naming an id that does not exist at all", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "hi", mentions: ["00000000-0000-0000-0000-000000000000"] });
+    expect(msg.mentions).toEqual([]);
+  });
+
+  it("clears mentions when a message is removed for everyone, same as body and attachments", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "@Amit", mentions: [W.id] });
+    await removeMessage(sql, memM, M.id, { messageId: msg.id });
+    const [row] = await listMessages(sql, memM, {});
+    expect(row.mentions).toEqual([]);
+  });
+});
+
+describe("search", () => {
+  it("finds a message by a substring of its body, most recent first", async () => {
+    await sendMessage(sql, memM, M.id, { body: "urea stock is low" });
+    await sendMessage(sql, memW, W.id, { body: "irrelevant" });
+    await sendMessage(sql, memW, W.id, { body: "ordered more urea today" });
+
+    const results = await searchMessages(sql, memM, { query: "urea" });
+    expect(results.map((m) => m.body)).toEqual(["ordered more urea today", "urea stock is low"]);
+  });
+
+  it("is case-insensitive", async () => {
+    await sendMessage(sql, memM, M.id, { body: "Shed 1 needs cleaning" });
+    expect((await searchMessages(sql, memM, { query: "SHED" })).map((m) => m.body)).toEqual(["Shed 1 needs cleaning"]);
+  });
+
+  it("returns nothing for an empty query rather than the whole channel", async () => {
+    await sendMessage(sql, memM, M.id, { body: "hello" });
+    expect(await searchMessages(sql, memM, { query: "  " })).toEqual([]);
+  });
+
+  it("treats % and _ in the query as literal characters, not wildcards", async () => {
+    await sendMessage(sql, memM, M.id, { body: "50% done" });
+    await sendMessage(sql, memM, M.id, { body: "50x done" });
+    expect((await searchMessages(sql, memM, { query: "50%" })).map((m) => m.body)).toEqual(["50% done"]);
+  });
+
+  it("never shows one farm's messages to another", async () => {
+    await sendMessage(sql, memM, M.id, { body: "Farm A secret" });
+    await sendMessage(sql, memB, B.id, { body: "Farm A secret too but different farm" });
+    expect((await searchMessages(sql, memA, { query: "secret" })).map((m) => m.body)).toEqual(["Farm A secret"]);
+  });
+
+  it("excludes a message deleted for everyone", async () => {
+    const msg = await sendMessage(sql, memM, M.id, { body: "temporary note" });
+    await removeMessage(sql, memM, M.id, { messageId: msg.id });
+    expect(await searchMessages(sql, memM, { query: "temporary" })).toEqual([]);
+  });
+
+  it("excludes a message this viewer deleted for themselves, but not for others", async () => {
+    const msg = await sendMessage(sql, memW, W.id, { body: "hide from me only" });
+    await hideMessageForSelf(sql, memW, W.id, { messageId: msg.id });
+    expect(await searchMessages(sql, memW, { query: "hide from me" })).toEqual([]);
+    expect((await searchMessages(sql, memM, { query: "hide from me" })).map((m) => m.body)).toEqual(["hide from me only"]);
+  });
+});
+
 describe("validation", () => {
   it("refuses an empty message", () => {
     expect(validateMessageInput({}).error).toMatch(/text or an attachment/);
     expect(validateMessageInput({ body: "   " }).error).toMatch(/text or an attachment/);
   });
 
+  const blobUrl = (name) => `https://abc123.public.blob.vercel-storage.com/farm-chat/space1/${name}`;
+
   it("accepts an attachment with no text", () => {
-    const { value, error } = validateMessageInput({ attachments: [{ name: "shed.jpg", size: 10, type: "image/jpeg" }] });
+    const { value, error } = validateMessageInput({
+      attachments: [{ kind: "image", url: blobUrl("shed.jpg"), name: "shed.jpg", size: 10, type: "image/jpeg" }],
+    });
     expect(error).toBeUndefined();
     expect(value.body).toBeNull();
     expect(value.attachments).toHaveLength(1);
   });
 
-  it("bounds the body and caps attachments, keeping only a description", () => {
+  it("bounds the body and caps attachments, keeping only recognized fields", () => {
     expect(validateMessageInput({ body: "x".repeat(2001) }).error).toMatch(/2000/);
     const { value } = validateMessageInput({
       body: "hi",
-      attachments: Array.from({ length: 9 }, (_, i) => ({ name: `p${i}.jpg`, size: 1, type: "image/jpeg", secret: "x" })),
+      attachments: Array.from({ length: 9 }, (_, i) => ({
+        kind: "image", url: blobUrl(`p${i}.jpg`), name: `p${i}.jpg`, size: 1, type: "image/jpeg", secret: "x",
+      })),
     });
     expect(value.attachments).toHaveLength(4);
-    expect(value.attachments[0]).toEqual({ name: "p0.jpg", size: 1, type: "image/jpeg" });
+    expect(value.attachments[0]).toEqual({ kind: "image", url: blobUrl("p0.jpg"), name: "p0.jpg", size: 1, type: "image/jpeg" });
+  });
+
+  it("refuses an attachment whose kind is not recognized", () => {
+    expect(validateMessageInput({ attachments: [{ kind: "exe", url: blobUrl("a"), name: "a", size: 1, type: "x" }] }).error)
+      .toMatch(/unsupported attachment kind/);
+  });
+
+  it("refuses an attachment url that is not a Vercel Blob url", () => {
+    expect(validateMessageInput({
+      attachments: [{ kind: "image", url: "https://evil.example.com/shed.jpg", name: "shed.jpg", size: 1, type: "image/jpeg" }],
+    }).error).toMatch(/invalid attachment url/);
+  });
+
+  it("accepts a location attachment with no url", () => {
+    const { value, error } = validateMessageInput({ attachments: [{ kind: "location", lat: 22.57, lng: 88.36, label: "My farm" }] });
+    expect(error).toBeUndefined();
+    expect(value.attachments).toEqual([{ kind: "location", lat: 22.57, lng: 88.36, label: "My farm" }]);
+  });
+
+  it("refuses a location attachment with out-of-range coordinates", () => {
+    expect(validateMessageInput({ attachments: [{ kind: "location", lat: 999, lng: 88.36 }] }).error).toMatch(/invalid location/);
+  });
+
+  it("dedupes mentions and caps them, shape only — sendMessage is what verifies membership", () => {
+    const { value } = validateMessageInput({ body: "hi", mentions: ["a", "a", "b", ...Array.from({ length: 25 }, (_, i) => `x${i}`)] });
+    expect(value.mentions.length).toBeLessThanOrEqual(20);
+    expect(value.mentions.filter((id) => id === "a")).toHaveLength(1);
   });
 
   it("is enforced by the database too, not only the validator", async () => {
