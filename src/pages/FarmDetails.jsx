@@ -7,6 +7,7 @@ import { FARMER_TYPES, TYPE_LABELS } from "../customize/farmerTypes.js";
 import { profileMemory } from "../ai/memory/profileMemory.js";
 import LocationPicker from "../components/geo/LocationPicker.jsx";
 import { readRegion, writeRegion, regionLabel } from "../services/geo/regionPrefs.js";
+import { commerceApi } from "../services/commerce/commerceApi.js";
 
 function Field({ label, value, onChange, placeholder, hint }) {
   return (
@@ -30,9 +31,34 @@ export default function FarmDetails() {
   const [land, setLand]       = useState(p.landSize || "");
   const [crops, setCrops]     = useState((p.crops || []).join(", "));
   const [livestock, setLivestock] = useState((p.livestock || []).join(", "));
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
-    if (name.trim()) updateUser({ name: name.trim() });
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    const trimmedName = name.trim();
+
+    if (trimmedName) {
+      updateUser({ name: trimmedName });
+      /* This is the one field on this screen anyone besides the farmer
+         themselves ever sees — Team, Task assignee, chat sender all read it
+         from Postgres, not from this device. updateUser() above only
+         touches localStorage, which is why a name typed here used to be
+         invisible to every other Farm Space member: it never left the
+         phone it was typed on. Only synced when it actually changed, so
+         re-saving the other fields on this screen does not fire a network
+         call for a name that was already correct. */
+      if (trimmedName !== (user?.name || "")) {
+        try {
+          await commerceApi.updateMe({ name: trimmedName });
+        } catch {
+          toast(tc({ en: "Saved on this device, but your name couldn't be shared with your Farm Space yet. It'll sync next time you're online.",
+                     hi: "इस डिवाइस पर सहेजा गया, पर आपका नाम अभी फ़ार्म स्पेस के साथ साझा नहीं हो सका। अगली बार ऑनलाइन होने पर सिंक होगा।",
+                     bn: "এই ডিভাইসে সংরক্ষিত, তবে আপনার নাম এখনই ফার্ম স্পেসের সঙ্গে ভাগ করা যায়নি। পরের বার অনলাইনে সিঙ্ক হবে।" }), "error");
+        }
+      }
+    }
+
     writeRegion(region);
     const loc = regionLabel(region);
     profileMemory.update({
@@ -41,6 +67,7 @@ export default function FarmDetails() {
       crops: crops.split(",").map((s) => s.trim()).filter(Boolean),
       livestock: livestock.split(",").map((s) => s.trim()).filter(Boolean),
     });
+    setSaving(false);
     toast(tc({ en: "Farm details saved", hi: "खेत विवरण सहेजा गया", bn: "খামার বিবরণ সংরক্ষিত হয়েছে" }), "success");
     pop();
   };
@@ -91,10 +118,12 @@ export default function FarmDetails() {
           {tc({ en: "These details personalize your AI advice and reminders.", hi: "ये विवरण आपकी AI सलाह और रिमाइंडर को व्यक्तिगत बनाते हैं।", bn: "এই বিবরণ আপনার AI পরামর্শ ও রিমাইন্ডার ব্যক্তিগত করে।" })}
         </div>
 
-        <button onClick={save}
+        <button onClick={save} disabled={saving}
           style={{ width: "100%", padding: "14px", borderRadius: T.pill, border: "none", background: T.primary, color: T.onPrimary,
-            fontFamily: T.body, fontSize: 15, fontWeight: 600, cursor: "pointer", boxShadow: T.shadowSm }}>
-          {tc({ en: "Save", hi: "सहेजें", bn: "সংরক্ষণ" })}
+            fontFamily: T.body, fontSize: 15, fontWeight: 600, cursor: saving ? "default" : "pointer", boxShadow: T.shadowSm,
+            opacity: saving ? .7 : 1 }}>
+          {saving ? tc({ en: "Saving…", hi: "सहेजा जा रहा है…", bn: "সংরক্ষণ হচ্ছে…" })
+                  : tc({ en: "Save", hi: "सहेजें", bn: "সংরক্ষণ" })}
         </button>
       </div>
     </>

@@ -48,10 +48,20 @@ export default function Profile() {
     if (!fbEnabled || user?.agrios_user_id || !online) return;
     let alive = true;
     commerceApi.me().then((data) => {
-      if (alive && data?.user?.agrios_user_id) updateUser({ agrios_user_id: data.user.agrios_user_id });
+      if (!alive || !data?.user) return;
+      const patch = {};
+      if (data.user.agrios_user_id) patch.agrios_user_id = data.user.agrios_user_id;
+      /* Catches a name set on a DIFFERENT device — FarmDetails.jsx syncs a
+         name to the server now, but this device's own local copy (what
+         updateUser wrote to localStorage there) only ever reflects what was
+         typed on THIS device. Never overwrites a name this device already
+         has; the reverse (an edit here beating an older server value) is
+         what FarmDetails.jsx's own save already handles. */
+      if (data.user.name && !user?.name) patch.name = data.user.name;
+      if (Object.keys(patch).length) updateUser(patch);
     }).catch(() => {});
     return () => { alive = false; };
-  }, [user?.agrios_user_id, online, updateUser]);
+  }, [user?.agrios_user_id, user?.name, online, updateUser]);
 
   const copyUserId = async () => {
     if (!user?.agrios_user_id) return;

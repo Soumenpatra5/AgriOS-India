@@ -32,6 +32,7 @@ async function req(path, { method = "GET", body, query } = {}) {
 export const commerceApi = {
   // identity — verify -> ensureUser -> the row, including agrios_user_id
   me: () => req("/me"),                                            // { user }
+  updateMe: (patch) => req("/me", { method: "PATCH", body: patch }), // { user }
 
   // listings
   listings: (params) => req("/listings", { query: params }),        // { items, nextCursor }

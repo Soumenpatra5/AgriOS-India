@@ -37,6 +37,7 @@ const ordersHandler      = (await import("../../commerce/orders.js")).default;
 const orderItemHandler   = (await import("../../commerce/orders/[id].js")).default;
 const webhookHandler     = (await import("../../commerce/payments/webhook.js")).default;
 const reviewsHandler     = (await import("../../commerce/reviews.js")).default;
+const meHandler          = (await import("../../commerce/me.js")).default;
 
 let pglite, server;
 
@@ -177,5 +178,57 @@ describe("commerce e2e (real handlers on Postgres)", () => {
     const order = await call(ordersHandler, { method: "POST", uid: "buyer-5", body: { items: [{ listingId: create.body.listing.id, quantity: 1 }] } });
     const stranger = await call(orderItemHandler, { method: "GET", uid: "buyer-6", query: { id: order.body.order.id } });
     expect(stranger.status).toBe(403);
+  });
+});
+
+describe("commerce/me (real handler on Postgres)", () => {
+  it("rejects unauthenticated requests, both GET and PATCH", async () => {
+    expect((await call(meHandler, { method: "GET" })).status).toBe(401);
+    expect((await call(meHandler, { method: "PATCH", body: { name: "X" } })).status).toBe(401);
+  });
+
+  it("GET creates/loads the caller's own row — the B0 acceptance criterion", async () => {
+    const first = await call(meHandler, { method: "GET", uid: "me-user-1" });
+    expect(first.status).toBe(200);
+    expect(first.body.user.firebase_uid).toBe("me-user-1");
+
+    /* Same uid again must be the SAME row, not a second one. */
+    const second = await call(meHandler, { method: "GET", uid: "me-user-1" });
+    expect(second.body.user.id).toBe(first.body.user.id);
+  });
+
+  it("PATCH sets the caller's own name — the fix for FarmDetails.jsx's old device-local-only save", async () => {
+    await call(meHandler, { method: "GET", uid: "me-user-2" }); // creates the row
+    const patch = await call(meHandler, { method: "PATCH", uid: "me-user-2", body: { name: "Priya Das" } });
+    expect(patch.status).toBe(200);
+    expect(patch.body.user.name).toBe("Priya Das");
+
+    /* Persisted, not just echoed back. */
+    const reread = await call(meHandler, { method: "GET", uid: "me-user-2" });
+    expect(reread.body.user.name).toBe("Priya Das");
+  });
+
+  it("can only ever update the CALLER's own row, never one named by the client", async () => {
+    /* There is no id in the PATCH payload at all — current.id comes from
+       the verified token, never from anything the client sends — but this
+       proves the outcome: a second user's PATCH cannot touch the first. */
+    await call(meHandler, { method: "GET", uid: "me-user-3" });
+    await call(meHandler, { method: "GET", uid: "me-user-4" });
+    await call(meHandler, { method: "PATCH", uid: "me-user-4", body: { name: "Only Me" } });
+
+    const other = await call(meHandler, { method: "GET", uid: "me-user-3" });
+    expect(other.body.user.name).not.toBe("Only Me");
+  });
+
+  it("rejects an empty or missing name", async () => {
+    await call(meHandler, { method: "GET", uid: "me-user-5" });
+    expect((await call(meHandler, { method: "PATCH", uid: "me-user-5", body: { name: "   " } })).status).toBe(400);
+    expect((await call(meHandler, { method: "PATCH", uid: "me-user-5", body: {} })).status).toBe(400);
+  });
+
+  it("rejects a name over the length limit", async () => {
+    await call(meHandler, { method: "GET", uid: "me-user-6" });
+    const tooLong = await call(meHandler, { method: "PATCH", uid: "me-user-6", body: { name: "x".repeat(81) } });
+    expect(tooLong.status).toBe(400);
   });
 });
