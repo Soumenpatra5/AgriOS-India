@@ -12,6 +12,12 @@ const api = {
   acceptInvitation: vi.fn(),
   declineInvitation: vi.fn(),
   createSpace: vi.fn(),
+  listTasks: vi.fn(),
+  listAttendance: vi.fn(),
+  attendanceSummary: vi.fn(),
+  listAnnouncements: vi.fn(),
+  listActivity: vi.fn(),
+  listMessages: vi.fn(),
 };
 vi.mock("../farmSpaceApi.js", () => ({
   farmSpaceApi: api,
@@ -258,5 +264,204 @@ describe("change notification", () => {
     expect(() => farmSpaceService.setActive("space-a")).not.toThrow();
     expect(good).toHaveBeenCalled();
     offBad(); offGood();
+  });
+});
+
+describe("tasks cache", () => {
+  const tasks = () => [{ id: "t1", title: "Feed goats", status: "pending" }];
+
+  it("serves repeat reads from cache, kept per space", async () => {
+    api.listTasks.mockResolvedValue(tasks());
+    await farmSpaceService.tasks("space-a");
+    await farmSpaceService.tasks("space-a");
+    expect(api.listTasks).toHaveBeenCalledTimes(1);
+  });
+
+  it("shares one in-flight request", async () => {
+    let resolveApi;
+    api.listTasks.mockReturnValue(new Promise((r) => { resolveApi = r; }));
+    const p1 = farmSpaceService.tasks("space-a");
+    const p2 = farmSpaceService.tasks("space-a", { fresh: true });
+    resolveApi(tasks());
+    await Promise.all([p1, p2]);
+    expect(api.listTasks).toHaveBeenCalledTimes(1);
+  });
+
+  it("peekTasks reads without fetching", async () => {
+    expect(farmSpaceService.peekTasks("space-a")).toBeNull();
+    api.listTasks.mockResolvedValue(tasks());
+    await farmSpaceService.tasks("space-a");
+    expect(farmSpaceService.peekTasks("space-a")).toHaveLength(1);
+  });
+
+  it("patchTask updates one row without a refetch", async () => {
+    api.listTasks.mockResolvedValue(tasks());
+    await farmSpaceService.tasks("space-a");
+    farmSpaceService.patchTask("space-a", "t1", { status: "completed" });
+    expect(farmSpaceService.peekTasks("space-a")[0].status).toBe("completed");
+    expect(api.listTasks).toHaveBeenCalledTimes(1);
+  });
+
+  it("prependTask adds a newly created task to the cache", async () => {
+    api.listTasks.mockResolvedValue(tasks());
+    await farmSpaceService.tasks("space-a");
+    farmSpaceService.prependTask("space-a", { id: "t2", title: "Milk cows", status: "pending" });
+    expect(farmSpaceService.peekTasks("space-a").map((t) => t.id)).toEqual(["t2", "t1"]);
+  });
+
+  it("patching before anything is cached is a no-op, not a crash", () => {
+    expect(() => farmSpaceService.patchTask("space-z", "t1", { status: "done" })).not.toThrow();
+    expect(farmSpaceService.peekTasks("space-z")).toBeNull();
+  });
+});
+
+describe("attendance cache", () => {
+  const day = () => ({ rows: [{ user_id: "u1", status: "present" }], summary: { present: 1, members: 3 } });
+
+  it("serves repeat reads from cache and combines the two requests into one round trip", async () => {
+    api.listAttendance.mockResolvedValue(day().rows);
+    api.attendanceSummary.mockResolvedValue(day().summary);
+    const first = await farmSpaceService.attendanceToday("space-a");
+    expect(first.rows).toEqual(day().rows);
+    expect(first.summary).toEqual(day().summary);
+
+    await farmSpaceService.attendanceToday("space-a");
+    expect(api.listAttendance).toHaveBeenCalledTimes(1);
+    expect(api.attendanceSummary).toHaveBeenCalledTimes(1);
+  });
+
+  it("peekAttendanceToday reads without fetching", async () => {
+    expect(farmSpaceService.peekAttendanceToday("space-a")).toBeNull();
+    api.listAttendance.mockResolvedValue(day().rows);
+    api.attendanceSummary.mockResolvedValue(day().summary);
+    await farmSpaceService.attendanceToday("space-a");
+    expect(farmSpaceService.peekAttendanceToday("space-a").rows).toEqual(day().rows);
+  });
+
+  it("invalidateAttendanceToday forces the next read back to the network", async () => {
+    api.listAttendance.mockResolvedValue(day().rows);
+    api.attendanceSummary.mockResolvedValue(day().summary);
+    await farmSpaceService.attendanceToday("space-a");
+
+    farmSpaceService.invalidateAttendanceToday("space-a");
+    expect(farmSpaceService.peekAttendanceToday("space-a")).toBeNull();
+    await farmSpaceService.attendanceToday("space-a");
+    expect(api.listAttendance).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps two different spaces' attendance apart", async () => {
+    api.listAttendance.mockResolvedValueOnce([{ user_id: "u1" }]).mockResolvedValueOnce([{ user_id: "u2" }]);
+    api.attendanceSummary.mockResolvedValue(day().summary);
+    await farmSpaceService.attendanceToday("space-a");
+    await farmSpaceService.attendanceToday("space-b");
+    expect(farmSpaceService.peekAttendanceToday("space-a").rows[0].user_id).toBe("u1");
+    expect(farmSpaceService.peekAttendanceToday("space-b").rows[0].user_id).toBe("u2");
+  });
+});
+
+describe("announcements cache", () => {
+  const items = () => [{ id: "a1", message: "Vaccination Friday" }];
+
+  it("serves repeat reads from cache", async () => {
+    api.listAnnouncements.mockResolvedValue(items());
+    await farmSpaceService.announcements("space-a");
+    await farmSpaceService.announcements("space-a");
+    expect(api.listAnnouncements).toHaveBeenCalledTimes(1);
+  });
+
+  it("prependAnnouncement adds a newly posted one without a refetch", async () => {
+    api.listAnnouncements.mockResolvedValue(items());
+    await farmSpaceService.announcements("space-a");
+    farmSpaceService.prependAnnouncement("space-a", { id: "a2", message: "Storm tonight" });
+    expect(farmSpaceService.peekAnnouncements("space-a").map((a) => a.id)).toEqual(["a2", "a1"]);
+    expect(api.listAnnouncements).toHaveBeenCalledTimes(1);
+  });
+
+  it("removeAnnouncementFromCache drops a removed one", async () => {
+    api.listAnnouncements.mockResolvedValue(items());
+    await farmSpaceService.announcements("space-a");
+    farmSpaceService.removeAnnouncementFromCache("space-a", "a1");
+    expect(farmSpaceService.peekAnnouncements("space-a")).toEqual([]);
+  });
+});
+
+describe("activity cache", () => {
+  it("serves repeat reads from cache, with no mutation hooks of its own", async () => {
+    api.listActivity.mockResolvedValue([{ id: "e1", action: "task.created" }]);
+    await farmSpaceService.activity("space-a");
+    await farmSpaceService.activity("space-a");
+    expect(api.listActivity).toHaveBeenCalledTimes(1);
+
+    /* Only a fresh call — the background refresh a screen fires on every
+       mount — reaches the network again, since nothing here invalidates it. */
+    await farmSpaceService.activity("space-a", { fresh: true });
+    expect(api.listActivity).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("chat initial-page cache", () => {
+  const msgs = () => [{ id: "m1", body: "hi", created_at: "2026-01-01T00:00:00Z" }];
+
+  it("serves repeat reads from cache", async () => {
+    api.listMessages.mockResolvedValue(msgs());
+    await farmSpaceService.chatInitial("space-a");
+    await farmSpaceService.chatInitial("space-a");
+    expect(api.listMessages).toHaveBeenCalledTimes(1);
+  });
+
+  it("appendChatMessages merges new ones in, deduped by id, capped at 50", async () => {
+    api.listMessages.mockResolvedValue(msgs());
+    await farmSpaceService.chatInitial("space-a");
+
+    farmSpaceService.appendChatMessages("space-a", [
+      { id: "m1", body: "hi", created_at: "2026-01-01T00:00:00Z" },
+      { id: "m2", body: "there", created_at: "2026-01-01T00:01:00Z" },
+    ]);
+    const list = farmSpaceService.peekChatInitial("space-a");
+    expect(list.map((m) => m.id)).toEqual(["m1", "m2"]);
+  });
+
+  it("appendChatMessages caps the cached page at 50", async () => {
+    api.listMessages.mockResolvedValue(msgs());
+    await farmSpaceService.chatInitial("space-a");
+
+    const many = Array.from({ length: 60 }, (_, i) => ({ id: `gen-${i}`, body: String(i), created_at: `t${i}` }));
+    farmSpaceService.appendChatMessages("space-a", many);
+    expect(farmSpaceService.peekChatInitial("space-a")).toHaveLength(50);
+  });
+
+  it("appending before anything is cached is a no-op, not a crash", () => {
+    /* Same convention as patchTask/patchMember: in practice load() always
+       populates the cache before poll() or send() can fire, so this is a
+       defensive no-op rather than a real path — but it must not throw. */
+    expect(() => farmSpaceService.appendChatMessages("space-z", [{ id: "x" }])).not.toThrow();
+    expect(farmSpaceService.peekChatInitial("space-z")).toBeNull();
+  });
+});
+
+describe("reset clears every domain cache", () => {
+  it("tasks, attendance, announcements, activity and chat are all gone after reset", async () => {
+    api.listTasks.mockResolvedValue([{ id: "t1" }]);
+    api.listAttendance.mockResolvedValue([{ user_id: "u1" }]);
+    api.attendanceSummary.mockResolvedValue({ present: 1, members: 1 });
+    api.listAnnouncements.mockResolvedValue([{ id: "a1" }]);
+    api.listActivity.mockResolvedValue([{ id: "e1" }]);
+    api.listMessages.mockResolvedValue([{ id: "m1" }]);
+
+    await Promise.all([
+      farmSpaceService.tasks("space-a"),
+      farmSpaceService.attendanceToday("space-a"),
+      farmSpaceService.announcements("space-a"),
+      farmSpaceService.activity("space-a"),
+      farmSpaceService.chatInitial("space-a"),
+    ]);
+
+    farmSpaceService.reset();
+
+    expect(farmSpaceService.peekTasks("space-a")).toBeNull();
+    expect(farmSpaceService.peekAttendanceToday("space-a")).toBeNull();
+    expect(farmSpaceService.peekAnnouncements("space-a")).toBeNull();
+    expect(farmSpaceService.peekActivity("space-a")).toBeNull();
+    expect(farmSpaceService.peekChatInitial("space-a")).toBeNull();
   });
 });

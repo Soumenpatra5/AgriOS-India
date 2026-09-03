@@ -36,13 +36,27 @@ export default function FarmSpaceAnnouncements() {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    setState("loading");
     try {
       const active = await farmSpaceService.active();
       if (!active) { setReason(FARM_ERROR.NOT_FOUND); setState("error"); return; }
       setSpace(active);
-      setItems(await farmSpaceApi.listAnnouncements(active.id));
-      setState("ready");
+
+      const cached = farmSpaceService.peekAnnouncements(active.id);
+      let paintedFromCache = false;
+      if (cached) {
+        setItems(cached);
+        setState("ready");
+        paintedFromCache = true;
+      } else {
+        setState("loading");
+      }
+
+      try {
+        setItems(await farmSpaceService.announcements(active.id, { fresh: true }));
+        setState("ready");
+      } catch (err) {
+        if (!paintedFromCache) throw err;
+      }
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
@@ -61,6 +75,7 @@ export default function FarmSpaceAnnouncements() {
         message: form.message.trim(), kind: form.kind,
       });
       setItems((l) => [created, ...l]);
+      farmSpaceService.prependAnnouncement(space.id, created);
       setOpen(false); setForm({ message: "", kind: "notice" });
     } catch (err) {
       toast(err?.status === 400 ? err.message : farmErrorText(err?.reason, tc), "error");
@@ -71,6 +86,7 @@ export default function FarmSpaceAnnouncements() {
     try {
       await farmSpaceApi.removeAnnouncement(space.id, id);
       setItems((l) => l.filter((a) => a.id !== id));
+      farmSpaceService.removeAnnouncementFromCache(space.id, id);
     } catch (err) {
       toast(err?.status === 403 ? err.message : farmErrorText(err?.reason, tc), "error");
     }

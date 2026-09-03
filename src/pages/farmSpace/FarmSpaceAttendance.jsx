@@ -39,24 +39,35 @@ export default function FarmSpaceAttendance() {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    setState("loading");
     try {
       const active = await farmSpaceService.active();
       if (!active) { setReason(FARM_ERROR.NOT_FOUND); setState("error"); return; }
       setSpace(active);
 
-      const [list, sum] = await Promise.all([
-        farmSpaceApi.listAttendance(active.id, { date: todayStr() }),
-        farmSpaceApi.attendanceSummary(active.id, todayStr()),
-      ]);
-      setRows(list);
-      setSummary(sum);
-
       /* Only a manager needs the roster, and only they are allowed it. */
       if (farmSpaceService.can(active, "farm.attendance.manage")) {
         farmSpaceService.members(active.id).then(setMembers).catch(() => setMembers([]));
       }
-      setState("ready");
+
+      const cached = farmSpaceService.peekAttendanceToday(active.id);
+      let paintedFromCache = false;
+      if (cached) {
+        setRows(cached.rows);
+        setSummary(cached.summary);
+        setState("ready");
+        paintedFromCache = true;
+      } else {
+        setState("loading");
+      }
+
+      try {
+        const { rows: list, summary: sum } = await farmSpaceService.attendanceToday(active.id, { fresh: true });
+        setRows(list);
+        setSummary(sum);
+        setState("ready");
+      } catch (err) {
+        if (!paintedFromCache) throw err;
+      }
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
@@ -72,6 +83,13 @@ export default function FarmSpaceAttendance() {
     setBusy(true);
     try {
       await farmSpaceApi.markAttendance(space.id, payload);
+      /* Invalidated rather than patched: a first mark for the day CREATES a
+         row, so there is no existing entry to update in place. Invalidating
+         means load() finds no cache and goes straight to a fresh fetch,
+         rather than briefly repainting the pre-mark state before correcting
+         itself — the farmer just acted, and should not see it undone even
+         for a moment. */
+      farmSpaceService.invalidateAttendanceToday(space.id);
       await load();
     } catch (err) {
       toast(err?.status === 400 || err?.status === 403 ? err.message : farmErrorText(err?.reason, tc), "error");
@@ -82,6 +100,7 @@ export default function FarmSpaceAttendance() {
     setBusy(true);
     try {
       await farmSpaceApi.checkOut(space.id, {});
+      farmSpaceService.invalidateAttendanceToday(space.id);
       await load();
     } catch (err) {
       toast(err?.status === 409 ? err.message : farmErrorText(err?.reason, tc), "error");

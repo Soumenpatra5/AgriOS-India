@@ -79,16 +79,35 @@ export default function FarmSpaceTasks() {
   const [createOpen, setCreateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  /* Cache-first, same pattern as the hub: paint whatever this session already
+     knows instantly, confirm it against the server in the background, and
+     only let a spinner or an error replace something that was never on
+     screen to begin with. */
   const load = useCallback(async () => {
-    setState("loading");
     try {
       const active = await farmSpaceService.active();
       if (!active) { setReason(FARM_ERROR.NOT_FOUND); setState("error"); return; }
       setSpace(active);
-      const list = await farmSpaceApi.listTasks(active.id, {});
-      setTasks(list);
-      announceNew(list, active.user_id, tc);
-      setState("ready");
+
+      const cached = farmSpaceService.peekTasks(active.id);
+      let paintedFromCache = false;
+      if (cached) {
+        setTasks(cached);
+        announceNew(cached, active.user_id, tc);
+        setState("ready");
+        paintedFromCache = true;
+      } else {
+        setState("loading");
+      }
+
+      try {
+        const list = await farmSpaceService.tasks(active.id, { fresh: true });
+        setTasks(list);
+        announceNew(list, active.user_id, tc);
+        setState("ready");
+      } catch (err) {
+        if (!paintedFromCache) throw err;
+      }
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
@@ -111,6 +130,7 @@ export default function FarmSpaceTasks() {
     try {
       const updated = await farmSpaceApi.setTaskStatus(space.id, task.id, status, note ?? null);
       setTasks((list) => list.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)));
+      farmSpaceService.patchTask(space.id, updated.id, updated);
       setOpenTask(null);
     } catch (err) {
       /* 403 and 409 carry a message written for a farmer — "a pending task
@@ -172,7 +192,7 @@ export default function FarmSpaceTasks() {
       {canCreate && (
         <CreateSheet open={createOpen} space={space} tc={tc} toast={toast}
           onClose={() => setCreateOpen(false)}
-          onCreated={(t) => { setTasks((l) => [t, ...l]); setCreateOpen(false); }} />
+          onCreated={(t) => { setTasks((l) => [t, ...l]); farmSpaceService.prependTask(space.id, t); setCreateOpen(false); }} />
       )}
     </>
   );

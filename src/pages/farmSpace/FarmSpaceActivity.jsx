@@ -4,7 +4,6 @@ import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, EmptyState, ErrorState, Spinner } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
-import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 
 /* The farm's activity feed.
@@ -53,13 +52,30 @@ export default function FarmSpaceActivity() {
   const [state, setState] = useState("loading");
   const [reason, setReason] = useState(null);
 
+  /* No mutation on this screen invalidates the cache — Activity is a feed of
+     things OTHER actions caused, so it leans entirely on the background
+     refresh below to catch up, same as the hub does. */
   const load = useCallback(async () => {
-    setState("loading");
     try {
       const active = await farmSpaceService.active();
       if (!active) { setReason(FARM_ERROR.NOT_FOUND); setState("error"); return; }
-      setItems(await farmSpaceApi.listActivity(active.id));
-      setState("ready");
+
+      const cached = farmSpaceService.peekActivity(active.id);
+      let paintedFromCache = false;
+      if (cached) {
+        setItems(cached);
+        setState("ready");
+        paintedFromCache = true;
+      } else {
+        setState("loading");
+      }
+
+      try {
+        setItems(await farmSpaceService.activity(active.id, { fresh: true }));
+        setState("ready");
+      } catch (err) {
+        if (!paintedFromCache) throw err;
+      }
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");

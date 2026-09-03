@@ -33,6 +33,79 @@ export function onFarmSpaceChanged(fn) {
 }
 function notify() { listeners.forEach((fn) => { try { fn(); } catch { /* a bad listener must not break the rest */ } }); }
 
+/* A per-space cache with the exact shape spaces() and members() each hand-
+   rolled above: read the cache unless told to be fresh, share one in-flight
+   request across concurrent callers instead of firing it twice, and let a
+   caller peek, patch or invalidate one entry without touching the others.
+   Tasks, announcements, activity and chat's initial page all need this same
+   shape, so it is built once here instead of copied four more times. */
+function keyedCache(fetch) {
+  const store = new Map();
+  const inFlight = new Map();
+
+  return {
+    async get(key, { fresh = false } = {}) {
+      if (!fresh && store.has(key)) return store.get(key);
+      if (inFlight.has(key)) return inFlight.get(key);
+
+      const p = (async () => {
+        try {
+          const value = await fetch(key);
+          store.set(key, value);
+          notify();
+          return value;
+        } finally {
+          inFlight.delete(key);
+        }
+      })();
+      inFlight.set(key, p);
+      return p;
+    },
+    peek(key) { return store.has(key) ? store.get(key) : null; },
+    update(key, updater) {
+      if (!store.has(key)) return;
+      store.set(key, updater(store.get(key)));
+      notify();
+    },
+    invalidate(key) { store.delete(key); notify(); },
+    clear() { store.clear(); inFlight.clear(); },
+  };
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+/* Tasks: the full list, filtered client-side (FarmSpaceTasks already does
+   this — the server call itself is never scoped to a filter). */
+const _tasksCache = keyedCache((spaceId) => farmSpaceApi.listTasks(spaceId, {}));
+
+/* Attendance: keyed by space AND date, not just space — a cache entry from
+   yesterday must never answer for today, and keying it this way means a new
+   day simply produces a new (cold) key rather than needing an explicit
+   midnight-rollover check. */
+const _attendanceCache = keyedCache(async (key) => {
+  const spaceId = key.slice(0, key.lastIndexOf(":"));
+  const date = today();
+  const [rows, summary] = await Promise.all([
+    farmSpaceApi.listAttendance(spaceId, { date }),
+    farmSpaceApi.attendanceSummary(spaceId, date),
+  ]);
+  return { rows, summary };
+});
+
+const _announcementsCache = keyedCache((spaceId) => farmSpaceApi.listAnnouncements(spaceId));
+
+/* Activity has no mutation of its own to invalidate it on — it is a feed of
+   things OTHER actions caused, and every one of those would need to know to
+   invalidate it, which is exactly the coupling this cache exists to avoid.
+   It relies on the background refresh alone to catch up, same as the hub. */
+const _activityCache = keyedCache((spaceId) => farmSpaceApi.listActivity(spaceId));
+
+/* Only the INITIAL page — polling (useFarmPoll, every 15s while the screen is
+   open) is untouched and still fetches incrementally with `since`. This cache
+   exists so returning to a chat already opened this session does not wait on
+   a network round trip to show the same messages it showed a moment ago. */
+const _chatCache = keyedCache((spaceId) => farmSpaceApi.listMessages(spaceId, { limit: 50 }));
+
 export const farmSpaceService = {
   /* ── membership ─────────────────────────────────────────────────────────── */
 
@@ -203,11 +276,74 @@ export const farmSpaceService = {
     notify();
   },
 
+  /* ── tasks ──────────────────────────────────────────────────────────────── */
+
+  async tasks(spaceId, opts) { return _tasksCache.get(spaceId, opts); },
+  peekTasks(spaceId) { return _tasksCache.peek(spaceId); },
+
+  /* setTaskStatus and createTask already patch their screen's own local
+     state; this keeps the shared cache in step with that same change so a
+     different screen reading tasks later (there is only one today, but the
+     cache is not written for only one reader) sees it too. */
+  patchTask(spaceId, taskId, patch) {
+    _tasksCache.update(spaceId, (list) => (list ? list.map((t) => (t.id === taskId ? { ...t, ...patch } : t)) : list));
+  },
+  prependTask(spaceId, task) {
+    _tasksCache.update(spaceId, (list) => (list ? [task, ...list] : [task]));
+  },
+
+  /* ── attendance ─────────────────────────────────────────────────────────── */
+
+  async attendanceToday(spaceId, opts) { return _attendanceCache.get(`${spaceId}:${today()}`, opts); },
+  peekAttendanceToday(spaceId) { return _attendanceCache.peek(`${spaceId}:${today()}`); },
+
+  /* Marking attendance changes more than one row can cleanly express client-
+     side (a first mark for the day CREATES a row; check-out only updates an
+     existing one) — invalidating and letting the mutation's own reload fetch
+     the true state is simpler and no less correct than trying to patch it. */
+  invalidateAttendanceToday(spaceId) { _attendanceCache.invalidate(`${spaceId}:${today()}`); },
+
+  /* ── announcements ──────────────────────────────────────────────────────── */
+
+  async announcements(spaceId, opts) { return _announcementsCache.get(spaceId, opts); },
+  peekAnnouncements(spaceId) { return _announcementsCache.peek(spaceId); },
+  prependAnnouncement(spaceId, item) {
+    _announcementsCache.update(spaceId, (list) => (list ? [item, ...list] : [item]));
+  },
+  removeAnnouncementFromCache(spaceId, id) {
+    _announcementsCache.update(spaceId, (list) => (list ? list.filter((a) => a.id !== id) : list));
+  },
+
+  /* ── activity ───────────────────────────────────────────────────────────── */
+
+  async activity(spaceId, opts) { return _activityCache.get(spaceId, opts); },
+  peekActivity(spaceId) { return _activityCache.peek(spaceId); },
+
+  /* ── chat (initial page only — polling is untouched) ───────────────────── */
+
+  async chatInitial(spaceId, opts) { return _chatCache.get(spaceId, opts); },
+  peekChatInitial(spaceId) { return _chatCache.peek(spaceId); },
+
+  /* Called after a poll tick or a successful send, so a farmer who leaves and
+     reopens chat sees what they last had on screen, not an older page that
+     is missing messages they already read. Deduped by id and capped at 50,
+     same as the page itself. */
+  appendChatMessages(spaceId, added) {
+    _chatCache.update(spaceId, (list) => {
+      const base = list || [];
+      const known = new Set(base.map((m) => m.id));
+      const merged = [...base, ...added.filter((m) => !known.has(m.id))];
+      return merged.slice(-50);
+    });
+  },
+
   /* Invalidate everything — used on sign-out, so the next user does not see
      the previous one's farms. */
   reset() {
     _spaces = null; _invitations = null;
     _members.clear(); _membersPromise.clear();
+    _tasksCache.clear(); _attendanceCache.clear();
+    _announcementsCache.clear(); _activityCache.clear(); _chatCache.clear();
     storage.remove(ACTIVE_KEY);
     notify();
   },

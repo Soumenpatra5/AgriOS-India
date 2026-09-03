@@ -35,16 +35,33 @@ export default function FarmSpaceChat() {
   const bottomRef = useRef(null);
   const newestRef = useRef(null);                 // timestamp cursor for polling
 
+  /* Only the INITIAL page is cached — polling below is untouched, still an
+     incremental `since` fetch every 15s while the screen is open. */
   const load = useCallback(async () => {
-    setState("loading");
     try {
       const active = await farmSpaceService.active();
       if (!active) { setReason(FARM_ERROR.NOT_FOUND); setState("error"); return; }
       setSpace(active);
-      const list = await farmSpaceApi.listMessages(active.id, { limit: 50 });
-      setMessages(list);
-      newestRef.current = list.at(-1)?.created_at ?? null;
-      setState("ready");
+
+      const cached = farmSpaceService.peekChatInitial(active.id);
+      let paintedFromCache = false;
+      if (cached) {
+        setMessages(cached);
+        newestRef.current = cached.at(-1)?.created_at ?? null;
+        setState("ready");
+        paintedFromCache = true;
+      } else {
+        setState("loading");
+      }
+
+      try {
+        const list = await farmSpaceService.chatInitial(active.id, { fresh: true });
+        setMessages(list);
+        newestRef.current = list.at(-1)?.created_at ?? null;
+        setState("ready");
+      } catch (err) {
+        if (!paintedFromCache) throw err;
+      }
     } catch (err) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
@@ -65,6 +82,10 @@ export default function FarmSpaceChat() {
       return added.length ? [...prev, ...added] : prev;
     });
     newestRef.current = fresh.at(-1).created_at;
+    /* Keeps the cache in step with what polling just showed, so leaving and
+       reopening chat does not momentarily show fewer messages than were
+       already on screen before navigating away. */
+    farmSpaceService.appendChatMessages(space.id, fresh);
   }, [space]);
 
   useFarmPoll(poll, { intervalMs: 15000, enabled: state === "ready" && !!space });
@@ -85,6 +106,7 @@ export default function FarmSpaceChat() {
       setPending((p) => p.filter((x) => x.localId !== localId));
       setMessages((prev) => (prev.some((m) => m.id === saved.id) ? prev : [...prev, saved]));
       newestRef.current = saved.created_at;
+      farmSpaceService.appendChatMessages(space.id, [saved]);
     } catch {
       /* Kept on screen and marked, rather than vanishing. The farmer decides
          whether to retry; nothing is silently re-sent hours later, which for a
@@ -101,6 +123,7 @@ export default function FarmSpaceChat() {
       setPending((p) => p.filter((x) => x.localId !== item.localId));
       setMessages((prev) => [...prev, saved]);
       newestRef.current = saved.created_at;
+      farmSpaceService.appendChatMessages(space.id, [saved]);
     } catch {
       setPending((p) => p.map((x) => (x.localId === item.localId ? { ...x, state: OUTBOX_FAILED } : x)));
     }
