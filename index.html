@@ -20,6 +20,46 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- A silent blank screen is undiagnosable — this catches a startup
+         failure the app's own React error boundary cannot (a crash before
+         React ever renders, or a script/chunk that fails to load) and shows
+         the real reason directly on screen. Inert whenever the app starts
+         normally: nothing here runs unless startup has already gone wrong. -->
+    <script>
+      (function () {
+        var shown = false;
+        function showFallback(detail) {
+          if (shown) return;
+          shown = true;
+          document.body.innerHTML =
+            '<div style="font-family:-apple-system,sans-serif;padding:24px;color:#111;' +
+            'background:#fff;min-height:100vh;box-sizing:border-box;">' +
+            '<h1 style="font-size:18px;margin:0 0 12px;">AgriOS could not start</h1>' +
+            '<p style="font-size:14px;line-height:1.5;color:#444;">' +
+            'Please screenshot this and share it — it tells us exactly what went wrong.</p>' +
+            '<pre style="white-space:pre-wrap;word-break:break-word;background:#f4f4f4;' +
+            'padding:12px;border-radius:8px;font-size:12px;color:#900;">' +
+            String(detail || "Unknown error — the page never started").replace(/</g, "&lt;") +
+            '</pre>' +
+            '<button onclick="location.reload()" style="margin-top:12px;padding:10px 16px;' +
+            'font-size:14px;">Reload</button></div>';
+        }
+        window.addEventListener("error", function (e) {
+          showFallback((e.message || "Script error") + (e.filename ? " @ " + e.filename + ":" + e.lineno : ""));
+        }, true);
+        window.addEventListener("unhandledrejection", function (e) {
+          var r = e.reason;
+          showFallback("Unhandled promise rejection: " + (r && r.message ? r.message : String(r)));
+        });
+        setTimeout(function () {
+          var root = document.getElementById("root");
+          if (root && root.childNodes.length === 0) {
+            showFallback("The app did not render within 15 seconds — no script error was caught, " +
+              "which usually means a network or asset loading problem rather than a code crash.");
+          }
+        }, 15000);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
