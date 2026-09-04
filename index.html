@@ -47,10 +47,22 @@
             '<button onclick="location.reload()" style="margin-top:12px;padding:10px 16px;' +
             'font-size:14px;">Reload</button></div>';
         }
+        function appRendered() {
+          var root = document.getElementById("root");
+          return !!(root && root.childNodes.length > 0);
+        }
         window.addEventListener("error", function (e) {
+          /* The capture phase also delivers resource-load failures (a font,
+             image or stylesheet that didn't load) as plain Events with the
+             failed element as target. Those are non-fatal — the app keeps
+             running without them. Only a real script error (an ErrorEvent),
+             and only before anything has rendered, means startup is dead;
+             after first render the app's own error boundary owns failures. */
+          if (!(e instanceof ErrorEvent) || appRendered()) return;
           showFallback((e.message || "Script error") + (e.filename ? " @ " + e.filename + ":" + e.lineno : ""));
         }, true);
         window.addEventListener("unhandledrejection", function (e) {
+          if (appRendered()) return;
           var r = e.reason;
           showFallback("Unhandled promise rejection: " + (r && r.message ? r.message : String(r)));
         });
