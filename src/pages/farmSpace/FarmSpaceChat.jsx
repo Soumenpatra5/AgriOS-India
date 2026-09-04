@@ -8,8 +8,8 @@ import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
 import { useFarmPoll } from "../../hooks/useFarmPoll.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 import { REACTION_EMOJI, OWN_DELETE_WINDOW_MS } from "../../../api/_lib/farm/chat.js";
-import { uploadChatAttachment, attachmentKindForFile, ATTACHMENT_KIND_RULES } from "../../services/farmSpace/farmChatUpload.js";
 import { senderName, formatDuration, AttachmentDraftChip, ActionRow, Bubble } from "./chatBubble.jsx";
+import { useAttachmentDrafts } from "./useAttachmentDrafts.js";
 
 /* Farm chat.
 
@@ -71,7 +71,7 @@ export default function FarmSpaceChat() {
   const [confirmDelete, setConfirmDelete] = useState(null); // { message, forEveryone }
 
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
-  const [attachmentDrafts, setAttachmentDrafts] = useState([]); // pre-send, each uploading/done/error
+  const attachments = useAttachmentDrafts({ spaceId: space?.id, toast, tc });
   const mediaInputRef = useRef(null);
   const docInputRef = useRef(null);
 
@@ -190,112 +190,20 @@ export default function FarmSpaceChat() {
     farmSpaceService.appendChatMessages(space.id, [updated]);
   };
 
-  /* A picked file becomes a draft immediately (own local id, own upload
-     lifecycle) rather than waiting for Send — the upload to Blob happens
-     while the farmer is still typing, so tapping Send does not then sit
-     waiting on a slow rural connection with nothing on screen to show for
-     it. Only a `status: "done"` draft is ever included in what Send sends. */
-  const MAX_DRAFT_ATTACHMENTS = 4;
-
-  const addAttachmentDraft = (file) => {
-    if (attachmentDrafts.length >= MAX_DRAFT_ATTACHMENTS) {
-      toast(tc({ en: "Up to 4 attachments per message.", hi: "प्रति संदेश अधिकतम 4 अनुलग्नक।", bn: "প্রতি বার্তায় সর্বোচ্চ ৪টি সংযুক্তি।" }), "error");
-      return;
-    }
-    const kind = attachmentKindForFile(file);
-    const rules = ATTACHMENT_KIND_RULES[kind];
-    if (file.size > rules.maxBytes) {
-      toast(tc({ en: "This file is too large to send.", hi: "यह फ़ाइल भेजने के लिए बहुत बड़ी है।", bn: "এই ফাইলটি পাঠানোর জন্য খুব বড়।" }), "error");
-      return;
-    }
-
-    const localId = `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const previewUrl = (kind === "image" || kind === "video") ? URL.createObjectURL(file) : null;
-    setAttachmentDrafts((d) => [...d, {
-      localId, kind, name: file.name, size: file.size, type: file.type, previewUrl,
-      status: "uploading", progress: 0,
-    }]);
-
-    uploadChatAttachment(space.id, file, kind, {
-      onProgress: (pct) => setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, progress: pct } : x))),
-    }).then((result) => {
-      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "done", url: result.url } : x)));
-    }).catch((err) => {
-      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "error", error: err?.message } : x)));
-    });
-  };
-
-  const removeAttachmentDraft = (localId) => {
-    setAttachmentDrafts((d) => {
-      const found = d.find((x) => x.localId === localId);
-      if (found?.previewUrl) URL.revokeObjectURL(found.previewUrl);
-      return d.filter((x) => x.localId !== localId);
-    });
-  };
-
-  /* Coordinates only, resolved once at share-time — this is a location
-     ATTACHMENT (a single point in the conversation, like WhatsApp's), not
-     the farm's live/active location LocationPicker manages elsewhere. */
-  const shareLocation = async () => {
-    if (attachmentDrafts.length >= MAX_DRAFT_ATTACHMENTS) {
-      toast(tc({ en: "Up to 4 attachments per message.", hi: "प्रति संदेश अधिकतम 4 अनुलग्नक।", bn: "প্রতি বার্তায় সর্বোচ্চ ৪টি সংযুক্তি।" }), "error");
-      return;
-    }
-    const localId = `att-${Date.now()}-loc`;
-    setAttachmentDrafts((d) => [...d, { localId, kind: "location", status: "uploading" }]);
-    try {
-      const { locationService } = await import("../../services/location/locationService.js");
-      const pos = await locationService.currentPosition();
-      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId
-        ? { ...x, status: "done", lat: pos.lat, lng: pos.lon, label: pos.name }
-        : x)));
-    } catch (err) {
-      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "error", error: err?.message } : x)));
-    }
-  };
-
-  const attachmentsPayloadFrom = (drafts) => drafts.filter((d) => d.status === "done").map((d) => {
-    if (d.kind === "location") return { kind: "location", lat: d.lat, lng: d.lng, label: d.label };
-    const a = { kind: d.kind, url: d.url, name: d.name, size: d.size, type: d.type };
-    if (d.kind === "audio" && d.duration != null) a.duration = d.duration;
-    return a;
-  });
-
-  /* A recorded voice note becomes an attachment draft exactly like a picked
-     file (same upload lifecycle, same MAX_DRAFT_ATTACHMENTS cap) — it just
-     starts life as a Blob from MediaRecorder instead of a file input, and
-     carries a duration nothing else does. */
+  /* A recorded voice note becomes an attachment draft through the same
+     addFileDraft() every picked file uses (same upload lifecycle, same cap,
+     same retry-on-failure) — it just starts life as a Blob from
+     MediaRecorder instead of a file input, and carries a duration nothing
+     else does. */
   const addVoiceDraft = (blob, seconds) => {
-    if (attachmentDrafts.length >= MAX_DRAFT_ATTACHMENTS) {
-      toast(tc({ en: "Up to 4 attachments per message.", hi: "प्रति संदेश अधिकतम 4 अनुलग्नक।", bn: "প্রতি বার্তায় সর্বোচ্চ ৪টি সংযুক্তি।" }), "error");
-      return;
-    }
-    const kind = "audio";
-    const rules = ATTACHMENT_KIND_RULES[kind];
-    if (blob.size > rules.maxBytes) {
-      toast(tc({ en: "This recording is too long to send.", hi: "यह रिकॉर्डिंग भेजने के लिए बहुत लंबी है।", bn: "এই রেকর্ডিং পাঠানোর জন্য খুব দীর্ঘ।" }), "error");
-      return;
-    }
     const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
     const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: blob.type || "audio/webm" });
-    const localId = `att-${Date.now()}-voice`;
-
-    setAttachmentDrafts((d) => [...d, {
-      localId, kind, name: file.name, size: file.size, type: file.type, duration: seconds,
-      status: "uploading", progress: 0,
-    }]);
-    uploadChatAttachment(space.id, file, kind, {
-      onProgress: (pct) => setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, progress: pct } : x))),
-    }).then((result) => {
-      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "done", url: result.url } : x)));
-    }).catch((err) => {
-      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "error", error: err?.message } : x)));
-    });
+    attachments.addFileDraft(file, { forceKind: "audio", extra: { duration: seconds } });
   };
 
   const startRecording = async () => {
-    if (attachmentDrafts.length >= MAX_DRAFT_ATTACHMENTS) {
-      toast(tc({ en: "Up to 4 attachments per message.", hi: "प्रति संदेश अधिकतम 4 अनुलग्नक।", bn: "প্রতি বার্তায় সর্বোচ্চ ৪টি সংযুক্তি।" }), "error");
+    if (attachments.attachmentDrafts.length >= attachments.max) {
+      toast(tc({ en: `Up to ${attachments.max} attachments per message.`, hi: `प्रति संदेश अधिकतम ${attachments.max} अनुलग्नक।`, bn: `প্রতি বার্তায় সর্বোচ্চ ${attachments.max}টি সংযুক্তি।` }), "error");
       return;
     }
     try {
@@ -427,12 +335,18 @@ export default function FarmSpaceChat() {
     }
 
     if (!space) return;
-    if (attachmentDrafts.some((d) => d.status === "uploading")) {
+    if (attachments.attachmentsUploading) {
       toast(tc({ en: "Still uploading — hang on a moment.", hi: "अभी अपलोड हो रहा है — थोड़ा इंतज़ार करें।", bn: "এখনও আপলোড হচ্ছে — একটু অপেক্ষা করুন।" }), "error");
       return;
     }
-    const attachments = attachmentsPayloadFrom(attachmentDrafts);
-    if (!body && !attachments.length) return;
+    if (attachments.hasErroredAttachment) {
+      toast(tc({ en: "One attachment failed to upload — retry or remove it before sending.",
+                  hi: "एक अनुलग्नक अपलोड नहीं हो सका — भेजने से पहले फिर कोशिश करें या हटाएँ।",
+                  bn: "একটি সংযুক্তি আপলোড হয়নি — পাঠানোর আগে আবার চেষ্টা করুন বা সরান।" }), "error");
+      return;
+    }
+    const attachmentsPayload = attachments.payloadFrom(attachments.attachmentDrafts);
+    if (!body && !attachmentsPayload.length) return;
     const mentions = mentionsPayloadFrom(body, mentionPicks);
 
     const parentMessageId = replyTo?.id || null;
@@ -440,14 +354,14 @@ export default function FarmSpaceChat() {
     setReplyTo(null);
 
     const localId = `local-${Date.now()}`;
-    setPending((p) => [...p, { localId, body, attachments, mentions, state: OUTBOX_SENDING, replyPreview }]);
+    setPending((p) => [...p, { localId, body, attachments: attachmentsPayload, mentions, state: OUTBOX_SENDING, replyPreview }]);
     setDraft("");
-    setAttachmentDrafts([]);
+    attachments.clearDrafts();
     setMentionPicks([]);
     setMentionQuery(null);
 
     try {
-      const saved = await farmSpaceApi.sendMessage(space.id, { body, parentMessageId, attachments, mentions });
+      const saved = await farmSpaceApi.sendMessage(space.id, { body, parentMessageId, attachments: attachmentsPayload, mentions });
       setPending((p) => p.filter((x) => x.localId !== localId));
       setMessages((prev) => (prev.some((m) => m.id === saved.id) ? prev : [...prev, saved]));
       newestRef.current = cursorFrom([saved], newestRef.current);
@@ -487,8 +401,8 @@ export default function FarmSpaceChat() {
   /* Editing rewrites text only (editMessage never touches attachments), so
      any attachment mid-upload for a still-unsent message is dropped rather
      than left stranded in limbo while the composer is repurposed. */
-  const doStartEdit = (m) => { setEditing(m); setDraft(m.body || ""); setReplyTo(null); setAttachmentDrafts([]); setMentionPicks([]); setMentionQuery(null); closeActions(); };
-  const doCancelCompose = () => { setEditing(null); setReplyTo(null); setDraft(""); setAttachmentDrafts([]); setMentionPicks([]); setMentionQuery(null); };
+  const doStartEdit = (m) => { setEditing(m); setDraft(m.body || ""); setReplyTo(null); attachments.clearDrafts(); setMentionPicks([]); setMentionQuery(null); closeActions(); };
+  const doCancelCompose = () => { setEditing(null); setReplyTo(null); setDraft(""); attachments.clearDrafts(); setMentionPicks([]); setMentionQuery(null); };
 
   const doCopy = async (m) => {
     closeActions();
@@ -558,11 +472,10 @@ export default function FarmSpaceChat() {
       <div style={{ padding: 20 }}><ErrorState body={farmErrorText(reason, tc)} onRetry={load} /></div></>;
   }
 
-  const hasReadyAttachment = attachmentDrafts.some((d) => d.status === "done");
-  const attachmentsUploading = attachmentDrafts.some((d) => d.status === "uploading");
-  const canSend = editing ? !!draft.trim() : (!!draft.trim() || hasReadyAttachment) && !attachmentsUploading;
+  const canSend = editing ? !!draft.trim()
+    : (!!draft.trim() || attachments.hasReadyAttachment) && !attachments.attachmentsUploading && !attachments.hasErroredAttachment;
   const mentionDropdownOpen = mentionQuery != null && mentionMatches.length > 0;
-  const composerHeight = 76 + (replyTo || editing ? 56 : 0) + (attachmentDrafts.length > 0 ? 72 : 0)
+  const composerHeight = 76 + (replyTo || editing ? 56 : 0) + (attachments.attachmentDrafts.length > 0 ? 72 : 0)
     + (mentionDropdownOpen ? Math.min(mentionMatches.length * 42, 168) + 12 : 0);
 
   return (
@@ -658,18 +571,19 @@ export default function FarmSpaceChat() {
           </div>
         )}
 
-        {attachmentDrafts.length > 0 && (
+        {attachments.attachmentDrafts.length > 0 && (
           <div style={{ display: "flex", gap: 8, padding: "8px 12px 0", overflowX: "auto" }}>
-            {attachmentDrafts.map((d) => (
-              <AttachmentDraftChip key={d.localId} draft={d} tc={tc} onRemove={() => removeAttachmentDraft(d.localId)} />
+            {attachments.attachmentDrafts.map((d) => (
+              <AttachmentDraftChip key={d.localId} draft={d} tc={tc}
+                onRemove={() => attachments.removeDraft(d.localId)} onRetry={attachments.retryDraft} />
             ))}
           </div>
         )}
 
         <input ref={mediaInputRef} type="file" accept="image/*,video/*" style={{ display: "none" }}
-          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addAttachmentDraft(f); }} />
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) attachments.addFileDraft(f); }} />
         <input ref={docInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" style={{ display: "none" }}
-          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addAttachmentDraft(f); }} />
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) attachments.addFileDraft(f); }} />
 
         {mentionQuery != null && mentionMatches.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "6px 8px",
@@ -757,7 +671,7 @@ export default function FarmSpaceChat() {
           <ActionRow icon="FileText" label={tc({ en: "Document", hi: "दस्तावेज़", bn: "নথি" })}
             onClick={() => { setAttachSheetOpen(false); docInputRef.current?.click(); }} />
           <ActionRow icon="MapPin" label={tc({ en: "Location", hi: "स्थान", bn: "অবস্থান" })}
-            onClick={() => { setAttachSheetOpen(false); shareLocation(); }} />
+            onClick={() => { setAttachSheetOpen(false); attachments.addLocationDraft(); }} />
         </div>
       </BottomSheet>
 

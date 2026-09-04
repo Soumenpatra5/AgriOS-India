@@ -47,12 +47,21 @@ export function renderBodyWithMentions(body, own) {
 /* A picked-but-not-yet-sent attachment, shown as a thumbnail chip above the
    composer — uploading (spinner), done (plain), or error (tap X and pick
    again; there is no in-place retry, the file is still on the device). */
-export function AttachmentDraftChip({ draft, tc, onRemove }) {
+/* Uploading (spinner) or done (plain) needs no interaction. Error is the one
+   that must never be silent: a visible, tappable retry button — not a hover
+   `title` tooltip, which does not exist on a touch device — is what tells a
+   farmer their photo/document/location actually failed and lets them do
+   something about it without re-picking the file from scratch. The real
+   reason is also toast'd the moment the failure happens (see
+   useAttachmentDrafts.js); this button is for acting on it, not explaining it
+   a second time in a space too small for a sentence. */
+export function AttachmentDraftChip({ draft, tc, onRemove, onRetry }) {
   const size = 56;
   return (
     <div style={{ position: "relative", flexShrink: 0 }}>
       <div style={{ width: size, height: size, borderRadius: 10, overflow: "hidden", background: T.surface2,
-        border: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+        border: `1px solid ${draft.status === "error" ? T.red : T.line}`, display: "flex", alignItems: "center",
+        justifyContent: "center", position: "relative" }}>
         {draft.kind === "image" && draft.previewUrl && (
           <img src={draft.previewUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         )}
@@ -67,10 +76,12 @@ export function AttachmentDraftChip({ draft, tc, onRemove }) {
           </div>
         )}
         {draft.status === "error" && (
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.55)", display: "grid", placeItems: "center" }}
-            title={draft.error}>
-            <Icon name="AlertCircle" size={18} style={{ color: "#fff" }} />
-          </div>
+          <button onClick={() => onRetry?.(draft.localId)}
+            aria-label={tc({ en: "Retry", hi: "फिर कोशिश करें", bn: "আবার চেষ্টা করুন" })}
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", border: "none", padding: 0,
+              cursor: "pointer", display: "grid", placeItems: "center" }}>
+            <Icon name="RefreshCw" size={18} style={{ color: "#fff" }} />
+          </button>
         )}
       </div>
       <button onClick={onRemove} aria-label={tc({ en: "Remove", hi: "हटाएँ", bn: "সরান" })}

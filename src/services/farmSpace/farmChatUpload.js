@@ -29,6 +29,62 @@ export function attachmentKindForFile(file) {
   return "document";
 }
 
+/* Downscales and re-encodes a photo before it ever reaches upload() — this
+   app is built for rural connections, and a farmer's camera photo (often
+   4000px+, several MB) has no reason to travel over a slow link at full
+   resolution to be shown as a chat thumbnail. Best-effort in the strictest
+   sense: any failure here (an old browser missing an API, a corrupt file)
+   falls back to sending the original file untouched, because a compression
+   bug must never be the reason a photo fails to send. */
+const COMPRESS_MAX_DIMENSION = 1600;
+const COMPRESS_QUALITY = 0.82;
+const COMPRESS_SKIP_UNDER_BYTES = 300 * 1024;
+/* HEIC/HEIF (the default on iPhone) cannot be reliably decoded through the
+   Canvas 2D API outside Safari — attempting to would risk a blank or
+   corrupted image being sent instead of the real photo, which is worse than
+   sending the original at full size. Passed through unmodified. */
+const COMPRESS_SKIP_TYPES = new Set(["image/heic", "image/heif"]);
+
+async function compressImage(file) {
+  if (COMPRESS_SKIP_TYPES.has(file.type) || file.size < COMPRESS_SKIP_UNDER_BYTES) return file;
+  if (typeof createImageBitmap !== "function") return file;
+
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, COMPRESS_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+
+    let blob;
+    if (typeof OffscreenCanvas !== "undefined") {
+      const canvas = new OffscreenCanvas(w, h);
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+      blob = await canvas.convertToBlob({ type: "image/jpeg", quality: COMPRESS_QUALITY });
+    } else if (typeof document !== "undefined") {
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+      blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob returned null"))), "image/jpeg", COMPRESS_QUALITY);
+      });
+    } else {
+      return file;
+    }
+
+    /* A source that was already a small, efficiently-encoded JPEG can end up
+       re-encoding larger — in that case the original wins. */
+    if (!blob || blob.size >= file.size) return file;
+
+    const base = file.name.replace(/\.[^.]+$/, "") || "photo";
+    return new File([blob], `${base}.jpg`, { type: "image/jpeg" });
+  } catch {
+    return file;
+  } finally {
+    bitmap?.close?.();
+  }
+}
+
 /* A Blob pathname is a URL segment, not a filesystem path — stripped down to
    safe characters rather than percent-encoded, so the object stays readable
    in Vercel's own dashboard. The server adds its own random suffix on top
@@ -42,9 +98,14 @@ function sanitizeFilename(name) {
 /* Throws with a `.reason` a caller can branch on, the same convention
    farmSpaceApi.js's FARM_ERROR uses — "signed-out", "too-large", or the
    server's own rejection reaching through as a plain message. */
-export async function uploadChatAttachment(spaceId, file, kind, { onProgress } = {}) {
+export async function uploadChatAttachment(spaceId, rawFile, kind, { onProgress } = {}) {
   const rules = ATTACHMENT_KIND_RULES[kind];
   if (!rules) throw new Error(`Unsupported attachment kind: ${kind}`);
+
+  /* Compressed before the size check, not after — a 12 MB camera photo that
+     compresses down to 2 MB should send, not get rejected for what it used
+     to weigh. */
+  const file = kind === "image" ? await compressImage(rawFile) : rawFile;
   if (file.size > rules.maxBytes) {
     const err = new Error("This file is too large to send.");
     err.reason = "too-large";

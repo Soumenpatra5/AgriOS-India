@@ -8,8 +8,8 @@ import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
 import { useFarmPoll } from "../../hooks/useFarmPoll.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 import { DM_OWN_DELETE_WINDOW_MS } from "../../../api/_lib/farm/dm.js";
-import { uploadChatAttachment, attachmentKindForFile, ATTACHMENT_KIND_RULES } from "../../services/farmSpace/farmChatUpload.js";
 import { Bubble, AttachmentDraftChip, ActionRow } from "./chatBubble.jsx";
+import { useAttachmentDrafts } from "./useAttachmentDrafts.js";
 
 /* A 1:1 direct message — a second, separate surface from the shared group
    channel (FarmSpaceChat.jsx). No reply, react, pin, mentions, search, or
@@ -23,7 +23,6 @@ import { Bubble, AttachmentDraftChip, ActionRow } from "./chatBubble.jsx";
 
 const OUTBOX_SENDING = "sending";
 const OUTBOX_FAILED = "failed";
-const MAX_DRAFT_ATTACHMENTS = 4;
 
 function cursorFrom(list, current) {
   return list.reduce((max, m) => ((m.updated_at || "") > max ? m.updated_at : max), current || "");
@@ -54,7 +53,7 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
   const [confirmDelete, setConfirmDelete] = useState(null);
 
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
-  const [attachmentDrafts, setAttachmentDrafts] = useState([]);
+  const attachments = useAttachmentDrafts({ spaceId: space?.id, toast, tc });
   const mediaInputRef = useRef(null);
   const docInputRef = useRef(null);
 
@@ -96,58 +95,6 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
 
   const patchLocal = (updated) => setMessages((prev) => mergeMessages(prev, [updated]));
 
-  const addAttachmentDraft = (file) => {
-    if (attachmentDrafts.length >= MAX_DRAFT_ATTACHMENTS) {
-      toast(tc({ en: "Up to 4 attachments per message.", hi: "प्रति संदेश अधिकतम 4 अनुलग्नक।", bn: "প্রতি বার্তায় সর্বোচ্চ ৪টি সংযুক্তি।" }), "error");
-      return;
-    }
-    const kind = attachmentKindForFile(file);
-    const rules = ATTACHMENT_KIND_RULES[kind];
-    if (file.size > rules.maxBytes) {
-      toast(tc({ en: "This file is too large to send.", hi: "यह फ़ाइल भेजने के लिए बहुत बड़ी है।", bn: "এই ফাইলটি পাঠানোর জন্য খুব বড়।" }), "error");
-      return;
-    }
-    const localId = `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const previewUrl = (kind === "image" || kind === "video") ? URL.createObjectURL(file) : null;
-    setAttachmentDrafts((d) => [...d, { localId, kind, name: file.name, size: file.size, type: file.type, previewUrl, status: "uploading", progress: 0 }]);
-
-    uploadChatAttachment(space.id, file, kind, {
-      onProgress: (pct) => setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, progress: pct } : x))),
-    }).then((result) => {
-      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "done", url: result.url } : x)));
-    }).catch((err) => {
-      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "error", error: err?.message } : x)));
-    });
-  };
-
-  const removeAttachmentDraft = (localId) => {
-    setAttachmentDrafts((d) => {
-      const found = d.find((x) => x.localId === localId);
-      if (found?.previewUrl) URL.revokeObjectURL(found.previewUrl);
-      return d.filter((x) => x.localId !== localId);
-    });
-  };
-
-  const shareLocation = async () => {
-    if (attachmentDrafts.length >= MAX_DRAFT_ATTACHMENTS) {
-      toast(tc({ en: "Up to 4 attachments per message.", hi: "प्रति संदेश अधिकतम 4 अनुलग्नक।", bn: "প্রতি বার্তায় সর্বোচ্চ ৪টি সংযুক্তি।" }), "error");
-      return;
-    }
-    const localId = `att-${Date.now()}-loc`;
-    setAttachmentDrafts((d) => [...d, { localId, kind: "location", status: "uploading" }]);
-    try {
-      const { locationService } = await import("../../services/location/locationService.js");
-      const pos = await locationService.currentPosition();
-      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "done", lat: pos.lat, lng: pos.lon, label: pos.name } : x)));
-    } catch (err) {
-      setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "error", error: err?.message } : x)));
-    }
-  };
-
-  const attachmentsPayloadFrom = (drafts) => drafts.filter((d) => d.status === "done").map((d) => (d.kind === "location"
-    ? { kind: "location", lat: d.lat, lng: d.lng, label: d.label }
-    : { kind: d.kind, url: d.url, name: d.name, size: d.size, type: d.type }));
-
   const send = async () => {
     const body = draft.trim();
 
@@ -165,20 +112,26 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
     }
 
     if (!conversation) return;
-    if (attachmentDrafts.some((d) => d.status === "uploading")) {
+    if (attachments.attachmentsUploading) {
       toast(tc({ en: "Still uploading — hang on a moment.", hi: "अभी अपलोड हो रहा है — थोड़ा इंतज़ार करें।", bn: "এখনও আপলোড হচ্ছে — একটু অপেক্ষা করুন।" }), "error");
       return;
     }
-    const attachments = attachmentsPayloadFrom(attachmentDrafts);
-    if (!body && !attachments.length) return;
+    if (attachments.hasErroredAttachment) {
+      toast(tc({ en: "One attachment failed to upload — retry or remove it before sending.",
+                  hi: "एक अनुलग्नक अपलोड नहीं हो सका — भेजने से पहले फिर कोशिश करें या हटाएँ।",
+                  bn: "একটি সংযুক্তি আপলোড হয়নি — পাঠানোর আগে আবার চেষ্টা করুন বা সরান।" }), "error");
+      return;
+    }
+    const attachmentsPayload = attachments.payloadFrom(attachments.attachmentDrafts);
+    if (!body && !attachmentsPayload.length) return;
 
     const localId = `local-${Date.now()}`;
-    setPending((p) => [...p, { localId, body, attachments, state: OUTBOX_SENDING }]);
+    setPending((p) => [...p, { localId, body, attachments: attachmentsPayload, state: OUTBOX_SENDING }]);
     setDraft("");
-    setAttachmentDrafts([]);
+    attachments.clearDrafts();
 
     try {
-      const saved = await farmSpaceApi.sendDm(space.id, conversation.id, { body, attachments });
+      const saved = await farmSpaceApi.sendDm(space.id, conversation.id, { body, attachments: attachmentsPayload });
       setPending((p) => p.filter((x) => x.localId !== localId));
       setMessages((prev) => (prev.some((m) => m.id === saved.id) ? prev : [...prev, saved]));
       newestRef.current = cursorFrom([saved], newestRef.current);
@@ -207,8 +160,8 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
   const openActions = (m) => { if (!m.deleted) setActionsFor(m); };
   const closeActions = () => setActionsFor(null);
 
-  const doStartEdit = (m) => { setEditing(m); setDraft(m.body || ""); setAttachmentDrafts([]); closeActions(); };
-  const doCancelCompose = () => { setEditing(null); setDraft(""); setAttachmentDrafts([]); };
+  const doStartEdit = (m) => { setEditing(m); setDraft(m.body || ""); attachments.clearDrafts(); closeActions(); };
+  const doCancelCompose = () => { setEditing(null); setDraft(""); attachments.clearDrafts(); };
 
   const doCopy = async (m) => {
     closeActions();
@@ -248,10 +201,9 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
       <div style={{ padding: 20 }}><ErrorState body={farmErrorText(reason, tc)} onRetry={load} /></div></>;
   }
 
-  const hasReadyAttachment = attachmentDrafts.some((d) => d.status === "done");
-  const attachmentsUploading = attachmentDrafts.some((d) => d.status === "uploading");
-  const canSend = editing ? !!draft.trim() : (!!draft.trim() || hasReadyAttachment) && !attachmentsUploading;
-  const composerHeight = 76 + (editing ? 56 : 0) + (attachmentDrafts.length > 0 ? 72 : 0);
+  const canSend = editing ? !!draft.trim()
+    : (!!draft.trim() || attachments.hasReadyAttachment) && !attachments.attachmentsUploading && !attachments.hasErroredAttachment;
+  const composerHeight = 76 + (editing ? 56 : 0) + (attachments.attachmentDrafts.length > 0 ? 72 : 0);
 
   return (
     <>
@@ -309,18 +261,19 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
           </div>
         )}
 
-        {attachmentDrafts.length > 0 && (
+        {attachments.attachmentDrafts.length > 0 && (
           <div style={{ display: "flex", gap: 8, padding: "8px 12px 0", overflowX: "auto" }}>
-            {attachmentDrafts.map((d) => (
-              <AttachmentDraftChip key={d.localId} draft={d} tc={tc} onRemove={() => removeAttachmentDraft(d.localId)} />
+            {attachments.attachmentDrafts.map((d) => (
+              <AttachmentDraftChip key={d.localId} draft={d} tc={tc}
+                onRemove={() => attachments.removeDraft(d.localId)} onRetry={attachments.retryDraft} />
             ))}
           </div>
         )}
 
         <input ref={mediaInputRef} type="file" accept="image/*,video/*" style={{ display: "none" }}
-          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addAttachmentDraft(f); }} />
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) attachments.addFileDraft(f); }} />
         <input ref={docInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" style={{ display: "none" }}
-          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addAttachmentDraft(f); }} />
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) attachments.addFileDraft(f); }} />
 
         <div style={{ padding: "10px 12px", display: "flex", gap: 9, alignItems: "flex-end" }}>
           <button onClick={() => setAttachSheetOpen(true)} disabled={!!editing}
@@ -359,7 +312,7 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
           <ActionRow icon="FileText" label={tc({ en: "Document", hi: "दस्तावेज़", bn: "নথি" })}
             onClick={() => { setAttachSheetOpen(false); docInputRef.current?.click(); }} />
           <ActionRow icon="MapPin" label={tc({ en: "Location", hi: "स्थान", bn: "অবস্থান" })}
-            onClick={() => { setAttachSheetOpen(false); shareLocation(); }} />
+            onClick={() => { setAttachSheetOpen(false); attachments.addLocationDraft(); }} />
         </div>
       </BottomSheet>
 
