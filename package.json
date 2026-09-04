@@ -29,6 +29,7 @@
     "@electric-sql/pglite": "^0.5.4",
     "@electric-sql/pglite-socket": "^0.2.7",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^10.8.1",
     "eslint-plugin-react-hooks": "^7.1.1",

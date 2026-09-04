@@ -40,9 +40,12 @@ describe("availabilityService", () => {
 
   it("getAvailableSlots subtracts booked times", async () => {
     const { provider, service } = await setupProvider();
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const dateStr = today.toISOString().slice(0, 10);
+    /* Derive the weekday FROM the date string, the same way the service does
+       (new Date("YYYY-MM-DD").getDay()). Mixing a local getDay() with a UTC
+       toISOString() date made this fail when run between 00:00 and 05:30 IST,
+       where the local calendar day is already ahead of the UTC one. */
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const dayOfWeek = new Date(dateStr).getDay();
 
     await availabilityService.setForDay(provider.id, dayOfWeek, [
       { start: "09:00", end: "10:00" },
@@ -66,9 +69,9 @@ describe("availabilityService", () => {
 
   it("hasConflict detects overlapping bookings", async () => {
     const { provider, service } = await setupProvider();
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const dateStr = today.toISOString().slice(0, 10);
+    /* Same weekday derivation as above, for the same midnight-window reason. */
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const dayOfWeek = new Date(dateStr).getDay();
 
     await availabilityService.setForDay(provider.id, dayOfWeek, [
       { start: "14:00", end: "15:00" },

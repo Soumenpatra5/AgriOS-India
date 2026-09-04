@@ -7,3 +7,7 @@ dist/
 .env.local
 .vercel
 .env*
+
+# Playwright (Tier-2 browser E2E)
+test-results/
+playwright-report/
