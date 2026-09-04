@@ -45,10 +45,29 @@ const COMPRESS_SKIP_UNDER_BYTES = 300 * 1024;
    sending the original at full size. Passed through unmodified. */
 const COMPRESS_SKIP_TYPES = new Set(["image/heic", "image/heif"]);
 
+/* createImageBitmap/OffscreenCanvas/canvas.toBlob are exactly the kind of
+   API that can silently NEVER settle on a broken or partial implementation
+   (a specific Android WebView build shipping the constructor but not a
+   working convertToBlob, say) — no error, no rejection, just a promise that
+   never resolves. Without this race, that hang would propagate straight
+   into uploadChatAttachment's own promise, which is what actually happened
+   in production: a photo sat as "uploading" forever with no toast and no
+   way to retry, because nothing ever got the chance to fail. A `finally`
+   cannot save this — the hang is INSIDE the try block's await, before
+   `finally` would ever run. */
+const COMPRESS_TIMEOUT_MS = 6000;
+
 async function compressImage(file) {
   if (COMPRESS_SKIP_TYPES.has(file.type) || file.size < COMPRESS_SKIP_UNDER_BYTES) return file;
   if (typeof createImageBitmap !== "function") return file;
 
+  return Promise.race([
+    compressImageUnbounded(file),
+    new Promise((resolve) => setTimeout(() => resolve(file), COMPRESS_TIMEOUT_MS)),
+  ]);
+}
+
+async function compressImageUnbounded(file) {
   let bitmap;
   try {
     bitmap = await createImageBitmap(file);

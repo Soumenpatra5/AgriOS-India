@@ -14,6 +14,25 @@ import { uploadChatAttachment, attachmentKindForFile, ATTACHMENT_KIND_RULES } fr
    them why, and had no way to retry short of removing the attachment and
    re-picking the file from scratch. Fixed here, once, so both screens get
    the fix rather than needing it applied twice (and inevitably drifting). */
+/* A second, independent safety net on top of compressImage's own internal
+   timeout (farmChatUpload.js) — that one only guards against a browser API
+   that never settles. This guards the WHOLE upload (token request, the
+   actual PUT to Blob, anything else in the chain), since fetch() itself has
+   no built-in timeout and a stalled connection can hang indefinitely with
+   neither a resolve nor a reject. Whatever the cause, a farmer must see a
+   failure and a retry within a bounded time, never silence forever. */
+const UPLOAD_TIMEOUT_MS = 30000;
+
+function withTimeout(promise, ms, message) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(Object.assign(new Error(message), { reason: "timeout" })), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
 export function useAttachmentDrafts({ spaceId, toast, tc, max = 4 }) {
   const [attachmentDrafts, setAttachmentDrafts] = useState([]);
 
@@ -28,9 +47,16 @@ export function useAttachmentDrafts({ spaceId, toast, tc, max = 4 }) {
      both call, so the failure handling can only ever be written once. */
   const runUpload = (localId, file, kind) => {
     setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, status: "uploading", progress: 0, error: null } : x)));
-    uploadChatAttachment(spaceId, file, kind, {
-      onProgress: (pct) => setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, progress: pct } : x))),
-    }).then((result) => {
+    const timeoutMessage = tc({ en: "Upload timed out — check your connection and retry.",
+                                 hi: "अपलोड का समय समाप्त हो गया — कनेक्शन जाँचें और फिर कोशिश करें।",
+                                 bn: "আপলোড সময় শেষ হয়েছে — সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।" });
+    withTimeout(
+      uploadChatAttachment(spaceId, file, kind, {
+        onProgress: (pct) => setAttachmentDrafts((d) => d.map((x) => (x.localId === localId ? { ...x, progress: pct } : x))),
+      }),
+      UPLOAD_TIMEOUT_MS,
+      timeoutMessage,
+    ).then((result) => {
       /* Picks up whatever uploadChatAttachment actually sent (post-
          compression, for an image) rather than the original file's stats —
          what gets shown/stored should describe the bytes that landed on
