@@ -6,7 +6,12 @@ import { useApp, nextAfterSplash } from "../store/AppStore.jsx";
 export default function Splash() {
   const { setStage, t } = useApp();
   useEffect(() => {
-    const id = setTimeout(() => setStage(nextAfterSplash()), 1200);
+    /* Long enough for the logo animation to register, short enough that it
+       never reads as the app being slow. 1200ms used to sit here — a pure
+       artificial wait gating nothing (nextAfterSplash is synchronous
+       localStorage reads), which was the single largest fixed cost in
+       time-to-interactive for every launch. */
+    const id = setTimeout(() => setStage(nextAfterSplash()), 350);
     return () => clearTimeout(id);
   }, [setStage]);
 

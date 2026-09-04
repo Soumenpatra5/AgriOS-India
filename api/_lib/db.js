@@ -17,6 +17,11 @@ export function getSql() {
   if (_sql) return _sql;
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set");
-  _sql = postgres(url, { prepare: false, ssl: "require", max: 3, idle_timeout: 20 });
+  /* idle_timeout was 20s, which meant any warm instance that sat quiet for
+     longer re-paid the full TCP+TLS handshake to the pooler (~1s measured)
+     on its next request. Five minutes keeps the socket alive across the
+     gaps real usage actually has; the transaction pooler is built to hold
+     many mostly-idle client connections, so this costs it nothing. */
+  _sql = postgres(url, { prepare: false, ssl: "require", max: 3, idle_timeout: 300 });
   return _sql;
 }
