@@ -26,6 +26,25 @@ export async function ensureUser(sql, decoded) {
   const phone = normalizePhone(decoded.phone_number);
   const name = decoded.name || null;
 
+  /* Fast path. This runs at the top of every authenticated request, and on
+     all but the very first (or one whose token claims changed) the row
+     already exists and matches — so a single indexed read replaces what
+     used to be an unconditional INSERT … ON CONFLICT DO UPDATE: a WAL-
+     touching write, per request, that re-wrote identical values.
+
+     The match conditions mirror the upsert's own coalesce semantics
+     exactly: a null incoming claim never clears a stored value, so a null
+     claim counts as "current" here too. Anything else falls through to the
+     upsert below, which remains the single source of truth for creation
+     and claim refresh. */
+  const existing = await sql`select * from users where firebase_uid = ${firebaseUid} limit 1`;
+  const found = existing[0];
+  if (found
+      && (phone == null || found.phone === phone)
+      && (name == null || found.name === name)) {
+    return found;
+  }
+
   /* A fresh candidate is generated on every call, but it is only ever
      WRITTEN on a true first insert — agrios_user_id is deliberately absent
      from the ON CONFLICT SET clause, so an existing user's id can never be

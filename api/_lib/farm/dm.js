@@ -41,42 +41,57 @@ async function loadConversation(sql, membership, actorUserId, conversationId) {
   return row;
 }
 
-/* Best-effort display name, mirroring chat.js's bestName() — never blank. */
-function bestName(row) {
-  return row?.name || row?.phone || row?.agrios_user_id || null;
+/* One query for one or many conversations: the other member joined by
+   whichever side of the pair the caller is NOT, and the latest message via
+   LATERAL — which the (conversation_id, created_at desc) index serves as a
+   single backward index probe per conversation. This used to be 3 sequential
+   queries per conversation (re-select, other-user select, last-message
+   select), which made the inbox 1+3N round trips — ~31 for ten colleagues,
+   on a polled surface. */
+async function conversationRows(sql, membership, actorUserId, { conversationId = null } = {}) {
+  const rows = await sql`
+    select c.id, c.space_id, c.member_a_id, c.member_b_id, c.created_at, c.updated_at,
+           ou.name as other_name, ou.phone as other_phone, ou.agrios_user_id as other_agrios_id,
+           lm.body as last_body, lm.attachments as last_attachments, lm.created_at as last_created_at,
+           lm.sender_user_id as last_sender_user_id, (lm.deleted_at is not null) as last_deleted,
+           (lm.conversation_id is not null) as has_last
+      from farm_dm_conversations c
+      join users ou on ou.id = (case when c.member_a_id = ${actorUserId} then c.member_b_id else c.member_a_id end)
+      left join lateral (
+        select conversation_id, body, attachments, created_at, sender_user_id, deleted_at
+          from farm_dm_messages
+         where conversation_id = c.id
+         order by created_at desc
+         limit 1
+      ) lm on true
+     where c.space_id = ${membership.space_id}
+       and (c.member_a_id = ${actorUserId} or c.member_b_id = ${actorUserId})
+       and (${conversationId}::uuid is null or c.id = ${conversationId}::uuid)
+     order by c.updated_at desc`;
+
+  return rows.map((row) => ({
+    id: row.id,
+    space_id: row.space_id,
+    other_user_id: String(row.member_a_id) === String(actorUserId) ? row.member_b_id : row.member_a_id,
+    other_name: row.other_name || null,
+    other_phone: row.other_phone || null,
+    other_agrios_id: row.other_agrios_id || null,
+    other_display_name: row.other_name || row.other_phone || row.other_agrios_id || null,
+    updated_at: row.updated_at,
+    created_at: row.created_at,
+    last_message: row.has_last ? {
+      body: row.last_deleted ? null : row.last_body,
+      attachments: row.last_deleted ? [] : row.last_attachments,
+      created_at: row.last_created_at,
+      mine: String(row.last_sender_user_id) === String(actorUserId),
+      deleted: row.last_deleted,
+    } : null,
+  }));
 }
 
 async function oneConversation(sql, membership, actorUserId, conversationId) {
-  const [row] = await sql`
-    select id, space_id, member_a_id, member_b_id, created_at, updated_at
-      from farm_dm_conversations where id = ${conversationId} and space_id = ${membership.space_id}`;
-  if (!row) return null;
-
-  const otherId = String(row.member_a_id) === String(actorUserId) ? row.member_b_id : row.member_a_id;
-  const [other] = await sql`select id, name, phone, agrios_user_id from users where id = ${otherId}`;
-  const [last] = await sql`
-    select body, attachments, created_at, sender_user_id, (deleted_at is not null) as deleted
-      from farm_dm_messages where conversation_id = ${row.id}
-     order by created_at desc limit 1`;
-
-  return {
-    id: row.id,
-    space_id: row.space_id,
-    other_user_id: otherId,
-    other_name: other?.name || null,
-    other_phone: other?.phone || null,
-    other_agrios_id: other?.agrios_user_id || null,
-    other_display_name: bestName(other),
-    updated_at: row.updated_at,
-    created_at: row.created_at,
-    last_message: last ? {
-      body: last.deleted ? null : last.body,
-      attachments: last.deleted ? [] : last.attachments,
-      created_at: last.created_at,
-      mine: String(last.sender_user_id) === String(actorUserId),
-      deleted: last.deleted,
-    } : null,
-  };
+  const rows = await conversationRows(sql, membership, actorUserId, { conversationId });
+  return rows[0] || null;
 }
 
 /* Opens the (single, canonical) conversation with another active member of
@@ -105,19 +120,10 @@ export async function openConversation(sql, membership, actorUserId, { otherUser
 }
 
 /* Inbox: every conversation this member is part of in this space, most
-   recently active first. A plain per-conversation loop for the last-message
-   preview — the same "simple and plenty fast at farm scale" call chat.js's
-   withReactionsAndReplies already makes; a farmer's inbox here is a handful
-   of colleagues, not thousands of threads. */
+   recently active first — one round trip total, however many conversations
+   there are (see conversationRows above for what this replaced). */
 export async function listConversations(sql, membership, actorUserId) {
-  const rows = await sql`
-    select id from farm_dm_conversations
-     where space_id = ${membership.space_id}
-       and (member_a_id = ${actorUserId} or member_b_id = ${actorUserId})
-     order by updated_at desc`;
-  const out = [];
-  for (const r of rows) out.push(await oneConversation(sql, membership, actorUserId, r.id));
-  return out;
+  return conversationRows(sql, membership, actorUserId);
 }
 
 async function oneDmMessage(sql, conversationId, messageId) {
@@ -138,14 +144,19 @@ export async function sendDm(sql, membership, actorUserId, input = {}) {
   if (!body && !attachments.length) throw new HttpError(400, "a message needs text or an attachment");
   if (body.length > MAX_BODY) throw new HttpError(400, `message must be ${MAX_BODY} characters or fewer`);
 
+  /* One atomic statement: the insert and the inbox bump (which floats the
+     conversation to the top of both participants' inboxes) succeed or fail
+     together — previously two separate auto-commit trips with a small
+     window where the message existed but the inbox hadn't moved. */
   const [row] = await sql`
-    insert into farm_dm_messages (conversation_id, sender_user_id, body, attachments)
-    values (${conversation.id}, ${actorUserId}, ${body || null}, ${sql.json(attachments)})
-    returning id`;
-
-  /* Bumps the conversation to the top of both participants' inboxes —
-     the same reason chat.js bumps a message's own updated_at on a reaction. */
-  await sql`update farm_dm_conversations set updated_at = now() where id = ${conversation.id}`;
+    with msg as (
+      insert into farm_dm_messages (conversation_id, sender_user_id, body, attachments)
+      values (${conversation.id}, ${actorUserId}, ${body || null}, ${sql.json(attachments)})
+      returning id
+    ), bump as (
+      update farm_dm_conversations set updated_at = now() where id = ${conversation.id}
+    )
+    select id from msg`;
 
   return oneDmMessage(sql, conversation.id, row.id);
 }

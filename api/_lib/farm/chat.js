@@ -182,27 +182,44 @@ export async function hideMessageForSelf(sql, membership, actorUserId, { message
 export async function reactToMessage(sql, membership, actorUserId, { messageId, emoji }) {
   if (!REACTION_EMOJI.includes(emoji)) throw new HttpError(400, "Not a supported reaction");
 
-  const [row] = await sql`select id, space_id from farm_chat_messages where id = ${messageId} and deleted_at is null limit 1`;
-  requireScope(row, membership);
-
-  await sql.begin(async (tx) => {
-    await tx`
+  /* One atomic statement instead of scope-select + BEGIN + insert + update
+     + COMMIT (five round trips to toggle an emoji). The `target` CTE is the
+     scope check: a message outside the caller's space, or deleted, selects
+     nothing, so the reaction is never written and zero rows come back —
+     the same 404 requireScope produced, from the same predicate. A single
+     data-modifying statement is atomic without an explicit transaction. */
+  const rows = await sql`
+    with target as (
+      select id from farm_chat_messages
+       where id = ${messageId} and space_id = ${membership.space_id} and deleted_at is null
+    ), upsert as (
       insert into farm_chat_reactions (message_id, user_id, emoji)
-      values (${messageId}, ${actorUserId}, ${emoji})
-      on conflict (message_id, user_id) do update set emoji = excluded.emoji, created_at = now()`;
-    await tx`update farm_chat_messages set updated_at = now() where id = ${messageId}`;
-  });
+      select t.id, ${actorUserId}, ${emoji} from target t
+      on conflict (message_id, user_id) do update set emoji = excluded.emoji, created_at = now()
+    )
+    update farm_chat_messages m set updated_at = now()
+      from target t where m.id = t.id
+    returning m.id`;
+  if (!rows[0]) requireScope(null, membership); // throws the same 404 the old scope-select did
+
   return oneMessage(sql, membership, messageId);
 }
 
 export async function removeReaction(sql, membership, actorUserId, { messageId }) {
-  const [row] = await sql`select id, space_id from farm_chat_messages where id = ${messageId} and deleted_at is null limit 1`;
-  requireScope(row, membership);
+  const rows = await sql`
+    with target as (
+      select id from farm_chat_messages
+       where id = ${messageId} and space_id = ${membership.space_id} and deleted_at is null
+    ), removal as (
+      delete from farm_chat_reactions r
+       using target t
+       where r.message_id = t.id and r.user_id = ${actorUserId}
+    )
+    update farm_chat_messages m set updated_at = now()
+      from target t where m.id = t.id
+    returning m.id`;
+  if (!rows[0]) requireScope(null, membership); // throws the same 404 the old scope-select did
 
-  await sql.begin(async (tx) => {
-    await tx`delete from farm_chat_reactions where message_id = ${messageId} and user_id = ${actorUserId}`;
-    await tx`update farm_chat_messages set updated_at = now() where id = ${messageId}`;
-  });
   return oneMessage(sql, membership, messageId);
 }
 
