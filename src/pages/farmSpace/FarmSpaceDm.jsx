@@ -28,6 +28,9 @@ function cursorFrom(list, current) {
   return list.reduce((max, m) => ((m.updated_at || "") > max ? m.updated_at : max), current || "");
 }
 
+/* Same cap as FarmSpaceChat — see the comment there. */
+const MESSAGE_CAP = 300;
+
 function mergeMessages(prev, incoming) {
   const byId = new Map(prev.map((m) => [m.id, m]));
   const appended = [];
@@ -35,7 +38,8 @@ function mergeMessages(prev, incoming) {
     if (byId.has(m.id)) byId.set(m.id, m);
     else appended.push(m);
   }
-  return [...prev.map((m) => byId.get(m.id)), ...appended];
+  const merged = [...prev.map((m) => byId.get(m.id)), ...appended];
+  return merged.length > MESSAGE_CAP ? merged.slice(-MESSAGE_CAP) : merged;
 }
 
 export default function FarmSpaceDm({ otherUserId, otherName }) {

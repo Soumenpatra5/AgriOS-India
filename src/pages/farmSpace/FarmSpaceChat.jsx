@@ -44,6 +44,12 @@ function cursorFrom(list, current) {
    than dropping the update or appending a duplicate; append anything new.
    Existing positions are preserved, so an old message updated by a reaction
    does not jump to the bottom of the conversation. */
+/* The DOM renders every message in this array and the 4s poll re-renders it,
+   so an all-day session must not accumulate an unbounded list on a cheap
+   phone. 300 is six initial pages — far past what anyone scrolls back
+   through in-session; the server keeps everything. */
+const MESSAGE_CAP = 300;
+
 function mergeMessages(prev, incoming) {
   const byId = new Map(prev.map((m) => [m.id, m]));
   const appended = [];
@@ -51,7 +57,8 @@ function mergeMessages(prev, incoming) {
     if (byId.has(m.id)) byId.set(m.id, m);
     else appended.push(m);
   }
-  return [...prev.map((m) => byId.get(m.id)), ...appended];
+  const merged = [...prev.map((m) => byId.get(m.id)), ...appended];
+  return merged.length > MESSAGE_CAP ? merged.slice(-MESSAGE_CAP) : merged;
 }
 
 export default function FarmSpaceChat() {

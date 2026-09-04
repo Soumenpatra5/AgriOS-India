@@ -44,9 +44,14 @@ export const ledgerService = {
   },
 
   async forMonth(year, month) {
+    /* A bounded scan on the `date` index — the store has had this index all
+       along, but this used to call all() and filter, materializing the
+       entire transaction history (which grows forever on an active farm) to
+       summarize one month. Runs on every Home mount, so it earns the index. */
     const prefix = `${year}-${String(month).padStart(2, "0")}`;
-    const all = await this.all();
-    return all.filter((t) => t.date.startsWith(prefix));
+    /* Upper bound: prefix + U+FFFF sorts after every real date suffix. */
+    const rows = await txns.getRange("date", prefix, prefix + String.fromCharCode(0xffff));
+    return rows.sort((a, b) => b.date.localeCompare(a.date));
   },
 
   async monthSummary(year, month) {

@@ -6,24 +6,31 @@ import { reconcile } from "./syncReconcile.js";
 
 function pullFlag(uid) { return `fb:pulled:${uid}`; }
 
-/* Merge a cloud record into local by last-write-wins instead of blindly
-   overwriting: a newer cloud copy (incl. a tombstone) is written; a newer local
-   edit is left untouched. Resolves true if it actually wrote. */
-async function putLocal(dbName, storeName, cloud) {
+/* Merge a store's worth of cloud records into local, last-write-wins: a
+   newer cloud copy (incl. a tombstone) is written; a newer local edit is
+   left untouched. One database open and ONE readwrite transaction for the
+   whole store — this used to open the database once per record, which on a
+   new-device login turned a few thousand records into a few thousand
+   open/transaction/close cycles on the main thread. Resolves to how many
+   records were actually written. */
+async function putStoreBatch(dbName, storeName, records) {
+  if (!records.length) return 0;
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(dbName);
     req.onsuccess = (e) => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains(storeName)) { db.close(); resolve(false); return; }
+      if (!db.objectStoreNames.contains(storeName)) { db.close(); resolve(0); return; }
       const tx = db.transaction(storeName, "readwrite");
       const store = tx.objectStore(storeName);
-      let wrote = false;
-      const getReq = store.get(cloud.id);
-      getReq.onsuccess = () => {
-        const local = getReq.result || null;
-        const merged = reconcile(local, cloud);
-        if (merged && merged !== local) { store.put(merged); wrote = true; }
-      };
+      let wrote = 0;
+      for (const cloud of records) {
+        const getReq = store.get(cloud.id);
+        getReq.onsuccess = () => {
+          const local = getReq.result || null;
+          const merged = reconcile(local, cloud);
+          if (merged && merged !== local) { store.put(merged); wrote++; }
+        };
+      }
       tx.oncomplete = () => { db.close(); resolve(wrote); };
       tx.onerror = () => { db.close(); reject(tx.error); };
     };
@@ -42,11 +49,8 @@ export async function pullFromCloud() {
     for (const store of db.stores) {
       const fsName = firestoreName(db.name, store);
       try {
-        const records = await cloudRepo(fsName).getAll();
-        for (const record of records) {
-          if (!record.id) continue;
-          if (await putLocal(db.name, store, record)) total++;
-        }
+        const records = (await cloudRepo(fsName).getAll()).filter((r) => r.id);
+        total += await putStoreBatch(db.name, store, records);
       } catch {}
     }
   }

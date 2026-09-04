@@ -51,16 +51,28 @@ export default function FarmSpaceCard() {
   useEffect(() => {
     let alive = true;
 
+    /* Instant paint from the persisted snapshot — a returning farmer's card
+       shows their farm before (and regardless of whether) the network
+       answers. The load below then confirms and corrects. */
+    const cached = farmSpaceService.peekActive();
+    if (cached) { setSpace(cached); setReady(true); }
+
     const load = async () => {
       try {
         const [spaces, invitations] = await Promise.all([
-          farmSpaceService.spaces().catch(() => []),
-          farmSpaceService.invitations().catch(() => []),
+          /* null (not []) on failure: an offline fetch must leave the
+             snapshot-painted card standing rather than blanking it. */
+          farmSpaceService.spaces().catch(() => null),
+          farmSpaceService.invitations().catch(() => null),
         ]);
         if (!alive) return;
-        setInvites(invitations.length);
-        announceNew(invitations, tc);
-        setSpace(spaces.length ? (await farmSpaceService.active()) ?? spaces[0] : null);
+        if (invitations) {
+          setInvites(invitations.length);
+          announceNew(invitations, tc);
+        }
+        if (spaces) {
+          setSpace(spaces.length ? (await farmSpaceService.active()) ?? spaces[0] : null);
+        }
       } catch { /* Home stays quiet — see the note above. */ }
       finally { if (alive) setReady(true); }
     };

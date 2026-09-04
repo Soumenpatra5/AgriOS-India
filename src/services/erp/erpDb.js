@@ -118,6 +118,13 @@ function _localRepo(storeName) {
     getAll: () => run("readonly", (s) => s.getAll()).then((r) => (r || []).filter(live)),
     getBy: (index, value) =>
       run("readonly", (s) => s.index(index).getAll(value)).then((r) => (r || []).filter(live)),
+    /* Bounded index scan — lets a caller fetch one month of ledger rows (or
+       any keyrange slice) without materializing the whole store, which is
+       what every summary used to do and what grows without limit on an
+       active farm. Bounds are inclusive. */
+    getRange: (index, lower, upper) =>
+      run("readonly", (s) => s.index(index).getAll(IDBKeyRange.bound(lower, upper)))
+        .then((r) => (r || []).filter(live)),
     getById: (id) => rawGet(id).then((r) => (live(r) ? r : null)),
     async update(id, patch) {
       const existing = await this.getById(id);

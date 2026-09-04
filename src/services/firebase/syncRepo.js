@@ -50,6 +50,7 @@ export function wrapWithSync(storeName, local, options = {}) {
        cloud copy is reconciled by the sync layer, not by this read. */
     deleted: () => local.deleted(),
     getBy: (index, value) => local.getBy(index, value),
+    getRange: (index, lower, upper) => local.getRange(index, lower, upper),
     getById: (id) => local.getById(id),
 
     async update(id, patch) {

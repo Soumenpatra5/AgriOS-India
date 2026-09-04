@@ -7,6 +7,9 @@ const held = vi.hoisted(() => {
   const repoObj = {
     add: async (data) => { const r = { id: `x${++seq}`, ...data }; rows.push(r); return r; },
     getAll: async () => rows.slice(),
+    /* Models erpDb's bounded index scan: inclusive bounds on the named field,
+       matching IDBKeyRange.bound() semantics. */
+    getRange: async (field, lower, upper) => rows.filter((r) => r[field] >= lower && r[field] <= upper),
     remove: async (id) => { const i = rows.findIndex((r) => r.id === id); if (i < 0) return null; return rows.splice(i, 1)[0]; },
     reset: () => { rows = []; seq = 0; },
   };

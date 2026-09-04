@@ -28,6 +28,16 @@ const NOTIFY_KEY = "alerts:notified"; // { date, keys[] } — one browser notifi
 /* severity weight for sorting: higher = more urgent */
 const SEV_WEIGHT = { high: 3, medium: 2, low: 1 };
 
+/* Home remounts on every navigation return (tab roots are keyed), and each
+   remount used to re-run this whole aggregation — seven services fanning out
+   across several IndexedDB stores — just to re-derive a badge that cannot
+   have changed since two seconds ago. A short memo absorbs that churn;
+   sixty seconds of staleness on an advisory list computed from the user's
+   own local data is imperceptible, and any screen that WRITES alert-relevant
+   data takes longer than that to navigate back from anyway. */
+const CACHE_TTL_MS = 60_000;
+let _memo = { key: null, at: 0, promise: null };
+
 async function safe(fn, fallback) {
   try { return await fn(); } catch { return fallback; }
 }
@@ -36,7 +46,18 @@ export const farmAlertsService = {
   /* Returns a flat, severity-sorted list of alerts. Each item:
      { id, source, severity, title, message, kind, props } — `kind`/`props`
      deep-link to the screen that resolves the alert (or null). */
-  async getAll(farmId) {
+  getAll(farmId) {
+    const key = farmId || "";
+    const now = Date.now();
+    if (_memo.promise && _memo.key === key && now - _memo.at < CACHE_TTL_MS) return _memo.promise;
+    const promise = this.compute(farmId);
+    _memo = { key, at: now, promise };
+    /* A failed aggregation must not be served for the next minute. */
+    promise.catch(() => { if (_memo.promise === promise) _memo = { key: null, at: 0, promise: null }; });
+    return promise;
+  },
+
+  async compute(farmId) {
     const out = [];
 
     /* Every source is independent — fetch them concurrently so opening the

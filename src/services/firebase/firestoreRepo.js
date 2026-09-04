@@ -5,6 +5,7 @@ import {
   getDocs,
   getDoc,
   deleteDoc,
+  updateDoc,
   query,
   where,
 } from "firebase/firestore";
@@ -55,16 +56,16 @@ export function repo(storeName) {
     async update(id, patch) {
       const col = userCol(storeName);
       if (!col) return null;
-      const ref = doc(col, id);
-      const snap = await getDoc(ref);
-      if (!snap.exists()) return null;
-      const updated = {
-        ...snap.data(),
-        ...patch,
-        updatedAt: new Date().toISOString(),
-      };
-      await setDoc(ref, updated);
-      return updated;
+      /* updateDoc is one round trip where the old read-modify-write
+         (getDoc + full setDoc) was two — and its behavior on a missing doc
+         is BETTER, not just cheaper: it throws, which lands the patch in the
+         caller's enqueue-and-retry path (see syncRepo.pushToCloud) instead
+         of silently returning null and dropping the change forever. The
+         only caller is the fire-and-forget sync mirror, which ignores the
+         return value. */
+      const stamped = { ...patch, updatedAt: new Date().toISOString() };
+      await updateDoc(doc(col, id), stamped);
+      return stamped;
     },
 
     async remove(id) {

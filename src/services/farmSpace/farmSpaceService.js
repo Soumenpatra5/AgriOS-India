@@ -17,6 +17,12 @@ import { farmSpaceApi, FARM_ERROR } from "./farmSpaceApi.js";
 import { memberCan, ROLE_META, scopeForRole } from "../../../api/_lib/farm/permissions.js";
 
 const ACTIVE_KEY = "farm:activeSpace";
+/* Last successfully fetched spaces list, persisted so a fresh app open (or
+   an offline one) can paint the Home card instantly instead of waiting on —
+   or entirely lacking — a network round trip. Never authorization: the
+   server re-checks membership on every request, so the worst a stale
+   snapshot can do is draw a card that 404s when opened. */
+const SNAPSHOT_KEY = "farm:spacesSnapshot";
 
 let _spaces = null;      // cached list, null = not loaded
 let _spacesPromise = null;  // in-flight spaces() request, so concurrent callers share one
@@ -126,6 +132,7 @@ export const farmSpaceService = {
     _spacesPromise = (async () => {
       try {
         _spaces = await farmSpaceApi.listSpaces();
+        storage.set(SNAPSHOT_KEY, _spaces);
         /* An active space that no longer appears — access revoked, or the
            space archived — must not stay selected, or the next screen opens
            onto a 404. */
@@ -140,10 +147,20 @@ export const farmSpaceService = {
     return _spacesPromise;
   },
 
-  /* The cached list, or null if nothing has been fetched yet — never triggers
-     a request. For screens that want to paint instantly from whatever is
-     already known, before confirming it against the server. */
-  peekSpaces() { return _spaces; },
+  /* The cached list — this session's fetch if there was one, else the last
+     session's persisted snapshot — or null. Never triggers a request. For
+     screens that want to paint instantly from whatever is already known,
+     before confirming it against the server. */
+  peekSpaces() { return _spaces ?? storage.get(SNAPSHOT_KEY, null); },
+
+  /* The active space resolved synchronously from peeked data — the same
+     "active, else first" rule active() applies, without the network. */
+  peekActive() {
+    const list = this.peekSpaces();
+    if (!list?.length) return null;
+    const id = storage.get(ACTIVE_KEY, null);
+    return list.find((s) => s.id === id) || list[0] || null;
+  },
 
   /* Applied straight to the cache after a mutation whose response already
      carries the updated row, so the space that changed reflects it everywhere
@@ -152,12 +169,14 @@ export const farmSpaceService = {
   patchSpace(spaceId, patch) {
     if (!_spaces) return;
     _spaces = _spaces.map((s) => (s.id === spaceId ? { ...s, ...patch } : s));
+    storage.set(SNAPSHOT_KEY, _spaces);
     notify();
   },
 
   removeSpaceFromCache(spaceId) {
     if (!_spaces) return;
     _spaces = _spaces.filter((s) => s.id !== spaceId);
+    storage.set(SNAPSHOT_KEY, _spaces);
     notify();
   },
 
@@ -366,6 +385,7 @@ export const farmSpaceService = {
     _tasksCache.clear(); _attendanceCache.clear();
     _announcementsCache.clear(); _activityCache.clear(); _chatCache.clear();
     storage.remove(ACTIVE_KEY);
+    storage.remove(SNAPSHOT_KEY);
     notify();
   },
 };
