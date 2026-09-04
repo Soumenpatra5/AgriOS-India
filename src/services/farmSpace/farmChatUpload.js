@@ -9,7 +9,13 @@
    authFetch itself is not: upload() wants a plain headers object, not a
    fetch() call this module makes itself. */
 
-import { upload } from "@vercel/blob/client";
+/* Imported on demand, not statically: @vercel/blob/client is a Node-
+   flavored SDK that bundles to ~113KB with stream shims, and a static
+   import made it part of the chat screen's own chunk — every farmer who
+   opened chat downloaded it whether or not they ever attached a file. Now
+   only the first actual upload pays for it (in parallel with the token
+   fetch it needs anyway). */
+const loadBlobClient = () => import("@vercel/blob/client");
 
 /* Mirrors api/blob-upload.js's KIND_RULES so the client can refuse an
    oversized file before spending any upload bandwidth on it — the server
@@ -131,8 +137,13 @@ export async function uploadChatAttachment(spaceId, rawFile, kind, { onProgress 
     throw err;
   }
 
-  const { getIdToken } = await import("../firebase/auth.js");
-  const token = await getIdToken();
+  /* The SDK download runs concurrently with token retrieval — neither waits
+     on the other, so the dynamic import adds no latency beyond its own
+     first-time fetch. */
+  const [{ upload }, token] = await Promise.all([
+    loadBlobClient(),
+    import("../firebase/auth.js").then((m) => m.getIdToken()),
+  ]);
   if (!token) {
     const err = new Error("You appear to be signed out.");
     err.reason = "signed-out";

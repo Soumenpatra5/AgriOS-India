@@ -5,6 +5,7 @@ import { LOCALES } from "../constants/languages.js";
 import { backDepth, resolveBack } from "../navigation/backNav.js";
 import { roleService } from "../services/rbac/roleService.js";
 import { can as rbacCan } from "../services/rbac/permissions.js";
+import { ensureLangFonts } from "../i18n/langFonts.js";
 
 /* Firebase is loaded lazily so its ~900kB of SDK stays off the initial render
    path — splash, language and onboarding screens never touch it. */
@@ -73,10 +74,22 @@ export function AppProvider({ children }) {
     return () => { stop(); clearTimeout(sweep); };
   }, []);
 
+  /* Firebase wiring — auth-state observer + cloud sync. Gated on a signed-in
+     user and deferred past first paint. The comment above loadAuth promises
+     the SDK stays off the initial render path, but wiring this on mount for
+     everyone defeated that: a signed-out boot (language picker, onboarding)
+     downloaded auth + firestore (~230KB gzip) for nothing, and a signed-in
+     boot paid for it before Home had painted. The UI renders from the
+     localStorage user; sign-out-elsewhere detection and queued-sync flushing
+     are real needs but not first-paint ones. Login itself never waits on
+     this: AuthFlow imports the auth module on demand, and login() below
+     calls onLogin directly. */
+  const uid = user?.uid || null;
   useEffect(() => {
+    if (!uid) return;
     let unsub = () => {};
     let cancelled = false;
-    (async () => {
+    const timer = setTimeout(async () => {
       const [{ onAuthChange }, { initSync }] = await Promise.all([loadAuth(), loadSync()]);
       if (cancelled) return;
       initSync();
@@ -107,9 +120,12 @@ export function AppProvider({ children }) {
           setStage((s) => (s === "app" ? "auth" : s));
         }
       });
-    })();
-    return () => { cancelled = true; unsub(); };
-  }, []);
+    }, 2500);
+    return () => { cancelled = true; clearTimeout(timer); unsub(); };
+  }, [uid]);
+
+  /* Covers both the boot language (from storage) and any later change. */
+  useEffect(() => { ensureLangFonts(lang); }, [lang]);
 
   const t = useMemo(() => makeT(lang), [lang]);
   const tc = useCallback((obj) => pickLang(lang, obj), [lang]);
@@ -204,6 +220,14 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!user) return;
+    /* init() only wires the foreground-message handler — permission and
+       token requests live in the Settings/Permissions screens and in
+       syncManager.onLogin. Wiring it is pointless (and drags
+       firebase/messaging + firestore into the boot) unless notifications
+       were already granted; a fresh grant gets its foreground handler on
+       the next boot, which is an acceptable trade for every other boot
+       being lighter. */
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     loadFcm().then(({ fcmService }) => {
       fcmService.init((payload) => {
         const { title, body } = payload.notification || {};

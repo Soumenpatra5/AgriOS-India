@@ -12,8 +12,11 @@
     <title>AgriOS India</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Latin UI families only. The Indic families (Noto Devanagari/Bengali)
+         load at runtime for the selected language — see src/i18n/langFonts.js;
+         requesting all four here cost up to ~587KB of fonts per cold start. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <style>body { margin: 0; }</style>
