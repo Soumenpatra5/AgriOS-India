@@ -48,15 +48,35 @@ PGlite is single-connection: concurrent requests interleave on one connection. P
 
 ---
 
-## Phase 3B — Vercel Preview + staging Supabase (after 3A review)
+## Phase 3B — Vercel Preview + staging Supabase (implemented; Design A approved 2026-09-05)
 
-Prerequisites, in order:
-1. Create a **separate Supabase project** (free tier) for staging; run `supabase/migrations/*` against it.
-2. In the **existing** Vercel project, set `DATABASE_URL` for the **Preview environment only** (scoped to the `staging` branch) to the staging Supabase pooler URL. Production env vars stay untouched.
-3. Push the `staging` branch → Vercel Preview Deployment builds automatically. No new project, no new account, no `VERCEL_STAGING_*` secrets.
-4. Point the same read-only k6 suite at the preview URL. Auth strategy for the preview is decided then (production Firebase tokens are NOT used for load).
+**Auth (Design A):** the `staging` branch carries ONE divergence commit that swaps
+`api/_middleware/verifyAuth.js` for a version accepting
+`x-load-test-auth: <uid>:<hex hmac-sha256(uid, LOAD_TEST_AUTH_SECRET)>` — guarded by
+`VERCEL_ENV === "preview"`, the Preview-scoped secret, and a `TEST-USER-###` uid
+pattern; everything else falls through to the byte-for-byte production JWKS check.
+`main` never contains this path (CI's security guard enforces it). Never merge the
+swap commit to main; rebase `staging` onto main before each test cycle.
 
-Note: `.github/workflows/deploy-staging.yml` (which assumed a second Vercel account) is superseded by this plan and should be removed or rewritten before Phase 3B.
+**Vercel env target state:** Preview scope contains exactly TWO variables —
+`DATABASE_URL` (staging Supabase transaction pooler, port 6543) and
+`LOAD_TEST_AUTH_SECRET`. Every production credential (Firebase client + admin,
+OTP/SMS, Anthropic, Razorpay, Upstash, OTP_JWT_SECRET) is scoped Production-only.
+Firebase variables are simply ABSENT in Preview (client: `fbEnabled` false;
+server: all Bearer tokens fail closed with 401).
+
+**Runbook, in order (steps 1–3 are dashboard/manual):**
+1. Create the staging Supabase project (free tier, ap-south-1), then locally:
+   `DATABASE_URL=<staging pooler url> npm run migrate`
+2. Vercel dashboard: rescope the variables to the target state above; add
+   `LOAD_TEST_AUTH_SECRET` (Preview only, `openssl rand -hex 32`). Check
+   Deployment Protection — prefer a "Protection Bypass for Automation" secret.
+3. Push the `staging` branch → CI → `deploy-preview.yml` deploys a Preview of
+   the existing project (no `--prod`). Note the preview URL.
+4. Seed (idempotent; refuses production structurally):
+   `SEED_ALLOW=staging SEED_TARGET=<preview url> LOAD_TEST_AUTH_SECRET=<secret> [VERCEL_BYPASS=<bypass>] node load-harness/seed-preview.mjs`
+5. Load test (same 15 read-only actions as Phase 3A):
+   `k6 run -e BASE=<preview url> -e LOAD_TEST_AUTH_SECRET=<secret> [-e VERCEL_BYPASS=<bypass>] load-test.js`
 
 ## Phase 3C — parked
 
