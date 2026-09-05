@@ -10,8 +10,8 @@ export const FARMS = {
   beta:  { name: "Load Farm Beta",  owner: 16, managers: [17], supervisors: [], workers: [18, 19, 20, 21, 22, 23, 24, 25] },
 };
 
-const TASK_WORDS = ["Irrigate", "Weed", "Harvest", "Fence", "Vaccinate", "Feed", "Repair", "Inspect"];
-const CHAT_WORDS = ["paddy", "tractor", "monsoon", "fertilizer", "market", "mandi", "seeds", "canal"];
+export const TASK_WORDS = ["Irrigate", "Weed", "Harvest", "Fence", "Vaccinate", "Feed", "Repair", "Inspect"];
+export const CHAT_WORDS = ["paddy", "tractor", "monsoon", "fertilizer", "market", "mandi", "seeds", "canal"];
 
 export async function seed(h) {
   const { U, call, buildFarm, userIdOf } = h;

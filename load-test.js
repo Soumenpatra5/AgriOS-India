@@ -18,11 +18,41 @@
      PEAK_VUS=30  RAMP=20s  HOLD=3m  DOWN=10s
      BASE=http://127.0.0.1:4174 */
 
+/* global __ENV -- k6 runtime global (open() is covered by the browser globals) */
 import http from "k6/http";
+import crypto from "k6/crypto";
 import { check, sleep } from "k6";
 import { Counter } from "k6/metrics";
 
 const BASE = __ENV.BASE || "http://127.0.0.1:4174";
+
+/* ── Phase 3B preview mode ────────────────────────────────────────────────
+   Local (default): auth is the harness's x-test-uid header and seed ids come
+   from the harness's /seed-info endpoint.
+   Preview (LOAD_TEST_AUTH_SECRET set): auth is the staging-branch HMAC header
+   and seed ids come from the JSON file seed-preview.mjs wrote (SEED_FILE),
+   because the Vercel deployment has no /seed-info — its SPA rewrite would
+   answer that path with index.html. Same 15 read-only actions either way. */
+const PREVIEW = !!__ENV.LOAD_TEST_AUTH_SECRET;
+const SEED = PREVIEW ? JSON.parse(open(__ENV.SEED_FILE || "./seed-preview.json")) : null;
+
+/* Never aim this at production. Production would 401 every request anyway
+   (no HMAC path exists there), but refuse outright rather than hammer it. */
+const FORBIDDEN_HOSTS = ["agri-os-india.vercel.app", "agrios-india.vercel.app"];
+for (const h of FORBIDDEN_HOSTS) {
+  if (BASE.includes(`//${h}`)) throw new Error(`BASE points at a production host (${h}) — refusing to run`);
+}
+
+function authHeaders(uid) {
+  const headers = { "content-type": "application/json" };
+  if (PREVIEW) {
+    headers["x-load-test-auth"] = `${uid}:${crypto.hmac("sha256", __ENV.LOAD_TEST_AUTH_SECRET, uid, "hex")}`;
+    if (__ENV.VERCEL_BYPASS) headers["x-vercel-protection-bypass"] = __ENV.VERCEL_BYPASS;
+  } else {
+    headers["x-test-uid"] = uid;
+  }
+  return headers;
+}
 const PEAK = Number(__ENV.PEAK_VUS || 30);
 const RAMP = __ENV.RAMP || "20s";
 const HOLD = __ENV.HOLD || "3m";
@@ -82,8 +112,15 @@ export const options = {
   },
 };
 
-/* Fetch the seeded space/task ids so nothing is hardcoded twice. */
+/* Seed ids: preview mode reads the file seed-preview.mjs wrote; local mode
+   asks the harness. Either way nothing is hardcoded twice. */
 export function setup() {
+  if (PREVIEW) {
+    if (!SEED?.alpha?.spaceId || !SEED?.beta?.spaceId) {
+      throw new Error("seed file is missing farm ids — run load-harness/seed-preview.mjs first");
+    }
+    return { alpha: SEED.alpha, beta: SEED.beta };
+  }
   const res = http.get(`${BASE}/seed-info`);
   if (res.status !== 200) throw new Error(`seed-info unavailable: ${res.status} — is load-harness/server.mjs running?`);
   const { seeded } = JSON.parse(res.body);
@@ -94,7 +131,7 @@ function api(uid, action, spaceId, payload) {
   const res = http.post(
     `${BASE}/api/farm`,
     JSON.stringify({ action, spaceId, payload: payload || {} }),
-    { headers: { "content-type": "application/json", "x-test-uid": uid }, tags: { action } },
+    { headers: authHeaders(uid), tags: { action } },
   );
   if (res.status >= 500) status5xx.add(1);
   else if (res.status >= 400) status4xx.add(1);

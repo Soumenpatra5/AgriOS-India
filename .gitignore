@@ -12,3 +12,4 @@ dist/
 test-results/
 playwright-report/
 load-test-results.json
+seed-preview.json

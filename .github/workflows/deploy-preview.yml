@@ -1,0 +1,79 @@
+name: Deploy Staging Preview
+
+# Tier-3 Phase 3B: deploy the `staging` branch as a PREVIEW deployment of the
+# existing agri-os-india project (same account, same project as production —
+# deliberately NOT a second project). Previews use the project's
+# Preview-scoped environment variables, which for this project contain ONLY
+# the staging Supabase DATABASE_URL and LOAD_TEST_AUTH_SECRET; every
+# production credential is scoped Production-only. See TIER-3-STAGING.md.
+#
+# Same mechanics as deploy.yml (no Vercel Git integration on this repo, so CI
+# calls the Vercel API directly), minus --prod. Runs only after CI passes on
+# the staging branch; a red staging build never deploys.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-preview
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy staging preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    env:
+      # Same live project as deploy.yml — a preview of it, not a new project.
+      VERCEL_ORG_ID: team_uD6Bnm4QzkphHldMcOlt434X
+      VERCEL_PROJECT_ID: prj_4yI3aqyggbdFjEzdfSv1QZbvHo8D
+      # workflow_run checks out a detached sha; tell the CLI the branch
+      # explicitly so branch metadata (and any branch-scoped env vars) match.
+      VERCEL_GIT_COMMIT_REF: staging
+
+    steps:
+      - name: Checkout the commit CI validated
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Fail early if the token is missing
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN is not set."
+            exit 1
+          fi
+
+      - name: Deploy preview
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          # NO --prod: this creates a Preview deployment, built by Vercel with
+          # the Preview-scoped environment variables only.
+          url=$(npx --yes vercel@latest deploy --yes --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed preview: $url"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Staging preview deployed"
+            echo ""
+            echo "- commit: \`${{ github.event.workflow_run.head_sha || github.sha }}\`"
+            echo "- url: ${{ steps.deploy.outputs.url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

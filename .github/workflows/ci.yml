@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["main", "develop"]
+    branches: ["main", "develop", "staging"]
   pull_request:
     branches: ["main", "develop"]
 
@@ -122,3 +122,17 @@ jobs:
             echo "ERROR: ANTHROPIC_API_KEY referenced in src/ (must stay in api/ only)" && exit 1
           fi
           echo "API key correctly isolated to server-side api/"
+
+      # Tier-3 boundary: the load-test HMAC auth path lives ONLY on the
+      # staging branch (a one-commit swap of api/_middleware/verifyAuth.js).
+      # main and anything merging into main must never contain it — production
+      # accepts Firebase/JWKS tokens and nothing else.
+      - name: Security guard — no load-test auth path on main
+        if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
+        run: |
+          echo "Checking api/ for the staging-only load-test auth path..."
+          if grep -rn "LOAD_TEST_AUTH_SECRET\|x-load-test-auth" api/; then
+            echo "::error::Load-test auth path found in api/ — this belongs only on the staging branch"
+            exit 1
+          fi
+          echo "Clean: no load-test auth path in api/"
