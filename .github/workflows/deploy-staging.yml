@@ -1,0 +1,33 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - staging
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run build
+
+      - name: Deploy to staging Vercel
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_STAGING_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_STAGING_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_STAGING_TOKEN }}
+        run: npx vercel deploy --prod --token $VERCEL_TOKEN --confirm
