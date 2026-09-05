@@ -1,235 +1,63 @@
-# Tier-3: Staging Environment & Load Testing
+# Tier-3: Load Testing & Staging
 
-**Goal:** Validate the app's performance under realistic load before handing to real farmers.
+**Goal:** validate `/api/farm` performance under realistic concurrent load before real farmers arrive — without touching production Firebase, Supabase, or Vercel configuration.
 
-Tier-3 has two parts:
-1. **Staging environment** (clean Vercel + Supabase instance)
-2. **Load testing** (k6 scenarios simulating realistic traffic)
-
----
-
-## Part 1: Staging Environment Setup (User Action)
-
-You will create a **new, separate** free-tier Vercel + Supabase account for staging.
-
-### 1a. Create Staging Vercel
-
-1. Go to [vercel.com](https://vercel.com) and create a new account (use a different email than your production account)
-   - Or log in to a separate account you already have
-2. Import the AgriOS India repository (same GitHub repo, same branch)
-3. Add environment variables:
-   - `VITE_FB_API_KEY=blank` (disable Firebase, same as production build)
-   - Copy any other `VITE_*` vars from production `.env.production`
-4. Deploy and note the staging URL (e.g., `https://agrios-staging.vercel.app`)
-
-### 1b. Create Staging Supabase (if needed)
-
-If your app uses Supabase for staging data:
-1. Go to [supabase.com](https://supabase.com) and create a new project
-2. Use the **free tier**
-3. Set up the same schema as production (migrations or manual setup)
-4. Add Supabase URL + key to staging Vercel environment variables
-
-### 1c. Verify Staging Boots
-
-Open `https://agrios-staging.vercel.app` in a browser:
-- ✅ Should boot to language screen (no Firebase, no /api backend)
-- ✅ Splash → Language → Onboarding → Auth (local-first flow)
-- No console errors (same safety-by-construction as Tier-2)
+Decisions (2026-09-05):
+- **No new Vercel account.** Staging uses the existing account's Preview Deployments when Phase 3B starts.
+- **Production data is never load-tested.** Even "read-only" API actions insert a `users` row for a new identity (`ensureUser`), so pointing any test at production Supabase is a write. Phase 3A therefore uses an in-process database; Phase 3B requires a separate staging Supabase project first.
+- **Phase 3C (write-heavy/destructive load, staging Firebase, cleanup framework) is parked.**
 
 ---
 
-## Part 2: Update GitHub Secrets
+## Phase 3A — Local, real API, read-only (implemented)
 
-Once your staging Vercel is ready, add these secrets to your GitHub repository:
+The real `/api/farm` handler — routing table, six-step authorization gate, `ensureUser`, action handlers, all unmodified production modules — served over HTTP by `load-harness/server.mjs`, with the same two seams the Tier-1 suite mocks:
 
-| Secret | Value | Source |
-|--------|-------|--------|
-| `VERCEL_STAGING_ORG_ID` | Your staging Vercel account ID | Vercel dashboard → Account → Tokens → API Tokens (shows your org ID) |
-| `VERCEL_STAGING_PROJECT_ID` | Your staging project ID | Vercel dashboard → Project Settings → Project ID |
-| `VERCEL_STAGING_TOKEN` | New Vercel API token (staging account) | Vercel dashboard → Account → Tokens → Create Token |
+| Seam | Production | Phase 3A |
+|---|---|---|
+| Database | Supabase via `DATABASE_URL` | in-process PGlite Postgres, real `supabase/migrations/*` applied |
+| Auth | Firebase ID token verified against Google JWKS | `x-test-uid` header (Tier-1's `testVerifyToken`) |
 
-**Important:** These must be from your **staging account**, not production.
+The harness scrubs `DATABASE_URL` and Upstash variables at boot, and the db seam never reads them — this process cannot reach an external database at all. Production would reject the harness's requests outright (no Bearer token).
 
-To add secrets via GitHub CLI:
-```bash
-gh secret set VERCEL_STAGING_ORG_ID --body "xxx"
-gh secret set VERCEL_STAGING_PROJECT_ID --body "xxx"
-gh secret set VERCEL_STAGING_TOKEN --body "xxx"
-```
+Seed data is created **through the API** at server start (two farms, 25 users, 80 tasks, 24 announcements, 160 chat messages, attendance, DMs) and lives only in process memory.
 
----
-
-## Part 3: Deploy to Staging
-
-### Option A: Automatic (recommended)
-
-Create a `staging` branch and push:
-```bash
-git checkout -b staging
-git push -u origin staging
-```
-
-This triggers `.github/workflows/deploy-staging.yml`, which auto-deploys to your staging Vercel.
-
-### Option B: Manual
+### Run it
 
 ```bash
-npm run build
-npx vercel deploy --prod --token $VERCEL_STAGING_TOKEN
+npm run build          # optional; the API harness does not serve the SPA
+npm run load-server    # boots PGlite, migrates, seeds (~20s), listens on :4174
+npm run load-test      # k6 against http://127.0.0.1:4174
 ```
 
----
+Profile overrides: `k6 run -e PEAK_VUS=60 -e HOLD=5m load-test.js`
 
-## Part 4: Run Load Tests
+### What k6 exercises (read-only, exact production contracts)
 
-### Local load testing (against local preview)
+- `spaces.list`, `spaces.get`, `members.list`
+- `tasks.list`, `tasks.get`, `tasks.summary`
+- `announcements.list`, `attendance.list`, `activity.list`
+- `chat.list`, `chat.search`, `chat.pinned`, `chat.unread`
+- `dm.conversations`, `audit.list` (owner)
 
-1. Make sure k6 is installed: `brew install k6` (macOS) or see [k6 docs](https://k6.io/docs/get-started/installation/)
-2. Build the app: `npm run build`
-3. Start the preview server: `npm run preview` (runs on `http://localhost:4173`)
-4. In another terminal: `npm run load-test`
+Four journeys: worker dashboard (40%), manager review (30%), chat reader (20%), owner audit (10%). Identities are role-correct, so permission checks run for real (a worker never calls `audit.list`).
 
-This runs the k6 suite with default settings:
-- Ramp 0 → 50 VUs over 30s
-- Hold 50 VUs for 5 minutes
-- Ramp down to 0 VUs over 30s
-- Total duration: ~11 minutes
+### Honest limit
 
-### Staging load testing (against deployed staging)
-
-Once staging is deployed to Vercel:
-```bash
-npm run load-test:staging
-```
-
-This points at `https://agrios-staging.vercel.app` and runs the same load profile.
-
-### Custom load profiles
-
-Override the ramp-up, peak VUs, or duration:
-```bash
-k6 run -e RAMP_UP=1m -e PEAK_VUS=200 -e DURATION=10m load-test.js
-```
+PGlite is single-connection: concurrent requests interleave on one connection. Phase 3A measures the handler + SQL code path under concurrent HTTP load, **not** parallel-writer lock contention or real Postgres pool behavior. That is exactly what Phase 3B adds.
 
 ---
 
-## Load Test Scenarios
+## Phase 3B — Vercel Preview + staging Supabase (after 3A review)
 
-The k6 suite simulates **four realistic user journeys:**
+Prerequisites, in order:
+1. Create a **separate Supabase project** (free tier) for staging; run `supabase/migrations/*` against it.
+2. In the **existing** Vercel project, set `DATABASE_URL` for the **Preview environment only** (scoped to the `staging` branch) to the staging Supabase pooler URL. Production env vars stay untouched.
+3. Push the `staging` branch → Vercel Preview Deployment builds automatically. No new project, no new account, no `VERCEL_STAGING_*` secrets.
+4. Point the same read-only k6 suite at the preview URL. Auth strategy for the preview is decided then (production Firebase tokens are NOT used for load).
 
-### 1. Onboarding (40% of traffic)
-- Fresh visitor lands on splash screen
-- Chooses language (Hindi / English)
-- Accepts ToS
-- Represents new farmers discovering the app
+Note: `.github/workflows/deploy-staging.yml` (which assumed a second Vercel account) is superseded by this plan and should be removed or rewritten before Phase 3B.
 
-### 2. Ledger Workflow (35% of traffic)
-- Signed-in farmer navigates to ledger
-- Views existing entries
-- Adds a new expense/income entry
-- Represents daily active users managing finances
+## Phase 3C — parked
 
-### 3. Service Discovery (20% of traffic)
-- Farmer opens Services tab
-- Scrolls through categories
-- Clicks into a few service screens
-- Represents explorers browsing marketplace
-
-### 4. Profile Heavy (5% of traffic)
-- Power user rapid-tabs between Home, Services, Profile
-- Simulates heavy navigation load
-- Stress-tests tab switching and state management
-
----
-
-## Success Criteria
-
-### Performance
-
-- **p95 response time < 3s** (95% of requests finish in 3 seconds or less)
-- **p99 response time < 5s** (99th percentile)
-- **< 5% error rate** (allow some failures under extreme load)
-- **Scenario-specific thresholds:**
-  - Onboarding: p95 < 2s (lightweight)
-  - Ledger: p95 < 2.5s
-  - Services: p95 < 3s
-  - Profile: p95 < 3s
-
-### Stability
-
-- App remains responsive across all 50 concurrent VUs
-- No crashes or white screens during load
-- Graceful degradation if /api is unreachable (local-first promise)
-- Navigation and UI interactions remain snappy
-
-### Load Test Report
-
-After the run, k6 outputs a summary:
-```
-     checks........................: 98.2% ✓
-     data_received..................: 48 MB
-     data_sent.......................: 2.4 MB
-     http_req_blocked...............: avg=1.2ms
-     http_req_connecting............: avg=0.3ms
-     http_req_duration..............: avg=892ms p(95)=1.8s p(99)=3.2s
-     http_req_failed................: 1.8%
-     http_req_receiving.............: avg=78ms
-     http_req_sending...............: avg=12ms
-     http_req_tls_handshaking.......: avg=0.1ms
-     http_req_waiting...............: avg=800ms
-     http_reqs.......................: 5284
-     iteration_duration.............: avg=3.2s
-     iterations.....................: 1200
-     vus............................: 0
-     vus_max........................: 50
-```
-
-**Interpret:**
-- ✅ `checks ≥ 95%` → app handles the load
-- ✅ `http_req_failed < 5%` → acceptable error rate
-- ✅ `p(95) < 3s` → fast enough for mobile farmers
-- ⚠️ If p(99) > 5s or error rate > 10%, investigate:
-  - Vercel cold starts slowing responses
-  - JavaScript parsing / rendering bottlenecks
-  - Supabase query performance (if using real database)
-
----
-
-## Next Steps
-
-1. **Create staging account & deploy** (1-2 hours)
-2. **Run local load test** to validate the setup (15 minutes)
-3. **Run staging load test** against Vercel (15 minutes)
-4. **Review results** and adjust if needed
-5. **Ready for real farmers** — hand off to Tier-4 (user acceptance testing)
-
----
-
-## Troubleshooting
-
-### Load test fails with "Connection refused"
-- Ensure `npm run preview` is running on port 4173
-- Or set `STAGING_URL` to the correct Vercel URL
-
-### k6 not found
-- Install: `brew install k6` (macOS) or see [k6 installation](https://k6.io/docs/get-started/installation/)
-
-### Performance under threshold
-- Reduce `PEAK_VUS` in `.env` or via `-e PEAK_VUS=25` to validate baseline
-- Check Vercel logs for cold starts or errors
-- Verify staging Supabase is configured (if using)
-- Profile the app in DevTools (bottleneck: rendering, script parsing, or network?)
-
-### Errors in load test output
-- First 1-2% of errors are often connection setup; acceptable
-- If error rate stays > 5%, the app has a problem under load
-- Review Vercel deployment logs for any crashes
-
----
-
-## When You're Ready
-
-Once staging performs well under load, you're ready for **Tier-4: Real farmers (user acceptance testing)**.
-
-No more code changes needed—just real-world validation with a cohort of actual agricultural users.
+Write-heavy load, staging Firebase project, Admin-token minting, cleanup framework. Only after 3A/3B results justify it.

@@ -11,3 +11,4 @@ dist/
 # Playwright (Tier-2 browser E2E)
 test-results/
 playwright-report/
+load-test-results.json

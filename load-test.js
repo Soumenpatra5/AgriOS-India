@@ -1,172 +1,194 @@
-/* Tier-3: load testing against staging environment.
+/* Tier-3 Phase 3A — k6 load test over the REAL /api/farm contracts.
 
-   Scenarios simulate realistic user behavior:
-   - onboarding (language → auth, no backend call needed in local-first mode)
-   - ledger workflow (browse, add entry, delete)
-   - service discovery (scroll Services, open a few screens)
+   Target: load-harness/server.mjs (the production farm.js handler over HTTP,
+   PGlite database, x-test-uid auth). Start it first:
 
-   Run with: k6 run load-test.js
-   Or with custom thresholds: k6 run -e RAMP_UP=1m -e PEAK=100 load-test.js
+     node load-harness/server.mjs
+     k6 run load-test.js
 
-   Environment variables:
-   - STAGING_URL: base URL (default: http://localhost:4173 for local preview)
-   - RAMP_UP: ramp-up duration (default: 30s)
-   - PEAK_VUS: peak VUs (default: 50)
-   - DURATION: hold peak (default: 5m)
-*/
+   READ-ONLY by design: every action below is a list/get/search/summary. The
+   only writes in the whole exercise happen at server seed time, into the
+   in-process database, which vanishes when the server exits. Nothing here can
+   reach production — BASE defaults to localhost and auth is the harness's
+   x-test-uid header, which production would reject as having no Bearer token.
+
+   Identities and data mirror load-harness/seed.mjs (TEST-USER-###; two farms).
+
+   Profile (override with -e):
+     PEAK_VUS=30  RAMP=20s  HOLD=3m  DOWN=10s
+     BASE=http://127.0.0.1:4174 */
 
 import http from "k6/http";
 import { check, sleep } from "k6";
+import { Counter } from "k6/metrics";
 
-const STAGING_URL = __ENV.STAGING_URL || "http://localhost:4173";
-const RAMP_UP = __ENV.RAMP_UP || "30s";
-const PEAK_VUS = parseInt(__ENV.PEAK_VUS || "50", 10);
-const DURATION = __ENV.DURATION || "5m";
+const BASE = __ENV.BASE || "http://127.0.0.1:4174";
+const PEAK = Number(__ENV.PEAK_VUS || 30);
+const RAMP = __ENV.RAMP || "20s";
+const HOLD = __ENV.HOLD || "3m";
+const DOWN = __ENV.DOWN || "10s";
+
+const status2xx = new Counter("status_2xx");
+const status4xx = new Counter("status_4xx");
+const status5xx = new Counter("status_5xx");
+
+/* Identity pools — must match load-harness/seed.mjs FARMS. */
+const ALPHA = { owner: 1, managers: [2, 3], supervisors: [4, 5], workers: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15] };
+const BETA  = { owner: 16, managers: [17], supervisors: [], workers: [18, 19, 20, 21, 22, 23, 24, 25] };
+const U = (n) => `TEST-USER-${String(n).padStart(3, "0")}`;
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const CHAT_WORDS = ["paddy", "tractor", "monsoon", "fertilizer", "market", "mandi", "seeds", "canal"];
+
+function ramp(fraction) {
+  return {
+    executor: "ramping-vus",
+    startVUs: 0,
+    stages: [
+      { duration: RAMP, target: Math.max(1, Math.round(PEAK * fraction)) },
+      { duration: HOLD, target: Math.max(1, Math.round(PEAK * fraction)) },
+      { duration: DOWN, target: 0 },
+    ],
+    gracefulRampDown: "5s",
+  };
+}
 
 export const options = {
-  /* VUs ramp 0 → PEAK_VUS over RAMP_UP, hold for DURATION, then ramp down. */
-  stages: [
-    { duration: RAMP_UP, target: PEAK_VUS },
-    { duration: DURATION, target: PEAK_VUS },
-    { duration: RAMP_UP, target: 0 },
-  ],
-
-  /* Thresholds: tests fail if these are breached. */
+  scenarios: {
+    worker_dashboard: { ...ramp(0.4), exec: "workerDashboard" },
+    manager_review:   { ...ramp(0.3), exec: "managerReview" },
+    chat_reader:      { ...ramp(0.2), exec: "chatReader" },
+    owner_audit:      { ...ramp(0.1), exec: "ownerAudit" },
+  },
+  summaryTrendStats: ["avg", "min", "med", "p(90)", "p(95)", "p(99)", "max"],
   thresholds: {
-    http_req_duration: ["p(95)<3000", "p(99)<5000"],
-    http_req_failed: ["rate<0.05"], // allow 5% error rate
-    "http_req_duration{scenario:onboarding}": ["p(95)<2000"],
-    "http_req_duration{scenario:ledger}": ["p(95)<2500"],
-    "http_req_duration{scenario:services}": ["p(95)<3000"],
+    http_req_failed: ["rate<0.01"],
+    http_req_duration: ["p(95)<1500", "p(99)<3000"],
+    /* Per-action visibility in the summary. */
+    "http_req_duration{action:spaces.list}": ["p(95)<1500"],
+    "http_req_duration{action:spaces.get}": ["p(95)<1500"],
+    "http_req_duration{action:members.list}": ["p(95)<1500"],
+    "http_req_duration{action:tasks.list}": ["p(95)<1500"],
+    "http_req_duration{action:tasks.get}": ["p(95)<1500"],
+    "http_req_duration{action:tasks.summary}": ["p(95)<1500"],
+    "http_req_duration{action:announcements.list}": ["p(95)<1500"],
+    "http_req_duration{action:attendance.list}": ["p(95)<1500"],
+    "http_req_duration{action:activity.list}": ["p(95)<1500"],
+    "http_req_duration{action:chat.list}": ["p(95)<1500"],
+    "http_req_duration{action:chat.search}": ["p(95)<1500"],
+    "http_req_duration{action:chat.pinned}": ["p(95)<1500"],
+    "http_req_duration{action:chat.unread}": ["p(95)<1500"],
+    "http_req_duration{action:dm.conversations}": ["p(95)<1500"],
+    "http_req_duration{action:audit.list}": ["p(95)<1500"],
   },
 };
 
-/* Scenario 1: Fresh visitor onboarding.
-   Represents a new farmer landing, choosing language, accepting ToS, entering phone. */
-export function onboarding() {
-  const sessionId = `vu_${__VU}_${Date.now()}`;
+/* Fetch the seeded space/task ids so nothing is hardcoded twice. */
+export function setup() {
+  const res = http.get(`${BASE}/seed-info`);
+  if (res.status !== 200) throw new Error(`seed-info unavailable: ${res.status} — is load-harness/server.mjs running?`);
+  const { seeded } = JSON.parse(res.body);
+  return { alpha: seeded.alpha, beta: seeded.beta };
+}
 
-  let res = http.get(`${STAGING_URL}/`, {
-    tags: { scenario: "onboarding" },
-  });
-  check(res, { "splash loads": (r) => r.status === 200 });
-  sleep(0.5);
-
-  /* Language screen (no backend call) */
-  res = http.post(
-    `${STAGING_URL}/`,
-    JSON.stringify({ action: "setLanguage", lang: "hi" }),
-    { headers: { "Content-Type": "application/json" }, tags: { scenario: "onboarding" } }
+function api(uid, action, spaceId, payload) {
+  const res = http.post(
+    `${BASE}/api/farm`,
+    JSON.stringify({ action, spaceId, payload: payload || {} }),
+    { headers: { "content-type": "application/json", "x-test-uid": uid }, tags: { action } },
   );
-  check(res, { "language persists": (r) => r.status === 200 || r.status === 0 }); // POST to static app may 404; that's OK
+  if (res.status >= 500) status5xx.add(1);
+  else if (res.status >= 400) status4xx.add(1);
+  else status2xx.add(1);
+  check(res, {
+    [`${action} 200`]: (r) => r.status === 200,
+    [`${action} has data`]: (r) => {
+      try { return JSON.parse(r.body).data !== undefined; } catch { return false; }
+    },
+  });
+  return res;
+}
+
+/* Farmer checking their day: the app's Home + tasks + chat read path. */
+export function workerDashboard(data) {
+  const [farm, roster] = Math.random() < 0.6 ? [data.alpha, ALPHA] : [data.beta, BETA];
+  const uid = U(pick(roster.workers));
+  api(uid, "spaces.list", null);
   sleep(0.3);
-
-  /* Onboarding screen (no backend call) */
-  res = http.get(`${STAGING_URL}/`, {
-    tags: { scenario: "onboarding" },
-  });
-  check(res, { "onboarding screen loads": (r) => r.status === 200 });
-  sleep(1);
+  api(uid, "spaces.get", farm.spaceId);
+  api(uid, "tasks.list", farm.spaceId, { limit: 50 });
+  sleep(0.4);
+  api(uid, "announcements.list", farm.spaceId, { limit: 20 });
+  api(uid, "chat.list", farm.spaceId, { limit: 50 });
+  api(uid, "chat.unread", farm.spaceId);
+  sleep(0.8);
 }
 
-/* Scenario 2: Signed-in user ledger workflow.
-   Represents a farmer navigating to ledger, viewing entries, adding a new one. */
-export function ledger() {
-  const sessionId = `vu_${__VU}_${Date.now()}`;
-
-  /* Boot to Home (simulates localStorage seeding + app init) */
-  let res = http.get(`${STAGING_URL}/`, {
-    tags: { scenario: "ledger" },
-  });
-  check(res, { "home loads": (r) => r.status === 200 });
-  sleep(1);
-
-  /* Navigate to Services → Ledger (tabs are client-side; no server call) */
-  sleep(0.5);
-
-  /* In a real test against /api, we'd call:
-     GET /api/ledger (fetch entries)
-     POST /api/ledger (add entry)
-     DELETE /api/ledger/:id (delete)
-     But in local-first mode, these are IndexedDB reads/writes, not HTTP.
-     We measure the app's HTML delivery performance instead. */
-
-  res = http.get(`${STAGING_URL}/`, {
-    tags: { scenario: "ledger" },
-  });
-  check(res, { "ledger page loads": (r) => r.status === 200 });
-  sleep(2);
-}
-
-/* Scenario 3: Service discovery.
-   Represents a farmer browsing the Services tab, opening a few screens. */
-export function services() {
-  let res = http.get(`${STAGING_URL}/`, {
-    tags: { scenario: "services" },
-  });
-  check(res, { "services page loads": (r) => r.status === 200 });
-  sleep(0.5);
-
-  /* Simulate scrolling and clicking into a service screen. Since all screens are
-     lazy-loaded chunks baked into the bundle, every GET is the same HTML; in
-     production, chunks would be fetched separately, but preview serves the full dist. */
-
-  for (let i = 0; i < 3; i++) {
-    res = http.get(`${STAGING_URL}/`, {
-      tags: { scenario: "services" },
-    });
-    check(res, { "service screen loads": (r) => r.status === 200 });
-    sleep(0.8);
-  }
-}
-
-/* Scenario 4: Heavy Profile tab + repeated navigation.
-   Represents a power user switching tabs and viewing data repeatedly. */
-export function profileHeavy() {
-  let res = http.get(`${STAGING_URL}/`, {
-    tags: { scenario: "services" }, // reuse threshold
-  });
-  check(res, { "profile loads": (r) => r.status === 200 });
+/* Manager reviewing the roster, tasks and attendance. */
+export function managerReview(data) {
+  const [farm, roster] = Math.random() < 0.6 ? [data.alpha, ALPHA] : [data.beta, BETA];
+  const uid = U(pick(roster.managers));
+  api(uid, "spaces.list", null);
+  api(uid, "members.list", farm.spaceId);
   sleep(0.3);
-
-  /* Rapid tab switches */
-  for (let i = 0; i < 5; i++) {
-    res = http.get(`${STAGING_URL}/`, {
-      tags: { scenario: "services" },
-    });
-    check(res, { "tab switch": (r) => r.status === 200 });
-    sleep(0.2);
-  }
+  api(uid, "tasks.list", farm.spaceId, { limit: 100 });
+  api(uid, "tasks.get", farm.spaceId, { taskId: pick(farm.taskIds) });
+  sleep(0.3);
+  api(uid, "attendance.list", farm.spaceId, { limit: 50 });
+  api(uid, "activity.list", farm.spaceId, { limit: 50 });
+  sleep(0.7);
 }
 
-/* Assign scenarios to VUs with probabilistic weights.
-   - 40% onboarding (new visitors)
-   - 35% ledger (active farmers)
-   - 20% services (explorers)
-   - 5% profile heavy (power users) */
-export const scenarios = {
-  onboarding: {
-    executor: "per-vu-iterations",
-    exec: "onboarding",
-    vus: Math.ceil((PEAK_VUS * 0.40) / 1),
-    iterations: 1,
-  },
-  ledger: {
-    executor: "per-vu-iterations",
-    exec: "ledger",
-    vus: Math.ceil((PEAK_VUS * 0.35) / 1),
-    iterations: 1,
-  },
-  services: {
-    executor: "per-vu-iterations",
-    exec: "services",
-    vus: Math.ceil((PEAK_VUS * 0.20) / 1),
-    iterations: 1,
-  },
-  profileHeavy: {
-    executor: "per-vu-iterations",
-    exec: "profileHeavy",
-    vus: Math.ceil((PEAK_VUS * 0.05) / 1),
-    iterations: 1,
-  },
-};
+/* Member catching up on conversation: group chat, search, pins, DMs. */
+export function chatReader(data) {
+  const [farm, roster] = Math.random() < 0.6 ? [data.alpha, ALPHA] : [data.beta, BETA];
+  const members = roster.workers.concat(roster.supervisors, roster.managers);
+  const uid = U(pick(members));
+  api(uid, "chat.list", farm.spaceId, { limit: 50 });
+  sleep(0.3);
+  api(uid, "chat.search", farm.spaceId, { query: pick(CHAT_WORDS), limit: 30 });
+  api(uid, "chat.pinned", farm.spaceId);
+  sleep(0.3);
+  api(uid, "dm.conversations", farm.spaceId);
+  sleep(0.6);
+}
+
+/* Owner looking at the audit trail and overall state. */
+export function ownerAudit(data) {
+  const [farm, roster] = Math.random() < 0.6 ? [data.alpha, ALPHA] : [data.beta, BETA];
+  const uid = U(roster.owner);
+  api(uid, "spaces.get", farm.spaceId);
+  api(uid, "audit.list", farm.spaceId, { limit: 50 });
+  sleep(0.4);
+  api(uid, "members.list", farm.spaceId);
+  api(uid, "tasks.summary", farm.spaceId);
+  sleep(0.8);
+}
+
+export function handleSummary(data) {
+  return {
+    stdout: textSummary(data),
+    "load-test-results.json": JSON.stringify(data, null, 2),
+  };
+}
+
+/* Minimal text summary (k6's default one is suppressed by handleSummary). */
+function textSummary(data) {
+  const m = data.metrics;
+  const d = m.http_req_duration?.values || {};
+  const lines = [
+    "",
+    "== Tier-3 Phase 3A summary =============================",
+    `requests total : ${m.http_reqs?.values?.count ?? 0}`,
+    `2xx / 4xx / 5xx: ${m.status_2xx?.values?.count ?? 0} / ${m.status_4xx?.values?.count ?? 0} / ${m.status_5xx?.values?.count ?? 0}`,
+    `failed rate    : ${((m.http_req_failed?.values?.rate ?? 0) * 100).toFixed(3)}%`,
+    `latency avg    : ${(d.avg ?? 0).toFixed(1)}ms`,
+    `latency p50    : ${(d.med ?? 0).toFixed(1)}ms`,
+    `latency p90    : ${(d["p(90)"] ?? 0).toFixed(1)}ms`,
+    `latency p95    : ${(d["p(95)"] ?? 0).toFixed(1)}ms`,
+    `latency p99    : ${(d["p(99)"] ?? 0).toFixed(1)}ms`,
+    `latency max    : ${(d.max ?? 0).toFixed(1)}ms`,
+    "========================================================",
+    "",
+  ];
+  return lines.join("\n");
+}
