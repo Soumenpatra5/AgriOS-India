@@ -12,15 +12,15 @@ import { readRegion, writeRegion } from "../services/geo/regionPrefs.js";
 
 const WIDGET_LABELS = {
   weather:      { en: "Weather", hi: "मौसम", bn: "আবহাওয়া" },
-  summary:      { en: "Farm summary", hi: "खेत सारांश", bn: "খামার সারসংক্ষেপ" },
+  farmSpace:    { en: "My Farm Space", hi: "मेरा फ़ार्म स्पेस", bn: "আমার ফার্ম স্পেস" },
+  attention:    { en: "Needs attention", hi: "ध्यान चाहिए", bn: "মনোযোগ প্রয়োজন" },
+  glance:       { en: "Today at a glance", hi: "आज एक नज़र में", bn: "আজ এক নজরে" },
   quickActions: { en: "AI quick actions", hi: "AI त्वरित क्रियाएँ", bn: "AI দ্রুত ক্রিয়া" },
-  services:     { en: "My services", hi: "मेरी सेवाएँ", bn: "আমার সেবা" },
-  tasks:        { en: "Today's tasks", hi: "आज के काम", bn: "আজকের কাজ" },
-  diagnostics:  { en: "AI diagnostics", hi: "AI निदान", bn: "AI রোগ নির্ণয়" },
+  services:     { en: "My farm", hi: "मेरा खेत", bn: "আমার খামার" },
+  aiAssistant:  { en: "AI Farm Assistant", hi: "AI फार्म सहायक", bn: "AI ফার্ম সহায়ক" },
   schemes:      { en: "Govt schemes", hi: "सरकारी योजनाएँ", bn: "সরকারি স্কিম" },
-  disease:      { en: "Disease detection", hi: "रोग पहचान", bn: "রোগ শনাক্তকরণ" },
-  calculators:  { en: "Calculators", hi: "कैलकुलेटर", bn: "ক্যালকুলেটর" },
   news:         { en: "News", hi: "समाचार", bn: "খবর" },
+  calculators:  { en: "Calculators", hi: "कैलकुलेटर", bn: "ক্যালকুলেটর" },
 };
 const TAB_LABELS = {
   farmSpace: { en: "Farm Space", hi: "फ़ार्म स्पेस", bn: "ফার্ম স্পেস" },

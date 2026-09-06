@@ -13,7 +13,7 @@
 import { storage } from "../utils/storage.js";
 
 const KEY = "prefs";
-const VERSION = 1;
+const VERSION = 2;
 
 /* DEFAULTS = the full preference tree. Extend this to add customizations. */
 export const DEFAULTS = {
@@ -28,12 +28,16 @@ export const DEFAULTS = {
   },
 
   dashboard: {
-    // which Home widgets are shown, and in what order (top → bottom)
+    // which Home widgets are shown, and in what order (top → bottom).
+    // v2 (Home command-center redesign): `summary`→`glance`, the two AI banners
+    // `diagnostics`+`disease` merged into `aiAssistant`, and `farmSpace` +
+    // `attention` are now first-class widgets. migrateDashboard() below maps a
+    // v1 user's saved config onto these ids so nobody loses their preferences.
     widgets: {
-      weather: true, summary: true, quickActions: true, services: true, tasks: true,
-      diagnostics: true, schemes: true, disease: true, calculators: true, news: true,
+      weather: true, farmSpace: true, attention: true, glance: true, quickActions: true,
+      services: true, aiAssistant: true, schemes: true, news: true, calculators: true,
     },
-    order: ["weather", "summary", "quickActions", "services", "tasks", "diagnostics", "schemes", "disease", "calculators", "news"],
+    order: ["weather", "farmSpace", "attention", "glance", "quickActions", "services", "aiAssistant", "schemes", "news", "calculators"],
   },
 
   nav: {
@@ -76,7 +80,42 @@ function merge(base, over) {
   return over === undefined ? base : over;
 }
 
-let state = merge(DEFAULTS, storage.get(KEY, {}));
+/* v1 → v2 dashboard migration. Runs on any stored prefs older than VERSION 2,
+   BEFORE the merge, so an existing user's saved widget visibility and order
+   carry over onto the new widget ids instead of being silently reset:
+     summary → glance
+     diagnostics, disease → aiAssistant (shown if EITHER banner was shown)
+   The new `farmSpace` / `attention` widgets and any missing ids are filled in
+   from the default order at their default positions; unknown ids are dropped. */
+const RENAME = { summary: "glance", diagnostics: "aiAssistant", disease: "aiAssistant" };
+function migrateDashboard(dash) {
+  const defOrder = DEFAULTS.dashboard.order;
+  const widgets = {};
+  for (const [k, v] of Object.entries(dash?.widgets || {})) {
+    const nk = RENAME[k] || k;
+    // OR-merge when two old ids collapse to one (aiAssistant): visible if either was.
+    widgets[nk] = nk in widgets ? (widgets[nk] || v) : v;
+  }
+  let order = [];
+  for (const id of dash?.order || []) {
+    const nid = RENAME[id] || id;
+    if (defOrder.includes(nid) && !order.includes(nid)) order.push(nid);
+  }
+  // Insert any default id the user didn't have (new widgets) at its default slot.
+  defOrder.forEach((id, i) => { if (!order.includes(id)) order.splice(i, 0, id); });
+  return { widgets, order };
+}
+
+function migrate(stored) {
+  if (!stored || Object.keys(stored).length === 0) return stored;
+  const v = stored._v || 1;
+  if (v >= VERSION) return stored;
+  const next = { ...stored, _v: VERSION };
+  if (v < 2 && stored.dashboard) next.dashboard = migrateDashboard(stored.dashboard);
+  return next;
+}
+
+let state = merge(DEFAULTS, migrate(storage.get(KEY, {})));
 const subs = new Set();
 
 function persist() { storage.set(KEY, state); subs.forEach((cb) => cb(state)); }
@@ -100,8 +139,9 @@ export const preferences = {
 
   set(path, value) { state = setPath(state, path, value); persist(); return state; },
 
-  /* Replace the whole tree (used by cloud restore / import), merged over defaults. */
-  replace(next) { state = merge(DEFAULTS, next || {}); persist(); return state; },
+  /* Replace the whole tree (used by cloud restore / import), migrated (a cloud
+     profile may still hold a v1 dashboard) then merged over defaults. */
+  replace(next) { state = merge(DEFAULTS, migrate(next || {})); persist(); return state; },
 
   reset() { state = structuredClone(DEFAULTS); persist(); return state; },
 

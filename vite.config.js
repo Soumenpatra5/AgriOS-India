@@ -30,7 +30,10 @@ export default defineConfig({
     setupFiles: ["fake-indexeddb/auto", "./src/test/localStorage.js"],
     /* Agent worktrees under .claude/ are full checkouts of this repo, so
        without this every test file is collected twice — the suite reported
-       222 files / 1646 tests and took 4x as long while one was open. */
-    exclude: [...configDefaults.exclude, "**/.claude/**"],
+       222 files / 1646 tests and took 4x as long while one was open.
+       load-harness/*.test.mjs are Tier-3 load-test stand-in modules (db /
+       auth seams), not vitest suites — they match the default glob but hold
+       no tests, so exclude the directory. */
+    exclude: [...configDefaults.exclude, "**/.claude/**", "load-harness/**"],
   },
 });
