@@ -17,6 +17,12 @@ import { repo } from "../erp/erpDb.js";
 import { feedConsumptionService } from "./feedConsumptionService.js";
 import { productionService } from "../livestock/livestockService.js";
 import { safeNum, round2 } from "../../utils/num.js";
+/* The FCR maths itself now lives in api/_lib/farm/fcr.js so the poultry server
+   and this service share ONE implementation instead of two that can drift.
+   Same import direction as farmSpaceService -> api/_lib/farm/permissions.js.
+   The method below delegates; its inputs, outputs and semantics are
+   unchanged, which this service's existing tests assert. */
+import { computeFCR as computeFCRPure } from "../../../api/_lib/farm/fcr.js";
 
 const batches = repo("feedBatches");
 
@@ -45,25 +51,7 @@ export const feedBatchService = {
      Returns null (not 0/Infinity) when weight gain is 0 or negative — there
      is no meaningful FCR to report yet. targetFCR is whatever the farmer
      configured on the batch (never a built-in default). */
-  computeFCR(batch, totalFeedConsumed) {
-    const initialBiomass = safeNum(batch.initialWeight) * safeNum(batch.initialCount);
-    const currentCount = batch.currentCount != null ? safeNum(batch.currentCount) : safeNum(batch.initialCount);
-    const currentWeight = batch.currentWeight != null ? safeNum(batch.currentWeight) : 0;
-    const currentBiomass = currentWeight * currentCount;
-    const weightGain = round2(currentBiomass - initialBiomass);
-    const feed = safeNum(totalFeedConsumed);
-
-    const fcr = weightGain > 0 ? round2(feed / weightGain) : null;
-    const target = batch.targetFCR != null && batch.targetFCR !== "" ? Number(batch.targetFCR) : null;
-    const fcrDiff = fcr !== null && target !== null && Number.isFinite(target) ? round2(fcr - target) : null;
-    /* Lower FCR is better (less feed per kg gained), so a negative diff
-       (actual below target) is "better than target". */
-    const performanceStatus = fcrDiff === null ? "no_target"
-      : fcrDiff <= 0 ? "on_or_better_than_target" : "worse_than_target";
-    const feedEfficiency = fcr !== null && fcr > 0 ? round2(100 / fcr) : null; // % biomass gained per unit feed
-
-    return { weightGain, fcr, targetFCR: target, fcrDiff, performanceStatus, feedEfficiency };
-  },
+  computeFCR: (batch, totalFeedConsumed) => computeFCRPure(batch, totalFeedConsumed),
 
   /* Full batch-level summary: consumption totals + FCR, in one call. */
   /* `preBatch` lets a caller that already loaded the batch row (e.g.

@@ -67,6 +67,7 @@ const MIGRATIONS = [
   "0007_agrios_user_id.sql", "0008_invitation_by_user_id.sql",
   "0009_farm_chat_reply_react_pin.sql", "0010_farm_chat_mentions_search.sql",
   "0011_farm_dm.sql", "0012_performance_indexes.sql",
+  "0013_poultry_sheds_batches.sql", "0014_poultry_daily_weight_feed.sql",
 ];
 
 export async function freshDb() {

@@ -36,6 +36,17 @@ export const PERMISSIONS = [
   "farm.documents.view",
   "farm.documents.manage",
   "farm.settings.manage",
+  /* Poultry (Broiler Farm Management). Split four ways because the jobs are
+     genuinely different people: everyone in the farm reads the batch, the
+     stockman records the day, a manager sets up batches and targets, money is
+     narrower still, and only the owner closes a cycle. Adding entries here is
+     additive — memberCan() only honours keys present in this list, so a
+     member row that predates them is unaffected. */
+  "farm.poultry.view",
+  "farm.poultry.record",
+  "farm.poultry.manage",
+  "farm.poultry.finance",
+  "farm.poultry.close",
 ];
 
 /* Worker holds the permissions whose ROWS are narrowed elsewhere rather than
@@ -53,6 +64,9 @@ const MATRIX = {
     "farm.announcement.create",
     "farm.chat.view", "farm.chat.send",
     "farm.documents.view", "farm.documents.manage",
+    /* Runs the poultry operation day to day, including its money — but
+       closing a cycle (which freezes the batch P&L) stays with the owner. */
+    "farm.poultry.view", "farm.poultry.record", "farm.poultry.manage", "farm.poultry.finance",
   ]),
   supervisor: new Set([
     "farm.view", "farm.members.view",
@@ -60,12 +74,19 @@ const MATRIX = {
     "farm.attendance.view",
     "farm.chat.view", "farm.chat.send",
     "farm.documents.view",
+    /* Records the day; cannot create batches, set targets, or touch money. */
+    "farm.poultry.view", "farm.poultry.record",
   ]),
   worker: new Set([
     "farm.view",
     "farm.tasks.view", "farm.tasks.update",
     "farm.attendance.view",
     "farm.chat.view", "farm.chat.send",
+    /* The stockman who feeds the birds and counts the mortality is usually a
+       worker — the daily record is exactly their job. Reading the batch they
+       work in is not narrowed by row: like chat, membership is the access
+       rule, and a shed the worker cannot see is one they cannot report on. */
+    "farm.poultry.view", "farm.poultry.record",
   ]),
 };
 

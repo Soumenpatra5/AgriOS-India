@@ -6,10 +6,16 @@
    inside transactions (e.g. insufficient stock) to roll back and surface a
    precise status; handlers catch it and reply with err.status/err.message. */
 export class HttpError extends Error {
-  constructor(status, message) {
+  /* `details` is optional structured data the CLIENT is allowed to see — e.g.
+     the feed quantity actually on hand when a consumption entry overdraws it,
+     so the UI can say "only 12.5 kg left" instead of re-deriving it. Only ever
+     values already scoped to the caller's own Farm Space; never internals.
+     Omitted entirely when not supplied, so every existing throw is unchanged. */
+  constructor(status, message, details = null) {
     super(message);
     this.name = "HttpError";
     this.status = status;
+    if (details) this.details = details;
   }
 }
 

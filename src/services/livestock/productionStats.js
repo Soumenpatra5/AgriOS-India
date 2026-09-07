@@ -34,7 +34,12 @@ export const productionStats = {
         month,
         production: d.production,
         feedKg: d.feedKg,
-        fcr: d.production > 0 ? +(d.feedKg / d.production).toFixed(2) : null,
+        /* feed per unit of OUTPUT — kg of feed per egg, per litre of milk.
+           Renamed from `fcr`, which it never was: Feed Conversion Ratio is
+           feed per kg of LIVE-WEIGHT GAIN, and calling this that invited a
+           reader to compare it against a real FCR target. The authoritative
+           FCR lives in api/_lib/farm/fcr.js and is the only implementation. */
+        feedPerUnit: d.production > 0 ? +(d.feedKg / d.production).toFixed(2) : null,
         avgPerDay: d.count > 0 ? +(d.production / d.count).toFixed(1) : 0,
       }));
   },

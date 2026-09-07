@@ -25,6 +25,8 @@ import * as tasks from "./_lib/farm/tasks.js";
 import * as ops4 from "./_lib/farm/operations.js";
 import * as chat from "./_lib/farm/chat.js";
 import * as dm from "./_lib/farm/dm.js";
+import * as poultry from "./_lib/farm/poultry.js";
+import * as poultryOps from "./_lib/farm/poultryOps.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -132,6 +134,56 @@ const ACTIONS = {
   "dm.edit":              { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => dm.editDm(sql, membership, user.id, payload) },
   "dm.remove":            { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.removeDm(sql, membership, user.id, payload) },
   "dm.hide":              { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.hideDmForSelf(sql, membership, user.id, payload) },
+
+  /* Poultry — Broiler Farm Management (P1: sheds + batches).
+
+     Routed here rather than through a /api/poultry function because the
+     project is at Vercel's 12-function limit — but it is also the safer shape:
+     these inherit the same six-step gate as everything above, so a poultry
+     handler cannot accidentally ship without authorization.
+
+     Reads are farm.poultry.view (every role, including the worker who feeds
+     the birds). Recording the day is farm.poultry.record. Creating batches and
+     setting targets is farm.poultry.manage. Closing a cycle — which freezes
+     the batch P&L — is farm.poultry.close, owner-only. */
+  "poultry.sheds.list":     { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultry.listSheds(sql, membership, payload) },
+  "poultry.sheds.create":   { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultry.createShed(sql, membership, user.id, payload) },
+  "poultry.sheds.update":   { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultry.updateShed(sql, membership, user.id, payload) },
+  "poultry.sheds.archive":  { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultry.archiveShed(sql, membership, user.id, payload) },
+
+  "poultry.batches.list":   { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultry.listBatches(sql, membership, payload) },
+  "poultry.batches.get":    { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultry.getBatch(sql, membership, payload) },
+  "poultry.batches.create": { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultry.createBatch(sql, membership, user.id, payload) },
+  "poultry.batches.update": { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultry.updateBatch(sql, membership, user.id, payload) },
+  /* setStatus re-checks the per-transition permission inside the handler:
+     the routing table's farm.poultry.manage is the floor, and closing/reversal
+     demands farm.poultry.close on top of it. */
+  "poultry.batches.setStatus": { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultry.setBatchStatus(sql, membership, user.id, payload) },
+  "poultry.batches.delete": { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultry.deleteBatch(sql, membership, user.id, payload) },
+
+  /* P2 — daily operations, weighings, feed ledger and the metrics derived from
+     them. Recording the day is farm.poultry.record, which the worker who feeds
+     the birds holds; removing a record is farm.poultry.manage, because a
+     deletion changes history rather than adding to it. */
+  "poultry.daily.list":     { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryOps.listDaily(sql, membership, payload) },
+  "poultry.daily.upsert":   { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => poultryOps.upsertDaily(sql, membership, user.id, payload) },
+  "poultry.daily.delete":   { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryOps.deleteDaily(sql, membership, user.id, payload) },
+
+  "poultry.weights.list":   { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryOps.listWeights(sql, membership, payload) },
+  "poultry.weights.add":    { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => poultryOps.addWeight(sql, membership, user.id, payload) },
+  "poultry.weights.delete": { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryOps.deleteWeight(sql, membership, user.id, payload) },
+
+  "poultry.feed.list":      { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryOps.listFeed(sql, membership, payload) },
+  "poultry.feed.add":       { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => poultryOps.addFeedLog(sql, membership, user.id, payload) },
+  "poultry.feed.delete":    { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryOps.deleteFeedLog(sql, membership, user.id, payload) },
+
+  /* One consistent snapshot per call — everything inside is read in a single
+     transaction, so live birds and the FCR's bird count describe the same
+     instant rather than two moments either side of someone else's write. */
+  "poultry.metrics":        { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryOps.batchMetrics(sql, membership, payload) },
+  /* Validated inputs for the EXISTING farmAlertsService to consume later —
+     facts and target comparisons, not a second alert engine. */
+  "poultry.alerts.signals": { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryOps.alertSignals(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {
@@ -163,7 +215,12 @@ export default async function handler(req, res) {
     /* Domain errors carry a status and a message written to be shown to a
        farmer. Everything else becomes a 500 with nothing leaked. */
     if (err instanceof HttpError) {
-      return res.status(err.status).json({ error: { message: err.message } });
+      /* `details` carries client-safe structured context (the feed quantity on
+         hand, the birds available) so the UI can explain a refusal precisely.
+         Present only when a handler supplied it. */
+      return res.status(err.status).json({
+        error: err.details ? { message: err.message, details: err.details } : { message: err.message },
+      });
     }
     console.error("farm error:", err);
     if (/DATABASE_URL is not set/.test(err?.message || "")) {
