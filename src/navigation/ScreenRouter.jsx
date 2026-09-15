@@ -73,6 +73,8 @@ const DprGenerator       = lazy(() => import("../pages/business/DprGenerator.jsx
 const DprEditor          = lazy(() => import("../pages/business/DprEditor.jsx"));
 const DprPreview         = lazy(() => import("../pages/business/DprPreview.jsx"));
 const FarmSpaceHub       = lazy(() => import("../pages/farmSpace/FarmSpaceHub.jsx"));
+const PoultryDashboard   = lazy(() => import("../pages/farmSpace/PoultryDashboard.jsx"));
+const PoultryBatchDetail = lazy(() => import("../pages/farmSpace/PoultryBatchDetail.jsx"));
 const FarmSpacePicker    = lazy(() => import("../pages/farmSpace/FarmSpacePicker.jsx"));
 const FarmSpaceCreate    = lazy(() => import("../pages/farmSpace/FarmSpaceCreate.jsx"));
 const FarmSpaceInvites   = lazy(() => import("../pages/farmSpace/FarmSpaceInvites.jsx"));
@@ -209,6 +211,8 @@ function StackScreen({ item }) {
   if (item.kind === "dprGenerator")         return <DprGenerator />;
   if (item.kind === "dprEditor")            return <DprEditor  {...(item.props || {})} />;
   if (item.kind === "dprPreview")           return <DprPreview {...(item.props || {})} />;
+  if (item.kind === "poultryDashboard")     return <PoultryDashboard />;
+  if (item.kind === "poultryBatchDetail")   return <PoultryBatchDetail {...(item.props || {})} />;
   if (item.kind === "farmSpace")            return <FarmSpaceHub />;
   if (item.kind === "farmSpacePicker")      return <FarmSpacePicker />;
   if (item.kind === "farmSpaceCreate")      return <FarmSpaceCreate />;

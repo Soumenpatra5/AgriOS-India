@@ -19,6 +19,9 @@ import { farmSpaceService, onFarmSpaceChanged, FARM_ERROR } from "../../services
    data. */
 
 const MENU = [
+  { kind: "poultryDashboard",  perm: "farm.poultry.view",   icon: "Bird",        a: "orange",
+    label: { en: "Poultry",        hi: "मुर्गीपालन",       bn: "হাঁস-মুরগি" },
+    desc:  { en: "Broiler batch tracking & records", hi: "ब्रायलर बैच ट्रैकिंग", bn: "ব্রয়লার ব্যাচ ট্র্যাকিং" } },
   { kind: "farmSpaceTeam",     perm: "farm.members.view",   icon: "Users",       a: "primary",
     label: { en: "Team",          hi: "टीम",            bn: "দল" },
     desc:  { en: "Members & roles", hi: "सदस्य और भूमिकाएँ", bn: "সদস্য ও ভূমিকা" } },
