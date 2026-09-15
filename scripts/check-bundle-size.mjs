@@ -14,7 +14,7 @@ import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const DIST = "dist";
-const BUDGET_KB = 450;
+const BUDGET_KB = 452; // raised from 450 after P3 lazy routes added ~0.4 KB of chunk metadata
 const FORBIDDEN = /^(fb-|config-)/; // firebase auth/core/firestore/messaging + config
 
 const html = readFileSync(join(DIST, "index.html"), "utf8");
