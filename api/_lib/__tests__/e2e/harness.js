@@ -68,6 +68,7 @@ const MIGRATIONS = [
   "0009_farm_chat_reply_react_pin.sql", "0010_farm_chat_mentions_search.sql",
   "0011_farm_dm.sql", "0012_performance_indexes.sql",
   "0013_poultry_sheds_batches.sql", "0014_poultry_daily_weight_feed.sql",
+  "0015_poultry_health_vaccination.sql",
 ];
 
 export async function freshDb() {

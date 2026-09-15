@@ -32,12 +32,27 @@ const TRANSITION_LABEL = {
   archive:          { en: "Archive",        hi: "संग्रहित करें",  bn: "আর্কাইভ করুন" },
 };
 
-const TABS = ["daily", "weights", "feed"];
+const TABS = ["daily", "weights", "feed", "health"];
 const TAB_LABEL = {
-  daily:   { en: "Daily", hi: "दैनिक", bn: "দৈনিক" },
-  weights: { en: "Weights", hi: "वजन", bn: "ওজন" },
-  feed:    { en: "Feed", hi: "चारा", bn: "খাদ্য" },
+  daily:   { en: "Daily",   hi: "दैनिक",  bn: "দৈনিক" },
+  weights: { en: "Weights", hi: "वजन",    bn: "ওজন" },
+  feed:    { en: "Feed",    hi: "चारा",   bn: "খাদ্য" },
+  health:  { en: "Health",  hi: "स्वास्थ्य", bn: "স্বাস্থ্য" },
 };
+
+const HEALTH_TYPE_OPTIONS = (tc) => [
+  { label: tc({ en: "Observation", hi: "अवलोकन",    bn: "পর্যবেক্ষণ" }), value: "observation" },
+  { label: tc({ en: "Treatment",   hi: "उपचार",      bn: "চিকিৎসা" }),   value: "treatment" },
+  { label: tc({ en: "Vet visit",   hi: "पशु चिकित्सक", bn: "পশু চিকিৎসক" }), value: "vet_visit" },
+  { label: tc({ en: "Outbreak",    hi: "प्रकोप",     bn: "প্রাদুর্ভাব" }), value: "outbreak" },
+];
+
+const ROUTE_OPTIONS = (tc) => [
+  { label: tc({ en: "Drinking water", hi: "पीने का पानी", bn: "পানীয় জল" }), value: "drinking_water" },
+  { label: tc({ en: "Spray",          hi: "स्प्रे",       bn: "স্প্রে" }),     value: "spray" },
+  { label: tc({ en: "Eye drop",       hi: "आई ड्रॉप",    bn: "চোখের ড্রপ" }), value: "eye_drop" },
+  { label: tc({ en: "Injection",      hi: "इंजेक्शन",    bn: "ইনজেকশন" }),    value: "injection" },
+];
 
 const KIND_OPTIONS = (tc) => [
   { label: tc({ en: "Received (in)", hi: "प्राप्त", bn: "প্রাপ্ত" }), value: "in" },
@@ -56,10 +71,12 @@ export default function PoultryBatchDetail({ batchId }) {
   const [tab, setTab] = useState("daily");
 
   /* Tab data */
-  const [daily, setDaily]     = useState(null);
-  const [weights, setWeights] = useState(null);
-  const [feed, setFeed]       = useState(null);
-  const [tabLoading, setTabLoading] = useState(false);
+  const [daily, setDaily]             = useState(null);
+  const [weights, setWeights]         = useState(null);
+  const [feed, setFeed]               = useState(null);
+  const [health, setHealth]           = useState(null);
+  const [vaccinations, setVaccinations] = useState(null);
+  const [tabLoading, setTabLoading]   = useState(false);
 
   /* Transition */
   const [transitioning, setTransitioning] = useState(false);
@@ -78,6 +95,16 @@ export default function PoultryBatchDetail({ batchId }) {
   const [feedOpen, setFeedOpen]   = useState(false);
   const [fform, setFform] = useState({ logged_at: today(), qty_kg: "", kind: "in", note: "" });
   const [fbusy, setFbusy] = useState(false);
+
+  /* Health event sheet */
+  const [healthOpen, setHealthOpen] = useState(false);
+  const [hform, setHform] = useState({ event_date: today(), type: "observation", title: "", medicine: "", dose: "", note: "" });
+  const [hbusy, setHbusy] = useState(false);
+
+  /* Vaccination sheet */
+  const [vaccOpen, setVaccOpen] = useState(false);
+  const [vform, setVform] = useState({ given_at: today(), vaccine_name: "", route: "drinking_water", dose: "", batch_lot: "", note: "" });
+  const [vbusy, setVbusy] = useState(false);
 
   /* Delete confirm */
   const [delTarget, setDelTarget] = useState(null); // { type, id, label }
@@ -123,6 +150,14 @@ export default function PoultryBatchDetail({ batchId }) {
       setTabLoading(true);
       poultryApi.listFeed(sid, bid).then(d => { setFeed(d || []); setTabLoading(false); })
         .catch(() => { setFeed([]); setTabLoading(false); });
+    }
+    if (tab === "health" && (health === null || vaccinations === null)) {
+      setTabLoading(true);
+      Promise.all([
+        poultryApi.listHealth(sid, bid),
+        poultryApi.listVaccinations(sid, bid),
+      ]).then(([h, v]) => { setHealth(h || []); setVaccinations(v || []); setTabLoading(false); })
+        .catch(() => { setHealth([]); setVaccinations([]); setTabLoading(false); });
     }
   }, [tab, space, batch]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -207,17 +242,66 @@ export default function PoultryBatchDetail({ batchId }) {
     } finally { setFbusy(false); }
   };
 
+  /* Health event submit */
+  const submitHealth = async () => {
+    if (!hform.title.trim()) return;
+    setHbusy(true);
+    try {
+      await poultryApi.addHealth(space.id, {
+        batchId: batch.id,
+        event_date: hform.event_date,
+        type: hform.type,
+        title: hform.title.trim(),
+        medicine: hform.medicine.trim() || null,
+        dose: hform.dose.trim() || null,
+        note: hform.note.trim() || null,
+      });
+      setHealthOpen(false);
+      setHform({ event_date: today(), type: "observation", title: "", medicine: "", dose: "", note: "" });
+      toast(tc({ en: "Health event saved", hi: "स्वास्थ्य घटना सेव हुई", bn: "স্বাস্থ্য ইভেন্ট সেভ হয়েছে" }), "success");
+      setHealth(null); setVaccinations(null);
+    } catch (err) {
+      toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর্থ" }), "error");
+    } finally { setHbusy(false); }
+  };
+
+  /* Vaccination submit */
+  const submitVacc = async () => {
+    if (!vform.vaccine_name.trim()) return;
+    setVbusy(true);
+    try {
+      await poultryApi.addVaccination(space.id, {
+        batchId: batch.id,
+        given_at: vform.given_at,
+        vaccine_name: vform.vaccine_name.trim(),
+        route: vform.route,
+        dose: vform.dose.trim() || null,
+        batch_lot: vform.batch_lot.trim() || null,
+        note: vform.note.trim() || null,
+      });
+      setVaccOpen(false);
+      setVform({ given_at: today(), vaccine_name: "", route: "drinking_water", dose: "", batch_lot: "", note: "" });
+      toast(tc({ en: "Vaccination recorded", hi: "टीकाकरण दर्ज हुआ", bn: "টিকাদান রেকর্ড হয়েছে" }), "success");
+      setHealth(null); setVaccinations(null);
+    } catch (err) {
+      toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর্থ" }), "error");
+    } finally { setVbusy(false); }
+  };
+
   /* Delete */
   const confirmDelete = async () => {
     if (!delTarget) return;
     try {
-      if (delTarget.type === "daily")   await poultryApi.deleteDaily(space.id, batch.id, delTarget.id);
-      if (delTarget.type === "weight")  await poultryApi.deleteWeight(space.id, delTarget.id);
-      if (delTarget.type === "feed")    await poultryApi.deleteFeed(space.id, delTarget.id);
+      if (delTarget.type === "daily")        await poultryApi.deleteDaily(space.id, batch.id, delTarget.id);
+      if (delTarget.type === "weight")       await poultryApi.deleteWeight(space.id, delTarget.id);
+      if (delTarget.type === "feed")         await poultryApi.deleteFeed(space.id, delTarget.id);
+      if (delTarget.type === "health")       await poultryApi.deleteHealth(space.id, delTarget.id);
+      if (delTarget.type === "vaccination")  await poultryApi.deleteVaccination(space.id, delTarget.id);
       toast(tc({ en: "Deleted", hi: "हटाया गया", bn: "মুছে গেছে" }), "success");
-      if (delTarget.type === "daily")  { setDaily(null); loadBatch(); }
-      if (delTarget.type === "weight") setWeights(null);
-      if (delTarget.type === "feed")   { setFeed(null); loadBatch(); }
+      if (delTarget.type === "daily")       { setDaily(null); loadBatch(); }
+      if (delTarget.type === "weight")        setWeights(null);
+      if (delTarget.type === "feed")        { setFeed(null); loadBatch(); }
+      if (delTarget.type === "health" || delTarget.type === "vaccination") { setHealth(null); setVaccinations(null); }
     } catch (err) {
       toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর্থ" }), "error");
     } finally { setDelTarget(null); }
@@ -333,6 +417,16 @@ export default function PoultryBatchDetail({ batchId }) {
                   onDelete={r => setDelTarget({ type: "feed", id: r.id, label: r.logged_at })}
                 />
               )}
+              {tab === "health" && (
+                <HealthTab
+                  healthRows={health || []} vaccRows={vaccinations || []} tc={tc}
+                  canRecord={canRecord} canManage={canManage}
+                  onAddHealth={() => setHealthOpen(true)}
+                  onAddVacc={() => setVaccOpen(true)}
+                  onDeleteHealth={r => setDelTarget({ type: "health", id: r.id, label: r.title })}
+                  onDeleteVacc={r => setDelTarget({ type: "vaccination", id: r.id, label: r.vaccine_name })}
+                />
+              )}
             </>
         }
       </div>
@@ -396,6 +490,58 @@ export default function PoultryBatchDetail({ batchId }) {
           <Button full onClick={submitFeed} disabled={!fform.qty_kg || fbusy}>
             {fbusy ? tc({ en: "Logging…", hi: "दर्ज हो रहा है…", bn: "লগ হচ্ছে…" })
                    : tc({ en: "Log feed", hi: "चारा दर्ज करें", bn: "খাদ্য লগ করুন" })}
+          </Button>
+        </div>
+      </BottomSheet>
+
+      {/* Health event sheet */}
+      <BottomSheet open={healthOpen} onClose={() => setHealthOpen(false)}
+        title={tc({ en: "Health Event", hi: "स्वास्थ्य घटना", bn: "স্বাস্থ্য ইভেন্ট" })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "4px 0 8px" }}>
+          <Input label={tc({ en: "Date *", hi: "तारीख *", bn: "তারিখ *" })}
+            value={hform.event_date} onChange={v => setHform(f => ({ ...f, event_date: v }))} type="date" />
+          <Dropdown label={tc({ en: "Type *", hi: "प्रकार *", bn: "ধরন *" })}
+            value={hform.type} onChange={v => setHform(f => ({ ...f, type: v }))}
+            options={HEALTH_TYPE_OPTIONS(tc)} />
+          <Input label={tc({ en: "Title *", hi: "शीर्षक *", bn: "শিরোনাম *" })}
+            value={hform.title} onChange={v => setHform(f => ({ ...f, title: v }))} />
+          {(hform.type === "treatment" || hform.type === "vet_visit") && (
+            <Input label={tc({ en: "Medicine / Drug", hi: "दवा", bn: "ওষুধ" })}
+              value={hform.medicine} onChange={v => setHform(f => ({ ...f, medicine: v }))} />
+          )}
+          {(hform.type === "treatment" || hform.type === "vet_visit") && (
+            <Input label={tc({ en: "Dose", hi: "खुराक", bn: "ডোজ" })}
+              value={hform.dose} onChange={v => setHform(f => ({ ...f, dose: v }))} />
+          )}
+          <Input label={tc({ en: "Note", hi: "नोट", bn: "নোট" })}
+            value={hform.note} onChange={v => setHform(f => ({ ...f, note: v }))} />
+          <Button full onClick={submitHealth} disabled={!hform.title.trim() || hbusy}>
+            {hbusy ? tc({ en: "Saving…", hi: "सेव हो रहा है…", bn: "সেভ হচ্ছে…" })
+                   : tc({ en: "Save event", hi: "घटना सेव करें", bn: "ইভেন্ট সেভ করুন" })}
+          </Button>
+        </div>
+      </BottomSheet>
+
+      {/* Vaccination sheet */}
+      <BottomSheet open={vaccOpen} onClose={() => setVaccOpen(false)}
+        title={tc({ en: "Add Vaccination", hi: "टीकाकरण जोड़ें", bn: "টিকাদান যোগ করুন" })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "4px 0 8px" }}>
+          <Input label={tc({ en: "Date *", hi: "तारीख *", bn: "তারিখ *" })}
+            value={vform.given_at} onChange={v => setVform(f => ({ ...f, given_at: v }))} type="date" />
+          <Input label={tc({ en: "Vaccine name *", hi: "वैक्सीन का नाम *", bn: "ভ্যাকসিনের নাম *" })}
+            value={vform.vaccine_name} onChange={v => setVform(f => ({ ...f, vaccine_name: v }))} />
+          <Dropdown label={tc({ en: "Route *", hi: "मार्ग *", bn: "পথ *" })}
+            value={vform.route} onChange={v => setVform(f => ({ ...f, route: v }))}
+            options={ROUTE_OPTIONS(tc)} />
+          <Input label={tc({ en: "Dose / Dilution", hi: "खुराक / तनुता", bn: "ডোজ / তনুতা" })}
+            value={vform.dose} onChange={v => setVform(f => ({ ...f, dose: v }))} />
+          <Input label={tc({ en: "Batch / Lot no.", hi: "बैच / लॉट नं.", bn: "ব্যাচ / লট নং" })}
+            value={vform.batch_lot} onChange={v => setVform(f => ({ ...f, batch_lot: v }))} />
+          <Input label={tc({ en: "Note", hi: "नोट", bn: "নোট" })}
+            value={vform.note} onChange={v => setVform(f => ({ ...f, note: v }))} />
+          <Button full onClick={submitVacc} disabled={!vform.vaccine_name.trim() || vbusy}>
+            {vbusy ? tc({ en: "Recording…", hi: "दर्ज हो रहा है…", bn: "রেকর্ড হচ্ছে…" })
+                   : tc({ en: "Record vaccination", hi: "टीकाकरण दर्ज करें", bn: "টিকাদান রেকর্ড করুন" })}
           </Button>
         </div>
       </BottomSheet>
@@ -554,6 +700,97 @@ function FeedTab({ rows, tc, canRecord, canManage, onAdd, onDelete }) {
             />
           ))
       }
+    </div>
+  );
+}
+
+const HEALTH_TYPE_ACCENT = { observation: "faint", treatment: "primary", vet_visit: "blue", outbreak: "orange" };
+const HEALTH_TYPE_LABEL  = {
+  observation: { en: "Observation", hi: "अवलोकन",    bn: "পর্যবেক্ষণ" },
+  treatment:   { en: "Treatment",   hi: "उपचार",      bn: "চিকিৎসা" },
+  vet_visit:   { en: "Vet visit",   hi: "पशु चिकित्सक", bn: "পশু চিকিৎসক" },
+  outbreak:    { en: "Outbreak",    hi: "प्रकोप",     bn: "প্রাদুর্ভাব" },
+};
+const ROUTE_LABEL = {
+  drinking_water: { en: "Drinking water", hi: "पीने का पानी", bn: "পানীয় জল" },
+  spray:          { en: "Spray",          hi: "स्प्रे",       bn: "স্প্রে" },
+  eye_drop:       { en: "Eye drop",       hi: "आई ड्रॉप",    bn: "চোখের ড্রপ" },
+  injection:      { en: "Injection",      hi: "इंजेक्शन",    bn: "ইনজেকশন" },
+};
+
+function HealthTab({ healthRows, vaccRows, tc, canRecord, canManage, onAddHealth, onAddVacc, onDeleteHealth, onDeleteVacc }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* Health events section */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.inkSoft, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            {tc({ en: "Health Events", hi: "स्वास्थ्य घटनाएँ", bn: "স্বাস্থ্য ইভেন্ট" })}
+          </span>
+        </div>
+        {canRecord && (
+          <AddRow label={tc({ en: "Add health event", hi: "स्वास्थ्य घटना जोड़ें", bn: "স্বাস্থ্য ইভেন্ট যোগ করুন" })} onClick={onAddHealth} />
+        )}
+        {healthRows.length === 0
+          ? <EmptyState icon="Stethoscope"
+              title={tc({ en: "No health events", hi: "कोई स्वास्थ्य घटना नहीं", bn: "কোনো স্বাস্থ্য ইভেন্ট নেই" })} />
+          : healthRows.map(r => (
+              <RowCard key={r.id}
+                left={<>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Chip accent={HEALTH_TYPE_ACCENT[r.type] || "faint"} style={{ fontSize: 11 }}>
+                      {tc(HEALTH_TYPE_LABEL[r.type] || { en: r.type, hi: r.type, bn: r.type })}
+                    </Chip>
+                    <span style={{ fontSize: 12.5, color: T.inkSoft }}>{r.event_date}</span>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, marginTop: 4 }}>{r.title}</div>
+                  {r.medicine && (
+                    <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
+                      {tc({ en: "Medicine", hi: "दवा", bn: "ওষুধ" })}: {r.medicine}
+                      {r.dose ? ` — ${r.dose}` : ""}
+                    </div>
+                  )}
+                  {r.note && <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>{r.note}</div>}
+                </>}
+                right={null}
+                onDelete={canManage ? () => onDeleteHealth(r) : null}
+              />
+            ))
+        }
+      </div>
+
+      {/* Vaccinations section */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.inkSoft, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            {tc({ en: "Vaccinations", hi: "टीकाकरण", bn: "টিকাদান" })}
+          </span>
+        </div>
+        {canRecord && (
+          <AddRow label={tc({ en: "Record vaccination", hi: "टीकाकरण दर्ज करें", bn: "টিকাদান রেকর্ড করুন" })} onClick={onAddVacc} />
+        )}
+        {vaccRows.length === 0
+          ? <EmptyState icon="Syringe"
+              title={tc({ en: "No vaccinations recorded", hi: "कोई टीकाकरण दर्ज नहीं", bn: "কোনো টিকাদান নেই" })} />
+          : vaccRows.map(r => (
+              <RowCard key={r.id}
+                left={<>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{r.vaccine_name}</div>
+                  <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
+                    {r.given_at}
+                    {r.route ? ` · ${tc(ROUTE_LABEL[r.route] || { en: r.route, hi: r.route, bn: r.route })}` : ""}
+                    {r.dose ? ` · ${r.dose}` : ""}
+                  </div>
+                  {r.batch_lot && <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 1 }}>Lot: {r.batch_lot}</div>}
+                  {r.note && <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>{r.note}</div>}
+                </>}
+                right={null}
+                onDelete={canManage ? () => onDeleteVacc(r) : null}
+              />
+            ))
+        }
+      </div>
     </div>
   );
 }

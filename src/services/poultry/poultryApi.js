@@ -65,7 +65,7 @@ export const poultryApi = {
   createBatch:  (spaceId, payload)               => call("poultry.batches.create",    spaceId, payload),
   updateBatch:  (spaceId, payload)               => call("poultry.batches.update",    spaceId, payload),
   setBatchStatus: (spaceId, batchId, transition, note) =>
-    call("poultry.batches.setStatus", spaceId, { batchId, transition, note: note || null }),
+    call("poultry.batches.setStatus", spaceId, { batchId, status: transition, note: note || null }),
   deleteBatch:  (spaceId, batchId)               => call("poultry.batches.delete",    spaceId, { batchId }),
 
   /* Daily records */
@@ -83,6 +83,16 @@ export const poultryApi = {
   listFeed:   (spaceId, batchId) => call("poultry.feed.list",   spaceId, { batchId }),
   addFeed:    (spaceId, payload) => call("poultry.feed.add",    spaceId, payload),
   deleteFeed: (spaceId, feedId)  => call("poultry.feed.delete", spaceId, { feedId }),
+
+  /* Health events */
+  listHealth:   (spaceId, batchId) => call("poultry.health.list",   spaceId, { batchId }),
+  addHealth:    (spaceId, payload) => call("poultry.health.add",    spaceId, payload),
+  deleteHealth: (spaceId, healthId) => call("poultry.health.delete", spaceId, { healthId }),
+
+  /* Vaccinations */
+  listVaccinations:   (spaceId, batchId)       => call("poultry.vaccinations.list",   spaceId, { batchId }),
+  addVaccination:     (spaceId, payload)        => call("poultry.vaccinations.add",    spaceId, payload),
+  deleteVaccination:  (spaceId, vaccinationId)  => call("poultry.vaccinations.delete", spaceId, { vaccinationId }),
 
   /* Metrics (authoritative live counts + FCR + ADG) */
   metrics: (spaceId, batchId) => call("poultry.metrics", spaceId, { batchId }),

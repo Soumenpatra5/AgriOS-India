@@ -27,6 +27,7 @@ import * as chat from "./_lib/farm/chat.js";
 import * as dm from "./_lib/farm/dm.js";
 import * as poultry from "./_lib/farm/poultry.js";
 import * as poultryOps from "./_lib/farm/poultryOps.js";
+import * as poultryHealth from "./_lib/farm/poultryHealth.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -184,6 +185,13 @@ const ACTIONS = {
   /* Validated inputs for the EXISTING farmAlertsService to consume later —
      facts and target comparisons, not a second alert engine. */
   "poultry.alerts.signals": { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryOps.alertSignals(sql, membership, payload) },
+
+  "poultry.health.list":         { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryHealth.listHealth(sql, membership, payload) },
+  "poultry.health.add":          { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => poultryHealth.addHealth(sql, membership, user.id, payload) },
+  "poultry.health.delete":       { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryHealth.deleteHealth(sql, membership, user.id, payload) },
+  "poultry.vaccinations.list":   { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryHealth.listVaccinations(sql, membership, payload) },
+  "poultry.vaccinations.add":    { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => poultryHealth.addVaccination(sql, membership, user.id, payload) },
+  "poultry.vaccinations.delete": { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryHealth.deleteVaccination(sql, membership, user.id, payload) },
 };
 
 export default async function handler(req, res) {
