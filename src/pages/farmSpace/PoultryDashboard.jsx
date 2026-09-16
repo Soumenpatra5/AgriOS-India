@@ -50,7 +50,7 @@ export default function PoultryDashboard() {
   /* Create batch sheet */
   const [createOpen, setCreateOpen] = useState(false);
   const [bform, setBform] = useState({
-    name: "", shed_id: "", placed_qty: "", placement_avg_weight_g: "",
+    name: "", shed_id: "", poultry_type: "broiler", placed_qty: "", placement_avg_weight_g: "",
     placement_date: today(), target_age_days: "42", target_fcr: "1.80",
     breed: "", supplier: "",
   });
@@ -96,6 +96,7 @@ export default function PoultryDashboard() {
       await poultryApi.createBatch(space.id, {
         name: bform.name.trim(),
         shed_id: bform.shed_id || null,
+        poultry_type: bform.poultry_type,
         placed_qty: Number(bform.placed_qty),
         placement_avg_weight_g: bform.placement_avg_weight_g ? Number(bform.placement_avg_weight_g) : null,
         placement_date: bform.placement_date,
@@ -105,7 +106,7 @@ export default function PoultryDashboard() {
         supplier: bform.supplier.trim() || null,
       });
       setCreateOpen(false);
-      setBform({ name: "", shed_id: "", placed_qty: "", placement_avg_weight_g: "",
+      setBform({ name: "", shed_id: "", poultry_type: "broiler", placed_qty: "", placement_avg_weight_g: "",
         placement_date: today(), target_age_days: "42", target_fcr: "1.80", breed: "", supplier: "" });
       toast(tc({ en: "Batch created", hi: "बैच बनाया गया", bn: "ব্যাচ তৈরি হয়েছে" }), "success");
       load();
@@ -272,6 +273,14 @@ export default function PoultryDashboard() {
           <Dropdown label={tc({ en: "Shed", hi: "शेड", bn: "শেড" })}
             value={bform.shed_id} onChange={v => setBform(f => ({ ...f, shed_id: v }))}
             options={shedOptions} />
+          <Dropdown label={tc({ en: "Poultry type", hi: "मुर्गी का प्रकार", bn: "মুরগির ধরন" })}
+            value={bform.poultry_type} onChange={v => setBform(f => ({ ...f, poultry_type: v }))}
+            options={[
+              { value: "broiler", label: tc({ en: "Broiler (meat)", hi: "ब्रायलर (मांस)", bn: "ব্রয়লার (মাংস)" }) },
+              { value: "layer",   label: tc({ en: "Layer (eggs)",   hi: "लेयर (अंडे)",   bn: "লেয়ার (ডিম)" }) },
+              { value: "country", label: tc({ en: "Country chicken", hi: "देसी मुर्गी",  bn: "দেশি মুরগি" }) },
+              { value: "breeder", label: tc({ en: "Breeder",         hi: "ब्रीडर",        bn: "ব্রিডার" }) },
+            ]} />
           <Input label={tc({ en: "Birds placed *", hi: "रखे गए पक्षी *", bn: "স্থাপিত পাখি *" })}
             value={bform.placed_qty} onChange={v => setBform(f => ({ ...f, placed_qty: v }))} type="number" />
           <Input label={tc({ en: "Avg placement weight (g)", hi: "औसत वजन (g)", bn: "গড় ওজন (g)" })}
