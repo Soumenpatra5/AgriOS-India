@@ -84,4 +84,13 @@ export const dairyApi = {
   listFeed:    (spaceId, animalId)      => call("dairy.feed.list",         spaceId, { animalId }),
   addFeed:     (spaceId, payload)       => call("dairy.feed.add",          spaceId, payload),
   deleteFeed:  (spaceId, feedId)        => call("dairy.feed.delete",       spaceId, { feedId }),
+
+  /* Finance — farm.dairy.finance permission required */
+  financeSummary: (spaceId, params = {}) => call("dairy.finance.summary", spaceId, params),
+  listSales:      (spaceId, params = {}) => call("dairy.sales.list",      spaceId, params),
+  addSale:        (spaceId, payload)     => call("dairy.sales.add",       spaceId, payload),
+  deleteSale:     (spaceId, saleId)      => call("dairy.sales.delete",    spaceId, { saleId }),
+  listCosts:      (spaceId, params = {}) => call("dairy.costs.list",      spaceId, params),
+  addCost:        (spaceId, payload)     => call("dairy.costs.add",       spaceId, payload),
+  deleteCost:     (spaceId, costId)      => call("dairy.costs.delete",    spaceId, { costId }),
 };

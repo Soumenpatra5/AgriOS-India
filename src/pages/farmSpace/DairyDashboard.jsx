@@ -12,6 +12,7 @@ import { farmErrorText } from "./FarmSpaceHub.jsx";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+
 /* Status colour tokens — dairy animals have ongoing lifecycle statuses. */
 const STATUS_CFG = {
   heifer:   { label: { en: "Heifer",   hi: "बछिया",   bn: "হেফার"   }, fg: T.inkSoft,   bg: T.surface2 },
@@ -77,6 +78,10 @@ export default function DairyDashboard() {
   const [state, setState]     = useState("loading");
   const [reason, setReason]   = useState(null);
 
+  /* Finance summary — non-blocking, only for users with farm.dairy.finance */
+  const [finSummary, setFinSummary] = useState(null);
+  const [finState,   setFinState]   = useState("idle");
+
   /* Add animal sheet */
   const [addOpen, setAddOpen]   = useState(false);
   const [aform, setAform] = useState({
@@ -97,6 +102,13 @@ export default function DairyDashboard() {
       setMetrics(m);
       setAnimals(list || []);
       setState("ready");
+      /* Non-blocking finance fetch — failure never breaks the dashboard. */
+      if (farmSpaceService.can(active, "farm.dairy.finance")) {
+        setFinState("loading");
+        dairyApi.financeSummary(active.id)
+          .then((d) => { setFinSummary(d); setFinState("ready"); })
+          .catch(() => setFinState("error"));
+      }
     } catch (err) {
       if (state !== "ready") { setReason(err?.reason || FARM_ERROR.FAILED); setState("error"); }
     }
@@ -104,7 +116,8 @@ export default function DairyDashboard() {
 
   useEffect(() => { load(); }, [load]);
 
-  const canManage = space && farmSpaceService.can(space, "farm.dairy.manage");
+  const canManage  = space && farmSpaceService.can(space, "farm.dairy.manage");
+  const canFinance = space && farmSpaceService.can(space, "farm.dairy.finance");
 
   const filtered = filter
     ? animals.filter((a) => a.current_status === filter)
@@ -211,6 +224,57 @@ export default function DairyDashboard() {
         </div>
       )}
 
+      {/* Finance summary card — visible to farm.dairy.finance only */}
+      {canFinance && (
+        <div style={{ margin: "10px 16px 0" }}>
+          <button
+            onClick={() => push({ kind: "dairyFinance" })}
+            style={{ width: "100%", background: T.surface, border: `1px solid ${T.line}`,
+              borderRadius: T.rMd, padding: "12px 14px", cursor: "pointer",
+              textAlign: "left", display: "block" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+              marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: T.inkFaint, fontFamily: T.body,
+                textTransform: "uppercase", letterSpacing: 0.8 }}>
+                {tc({ en: "Finance · this month", hi: "वित्त · इस माह", bn: "অর্থ · এই মাস" })}
+              </span>
+              <Icon name="ChevronRight" size={15} color={T.inkFaint} />
+            </div>
+            {finState === "loading" && (
+              <div style={{ display: "flex", justifyContent: "center", padding: "4px 0" }}>
+                <Spinner size={16} />
+              </div>
+            )}
+            {finState === "error" && (
+              <div style={{ fontSize: 12, color: T.inkSoft, fontFamily: T.body }}>
+                {tc({ en: "Finance unavailable", hi: "वित्त उपलब्ध नहीं", bn: "অর্থ পাওয়া যাচ্ছে না" })}
+              </div>
+            )}
+            {finState === "ready" && finSummary && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {[
+                  { label: tc({ en: "Revenue", hi: "आय", bn: "রাজস্ব" }),
+                    value: `₹${Number(finSummary.total_revenue).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`,
+                    color: T.primary },
+                  { label: tc({ en: "Costs", hi: "लागत", bn: "খরচ" }),
+                    value: `₹${Number(finSummary.total_costs).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`,
+                    color: T.orange },
+                  { label: tc({ en: "Net P&L", hi: "शुद्ध लाभ", bn: "নিট লাভ" }),
+                    value: `₹${Number(finSummary.net_profit).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`,
+                    color: finSummary.net_profit >= 0 ? T.primary : T.red },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ background: T.surface2, borderRadius: T.rSm, padding: "8px 10px" }}>
+                    <div style={{ fontSize: 10, color: T.inkFaint, fontWeight: 600,
+                      fontFamily: T.body, marginBottom: 3 }}>{label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color, fontFamily: T.display }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Filter chips */}
       <div style={{ display: "flex", gap: 8, padding: "10px 16px 4px", overflowX: "auto" }}>
         {FILTER_TABS.map((ft) => (
@@ -238,6 +302,7 @@ export default function DairyDashboard() {
           ))
         )}
       </div>
+
 
       {/* Add animal sheet */}
       <BottomSheet
@@ -340,3 +405,4 @@ function AnimalCard({ animal, tc, onPress }) {
     </Card>
   );
 }
+

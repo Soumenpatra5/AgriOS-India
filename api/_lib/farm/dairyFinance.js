@@ -168,10 +168,11 @@ export async function deleteCost(sql, membership, actorUserId, payload) {
 
 /* ── finance summary ──────────────────────────────────────────────────────── */
 
-export async function financeSummary(sql, membership) {
+export async function financeSummary(sql, membership, payload = {}) {
   const spaceId = membership.space_id;
-  const monthStart = new Date().toISOString().slice(0, 8) + "01";
-  const today = new Date().toISOString().slice(0, 10);
+  const { fromDate, toDate } = payload;
+  const monthStart = fromDate ?? (new Date().toISOString().slice(0, 8) + "01");
+  const today      = toDate   ?? new Date().toISOString().slice(0, 10);
 
   return sql.begin(async (tx) => {
     const [salesRows, costRows, milkRows] = await Promise.all([

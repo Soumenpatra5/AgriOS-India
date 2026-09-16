@@ -1310,3 +1310,301 @@ describe("feed — terminal animal write protection", () => {
     expect(r.status).toBe(409);
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* Phase 5 — Finance: milk sales, costs, finance summary                     */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── finance summary — baseline ──────────────────────────────────────────── */
+
+describe("finance summary — baseline", () => {
+  it("returns zero totals and correct shape on an empty farm", async () => {
+    const r = await call(U(30), "dairy.finance.summary", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    expect(r.data).toMatchObject({
+      total_revenue:        expect.any(Number),
+      total_costs:          expect.any(Number),
+      net_profit:           expect.any(Number),
+      total_milk_sold_kg:   expect.any(Number),
+      month_milk_produced_kg: expect.any(Number),
+      cost_breakdown:       expect.any(Array),
+      period:               expect.objectContaining({ from: expect.any(String), to: expect.any(String) }),
+    });
+    /* For a fresh space with no sales/costs in scope the totals are zero. */
+    expect(Number(r.data.total_revenue)).toBe(0);
+    expect(Number(r.data.total_costs)).toBe(0);
+    expect(Number(r.data.net_profit)).toBe(0);
+  });
+
+  it("worker without finance permission gets 403", async () => {
+    const r = await call(U(32), "dairy.finance.summary", { spaceId: spaceA.id });
+    expect(r.status).toBe(403);
+  });
+});
+
+/* ── milk sales — CRUD, isolation, RBAC ──────────────────────────────────── */
+
+describe("milk sales — CRUD, isolation, RBAC", () => {
+  let saleId;
+
+  it("owner can add a milk sale and gets back the record", async () => {
+    const r = await call(U(30), "dairy.sales.add", {
+      spaceId: spaceA.id,
+      payload: {
+        saleDate:      "2026-09-16",
+        saleType:      "morning",
+        quantityKg:    50,
+        pricePerLitre: 40,
+        buyer:         "Village Cooperative",
+        fatPct:        3.8,
+        snfPct:        8.5,
+        clientUuid:    "sale-a-001",
+      },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.quantity_kg).toBeCloseTo(50, 1);
+    expect(r.data.price_per_litre).toBeCloseTo(40, 1);
+    expect(r.data.buyer).toBe("Village Cooperative");
+    expect(r.data.fat_pct).toBeCloseTo(3.8, 1);
+    saleId = r.data.id;
+  });
+
+  it("generated amount equals quantity_kg × price_per_litre", async () => {
+    const r = await call(U(30), "dairy.sales.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    const s = r.data.find((x) => x.id === saleId);
+    expect(s).toBeDefined();
+    /* amount is a GENERATED column: 50 × 40 = 2000 */
+    expect(Number(s.amount)).toBeCloseTo(2000, 1);
+  });
+
+  it("worker cannot add a sale — 403", async () => {
+    const r = await call(U(32), "dairy.sales.add", {
+      spaceId: spaceA.id,
+      payload: { saleDate: "2026-09-16", saleType: "combined", quantityKg: 10, pricePerLitre: 40 },
+    });
+    expect(r.status).toBe(403);
+  });
+
+  it("wrong-space isolation — spaceB owner cannot list spaceA sales", async () => {
+    const r = await call(U(40), "dairy.sales.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(404); // not a member of spaceA → space not found
+  });
+
+  it("clientUuid idempotency — duplicate POST returns existing record not a new one", async () => {
+    const r = await call(U(30), "dairy.sales.add", {
+      spaceId: spaceA.id,
+      payload: {
+        saleDate: "2026-09-16", saleType: "morning",
+        quantityKg: 50, pricePerLitre: 40,
+        clientUuid: "sale-a-001",
+      },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.id).toBe(saleId);
+    /* List should still have exactly one record with this uuid. */
+    const list = await call(U(30), "dairy.sales.list", { spaceId: spaceA.id });
+    const matches = list.data.filter((s) => s.id === saleId);
+    expect(matches.length).toBe(1);
+  });
+
+  it("invalid saleType is rejected with 400", async () => {
+    const r = await call(U(30), "dairy.sales.add", {
+      spaceId: spaceA.id,
+      payload: { saleDate: "2026-09-16", saleType: "noon", quantityKg: 10 },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("quantityKg ≤ 0 is rejected with 400", async () => {
+    const r = await call(U(30), "dairy.sales.add", {
+      spaceId: spaceA.id,
+      payload: { saleDate: "2026-09-16", saleType: "morning", quantityKg: 0 },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("owner can delete a sale", async () => {
+    const r = await call(U(30), "dairy.sales.delete", {
+      spaceId: spaceA.id,
+      payload: { saleId },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.deleted).toBe(true);
+  });
+
+  it("deleted sale no longer appears in list", async () => {
+    const r = await call(U(30), "dairy.sales.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    expect(r.data.some((s) => s.id === saleId)).toBe(false);
+  });
+});
+
+/* ── costs — CRUD, isolation, RBAC ───────────────────────────────────────── */
+
+describe("costs — CRUD, isolation, RBAC", () => {
+  let costId;
+
+  it("owner can add a cost entry", async () => {
+    const r = await call(U(30), "dairy.costs.add", {
+      spaceId: spaceA.id,
+      payload: {
+        costDate:    "2026-09-15",
+        category:    "concentrate_feed",
+        description: "Bajra concentrate 50 kg",
+        amount:      1500,
+        quantity:    50,
+        unit:        "kg",
+        clientUuid:  "cost-a-001",
+      },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.category).toBe("concentrate_feed");
+    expect(Number(r.data.amount)).toBeCloseTo(1500, 1);
+    expect(r.data.description).toBe("Bajra concentrate 50 kg");
+    costId = r.data.id;
+  });
+
+  it("invalid category is rejected with 400", async () => {
+    const r = await call(U(30), "dairy.costs.add", {
+      spaceId: spaceA.id,
+      payload: { costDate: "2026-09-15", category: "garbage", description: "x", amount: 100 },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("missing description is rejected with 400", async () => {
+    const r = await call(U(30), "dairy.costs.add", {
+      spaceId: spaceA.id,
+      payload: { costDate: "2026-09-15", category: "labour", description: "", amount: 500 },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("amount ≤ 0 is rejected with 400", async () => {
+    const r = await call(U(30), "dairy.costs.add", {
+      spaceId: spaceA.id,
+      payload: { costDate: "2026-09-15", category: "medicine", description: "Antibiotic", amount: 0 },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("worker cannot add a cost — 403", async () => {
+    const r = await call(U(32), "dairy.costs.add", {
+      spaceId: spaceA.id,
+      payload: { costDate: "2026-09-15", category: "labour", description: "Labour", amount: 500 },
+    });
+    expect(r.status).toBe(403);
+  });
+
+  it("wrong-space isolation — spaceB owner cannot list spaceA costs", async () => {
+    const r = await call(U(40), "dairy.costs.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(404); // not a member of spaceA → space not found
+  });
+
+  it("clientUuid idempotency — duplicate POST returns existing cost record", async () => {
+    const r = await call(U(30), "dairy.costs.add", {
+      spaceId: spaceA.id,
+      payload: {
+        costDate: "2026-09-15", category: "concentrate_feed",
+        description: "Bajra concentrate 50 kg", amount: 1500,
+        clientUuid: "cost-a-001",
+      },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.id).toBe(costId);
+  });
+
+  it("owner can delete a cost", async () => {
+    const r = await call(U(30), "dairy.costs.delete", {
+      spaceId: spaceA.id,
+      payload: { costId },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.deleted).toBe(true);
+  });
+
+  it("deleted cost no longer appears in list", async () => {
+    const r = await call(U(30), "dairy.costs.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    expect(r.data.some((c) => c.id === costId)).toBe(false);
+  });
+});
+
+/* ── finance summary — with data ─────────────────────────────────────────── */
+
+describe("finance summary — with data", () => {
+  const TODAY = "2026-09-16";
+
+  beforeAll(async () => {
+    /* Add two sales in the current month window. */
+    await call(U(30), "dairy.sales.add", {
+      spaceId: spaceA.id,
+      payload: { saleDate: TODAY, saleType: "morning",  quantityKg: 40, pricePerLitre: 50, clientUuid: "fin-sale-1" },
+    });
+    await call(U(30), "dairy.sales.add", {
+      spaceId: spaceA.id,
+      payload: { saleDate: TODAY, saleType: "evening",  quantityKg: 30, pricePerLitre: 50, clientUuid: "fin-sale-2" },
+    });
+
+    /* Add costs in two categories. */
+    await call(U(30), "dairy.costs.add", {
+      spaceId: spaceA.id,
+      payload: { costDate: TODAY, category: "concentrate_feed", description: "Feed A", amount: 1200, clientUuid: "fin-cost-1" },
+    });
+    await call(U(30), "dairy.costs.add", {
+      spaceId: spaceA.id,
+      payload: { costDate: TODAY, category: "medicine", description: "Antibiotic", amount: 300, clientUuid: "fin-cost-2" },
+    });
+  });
+
+  it("total_revenue reflects all sales in the month", async () => {
+    const r = await call(U(30), "dairy.finance.summary", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    /* Cumulative in spaceA (Sept 2026):
+     *   sale-0901 (from existing Phase 1 tests): 50 kg × ₹35 = 1750
+     *   fin-sale-1: 40 kg × ₹50 = 2000
+     *   fin-sale-2: 30 kg × ₹50 = 1500
+     *   Total: 5250, milk_sold: 120 kg */
+    expect(Number(r.data.total_revenue)).toBeCloseTo(5250, 1);
+    expect(Number(r.data.total_milk_sold_kg)).toBeCloseTo(120, 1);
+  });
+
+  it("total_costs is sum of all cost entries and cost_breakdown has correct categories", async () => {
+    const r = await call(U(30), "dairy.finance.summary", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    /* Cumulative in spaceA (Sept 2026):
+     *   cost-0901 (existing): concentrate_feed ₹800
+     *   fin-cost-1: concentrate_feed ₹1200
+     *   fin-cost-2: medicine ₹300
+     *   Total: 2300; concentrate_feed total: 2000 */
+    expect(Number(r.data.total_costs)).toBeCloseTo(2300, 1);
+    const cats = r.data.cost_breakdown.map((b) => b.category);
+    expect(cats).toContain("concentrate_feed");
+    expect(cats).toContain("medicine");
+    const feedEntry = r.data.cost_breakdown.find((b) => b.category === "concentrate_feed");
+    expect(Number(feedEntry.total)).toBeCloseTo(2000, 1);
+  });
+
+  it("net_profit equals total_revenue minus total_costs", async () => {
+    const r = await call(U(30), "dairy.finance.summary", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    const { total_revenue, total_costs, net_profit } = r.data;
+    /* Relationship check (holds regardless of accumulated data). */
+    expect(Number(net_profit)).toBeCloseTo(Number(total_revenue) - Number(total_costs), 1);
+    /* 5250 − 2300 = 2950 (cumulative spaceA Sept totals) */
+    expect(Number(net_profit)).toBeCloseTo(2950, 1);
+  });
+
+  it("explicit fromDate/toDate for a prior month with no data returns zeros", async () => {
+    const r = await call(U(30), "dairy.finance.summary", {
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-07-01", toDate: "2026-07-31" },
+    });
+    expect(r.status).toBe(200);
+    expect(Number(r.data.total_revenue)).toBe(0);
+    expect(Number(r.data.total_costs)).toBe(0);
+    expect(Number(r.data.net_profit)).toBe(0);
+    expect(r.data.cost_breakdown).toHaveLength(0);
+  });
+});

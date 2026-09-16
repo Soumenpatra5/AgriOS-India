@@ -338,7 +338,7 @@ const ACTIONS = {
   "dairy.costs.delete":       { permission: "farm.dairy.finance", run: ({ sql, membership, user, payload }) => dairyFinance.deleteCost(sql, membership, user.id, payload) },
 
   /* Finance summary — month-to-date P&L in one consistent snapshot */
-  "dairy.finance.summary":    { permission: "farm.dairy.finance", run: ({ sql, membership }) => dairyFinance.financeSummary(sql, membership) },
+  "dairy.finance.summary":    { permission: "farm.dairy.finance", run: ({ sql, membership, payload }) => dairyFinance.financeSummary(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {
