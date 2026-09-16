@@ -247,6 +247,10 @@ export async function updateLactation(sql, membership, actorUserId, payload) {
   if (!rows.length) throw new HttpError(404, "Lactation not found");
   requireScope(rows[0], membership);
 
+  /* Terminal write-protection: same invariant as all other dairy writes. */
+  const animal = await loadAnimal(sql, membership, rows[0].animal_id);
+  assertAnimalWritable(animal);
+
   const lac = rows[0];
   const updated = await sql`
     update dairy_lactations set

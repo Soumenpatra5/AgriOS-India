@@ -567,6 +567,95 @@ describe("updateLactation", () => {
   });
 });
 
+/* ── updateLactation terminal write-protection ───────────────────────────── */
+
+describe("updateLactation — terminal animal write protection", () => {
+  /* One animal per terminal status, each with one lactation added before
+   * the status transition so there is a real lactation row to attempt to
+   * update after the animal becomes terminal. */
+  let soldLacId, deceasedLacId, retiredLacId;
+
+  beforeAll(async () => {
+    for (const [label, status, lacVar] of [
+      ["update-terminal-sold",     "sold",     "soldLacId"],
+      ["update-terminal-deceased", "deceased", "deceasedLacId"],
+      ["update-terminal-retired",  "retired",  "retiredLacId"],
+    ]) {
+      const created = await call(U(30), "dairy.animals.create", {
+        spaceId: spaceA.id,
+        payload: { name: `Terminal ${label}`, species: "cow",
+                   currentStatus: "milking", clientUuid: label },
+      });
+      const animalId = created.data.id;
+
+      const lac = await call(U(30), "dairy.lactations.add", {
+        spaceId: spaceA.id,
+        payload: { animalId, calvingDate: "2026-09-12",
+                   clientUuid: `${label}-lac` },
+      });
+      if (lacVar === "soldLacId")     soldLacId     = lac.data.id;
+      if (lacVar === "deceasedLacId") deceasedLacId = lac.data.id;
+      if (lacVar === "retiredLacId")  retiredLacId  = lac.data.id;
+
+      await call(U(30), "dairy.animals.setStatus", {
+        spaceId: spaceA.id,
+        payload: { animalId, status },
+      });
+    }
+  });
+
+  it("updateLactation on sold animal returns 409", async () => {
+    const r = await call(U(30), "dairy.lactations.update", {
+      spaceId: spaceA.id,
+      payload: { lactationId: soldLacId, dryOffDate: "2026-12-01" },
+    });
+    expect(r.status).toBe(409);
+  });
+
+  it("updateLactation on deceased animal returns 409", async () => {
+    const r = await call(U(30), "dairy.lactations.update", {
+      spaceId: spaceA.id,
+      payload: { lactationId: deceasedLacId, notes: "should fail" },
+    });
+    expect(r.status).toBe(409);
+  });
+
+  it("updateLactation on retired animal returns 409", async () => {
+    const r = await call(U(30), "dairy.lactations.update", {
+      spaceId: spaceA.id,
+      payload: { lactationId: retiredLacId, expectedNextCalving: "2027-06-01" },
+    });
+    expect(r.status).toBe(409);
+  });
+
+  it("manager (farm.dairy.manage) cannot update terminal animal lactation (409)", async () => {
+    /* Manager U(31) has farm.dairy.manage but the animal is terminal — the
+     * assertAnimalWritable invariant applies regardless of permission level. */
+    const r = await call(U(31), "dairy.lactations.update", {
+      spaceId: spaceA.id,
+      payload: { lactationId: soldLacId, dryOffDate: "2026-12-15" },
+    });
+    expect(r.status).toBe(409);
+  });
+
+  it("non-terminal lactation update still succeeds after terminal test (permissions unchanged)", async () => {
+    /* Verify that the terminal protection did not break the happy path.
+     * A2 already has a non-terminal lactation from the earlier describe block. */
+    const list = await call(U(30), "dairy.lactations.list", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA2Id },
+    });
+    const lac = list.data.find((l) => l.lactation_number === 2);
+    expect(lac).toBeDefined();
+    const r = await call(U(30), "dairy.lactations.update", {
+      spaceId: spaceA.id,
+      payload: { lactationId: lac.id, notes: "terminal protection regression check" },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.notes).toBe("terminal protection regression check");
+  });
+});
+
 /* ── finance operations ───────────────────────────────────────────────────── */
 
 describe("finance — sales and costs", () => {

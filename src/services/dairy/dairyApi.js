@@ -57,8 +57,9 @@ export const dairyApi = {
   setStatus:    (spaceId, animalId, status) => call("dairy.animals.setStatus", spaceId, { animalId, status }),
 
   /* Lactations */
-  listLactations: (spaceId, animalId)   => call("dairy.lactations.list",  spaceId, { animalId }),
-  addLactation:   (spaceId, payload)    => call("dairy.lactations.add",   spaceId, payload),
+  listLactations:   (spaceId, animalId) => call("dairy.lactations.list",   spaceId, { animalId }),
+  addLactation:     (spaceId, payload)  => call("dairy.lactations.add",    spaceId, payload),
+  updateLactation:  (spaceId, payload)  => call("dairy.lactations.update", spaceId, payload),
 
   /* Milk records */
   listMilk:  (spaceId, params = {})     => call("dairy.milk.list",         spaceId, params),
