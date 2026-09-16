@@ -404,14 +404,19 @@ export function getPlanForDay(batchDay) {
   return PHASES.find(p => d >= p.days[0] && d <= p.days[1]) || PHASES[PHASES.length - 1];
 }
 
-/* Mirror of server templateFires() — for UI preview only, never writes to DB */
+/* Mirror of server templateFires() — for UI preview only, never writes to DB.
+   KNOWN LIMITATION: this is a static reimplementation of the server's
+   templateFires() logic. It reflects the default seed templates only. If a
+   farm manager adds a custom template row or edits trigger_config in the DB,
+   this preview will diverge from what the engine actually generates. The
+   authoritative task list is always the server's dailySummary response. */
 const TEMPLATE_PREVIEW = [
   { id: "day0-setup",         title: { en: "Day 0: Confirm placement",    hi: "दिन 0: रखवाली पुष्टि",       bn: "দিন ০: স্থাপন নিশ্চিত" },          category: "milestone",   triggerType: "on_day",       day: 0 },
   { id: "daily-mortality",    title: { en: "Record mortality & culls",     hi: "मृत्यु व छंटाई दर्ज करें",   bn: "মৃত্যু ও বাতিল রেকর্ড করুন" },    category: "daily_ops",   triggerType: "daily",        dayFrom: 0 },
   { id: "daily-feed-check",   title: { en: "Feed check & consumption",     hi: "फ़ीड जाँच और खपत",           bn: "ফিড পরীক্ষা ও ব্যবহার" },          category: "feed",        triggerType: "daily",        dayFrom: 0 },
   { id: "daily-env",          title: { en: "Environment check",            hi: "वातावरण जाँच",               bn: "পরিবেশ পরীক্ষা" },                 category: "daily_ops",   triggerType: "daily",        dayFrom: 0 },
   { id: "daily-water",        title: { en: "Water quality check",          hi: "जल गुणवत्ता जाँच",           bn: "পানির গুণমান পরীক্ষা" },           category: "daily_ops",   triggerType: "daily",        dayFrom: 0 },
-  { id: "brooding-check",     title: { en: "Brooding temperature check",   hi: "ब्रूडिंग तापमान जाँच",      bn: "ব্রুডিং তাপমাত্রা পরীক্ষা" },     category: "daily_ops",   triggerType: "daily",        dayFrom: 0, dayTo: 14, poultryTypes: ["broiler", "country_chicken"] },
+  { id: "brooding-check",     title: { en: "Brooding temperature check",   hi: "ब्रूडिंग तापमान जाँच",      bn: "ব্রুডিং তাপমাত্রা পরীক্ষা" },     category: "daily_ops",   triggerType: "daily",        dayFrom: 0, dayTo: 14, poultryTypes: ["broiler", "country"] },
   { id: "weight-d7",          title: { en: "Day 7 weight check",           hi: "दिन 7 वजन जाँच",             bn: "দিন ৭ ওজন পরীক্ষা" },              category: "weight",      triggerType: "on_day",       day: 7 },
   { id: "weight-weekly",      title: { en: "Weekly weight check",          hi: "साप्ताहिक वजन जाँच",         bn: "সাপ্তাহিক ওজন পরীক্ষা" },         category: "weight",      triggerType: "every_n_days", everyNDays: 7, startDay: 14 },
   { id: "biosecurity-weekly", title: { en: "Biosecurity check",            hi: "जैव सुरक्षा जाँच",           bn: "জৈব-নিরাপত্তা পরীক্ষা" },         category: "biosecurity", triggerType: "every_n_days", everyNDays: 7, startDay: 7 },

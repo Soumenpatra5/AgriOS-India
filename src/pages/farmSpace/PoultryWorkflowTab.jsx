@@ -292,14 +292,14 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
       {/* Tomorrow preview */}
       <TomorrowPreviewCard
         batchDay={summary.batchDay ?? 0}
-        poultryType={batch.type}
+        poultryType={batch.poultry_type}
         tc={tc}
       />
 
       {/* 7-day timeline */}
       <SevenDayTimeline
         batchDay={summary.batchDay ?? 0}
-        poultryType={batch.type}
+        poultryType={batch.poultry_type}
         tc={tc}
       />
 
