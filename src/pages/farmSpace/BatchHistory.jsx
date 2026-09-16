@@ -27,6 +27,8 @@ const KIND = {
   incident:     { icon: "AlertTriangle", color: (e) => e.severity === "high" ? T.error : T.orange, label: { en: "Incident", hi: "घटना", bn: "ঘটনা" } },
   outcome:      { icon: "MessageSquare", color: () => T.primary,   label: { en: "Follow-up",    hi: "फ़ॉलो-अप",       bn: "ফলো-আপ" } },
   closure:      { icon: "Lock",          color: () => T.inkSoft,   label: { en: "Batch closed",  hi: "बैच बंद",       bn: "ব্যাচ বন্ধ" } },
+  sale:         { icon: "ShoppingCart",  color: () => T.primary,   label: { en: "Sale",          hi: "बिक्री",        bn: "বিক্রয়" } },
+  batch_cost:   { icon: "Receipt",       color: () => T.orange,    label: { en: "Cost",          hi: "लागत",          bn: "খরচ" } },
 };
 
 const BATCH_STATUS_CHIP = {
@@ -142,6 +144,23 @@ function EventBody({ ev, tc }) {
       return (
         <span>
           {tc({ en: "Batch marked", hi: "बैच", bn: "ব্যাচ" })} {ev.status}
+        </span>
+      );
+    case "sale": {
+      const net = ev.net_revenue != null ? Number(ev.net_revenue) : Number(ev.gross_amount ?? 0);
+      return (
+        <span>
+          {ev.birds_sold != null ? `${Number(ev.birds_sold).toLocaleString("en-IN")} ${tc({ en: "birds", hi: "पक्षी", bn: "পাখি" })}` : ""}
+          {net > 0 ? ` · ₹${net.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
+          {ev.buyer_name ? ` · ${ev.buyer_name}` : ""}
+        </span>
+      );
+    }
+    case "batch_cost":
+      return (
+        <span>
+          {ev.description || ev.category}
+          {ev.amount != null ? ` · ₹${Number(ev.amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
         </span>
       );
     default:

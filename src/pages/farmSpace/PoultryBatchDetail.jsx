@@ -342,13 +342,22 @@ export default function PoultryBatchDetail({ batchId }) {
     <>
       <AppBar title={batch.name} onBack={pop}
         action={
-          <button
-            onClick={() => push({ kind: "poultryBatchHistory", props: { batchId: batch.id } })}
-            title={tc({ en: "View history", hi: "इतिहास देखें", bn: "ইতিহাস দেখুন" })}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 6,
-              color: T.inkSoft, display: "flex", alignItems: "center" }}>
-            <Icon name="History" size={20} />
-          </button>
+          <div style={{ display: "flex", gap: 2 }}>
+            <button
+              onClick={() => push({ kind: "poultryBatchFinance", props: { batchId: batch.id } })}
+              title={tc({ en: "Finance", hi: "वित्त", bn: "অর্থ" })}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 6,
+                color: T.inkSoft, display: "flex", alignItems: "center" }}>
+              <Icon name="CircleDollarSign" size={20} />
+            </button>
+            <button
+              onClick={() => push({ kind: "poultryBatchHistory", props: { batchId: batch.id } })}
+              title={tc({ en: "View history", hi: "इतिहास देखें", bn: "ইতিহাস দেখুন" })}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 6,
+                color: T.inkSoft, display: "flex", alignItems: "center" }}>
+              <Icon name="History" size={20} />
+            </button>
+          </div>
         }
       />
 

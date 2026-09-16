@@ -28,6 +28,7 @@ import * as dm from "./_lib/farm/dm.js";
 import * as poultry from "./_lib/farm/poultry.js";
 import * as poultryOps from "./_lib/farm/poultryOps.js";
 import * as poultryHealth from "./_lib/farm/poultryHealth.js";
+import * as poultryFinance from "./_lib/farm/poultryFinance.js";
 import * as wf from "./_lib/farm/poultryWorkflow.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
@@ -254,6 +255,19 @@ const ACTIONS = {
   "poultry.followup.record_outcome": { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => wf.recordFollowupOutcome(sql, membership, user.id, payload) },
   "poultry.followup.chain_detail":   { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => wf.getChainDetail(sql, membership, payload) },
   "poultry.followup.cancel":         { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => wf.cancelChain(sql, membership, user.id, payload) },
+
+  /* P6 — Finance: Sales & Costs.
+     Reads are farm.poultry.view (every role).
+     Recording costs is farm.poultry.record (worker can log labour/electricity).
+     Adding and deleting sales, and deleting costs, require farm.poultry.manage
+     because a sale changes the live-bird count and historical P&L. */
+  "poultry.sales.list":       { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryFinance.listSales(sql, membership, payload) },
+  "poultry.sales.add":        { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryFinance.addSale(sql, membership, user.id, payload) },
+  "poultry.sales.delete":     { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryFinance.deleteSale(sql, membership, user.id, payload) },
+  "poultry.costs.list":       { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryFinance.listCosts(sql, membership, payload) },
+  "poultry.costs.add":        { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => poultryFinance.addCost(sql, membership, user.id, payload) },
+  "poultry.costs.delete":     { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryFinance.deleteCost(sql, membership, user.id, payload) },
+  "poultry.finance.summary":  { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryFinance.financeSummary(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {

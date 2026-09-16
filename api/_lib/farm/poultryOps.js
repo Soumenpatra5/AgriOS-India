@@ -118,28 +118,36 @@ async function findByClientUuid(sql, table, spaceId, clientUuid) {
    `excludeId` lets an update to an existing record ignore its own previous
    values, so re-saving a day does not count it twice.
 
-   P2 BOUNDARY: sales and approved adjustments reduce live birds too, but
-   neither exists until P5. They are absent here rather than guessed; when they
-   arrive this is the one function that changes. */
+   P5 NOTE: sold birds are now included. Both the daily_records query and the
+   batch_sales query run inside the same caller transaction so they describe
+   one consistent state. */
 async function lostBefore(tx, batchId, date, excludeId = null) {
-  const [row] = await tx`
+  const [daily] = await tx`
     select coalesce(sum(mortality), 0)::int as m, coalesce(sum(culls), 0)::int as c
       from poultry_daily_records
      where batch_id = ${batchId}
        and deleted_at is null
        and record_date < ${date}
        and (${excludeId}::text is null or id::text <> ${excludeId})`;
-  return Number(row.m) + Number(row.c);
+  const [sales] = await tx`
+    select coalesce(sum(birds_sold), 0)::int as sold
+      from poultry_batch_sales
+     where batch_id = ${batchId} and deleted_at is null and sale_date < ${date}`;
+  return Number(daily.m) + Number(daily.c) + Number(sales.sold);
 }
 
 async function lostTotal(tx, batchId, excludeId = null) {
-  const [row] = await tx`
+  const [daily] = await tx`
     select coalesce(sum(mortality), 0)::int as m, coalesce(sum(culls), 0)::int as c
       from poultry_daily_records
      where batch_id = ${batchId}
        and deleted_at is null
        and (${excludeId}::text is null or id::text <> ${excludeId})`;
-  return { mortality: Number(row.m), culls: Number(row.c) };
+  const [sales] = await tx`
+    select coalesce(sum(birds_sold), 0)::int as sold
+      from poultry_batch_sales
+     where batch_id = ${batchId} and deleted_at is null`;
+  return { mortality: Number(daily.m), culls: Number(daily.c), sold: Number(sales.sold) };
 }
 
 /* ── daily records ────────────────────────────────────────────────────────── */
@@ -255,12 +263,13 @@ export async function upsertDaily(sql, membership, actorUserId, input = {}) {
     }
 
     const others = await lostTotal(tx, batch.id, existing?.id ?? null);
-    const cumulative = others.mortality + others.culls + mortality + culls;
+    const alreadyGone = others.mortality + others.culls + others.sold;
+    const cumulative = alreadyGone + mortality + culls;
     if (cumulative > placed) {
-      const remaining = Math.max(0, placed - (others.mortality + others.culls));
+      const remaining = Math.max(0, placed - alreadyGone);
       throw new HttpError(400,
         `That would bring total losses to ${cumulative} birds, but only ${placed} were placed. ${remaining} remain unaccounted for.`,
-        { placed_qty: placed, already_lost: others.mortality + others.culls,
+        { placed_qty: placed, already_lost: alreadyGone,
           remaining, requested: mortality + culls });
     }
 
@@ -576,17 +585,20 @@ export async function batchMetrics(sql, membership, { batchId } = {}) {
        order by weigh_date desc, created_at desc
        limit 50`;
 
-    return { birds, feed, weights };
+    const [sold] = await tx`
+      select coalesce(sum(birds_sold), 0)::int as birds_sold
+        from poultry_batch_sales
+       where batch_id = ${batch.id} and deleted_at is null`;
+
+    return { birds, feed, weights, sold };
   });
 
   const placed = Number(batch.placed_qty) || 0;
   const mortality = Number(snap.birds.mortality) || 0;
   const culls = Number(snap.birds.culls) || 0;
+  const birdsSold = Number(snap.sold.birds_sold) || 0;
   const lost = mortality + culls;
-
-  /* P2 BOUNDARY — sales and approved adjustments also reduce live birds, but
-     neither exists before P5. They are omitted rather than guessed. */
-  const liveBirds = Math.max(0, placed - lost);
+  const liveBirds = Math.max(0, placed - lost - birdsSold);
 
   const latest = snap.weights[0] || null;
   const latestAvgWeightG = latest ? Number(latest.average_weight_g) : null;
@@ -614,8 +626,9 @@ export async function batchMetrics(sql, membership, { batchId } = {}) {
     placed_qty: placed,
     mortality,
     culls,
+    birds_sold: birdsSold,
     live_birds: liveBirds,
-    live_birds_excludes: ["sales", "adjustments"], // arriving in P5
+    live_birds_excludes: ["adjustments"],
     cumulative_mortality_pct: cumulativeMortalityPct,
     survival_pct: cumulativeMortalityPct === null ? null : Math.round((100 - cumulativeMortalityPct) * 100) / 100,
     daily_record_count: Number(snap.birds.record_count) || 0,

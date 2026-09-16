@@ -844,7 +844,7 @@ export async function buildTimeline(sql, membership, payload) {
   const { batchId } = payload || {};
   const batch = await loadBatch(sql, membership, batchId);
 
-  const [daily, weights, feed, health, vacc, tasks, incidents] = await Promise.all([
+  const [daily, weights, feed, health, vacc, tasks, incidents, sales, costs] = await Promise.all([
     sql`select id, record_date as event_date, 'daily_record' as event_kind,
                mortality, culls, temp_c, remarks
           from poultry_daily_records
@@ -877,6 +877,16 @@ export async function buildTimeline(sql, membership, payload) {
           from poultry_incidents
          where batch_id = ${batchId} and deleted_at is null
          order by created_at`,
+    sql`select id, sale_date as event_date, 'sale' as event_kind,
+               buyer_name, birds_sold, gross_amount, net_revenue
+          from poultry_batch_sales
+         where batch_id = ${batchId} and deleted_at is null
+         order by sale_date`,
+    sql`select id, cost_date as event_date, 'batch_cost' as event_kind,
+               category, description, amount
+          from poultry_batch_costs
+         where batch_id = ${batchId} and deleted_at is null
+         order by cost_date`,
   ]);
 
   // Flatten tasks + outcomes together.
@@ -904,6 +914,8 @@ export async function buildTimeline(sql, membership, payload) {
     ...tasks.map((e) => ({ ...e, event_date: dateOnly(e.scheduled_date), event_kind: "task" })),
     ...incidents.map((e) => mapDate(e)),
     ...outcomes.map((e) => ({ ...e, event_date: dateOnly(e.recorded_at), event_kind: "outcome" })),
+    ...sales.map((e) => mapDate(e)),
+    ...costs.map((e) => mapDate(e)),
   ].sort((a, b) => {
     const da = a.event_date || "";
     const db = b.event_date || "";

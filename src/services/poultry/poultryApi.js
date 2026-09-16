@@ -116,6 +116,19 @@ export const poultryApi = {
   listIncidents:   (spaceId, batchId, params = {})       => call("poultry.incident.list",   spaceId, { batchId, ...params }),
   resolveIncident: (spaceId, incidentId, notes)          => call("poultry.incident.resolve", spaceId, { incidentId, notes: notes || null }),
 
-  /* Full batch history timeline (all P1-P4 records, tasks, incidents, outcomes) */
+  /* Full batch history timeline (all records, tasks, incidents, sales, costs) */
   timeline: (spaceId, batchId) => call("poultry.workflow.timeline", spaceId, { batchId }),
+
+  /* Finance — sales */
+  listSales:  (spaceId, batchId)          => call("poultry.sales.list",   spaceId, { batchId }),
+  addSale:    (spaceId, payload)           => call("poultry.sales.add",    spaceId, payload),
+  deleteSale: (spaceId, saleId)           => call("poultry.sales.delete", spaceId, { saleId }),
+
+  /* Finance — production costs */
+  listCosts:  (spaceId, batchId)          => call("poultry.costs.list",   spaceId, { batchId }),
+  addCost:    (spaceId, payload)           => call("poultry.costs.add",    spaceId, payload),
+  deleteCost: (spaceId, costId)           => call("poultry.costs.delete", spaceId, { costId }),
+
+  /* Finance — combined P&L summary for a batch */
+  financeSummary: (spaceId, batchId)      => call("poultry.finance.summary", spaceId, { batchId }),
 };

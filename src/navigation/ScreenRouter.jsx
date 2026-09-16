@@ -76,7 +76,8 @@ const FarmSpaceHub       = lazy(() => import("../pages/farmSpace/FarmSpaceHub.js
 const PoultryDashboard   = lazy(() => import("../pages/farmSpace/PoultryDashboard.jsx"));
 const PoultryBatchDetail = lazy(() => import("../pages/farmSpace/PoultryBatchDetail.jsx"));
 const PoultryChainDetail = lazy(() => import("../pages/farmSpace/PoultryChainDetail.jsx"));
-const PoultryBatchHistory = lazy(() => import("../pages/farmSpace/BatchHistory.jsx"));
+const PoultryBatchHistory  = lazy(() => import("../pages/farmSpace/BatchHistory.jsx"));
+const PoultryBatchFinance  = lazy(() => import("../pages/farmSpace/PoultryBatchFinance.jsx"));
 const FarmSpacePicker    = lazy(() => import("../pages/farmSpace/FarmSpacePicker.jsx"));
 const FarmSpaceCreate    = lazy(() => import("../pages/farmSpace/FarmSpaceCreate.jsx"));
 const FarmSpaceInvites   = lazy(() => import("../pages/farmSpace/FarmSpaceInvites.jsx"));
@@ -217,6 +218,7 @@ function StackScreen({ item }) {
   if (item.kind === "poultryBatchDetail")   return <PoultryBatchDetail {...(item.props || {})} />;
   if (item.kind === "poultryChainDetail")   return <PoultryChainDetail {...(item.props || {})} />;
   if (item.kind === "poultryBatchHistory")  return <PoultryBatchHistory {...(item.props || {})} />;
+  if (item.kind === "poultryBatchFinance")  return <PoultryBatchFinance  {...(item.props || {})} />;
   if (item.kind === "farmSpace")            return <FarmSpaceHub />;
   if (item.kind === "farmSpacePicker")      return <FarmSpacePicker />;
   if (item.kind === "farmSpaceCreate")      return <FarmSpaceCreate />;
