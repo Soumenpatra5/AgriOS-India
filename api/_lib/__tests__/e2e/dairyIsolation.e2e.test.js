@@ -1318,19 +1318,22 @@ describe("feed — terminal animal write protection", () => {
 /* ── finance summary — baseline ──────────────────────────────────────────── */
 
 describe("finance summary — baseline", () => {
-  it("returns zero totals and correct shape on an empty farm", async () => {
-    const r = await call(U(30), "dairy.finance.summary", { spaceId: spaceA.id });
+  it("returns correct shape; totals are zero for a month with no data", async () => {
+    /* Use Jan 2026 — no finance records exist in that range for spaceA. */
+    const r = await call(U(30), "dairy.finance.summary", {
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-01-01", toDate: "2026-01-31" },
+    });
     expect(r.status).toBe(200);
     expect(r.data).toMatchObject({
-      total_revenue:        expect.any(Number),
-      total_costs:          expect.any(Number),
-      net_profit:           expect.any(Number),
-      total_milk_sold_kg:   expect.any(Number),
+      total_revenue:          expect.any(Number),
+      total_costs:            expect.any(Number),
+      net_profit:             expect.any(Number),
+      total_milk_sold_kg:     expect.any(Number),
       month_milk_produced_kg: expect.any(Number),
-      cost_breakdown:       expect.any(Array),
-      period:               expect.objectContaining({ from: expect.any(String), to: expect.any(String) }),
+      cost_breakdown:         expect.any(Array),
+      period:                 expect.objectContaining({ from: expect.any(String), to: expect.any(String) }),
     });
-    /* For a fresh space with no sales/costs in scope the totals are zero. */
     expect(Number(r.data.total_revenue)).toBe(0);
     expect(Number(r.data.total_costs)).toBe(0);
     expect(Number(r.data.net_profit)).toBe(0);
