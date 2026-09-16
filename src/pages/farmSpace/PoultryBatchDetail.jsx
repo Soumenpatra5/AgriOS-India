@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import {
@@ -90,6 +90,7 @@ export default function PoultryBatchDetail({ batchId }) {
   const [weightOpen, setWeightOpen] = useState(false);
   const [wform, setWform] = useState({ weighed_at: today(), total_weight_g: "", sample_count: "" });
   const [wbusy, setWbusy] = useState(false);
+  const wbusyRef = useRef(false); // ref guard prevents duplicate submissions on rapid taps
 
   /* Feed sheet */
   const [feedOpen, setFeedOpen]   = useState(false);
@@ -198,12 +199,18 @@ export default function PoultryBatchDetail({ batchId }) {
   /* Weight submit */
   const submitWeight = async () => {
     if (!wform.total_weight_g || !wform.sample_count) return;
+    if (wbusyRef.current) return; // block rapid double-taps before React re-renders disabled state
+    if (!wform.weighed_at || !/^\d{4}-\d{2}-\d{2}$/.test(wform.weighed_at)) {
+      toast(tc({ en: "Enter a valid weighing date", hi: "वैध तारीख दर्ज करें", bn: "বৈধ তারিখ দিন" }), "error");
+      return;
+    }
+    wbusyRef.current = true;
     setWbusy(true);
     try {
       await poultryApi.addWeight(space.id, {
         batchId: batch.id,
-        weighed_at: wform.weighed_at,
-        total_weight_g: Number(wform.total_weight_g),
+        weigh_date: wform.weighed_at,           // server field: weigh_date (YYYY-MM-DD)
+        total_sample_weight_g: Number(wform.total_weight_g), // server field: total_sample_weight_g
         sample_count: Number(wform.sample_count),
       });
       setWeightOpen(false);
@@ -211,8 +218,8 @@ export default function PoultryBatchDetail({ batchId }) {
       toast(tc({ en: "Weight logged", hi: "वजन दर्ज हुआ", bn: "ওজন লগ হয়েছে" }), "success");
       setWeights(null);
     } catch (err) {
-      toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর্থ" }), "error");
-    } finally { setWbusy(false); }
+      toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর्থ" }), "error");
+    } finally { wbusyRef.current = false; setWbusy(false); }
   };
 
   /* Feed submit */

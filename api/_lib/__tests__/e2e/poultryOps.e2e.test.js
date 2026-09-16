@@ -331,6 +331,61 @@ describe("weights", () => {
       expect(r.status, JSON.stringify(payload)).toBe(400);
     }
   });
+
+  /* Regression: client payload field mapping fix (2026-09-16).
+     The Add Weight form displayed dates in locale format (e.g. 16-09-2026 in India)
+     but the HTML date input always submits YYYY-MM-DD. The payload previously used
+     wrong keys (weighed_at, total_weight_g) that the server ignores, causing a 400
+     "Enter a valid weighing date" on every submission. */
+  it("accepts YYYY-MM-DD weigh_date (canonical client format via type=date input)", async () => {
+    const b = await mkBatch(U(2), A.space.id);
+    const r = await call(U(4), "poultry.weights.add", {
+      spaceId: A.space.id,
+      payload: { batchId: b.id, weigh_date: "2026-09-16", sample_count: 5, total_sample_weight_g: 4999 },
+    });
+    expect(r.status).toBe(200);
+    expect(Number(r.data.average_weight_g)).toBeCloseTo(4999 / 5, 1);
+  });
+
+  it("rejects DD-MM-YYYY date format (locale display format must not reach the server)", async () => {
+    const b = await mkBatch(U(2), A.space.id);
+    const r = await call(U(4), "poultry.weights.add", {
+      spaceId: A.space.id,
+      payload: { batchId: b.id, weigh_date: "16-09-2026", sample_count: 5, total_sample_weight_g: 4999 },
+    });
+    expect(r.status).toBe(400);
+    expect(r.error).toMatch(/valid/i);
+  });
+
+  it("rejects missing weigh_date (undefined maps to null in dateOnly)", async () => {
+    const b = await mkBatch(U(2), A.space.id);
+    const r = await call(U(4), "poultry.weights.add", {
+      spaceId: A.space.id,
+      payload: { batchId: b.id, sample_count: 5, total_sample_weight_g: 4999 },
+    });
+    expect(r.status).toBe(400);
+    expect(r.error).toMatch(/valid/i);
+  });
+
+  it("rejects empty string weigh_date", async () => {
+    const b = await mkBatch(U(2), A.space.id);
+    const r = await call(U(4), "poultry.weights.add", {
+      spaceId: A.space.id,
+      payload: { batchId: b.id, weigh_date: "", sample_count: 5, total_sample_weight_g: 4999 },
+    });
+    expect(r.status).toBe(400);
+    expect(r.error).toMatch(/valid/i);
+  });
+
+  it("rejects wrong payload keys (weighed_at / total_weight_g) — old client bug", async () => {
+    const b = await mkBatch(U(2), A.space.id);
+    const r = await call(U(4), "poultry.weights.add", {
+      spaceId: A.space.id,
+      // these are the pre-fix client keys that must never reach the server
+      payload: { batchId: b.id, weighed_at: daysAgo(1), total_weight_g: 4999, sample_count: 5 },
+    });
+    expect(r.status).toBe(400); // weigh_date is undefined → "Enter a valid weighing date"
+  });
 });
 
 /* ── feed ledger ──────────────────────────────────────────────────────────── */
