@@ -322,6 +322,11 @@ const ACTIONS = {
   "dairy.health.add":         { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.addHealth(sql, membership, user.id, payload) },
   "dairy.health.delete":      { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.deleteHealth(sql, membership, user.id, payload) },
 
+  /* Feed records — operational per-animal feed tracking (not finance) */
+  "dairy.feed.list":          { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairyOps.listFeed(sql, membership, payload) },
+  "dairy.feed.add":           { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.addFeed(sql, membership, user.id, payload) },
+  "dairy.feed.delete":        { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.deleteFeed(sql, membership, user.id, payload) },
+
   /* Milk sales — farm-level cooperative/buyer sales (no animal_id) */
   "dairy.sales.list":         { permission: "farm.dairy.finance", run: ({ sql, membership, payload }) => dairyFinance.listSales(sql, membership, payload) },
   "dairy.sales.add":          { permission: "farm.dairy.finance", run: ({ sql, membership, user, payload }) => dairyFinance.addSale(sql, membership, user.id, payload) },

@@ -181,6 +181,21 @@ export default function DairyDashboard() {
         </div>
       )}
 
+      {/* Health overdue alert */}
+      {metrics?.health_overdue_count > 0 && (
+        <div style={{ margin: "8px 16px 0", background: T.redSoft, borderRadius: T.rMd,
+          padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+          <Icon name="AlertTriangle" size={15} color={T.red} />
+          <span style={{ fontSize: 12.5, color: T.red, fontWeight: 600, fontFamily: T.body }}>
+            {tc({
+              en: `${metrics.health_overdue_count} health event${metrics.health_overdue_count > 1 ? "s" : ""} overdue`,
+              hi: `${metrics.health_overdue_count} स्वास्थ्य घटना अतिदेय`,
+              bn: `${metrics.health_overdue_count}টি স্বাস্থ্য ঘটনার মেয়াদ পেরিয়েছে`,
+            })}
+          </span>
+        </div>
+      )}
+
       {/* Health due alert */}
       {metrics?.health_due_in_14_days > 0 && (
         <div style={{ margin: "8px 16px 0", background: "#fff3e8", borderRadius: T.rMd,

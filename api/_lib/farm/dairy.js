@@ -281,7 +281,7 @@ export async function herdMetrics(sql, membership) {
   const monthStart = today.slice(0, 8) + "01";
   const twoWeeksLater = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
 
-  const [statusCounts, todayMilk, monthMilk, healthDue] = await Promise.all([
+  const [statusCounts, todayMilk, monthMilk, healthDue, healthOverdue] = await Promise.all([
     sql`
       select current_status, count(*)::int as count
       from dairy_animals
@@ -309,6 +309,13 @@ export async function herdMetrics(sql, membership) {
         and next_due_date between ${today} and ${twoWeeksLater}
         and deleted_at is null
     `,
+    sql`
+      select count(*)::int as count
+      from dairy_health_events
+      where space_id = ${spaceId}
+        and next_due_date < ${today}
+        and deleted_at is null
+    `,
   ]);
 
   const byStatus = {};
@@ -319,6 +326,7 @@ export async function herdMetrics(sql, membership) {
     today_milk_kg: parseFloat(todayMilk[0].kg),
     month_milk_kg: parseFloat(monthMilk[0].kg),
     health_due_in_14_days: healthDue[0].count,
+    health_overdue_count: healthOverdue[0].count,
   };
 }
 
@@ -328,7 +336,7 @@ export async function animalHistory(sql, membership, payload) {
   const animal = await loadAnimal(sql, membership, payload?.animalId);
   const { limit = 50 } = payload ?? {};
 
-  const [milkRows, reproRows, healthRows, lactationRows] = await Promise.all([
+  const [milkRows, reproRows, healthRows, lactationRows, feedRows] = await Promise.all([
     sql`
       select id, record_date as event_date, 'milk_record' as kind,
              total_yield_kg, am_yield_kg, pm_yield_kg, fat_pct, snf_pct, remarks
@@ -347,7 +355,7 @@ export async function animalHistory(sql, membership, payload) {
     `,
     sql`
       select id, event_date, 'health_event' as kind,
-             event_type, title, medicine, next_due_date, is_zoonotic_concern
+             event_type, title, medicine, dose, vet_name, notes, next_due_date, is_zoonotic_concern
       from dairy_health_events
       where animal_id = ${animal.id} and deleted_at is null
       order by event_date desc
@@ -361,9 +369,17 @@ export async function animalHistory(sql, membership, payload) {
       order by calving_date desc
       limit ${limit}
     `,
+    sql`
+      select id, feed_date as event_date, 'feed_record' as kind,
+             feed_type, quantity_kg, notes
+      from dairy_feed_records
+      where animal_id = ${animal.id} and deleted_at is null
+      order by feed_date desc
+      limit ${limit}
+    `,
   ]);
 
-  const all = [...milkRows, ...reproRows, ...healthRows, ...lactationRows]
+  const all = [...milkRows, ...reproRows, ...healthRows, ...lactationRows, ...feedRows]
     .sort((a, b) => new Date(b.event_date) - new Date(a.event_date))
     .slice(0, limit);
 

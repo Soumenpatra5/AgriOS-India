@@ -83,11 +83,33 @@ const ALL_STATUSES = [
   { value: "retired",  label: { en: "Retired",  hi: "सेवानिवृत्त", bn: "অবসরপ্রাপ্ত" } },
 ];
 
+/* ── Health event configuration ──────────────────────────────────────────── */
+
+const HEALTH_EVENT_TYPES = [
+  { value: "observation",  label: { en: "Observation",  hi: "अवलोकन",     bn: "পর্যবেক্ষণ"    } },
+  { value: "vaccination",  label: { en: "Vaccination",  hi: "टीकाकरण",    bn: "টিকাকরণ"       } },
+  { value: "treatment",    label: { en: "Treatment",    hi: "उपचार",       bn: "চিকিৎসা"       } },
+  { value: "deworming",    label: { en: "Deworming",    hi: "कृमिनाशक",   bn: "কৃমিনাশক"      } },
+  { value: "vet_visit",    label: { en: "Vet visit",    hi: "पशु चिकित्सा", bn: "পশুচিকিৎসা"  } },
+  { value: "other",        label: { en: "Other",        hi: "अन्य",        bn: "অন্যান্য"       } },
+];
+
+/* ── Feed type configuration ──────────────────────────────────────────────── */
+
+const FEED_TYPE_OPTIONS = [
+  { value: "concentrate", label: { en: "Concentrate", hi: "सांद्र चारा", bn: "ঘন খাদ্য"     } },
+  { value: "fodder",      label: { en: "Fodder",      hi: "हरा चारा",    bn: "সবুজ ঘাস"     } },
+  { value: "silage",      label: { en: "Silage",      hi: "साइलेज",      bn: "সাইলেজ"       } },
+  { value: "mineral",     label: { en: "Mineral mix", hi: "खनिज मिश्रण", bn: "খনিজ মিশ্রণ"  } },
+  { value: "other",       label: { en: "Other",       hi: "अन्य",        bn: "অন্যান্য"      } },
+];
+
 const HISTORY_KIND_ICON = {
   milk_record:  { icon: "Droplets",  color: T.blue },
   repro_event:  { icon: "Heart",     color: "#e05" },
   health_event: { icon: "Syringe",   color: T.orange },
   lactation:    { icon: "Baby",      color: T.primary },
+  feed_record:  { icon: "Wheat",     color: "#7c5a1e" },
 };
 
 const KIND_LABEL = {
@@ -95,6 +117,7 @@ const KIND_LABEL = {
   repro_event:  { en: "Reproductive event", hi: "प्रजनन घटना",   bn: "প্রজনন ঘটনা"  },
   health_event: { en: "Health event",       hi: "स्वास्थ्य घटना",  bn: "স্বাস্থ্য ঘটনা" },
   lactation:    { en: "Lactation",          hi: "दुग्धावधि",       bn: "দুগ্ধকাল"     },
+  feed_record:  { en: "Feed record",        hi: "आहार रिकॉर्ड",   bn: "খাদ্য রেকর্ড"  },
 };
 
 /* ── Pregnancy derivation ─────────────────────────────────────────────────
@@ -195,6 +218,26 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
     calfSex: "", calfAlive: "", notes: "",
   });
   const [lebusy, setLebusy] = useState(false);
+
+  /* Health event sheet */
+  const [healthOpen, setHealthOpen] = useState(false);
+  const [hform, setHform] = useState({
+    eventDate: today(), eventType: "observation", title: "",
+    medicine: "", dose: "", vetName: "", nextDueDate: "",
+    isZoonotic: false, notes: "",
+  });
+  const [hbusy, setHbusy] = useState(false);
+  const [delHealthId, setDelHealthId] = useState(null);
+  const [delHealthBusy, setDelHealthBusy] = useState(false);
+
+  /* Feed record sheet */
+  const [feedOpen, setFeedOpen] = useState(false);
+  const [fform, setFform] = useState({
+    feedDate: today(), feedType: "concentrate", quantityKg: "", notes: "",
+  });
+  const [fbusy, setFbusy] = useState(false);
+  const [delFeedId, setDelFeedId] = useState(null);
+  const [delFeedBusy, setDelFeedBusy] = useState(false);
 
   /* ── Load ── */
   const load = useCallback(async () => {
@@ -438,6 +481,89 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
     } finally { setLebusy(false); }
   };
 
+  /* ── Add health event ── */
+  const resetHform = () => setHform({
+    eventDate: today(), eventType: "observation", title: "",
+    medicine: "", dose: "", vetName: "", nextDueDate: "",
+    isZoonotic: false, notes: "",
+  });
+
+  const saveHealth = async () => {
+    if (!hform.eventDate || !hform.title.trim()) return;
+    setHbusy(true);
+    try {
+      await dairyApi.addHealth(space.id, {
+        animalId,
+        eventDate:        hform.eventDate,
+        eventType:        hform.eventType,
+        title:            hform.title.trim(),
+        medicine:         hform.medicine  || null,
+        dose:             hform.dose      || null,
+        vetName:          hform.vetName   || null,
+        nextDueDate:      hform.nextDueDate || null,
+        isZoonoticConcern: hform.isZoonotic,
+        notes:            hform.notes     || null,
+      });
+      toast(tc({ en: "Health event saved", hi: "स्वास्थ्य घटना दर्ज", bn: "স্বাস্থ্য ঘটনা সংরক্ষিত" }), "success");
+      setHealthOpen(false);
+      resetHform();
+      dairyApi.animalHistory(space.id, animalId).then((h) => setHistory(h?.history || [])).catch(() => {});
+    } catch (err) {
+      toast(err.message || tc({ en: "Save failed", hi: "सहेजा नहीं जा सका", bn: "সংরক্ষণ ব্যর্থ" }), "error");
+    } finally { setHbusy(false); }
+  };
+
+  /* ── Delete health event ── */
+  const confirmDeleteHealth = async () => {
+    setDelHealthBusy(true);
+    try {
+      await dairyApi.deleteHealth(space.id, delHealthId);
+      setHistory((prev) => prev.filter((e) => !(e.kind === "health_event" && e.id === delHealthId)));
+      setDelHealthId(null);
+      toast(tc({ en: "Event deleted", hi: "घटना हटाई गई", bn: "ঘটনা মুছে গেছে" }), "info");
+    } catch (err) {
+      toast(err.message || tc({ en: "Delete failed", hi: "हटाया नहीं जा सका", bn: "মুছতে ব্যর্থ" }), "error");
+    } finally { setDelHealthBusy(false); }
+  };
+
+  /* ── Add feed record ── */
+  const resetFform = () => setFform({
+    feedDate: today(), feedType: "concentrate", quantityKg: "", notes: "",
+  });
+
+  const saveFeed = async () => {
+    if (!fform.feedDate) return;
+    setFbusy(true);
+    try {
+      await dairyApi.addFeed(space.id, {
+        animalId,
+        feedDate:    fform.feedDate,
+        feedType:    fform.feedType,
+        quantityKg:  fform.quantityKg ? parseFloat(fform.quantityKg) : null,
+        notes:       fform.notes || null,
+      });
+      toast(tc({ en: "Feed record saved", hi: "आहार रिकॉर्ड दर्ज", bn: "খাদ্য রেকর্ড সংরক্ষিত" }), "success");
+      setFeedOpen(false);
+      resetFform();
+      dairyApi.animalHistory(space.id, animalId).then((h) => setHistory(h?.history || [])).catch(() => {});
+    } catch (err) {
+      toast(err.message || tc({ en: "Save failed", hi: "सहेजा नहीं जा सका", bn: "সংরক্ষণ ব্যর্থ" }), "error");
+    } finally { setFbusy(false); }
+  };
+
+  /* ── Delete feed record ── */
+  const confirmDeleteFeed = async () => {
+    setDelFeedBusy(true);
+    try {
+      await dairyApi.deleteFeed(space.id, delFeedId);
+      setHistory((prev) => prev.filter((e) => !(e.kind === "feed_record" && e.id === delFeedId)));
+      setDelFeedId(null);
+      toast(tc({ en: "Record deleted", hi: "रिकॉर्ड हटाया गया", bn: "রেকর্ড মুছে গেছে" }), "info");
+    } catch (err) {
+      toast(err.message || tc({ en: "Delete failed", hi: "हटाया नहीं जा सका", bn: "মুছতে ব্যর্থ" }), "error");
+    } finally { setDelFeedBusy(false); }
+  };
+
   /* ── AppBar ── */
   const bar = (
     <AppBar
@@ -538,13 +664,16 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
           <OverviewTab
             animal={animal}
             lactations={lactations}
+            history={history}
             tc={tc}
             locale={locale}
             fmtDate={fmtDate}
             canManage={canManage}
+            canRecord={canRecord}
             isTerminal={isTerminal}
             onStartLactation={() => openLacStart()}
             onEditLactation={openLacEdit}
+            onAddHealth={() => setHealthOpen(true)}
           />
         )}
         {tab === "milk" && (
@@ -568,6 +697,10 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
             isTerminal={isTerminal}
             onAddRepro={() => setReproOpen(true)}
             onDeleteRepro={(id) => setDelReproId(id)}
+            onAddHealth={() => setHealthOpen(true)}
+            onDeleteHealth={(id) => setDelHealthId(id)}
+            onAddFeed={() => setFeedOpen(true)}
+            onDeleteFeed={(id) => setDelFeedId(id)}
           />
         )}
       </div>
@@ -773,6 +906,108 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
         </div>
       </Dialog>
 
+      {/* ── Health event sheet ── */}
+      <BottomSheet
+        open={healthOpen}
+        onClose={() => { setHealthOpen(false); resetHform(); }}
+        title={tc({ en: "Log Health Event", hi: "स्वास्थ्य घटना दर्ज करें", bn: "স্বাস্থ্য ঘটনা লিখুন" })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Input label={tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })} type="date"
+            value={hform.eventDate} onChange={(v) => setHform((f) => ({ ...f, eventDate: v }))} />
+          <Dropdown
+            label={tc({ en: "Event type", hi: "घटना प्रकार", bn: "ঘটনার ধরন" })}
+            value={hform.eventType}
+            onChange={(v) => setHform((f) => ({ ...f, eventType: v }))}
+            options={HEALTH_EVENT_TYPES.map((o) => ({ value: o.value, label: tc(o.label) }))} />
+          <Input label={tc({ en: "Title / description", hi: "शीर्षक / विवरण", bn: "শিরোনাম / বিবরণ" })}
+            placeholder={tc({ en: "e.g. FMD vaccine dose 1", hi: "जैसे FMD वैक्सीन खुराक 1", bn: "যেমন FMD ভ্যাকসিন ডোজ ১" })}
+            value={hform.title} onChange={(v) => setHform((f) => ({ ...f, title: v }))} />
+          {(hform.eventType === "vaccination" || hform.eventType === "treatment" || hform.eventType === "deworming") && (
+            <Input label={tc({ en: "Medicine / vaccine", hi: "दवा / वैक्सीन", bn: "ওষুধ / ভ্যাকসিন" })}
+              value={hform.medicine} onChange={(v) => setHform((f) => ({ ...f, medicine: v }))} />
+          )}
+          {(hform.eventType === "vaccination" || hform.eventType === "treatment" || hform.eventType === "deworming") && (
+            <Input label={tc({ en: "Dose (optional)", hi: "खुराक (वैकल्पिक)", bn: "ডোজ (ঐচ্ছিক)" })}
+              placeholder={tc({ en: "e.g. 5 ml", hi: "जैसे 5 मिली", bn: "যেমন ৫ মিলি" })}
+              value={hform.dose} onChange={(v) => setHform((f) => ({ ...f, dose: v }))} />
+          )}
+          {(hform.eventType === "vet_visit" || hform.eventType === "treatment") && (
+            <Input label={tc({ en: "Vet name (optional)", hi: "पशु चिकित्सक (वैकल्पिक)", bn: "পশুচিকিৎসকের নাম (ঐচ্ছিক)" })}
+              value={hform.vetName} onChange={(v) => setHform((f) => ({ ...f, vetName: v }))} />
+          )}
+          {(hform.eventType === "vaccination" || hform.eventType === "deworming") && (
+            <Input label={tc({ en: "Next due date (optional)", hi: "अगली देय तिथि (वैकल्पिक)", bn: "পরবর্তী নির্ধারিত তারিখ (ঐচ্ছিক)" })}
+              type="date" value={hform.nextDueDate}
+              onChange={(v) => setHform((f) => ({ ...f, nextDueDate: v }))} />
+          )}
+          <Input label={tc({ en: "Notes (optional)", hi: "टिप्पणी (वैकल्पिक)", bn: "মন্তব্য (ঐচ্ছিক)" })}
+            value={hform.notes} onChange={(v) => setHform((f) => ({ ...f, notes: v }))} />
+          <Button full onClick={saveHealth} disabled={!hform.eventDate || !hform.title.trim() || hbusy}>
+            {hbusy
+              ? tc({ en: "Saving…", hi: "सहेजा जा रहा है…", bn: "সংরক্ষণ হচ্ছে…" })
+              : tc({ en: "Save event", hi: "घटना सहेजें", bn: "ঘটনা সংরক্ষণ" })}
+          </Button>
+        </div>
+      </BottomSheet>
+
+      {/* ── Delete health event confirm ── */}
+      <Dialog
+        open={!!delHealthId}
+        title={tc({ en: "Delete health event?", hi: "स्वास्थ्य घटना हटाएँ?", bn: "স্বাস্থ্য ঘটনা মুছবেন?" })}
+        onClose={() => setDelHealthId(null)}
+        actions={[
+          { label: tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" }), variant: "outline", onClick: () => setDelHealthId(null) },
+          { label: delHealthBusy ? "…" : tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger", onClick: confirmDeleteHealth },
+        ]}>
+        <div style={{ fontSize: 14, color: T.inkSoft }}>
+          {tc({ en: "This health event will be soft-deleted.",
+                hi: "यह स्वास्थ्य घटना हटा दी जाएगी।",
+                bn: "এই স্বাস্থ্য ঘটনা মুছে যাবে।" })}
+        </div>
+      </Dialog>
+
+      {/* ── Feed record sheet ── */}
+      <BottomSheet
+        open={feedOpen}
+        onClose={() => { setFeedOpen(false); resetFform(); }}
+        title={tc({ en: "Log Feed", hi: "आहार दर्ज करें", bn: "খাদ্য লিখুন" })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Input label={tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })} type="date"
+            value={fform.feedDate} onChange={(v) => setFform((f) => ({ ...f, feedDate: v }))} />
+          <Dropdown
+            label={tc({ en: "Feed type", hi: "आहार प्रकार", bn: "খাদ্যের ধরন" })}
+            value={fform.feedType}
+            onChange={(v) => setFform((f) => ({ ...f, feedType: v }))}
+            options={FEED_TYPE_OPTIONS.map((o) => ({ value: o.value, label: tc(o.label) }))} />
+          <Input label={tc({ en: "Quantity (kg, optional)", hi: "मात्रा (किलो, वैकल्पिक)", bn: "পরিমাণ (কেজি, ঐচ্ছিক)" })}
+            type="number" placeholder="0.0"
+            value={fform.quantityKg} onChange={(v) => setFform((f) => ({ ...f, quantityKg: v }))} />
+          <Input label={tc({ en: "Notes (optional)", hi: "टिप्पणी (वैकल्पिक)", bn: "মন্তব্য (ঐচ্ছিক)" })}
+            value={fform.notes} onChange={(v) => setFform((f) => ({ ...f, notes: v }))} />
+          <Button full onClick={saveFeed} disabled={!fform.feedDate || fbusy}>
+            {fbusy
+              ? tc({ en: "Saving…", hi: "सहेजा जा रहा है…", bn: "সংরক্ষণ হচ্ছে…" })
+              : tc({ en: "Save feed record", hi: "आहार सहेजें", bn: "খাদ্য সংরক্ষণ" })}
+          </Button>
+        </div>
+      </BottomSheet>
+
+      {/* ── Delete feed record confirm ── */}
+      <Dialog
+        open={!!delFeedId}
+        title={tc({ en: "Delete feed record?", hi: "आहार रिकॉर्ड हटाएँ?", bn: "খাদ্য রেকর্ড মুছবেন?" })}
+        onClose={() => setDelFeedId(null)}
+        actions={[
+          { label: tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" }), variant: "outline", onClick: () => setDelFeedId(null) },
+          { label: delFeedBusy ? "…" : tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" }), variant: "danger", onClick: confirmDeleteFeed },
+        ]}>
+        <div style={{ fontSize: 14, color: T.inkSoft }}>
+          {tc({ en: "This feed record will be soft-deleted.",
+                hi: "यह आहार रिकॉर्ड हटा दिया जाएगा।",
+                bn: "এই খাদ্য রেকর্ড মুছে যাবে।" })}
+        </div>
+      </Dialog>
+
       {/* ── Calving → Start Lactation prompt ── */}
       <Dialog
         open={!!calvingLacData && !lacStartOpen}
@@ -867,9 +1102,15 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
 
 /* ── Sub-tab components ───────────────────────────────────────────────── */
 
-function OverviewTab({ animal, lactations, tc, locale, fmtDate, canManage, isTerminal, onStartLactation, onEditLactation }) {
-  const lastLac  = lactations[0] || animal.last_lactation;
-  const lastMilk = animal.last_milk_record;
+function OverviewTab({ animal, lactations, history = [], tc, locale, fmtDate, canManage, canRecord, isTerminal, onStartLactation, onEditLactation, onAddHealth }) {
+  const lastLac    = lactations[0] || animal.last_lactation;
+  const lastMilk   = animal.last_milk_record;
+  const healthEvents = history.filter((e) => e.kind === "health_event");
+  const lastHealth = healthEvents[0] || null;
+  const nowMs = Date.now();
+  const overdueCount = healthEvents.filter(
+    (e) => e.next_due_date && new Date(e.next_due_date).getTime() < nowMs
+  ).length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -938,6 +1179,64 @@ function OverviewTab({ animal, lactations, tc, locale, fmtDate, canManage, isTer
           )}
         </Card>
       )}
+
+      {/* Health summary card */}
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.inkFaint, fontFamily: T.body,
+            textTransform: "uppercase", letterSpacing: 0.8 }}>
+            {tc({ en: "Health", hi: "स्वास्थ्य", bn: "স্বাস্থ্য" })}
+          </div>
+          {overdueCount > 0 && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.red, background: T.redSoft,
+              borderRadius: 5, padding: "2px 7px", fontFamily: T.body }}>
+              {tc({
+                en: `${overdueCount} overdue`,
+                hi: `${overdueCount} अतिदेय`,
+                bn: `${overdueCount}টি বকেয়া`,
+              })}
+            </span>
+          )}
+        </div>
+        {lastHealth ? (
+          <>
+            <InfoRow
+              label={tc({ en: "Last event", hi: "अंतिम घटना", bn: "সর্বশেষ ঘটনা" })}
+              value={lastHealth.title ||
+                tc(HEALTH_EVENT_TYPES.find((t) => t.value === lastHealth.event_type)?.label
+                  ?? { en: lastHealth.event_type, hi: lastHealth.event_type, bn: lastHealth.event_type })}
+            />
+            {lastHealth.next_due_date && (
+              <InfoRow
+                label={tc({ en: "Next due", hi: "अगली देय", bn: "পরবর্তী নির্ধারিত" })}
+                value={
+                  <span style={{
+                    color: new Date(lastHealth.next_due_date).getTime() < nowMs ? T.red : T.orange,
+                    fontWeight: 700,
+                  }}>
+                    {fmtDate(lastHealth.next_due_date, locale)}
+                  </span>
+                }
+              />
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: T.inkSoft, fontFamily: T.body,
+            textAlign: "center", padding: "8px 0" }}>
+            {tc({ en: "No health events yet.", hi: "अभी कोई स्वास्थ्य घटना नहीं।", bn: "এখনো কোনো স্বাস্থ্য ঘটনা নেই।" })}
+          </div>
+        )}
+        {canRecord && !isTerminal && (
+          <button onClick={onAddHealth}
+            style={{ marginTop: 8, width: "100%", display: "flex", alignItems: "center",
+              justifyContent: "center", gap: 6, background: T.surface2, border: "none",
+              borderRadius: T.rSm, padding: "9px 0", cursor: "pointer",
+              fontFamily: T.body, fontSize: 12.5, color: T.ink, fontWeight: 600 }}>
+            <Icon name="Syringe" size={13} color={T.orange} />
+            {tc({ en: "Log health event", hi: "स्वास्थ्य घटना दर्ज करें", bn: "স্বাস্থ্য ঘটনা লিখুন" })}
+          </button>
+        )}
+      </Card>
 
       {/* Last milk record */}
       {lastMilk && (
@@ -1029,15 +1328,25 @@ function MilkTab({ milkList, canRecord, isTerminal, tc, locale, fmtDateShort, on
   );
 }
 
-function HistoryTab({ history, tc, fmtDate, canRecord, isTerminal, onAddRepro, onDeleteRepro }) {
+function HistoryTab({ history, tc, fmtDate, canRecord, isTerminal, onAddRepro, onDeleteRepro, onAddHealth, onDeleteHealth, onAddFeed, onDeleteFeed }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {/* Log repro event button */}
+      {/* Action buttons */}
       {canRecord && !isTerminal && (
-        <Button full variant="soft" onClick={onAddRepro}>
-          <Icon name="Heart" size={15} style={{ marginRight: 6 }} />
-          {tc({ en: "Log repro event", hi: "प्रजनन घटना दर्ज करें", bn: "প্রজনন ঘটনা লিখুন" })}
-        </Button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <Button full variant="soft" onClick={onAddRepro}>
+            <Icon name="Heart" size={15} style={{ marginRight: 6 }} />
+            {tc({ en: "Log repro event", hi: "प्रजनन घटना दर्ज करें", bn: "প্রজনন ঘটনা লিখুন" })}
+          </Button>
+          <Button full variant="soft" onClick={onAddHealth}>
+            <Icon name="Syringe" size={15} style={{ marginRight: 6 }} />
+            {tc({ en: "Log health event", hi: "स्वास्थ्य घटना दर्ज करें", bn: "স্বাস্থ্য ঘটনা লিখুন" })}
+          </Button>
+          <Button full variant="soft" onClick={onAddFeed}>
+            <Icon name="Wheat" size={15} style={{ marginRight: 6 }} />
+            {tc({ en: "Log feed", hi: "आहार दर्ज करें", bn: "খাদ্য লিখুন" })}
+          </Button>
+        </div>
       )}
 
       {history.length === 0 ? (
@@ -1079,6 +1388,20 @@ function HistoryTab({ history, tc, fmtDate, canRecord, isTerminal, onAddRepro, o
                         </div>
                         {ev.kind === "repro_event" && canRecord && !isTerminal && (
                           <button onClick={() => onDeleteRepro(ev.id)}
+                            style={{ background: "none", border: "none", cursor: "pointer",
+                              color: T.inkFaint, padding: "2px 0" }}>
+                            <Icon name="Trash2" size={13} />
+                          </button>
+                        )}
+                        {ev.kind === "health_event" && canRecord && !isTerminal && (
+                          <button onClick={() => onDeleteHealth(ev.id)}
+                            style={{ background: "none", border: "none", cursor: "pointer",
+                              color: T.inkFaint, padding: "2px 0" }}>
+                            <Icon name="Trash2" size={13} />
+                          </button>
+                        )}
+                        {ev.kind === "feed_record" && canRecord && !isTerminal && (
+                          <button onClick={() => onDeleteFeed(ev.id)}
                             style={{ background: "none", border: "none", cursor: "pointer",
                               color: T.inkFaint, padding: "2px 0" }}>
                             <Icon name="Trash2" size={13} />
@@ -1127,15 +1450,42 @@ function HistoryEventBody({ ev, tc }) {
     );
   }
   if (ev.kind === "health_event") {
+    const healthTypeLabel = HEALTH_EVENT_TYPES.find((t) => t.value === ev.event_type)?.label
+      ?? { en: ev.event_type, hi: ev.event_type, bn: ev.event_type };
+    const isOverdue = ev.next_due_date && new Date(ev.next_due_date) < new Date();
     return (
       <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, fontFamily: T.body, marginTop: 2 }}>
-        {ev.title || ev.event_type?.replace(/_/g, " ")}
+        {ev.title || tc(healthTypeLabel)}
+        <span style={{ fontSize: 12, fontWeight: 400, color: T.inkSoft }}>
+          {" · "}{tc(healthTypeLabel)}
+        </span>
         {ev.medicine && <span style={{ fontSize: 12, fontWeight: 400, color: T.inkSoft }}> · {ev.medicine}</span>}
+        {ev.dose && <span style={{ fontSize: 12, fontWeight: 400, color: T.inkSoft }}> · {ev.dose}</span>}
+        {ev.vet_name && <span style={{ fontSize: 12, fontWeight: 400, color: T.inkSoft }}> · Dr. {ev.vet_name}</span>}
         {ev.next_due_date && (
-          <div style={{ fontSize: 11, color: T.orange, marginTop: 2, fontFamily: T.body }}>
-            {tc({ en: "Due:", hi: "देय:", bn: "দেয়:" })} {new Date(ev.next_due_date).toISOString().slice(0, 10)}
+          <div style={{ fontSize: 11, color: isOverdue ? T.red : T.orange, marginTop: 2, fontFamily: T.body }}>
+            {isOverdue
+              ? tc({ en: "Overdue:", hi: "अतिदेय:", bn: "মেয়াদ পেরিয়েছে:" })
+              : tc({ en: "Due:", hi: "देय:", bn: "দেয়:" })}{" "}
+            {new Date(ev.next_due_date).toISOString().slice(0, 10)}
           </div>
         )}
+        {ev.notes && <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>{ev.notes}</div>}
+      </div>
+    );
+  }
+  if (ev.kind === "feed_record") {
+    const feedTypeLabel = FEED_TYPE_OPTIONS.find((t) => t.value === ev.feed_type)?.label
+      ?? { en: ev.feed_type, hi: ev.feed_type, bn: ev.feed_type };
+    return (
+      <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, fontFamily: T.body, marginTop: 2 }}>
+        {tc(feedTypeLabel)}
+        {ev.quantity_kg && (
+          <span style={{ fontSize: 12, fontWeight: 400, color: T.inkSoft }}>
+            {" · "}{Number(ev.quantity_kg).toFixed(1)} kg
+          </span>
+        )}
+        {ev.notes && <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>{ev.notes}</div>}
       </div>
     );
   }

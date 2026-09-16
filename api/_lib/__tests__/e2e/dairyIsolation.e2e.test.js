@@ -906,3 +906,407 @@ describe("milk upsert idempotency", () => {
     expect(r1.data.id).toBe(r2.data.id);
   });
 });
+
+/* ── feed records ─────────────────────────────────────────────────────────── */
+
+describe("feed records — basic CRUD", () => {
+  let feedId;
+
+  it("worker can add a feed record (farm.dairy.record)", async () => {
+    const r = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedDate: "2026-09-10",
+                  feedType: "concentrate", quantityKg: 5.5, notes: "Morning feed",
+                  clientUuid: "feed-a1-0910" },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.feed_type).toBe("concentrate");
+    expect(parseFloat(r.data.quantity_kg)).toBeCloseTo(5.5);
+    feedId = r.data.id;
+  });
+
+  it("feed record appears in list for the same animal", async () => {
+    const r = await call(U(30), "dairy.feed.list", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.some((f) => f.id === feedId)).toBe(true);
+  });
+
+  it("feed record does NOT appear in list for a different animal (A2)", async () => {
+    const r = await call(U(30), "dairy.feed.list", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA2Id },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.some((f) => f.id === feedId)).toBe(false);
+  });
+
+  it("owner can delete a feed record", async () => {
+    const r = await call(U(30), "dairy.feed.delete", {
+      spaceId: spaceA.id,
+      payload: { feedId },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.deleted).toBe(true);
+  });
+
+  it("deleted feed record no longer appears in list", async () => {
+    const r = await call(U(30), "dairy.feed.list", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.some((f) => f.id === feedId)).toBe(false);
+  });
+});
+
+describe("feed records — client_uuid idempotency", () => {
+  it("replaying the same client_uuid returns the original record id, not a duplicate", async () => {
+    const r1 = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedDate: "2026-09-11",
+                  feedType: "fodder", quantityKg: 3, clientUuid: "feed-idem-0911" },
+    });
+    expect(r1.status).toBe(200);
+    expect(r1.data.feed_type).toBe("fodder");
+
+    const r2 = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedDate: "2026-09-11",
+                  feedType: "silage", quantityKg: 99, clientUuid: "feed-idem-0911" },
+    });
+    expect(r2.status).toBe(200);
+    expect(r2.data.id).toBe(r1.data.id);
+
+    /* Verify only one record exists for this client_uuid (no duplicate created) */
+    const list = await call(U(30), "dairy.feed.list", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id },
+    });
+    expect(list.status).toBe(200);
+    const withId = list.data.filter((f) => f.id === r1.data.id);
+    expect(withId.length).toBe(1);
+  });
+});
+
+describe("feed records — terminal animal write protection", () => {
+  let terminalFeedAnimalId;
+
+  beforeAll(async () => {
+    const a = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: { name: "Terminated Feed Cow", species: "cow", currentStatus: "dry",
+                  clientUuid: "terminal-feed-animal" },
+    });
+    expect(a.status).toBe(200);
+    terminalFeedAnimalId = a.data.id;
+
+    const sold = await call(U(30), "dairy.animals.setStatus", {
+      spaceId: spaceA.id,
+      payload: { animalId: terminalFeedAnimalId, status: "sold" },
+    });
+    expect(sold.status).toBe(200);
+  });
+
+  it("addFeed on a sold animal returns 409", async () => {
+    const r = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: terminalFeedAnimalId, feedDate: "2026-09-12",
+                  feedType: "concentrate", quantityKg: 4 },
+    });
+    expect(r.status).toBe(409);
+  });
+});
+
+describe("feed records — cross-space isolation", () => {
+  let crossFeedId;
+
+  beforeAll(async () => {
+    const r = await call(U(30), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedDate: "2026-09-13",
+                  feedType: "mineral", quantityKg: 0.5,
+                  clientUuid: "cross-space-feed-a1" },
+    });
+    expect(r.status).toBe(200);
+    crossFeedId = r.data.id;
+  });
+
+  it("Farm B cannot delete Farm A feed record (404)", async () => {
+    const r = await call(U(40), "dairy.feed.delete", {
+      spaceId: spaceB.id,
+      payload: { feedId: crossFeedId },
+    });
+    expect(r.status).toBe(404);
+  });
+
+  it("Farm B cannot list Farm A animal feed records (404 on animal load)", async () => {
+    const r = await call(U(40), "dairy.feed.list", {
+      spaceId: spaceB.id,
+      payload: { animalId: animalA1Id },
+    });
+    expect(r.status).toBe(404);
+  });
+});
+
+describe("feed records — history timeline visibility", () => {
+  let histFeedId;
+
+  beforeAll(async () => {
+    const r = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedDate: "2026-09-14",
+                  feedType: "concentrate", quantityKg: 6,
+                  clientUuid: "history-feed-a1-0914" },
+    });
+    expect(r.status).toBe(200);
+    histFeedId = r.data.id;
+  });
+
+  it("feed record appears in animalHistory as feed_record kind", async () => {
+    const r = await call(U(30), "dairy.animal.history", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id },
+    });
+    expect(r.status).toBe(200);
+    const feedEntry = r.data.history.find((e) => e.kind === "feed_record" && e.id === histFeedId);
+    expect(feedEntry).toBeDefined();
+    expect(feedEntry.feed_type).toBe("concentrate");
+    expect(parseFloat(feedEntry.quantity_kg)).toBeCloseTo(6);
+  });
+});
+
+describe("feed records — validation", () => {
+  it("addFeed with invalid feed_type returns 400", async () => {
+    const r = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedDate: "2026-09-10", feedType: "unicorn_food" },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("addFeed without feedDate returns 400", async () => {
+    const r = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedType: "concentrate" },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("non-member (Farm A worker) cannot add feed record to Farm B (404)", async () => {
+    const r = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceB.id,
+      payload: { animalId: animalB1Id, feedDate: "2026-09-10", feedType: "concentrate" },
+    });
+    expect(r.status).toBe(404);
+  });
+});
+
+/* ── health event extended fields ─────────────────────────────────────────── */
+
+describe("health events — extended fields (dose, vet_name, notes)", () => {
+  let healthExtId;
+
+  beforeAll(async () => {
+    const r = await call(U(30), "dairy.health.add", {
+      spaceId: spaceA.id,
+      payload: {
+        animalId: animalA1Id, eventDate: "2026-09-10",
+        eventType: "vaccination", title: "FMD Dose 2",
+        medicine: "Aftopor", dose: "5 ml", vetName: "Dr. Sharma",
+        nextDueDate: "2027-03-10", isZoonoticConcern: true,
+        notes: "Left neck injection", clientUuid: "health-ext-a1-0910",
+      },
+    });
+    expect(r.status).toBe(200);
+    healthExtId = r.data.id;
+  });
+
+  it("list returns the extended-field health event", async () => {
+    const r = await call(U(30), "dairy.health.list", {
+      spaceId: spaceA.id, payload: { animalId: animalA1Id },
+    });
+    expect(r.status).toBe(200);
+    const ev = r.data.find((e) => e.id === healthExtId);
+    expect(ev).toBeDefined();
+    expect(ev.medicine).toBe("Aftopor");
+    expect(ev.dose).toBe("5 ml");
+    expect(ev.vet_name).toBe("Dr. Sharma");
+    expect(ev.is_zoonotic_concern).toBe(true);
+    expect(ev.notes).toBe("Left neck injection");
+  });
+
+  it("animalHistory includes dose, vet_name, notes for health_event", async () => {
+    const r = await call(U(30), "dairy.animal.history", {
+      spaceId: spaceA.id, payload: { animalId: animalA1Id },
+    });
+    expect(r.status).toBe(200);
+    const ev = r.data.history.find((e) => e.kind === "health_event" && e.id === healthExtId);
+    expect(ev).toBeDefined();
+    expect(ev.dose).toBe("5 ml");
+    expect(ev.vet_name).toBe("Dr. Sharma");
+    expect(ev.notes).toBe("Left neck injection");
+  });
+
+  it("invalid health event_type returns 400", async () => {
+    const r = await call(U(30), "dairy.health.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, eventDate: "2026-09-10",
+                  eventType: "surgery", title: "Not a valid type" },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("health add without title returns 400", async () => {
+    const r = await call(U(30), "dairy.health.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, eventDate: "2026-09-10",
+                  eventType: "observation", title: "  " },
+    });
+    expect(r.status).toBe(400);
+  });
+});
+
+/* ── herd metrics — health_overdue_count ─────────────────────────────────── */
+
+describe("herd metrics — health_overdue_count", () => {
+  it("metrics includes health_overdue_count as a number", async () => {
+    const r = await call(U(30), "dairy.metrics", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    expect(typeof r.data.health_overdue_count).toBe("number");
+  });
+
+  it("overdue count is 0 for Farm B (no health events with past next_due_date)", async () => {
+    const r = await call(U(40), "dairy.metrics", { spaceId: spaceB.id });
+    expect(r.status).toBe(200);
+    expect(r.data.health_overdue_count).toBe(0);
+  });
+});
+
+/* ── feed records ─────────────────────────────────────────────────────────── */
+
+describe("feed records — CRUD, isolation, RBAC", () => {
+  let feedId;
+
+  it("worker can add a feed record (farm.dairy.record)", async () => {
+    const r = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedDate: "2026-09-11",
+                  feedType: "concentrate", quantityKg: 4.5,
+                  notes: "Morning feed", clientUuid: "feed-a1-0911" },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.feed_type).toBe("concentrate");
+    expect(parseFloat(r.data.quantity_kg)).toBe(4.5);
+    feedId = r.data.id;
+  });
+
+  it("list returns the feed record for A1", async () => {
+    const r = await call(U(30), "dairy.feed.list", {
+      spaceId: spaceA.id, payload: { animalId: animalA1Id },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.some((f) => f.id === feedId)).toBe(true);
+  });
+
+  it("A2 has no feed records from A1", async () => {
+    const r = await call(U(30), "dairy.feed.list", {
+      spaceId: spaceA.id, payload: { animalId: animalA2Id },
+    });
+    expect(r.status).toBe(200);
+    const ids = r.data.map((f) => f.id);
+    expect(ids).not.toContain(feedId);
+  });
+
+  it("animalHistory includes feed_record kind", async () => {
+    const r = await call(U(30), "dairy.animal.history", {
+      spaceId: spaceA.id, payload: { animalId: animalA1Id },
+    });
+    expect(r.status).toBe(200);
+    const kinds = r.data.history.map((h) => h.kind);
+    expect(kinds).toContain("feed_record");
+    const fev = r.data.history.find((h) => h.kind === "feed_record" && h.id === feedId);
+    expect(fev).toBeDefined();
+    expect(fev.feed_type).toBe("concentrate");
+  });
+
+  it("client_uuid idempotency returns same record on replay", async () => {
+    const r2 = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedDate: "2026-09-11",
+                  feedType: "fodder", quantityKg: 99, clientUuid: "feed-a1-0911" },
+    });
+    expect(r2.status).toBe(200);
+    expect(r2.data.id).toBe(feedId);
+  });
+
+  it("invalid feed_type returns 400", async () => {
+    const r = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedDate: "2026-09-11", feedType: "pizza" },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("feed add without feedDate returns 400", async () => {
+    const r = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, feedType: "fodder" },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("Farm B cannot delete Farm A feed record (404)", async () => {
+    const r = await call(U(40), "dairy.feed.delete", {
+      spaceId: spaceB.id,
+      payload: { feedId },
+    });
+    expect(r.status).toBe(404);
+  });
+
+  it("worker can delete their own farm's feed record", async () => {
+    const r = await call(U(32), "dairy.feed.delete", {
+      spaceId: spaceA.id,
+      payload: { feedId },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.deleted).toBe(true);
+  });
+
+  it("deleted feed record no longer appears in list", async () => {
+    const r = await call(U(30), "dairy.feed.list", {
+      spaceId: spaceA.id, payload: { animalId: animalA1Id },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.some((f) => f.id === feedId)).toBe(false);
+  });
+});
+
+/* ── feed — terminal animal write protection ──────────────────────────────── */
+
+describe("feed — terminal animal write protection", () => {
+  let termFeedAnimalId;
+
+  beforeAll(async () => {
+    const cr = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: { name: "Feed Terminal Test", species: "cow", currentStatus: "milking",
+                  clientUuid: "feed-terminal-animal" },
+    });
+    termFeedAnimalId = cr.data.id;
+    await call(U(30), "dairy.animals.setStatus", {
+      spaceId: spaceA.id,
+      payload: { animalId: termFeedAnimalId, status: "deceased" },
+    });
+  });
+
+  it("feed add on deceased animal returns 409", async () => {
+    const r = await call(U(32), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: termFeedAnimalId, feedDate: "2026-09-12", feedType: "fodder" },
+    });
+    expect(r.status).toBe(409);
+  });
+});

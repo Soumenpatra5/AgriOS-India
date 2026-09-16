@@ -124,6 +124,7 @@ const MIGRATIONS = [
      PGlite because schema_migrations is created by migrate.mjs at runtime,
      not by a migration file. Never add 0017 back to this array. */
   "0019_dairy_foundation.sql",
+  "0020_dairy_feed_records.sql",
 ];
 
 export async function freshDb() {

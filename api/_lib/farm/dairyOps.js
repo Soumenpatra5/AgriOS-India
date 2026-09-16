@@ -305,3 +305,84 @@ export async function deleteHealth(sql, membership, actorUserId, payload) {
 
   return { deleted: true };
 }
+
+/* ── feed records ─────────────────────────────────────────────────────────── */
+
+const FEED_TYPES = new Set([
+  "concentrate", "fodder", "silage", "mineral", "other",
+]);
+
+export async function listFeed(sql, membership, payload) {
+  const animal = await loadAnimal(sql, membership, payload?.animalId);
+  const { limit = 50 } = payload ?? {};
+  return sql`
+    select * from dairy_feed_records
+    where animal_id = ${animal.id} and deleted_at is null
+    order by feed_date desc
+    limit ${limit}
+  `;
+}
+
+export async function addFeed(sql, membership, actorUserId, payload) {
+  const { animalId, feedDate, feedType, quantityKg, notes, clientUuid } = payload ?? {};
+
+  if (!feedDate) throw new HttpError(400, "feedDate required");
+  if (!FEED_TYPES.has(feedType)) throw new HttpError(400, "Invalid feed_type");
+
+  const animal = await loadAnimal(sql, membership, animalId);
+  assertAnimalWritable(animal);
+
+  if (clientUuid) {
+    const dup = await sql`
+      select id from dairy_feed_records
+      where space_id = ${membership.space_id} and client_uuid = ${clientUuid}
+    `;
+    if (dup.length) return dup[0];
+  }
+
+  const rows = await sql`
+    insert into dairy_feed_records
+      (space_id, animal_id, feed_date, feed_type, quantity_kg, notes, client_uuid, created_by)
+    values (
+      ${membership.space_id}, ${animalId}, ${feedDate}, ${feedType},
+      ${quantityKg ?? null}, ${notes ?? null}, ${clientUuid ?? null}, ${actorUserId}
+    )
+    returning *
+  `;
+
+  await audit(sql, {
+    spaceId: membership.space_id, actorUserId,
+    action: "dairy.feed.add",
+    targetType: "dairy_feed_records", targetId: rows[0].id,
+    meta: { animalId, feedType, feedDate },
+  });
+
+  return rows[0];
+}
+
+export async function deleteFeed(sql, membership, actorUserId, payload) {
+  const { feedId } = payload ?? {};
+  if (!feedId) throw new HttpError(400, "feedId required");
+
+  const rows = await sql`
+    select f.*, a.current_status as animal_status
+    from dairy_feed_records f
+    join dairy_animals a on a.id = f.animal_id
+    where f.id = ${feedId} and f.deleted_at is null
+  `;
+  if (!rows.length) throw new HttpError(404, "Feed record not found");
+  requireScope(rows[0], membership);
+  assertAnimalWritable({ current_status: rows[0].animal_status });
+
+  await sql`
+    update dairy_feed_records set deleted_at = now() where id = ${feedId}
+  `;
+
+  await audit(sql, {
+    spaceId: membership.space_id, actorUserId,
+    action: "dairy.feed.delete",
+    targetType: "dairy_feed_records", targetId: feedId,
+  });
+
+  return { deleted: true };
+}

@@ -79,4 +79,9 @@ export const dairyApi = {
   listHealth:  (spaceId, animalId)      => call("dairy.health.list",       spaceId, { animalId }),
   addHealth:   (spaceId, payload)       => call("dairy.health.add",        spaceId, payload),
   deleteHealth:(spaceId, eventId)       => call("dairy.health.delete",     spaceId, { eventId }),
+
+  /* Feed records */
+  listFeed:    (spaceId, animalId)      => call("dairy.feed.list",         spaceId, { animalId }),
+  addFeed:     (spaceId, payload)       => call("dairy.feed.add",          spaceId, payload),
+  deleteFeed:  (spaceId, feedId)        => call("dairy.feed.delete",       spaceId, { feedId }),
 };
