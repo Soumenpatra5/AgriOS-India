@@ -99,4 +99,20 @@ export const poultryApi = {
 
   /* Alert signals (facts for existing alert engine) */
   alertSignals: (spaceId, batchId) => call("poultry.alerts.signals", spaceId, { batchId }),
+
+  /* Workflow — daily summary + task engine */
+  dailySummary:  (spaceId, batchId, date)  => call("poultry.summary.daily",    spaceId, { batchId, date }),
+  workflowToday: (spaceId, batchId, date)  => call("poultry.workflow.today",   spaceId, { batchId, date }),
+  completeTask:  (spaceId, payload)        => call("poultry.workflow.complete", spaceId, payload),
+  skipTask:      (spaceId, payload)        => call("poultry.workflow.skip",     spaceId, payload),
+
+  /* Follow-up chains */
+  chainDetail:    (spaceId, chainId)          => call("poultry.followup.chain_detail",   spaceId, { chainId }),
+  recordOutcome:  (spaceId, payload)          => call("poultry.followup.record_outcome", spaceId, payload),
+  cancelChain:    (spaceId, chainId, reason)  => call("poultry.followup.cancel",         spaceId, { chainId, reason: reason || null }),
+
+  /* Incidents */
+  reportIncident:  (spaceId, payload)                   => call("poultry.incident.report",  spaceId, payload),
+  listIncidents:   (spaceId, batchId, params = {})       => call("poultry.incident.list",   spaceId, { batchId, ...params }),
+  resolveIncident: (spaceId, incidentId, notes)          => call("poultry.incident.resolve", spaceId, { incidentId, notes: notes || null }),
 };

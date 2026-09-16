@@ -9,6 +9,7 @@ import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { poultryApi } from "../../services/poultry/poultryApi.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
+import PoultryWorkflowTab from "./PoultryWorkflowTab.jsx";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -32,12 +33,13 @@ const TRANSITION_LABEL = {
   archive:          { en: "Archive",        hi: "संग्रहित करें",  bn: "আর্কাইভ করুন" },
 };
 
-const TABS = ["daily", "weights", "feed", "health"];
+const TABS = ["workflow", "daily", "weights", "feed", "health"];
 const TAB_LABEL = {
-  daily:   { en: "Daily",   hi: "दैनिक",  bn: "দৈনিক" },
-  weights: { en: "Weights", hi: "वजन",    bn: "ওজন" },
-  feed:    { en: "Feed",    hi: "चारा",   bn: "খাদ্য" },
-  health:  { en: "Health",  hi: "स्वास्थ्य", bn: "স্বাস্থ্য" },
+  workflow: { en: "Tasks",   hi: "कार्य",   bn: "কাজ" },
+  daily:    { en: "Daily",   hi: "दैनिक",   bn: "দৈনিক" },
+  weights:  { en: "Weights", hi: "वजन",     bn: "ওজন" },
+  feed:     { en: "Feed",    hi: "चारा",    bn: "খাদ্য" },
+  health:   { en: "Health",  hi: "स्वास्थ्य", bn: "স্বাস্থ্য" },
 };
 
 const HEALTH_TYPE_OPTIONS = (tc) => [
@@ -403,6 +405,12 @@ export default function PoultryBatchDetail({ batchId }) {
         </div>
 
         {/* Tab content */}
+        {tab === "workflow" && (
+          <div style={{ padding: "16px 16px 0" }}>
+            <PoultryWorkflowTab space={space} batch={batch}
+              canRecord={canRecord} canManage={canManage} />
+          </div>
+        )}
         {tabLoading
           ? <div style={{ padding: 40, display: "grid", placeItems: "center" }}><Spinner /></div>
           : <>

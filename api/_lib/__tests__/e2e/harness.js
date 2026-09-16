@@ -36,18 +36,67 @@ export const phoneFor = (uid) => `9${uid.slice(-3).padStart(9, "0")}`;
 /* Shared with the unit suites' makeSql: a tagged-template shim over PGlite
    that binds $n parameters, understands sql.json(), and provides begin(). */
 export function makeSql(pg) {
-  const run = async (strings, ...values) => {
+  /* All fragments (bulk-insert and conditional SQL snippets) use __PH__ markers.
+     At execution time, __PH__ markers are renumbered $1, $2, … left-to-right. */
+
+  function buildBulkFragment(rows, cols) {
+    if (!rows || !rows.length) return { __fragment: true, text: "", params: [] };
+    const params = [];
+    const colList = cols.map(c => `"${c}"`).join(", ");
+    const valueRows = rows.map(row =>
+      `(${cols.map(col => { params.push(row[col] ?? null); return "__PH__"; }).join(", ")})`
+    );
+    return { __fragment: true, text: `(${colList}) VALUES ${valueRows.join(", ")}`, params };
+  }
+
+  function buildSqlFragment(strings, values) {
+    /* Synchronously build a text+params pair using __PH__ for plain values and
+       inlining nested fragments (__fragment or __sqlquery) by appending their
+       text and extending params. */
     let text = ""; const params = [];
-    strings.forEach((chunk, i) => {
-      text += chunk;
+    for (let i = 0; i < strings.length; i++) {
+      text += strings[i];
       if (i < values.length) {
         const v = values[i];
-        params.push(v && v.__json ? JSON.stringify(v.value) : v);
-        text += `$${params.length}`;
+        if (v != null && (v.__fragment || v.__sqlquery)) {
+          text += v.text;
+          params.push(...v.params);
+        } else {
+          params.push(v && v.__json ? JSON.stringify(v.value) : (v ?? null));
+          text += "__PH__";
+        }
       }
-    });
-    return (await pg.query(text, params)).rows;
-  };
+    }
+    return { text, params };
+  }
+
+  function finalizeText(text) {
+    let n = 0;
+    return text.replace(/__PH__/g, () => `$${++n}`);
+  }
+
+  function run(stringsOrRows, ...rest) {
+    const isTemplate = stringsOrRows != null && typeof stringsOrRows.raw !== "undefined";
+    if (!isTemplate) return buildBulkFragment(stringsOrRows, rest);
+
+    const { text, params } = buildSqlFragment(stringsOrRows, rest);
+
+    /* Return an object that is BOTH a thenable (for await sql`…`) and a fragment
+       (for use as an interpolation inside another sql`…` template). */
+    const obj = {
+      __sqlquery: true,
+      __fragment: true,
+      text,
+      params,
+      then(onFulfilled, onRejected) {
+        return pg.query(finalizeText(text), params).then(r => r.rows).then(onFulfilled, onRejected);
+      },
+      catch(onRejected) { return Promise.resolve(obj).catch(onRejected); },
+      finally(fn)       { return Promise.resolve(obj).finally(fn); },
+    };
+    return obj;
+  }
+
   run.json = (value) => ({ __json: true, value });
   run.begin = async (fn) => {
     await pg.exec("begin");
@@ -68,7 +117,7 @@ const MIGRATIONS = [
   "0009_farm_chat_reply_react_pin.sql", "0010_farm_chat_mentions_search.sql",
   "0011_farm_dm.sql", "0012_performance_indexes.sql",
   "0013_poultry_sheds_batches.sql", "0014_poultry_daily_weight_feed.sql",
-  "0015_poultry_health_vaccination.sql",
+  "0015_poultry_health_vaccination.sql", "0016_poultry_workflow.sql",
 ];
 
 export async function freshDb() {
