@@ -118,6 +118,7 @@ const MIGRATIONS = [
   "0011_farm_dm.sql", "0012_performance_indexes.sql",
   "0013_poultry_sheds_batches.sql", "0014_poultry_daily_weight_feed.sql",
   "0015_poultry_health_vaccination.sql", "0016_poultry_workflow.sql",
+  "0017_enable_rls.sql", "0018_poultry_finance.sql",
 ];
 
 export async function freshDb() {
