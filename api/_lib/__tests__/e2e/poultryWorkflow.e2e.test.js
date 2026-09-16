@@ -511,3 +511,110 @@ describe("chain_detail enrichment (batch + sourceEvent)", () => {
     expect(new Set(pending.map(t => t.id)).size).toBe(pending.length);
   });
 });
+
+/* ── Phase C: Smart Problem Guidance ───────────────────────────────────── */
+
+describe("Phase C: incident → guided response → chain flow", () => {
+  it("reportIncident returns guided_response, severity, description, chain_id", async () => {
+    const r = await call(U(30), "poultry.incident.report", {
+      spaceId: A.space.id,
+      payload: {
+        batchId: batchA.id,
+        description: "dead birds found in the shed — urgent mass mortality",
+        clientUuid: crypto.randomUUID(),
+      },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data).toHaveProperty("id");
+    expect(r.data).toHaveProperty("severity");
+    expect(r.data).toHaveProperty("description");
+    expect(r.data).toHaveProperty("guided_response");
+    expect(r.data.guided_response).toHaveProperty("checks");
+    expect(r.data.guided_response).toHaveProperty("actions");
+    expect(r.data.guided_response).toHaveProperty("escalate_if");
+    expect(r.data.guided_response).toHaveProperty("disclaimer");
+  });
+
+  it("high/urgent incident auto-creates a chain; chain_id returned in response", async () => {
+    const r = await call(U(30), "poultry.incident.report", {
+      spaceId: A.space.id,
+      payload: {
+        batchId: batchA.id,
+        description: "severe respiratory distress observed in flock",
+        clientUuid: crypto.randomUUID(),
+      },
+    });
+    expect(r.status).toBe(200);
+    const { severity, chain_id } = r.data;
+    if (severity === "normal") {
+      /* normal severity should NOT create a chain */
+      expect(chain_id).toBeFalsy();
+    } else {
+      /* high or urgent must have a chain_id */
+      expect(chain_id).toBeTruthy();
+      /* chain must exist in DB and link back to the incident */
+      const rows = await dbRef.sql`
+        SELECT id, source_id FROM poultry_followup_chains
+        WHERE id = ${chain_id} AND deleted_at IS NULL LIMIT 1`;
+      expect(rows.length).toBe(1);
+      expect(rows[0].source_id).toBe(r.data.id);
+    }
+  });
+
+  it("normal incident does not create a chain; chain_id is null", async () => {
+    const r = await call(U(30), "poultry.incident.report", {
+      spaceId: A.space.id,
+      payload: {
+        batchId: batchA.id,
+        description: "feed consumption slightly lower than usual today",
+        clientUuid: crypto.randomUUID(),
+      },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.severity).toBe("normal");
+    expect(r.data.chain_id).toBeFalsy();
+  });
+
+  it("daily summary open_incidents include guided_response and chain_id fields", async () => {
+    /* Report a new incident so there is definitely one open */
+    await call(U(30), "poultry.incident.report", {
+      spaceId: A.space.id,
+      payload: {
+        batchId: batchA.id,
+        description: "water nipples blocked in three rows",
+        clientUuid: crypto.randomUUID(),
+      },
+    });
+
+    const r = await call(U(30), "poultry.summary.daily", {
+      spaceId: A.space.id,
+      payload: { batchId: batchA.id },
+    });
+    expect(r.status).toBe(200);
+    const incidents = r.data?.summary?.attention?.open_incidents || [];
+    if (incidents.length > 0) {
+      const inc = incidents[0];
+      /* Phase C: both fields must now be present (chain_id may be null for normal) */
+      expect(inc).toHaveProperty("guided_response");
+      expect(inc).toHaveProperty("chain_id");
+    }
+  });
+
+  it("guided_response content matches severity category", async () => {
+    const r = await call(U(30), "poultry.incident.report", {
+      spaceId: A.space.id,
+      payload: {
+        batchId: batchA.id,
+        description: "birds coughing and sneezing — respiratory concern",
+        clientUuid: crypto.randomUUID(),
+      },
+    });
+    expect(r.status).toBe(200);
+    const gr = r.data.guided_response;
+    expect(Array.isArray(gr.checks)).toBe(true);
+    expect(gr.checks.length).toBeGreaterThan(0);
+    expect(Array.isArray(gr.actions)).toBe(true);
+    expect(typeof gr.escalate_if).toBe("string");
+    expect(gr.escalate_if.length).toBeGreaterThan(0);
+  });
+});

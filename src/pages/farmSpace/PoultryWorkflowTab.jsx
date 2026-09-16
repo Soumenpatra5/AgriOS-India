@@ -20,10 +20,13 @@ const PRIORITY_LABEL = {
 };
 
 const TASK_TYPE_LABEL = {
-  data_recording: { en: "Record",    hi: "रिकॉर्ड",  bn: "রেকর্ড" },
-  chain_followup: { en: "Follow-up", hi: "फ़ॉलो-अप", bn: "ফলো-আপ" },
-  reactive:       { en: "Alert",     hi: "अलर्ट",    bn: "সতর্কতা" },
-  manual:         { en: "Manual",    hi: "मैन्युअल", bn: "ম্যানুয়াল" },
+  monitoring_check: { en: "Monitoring",    hi: "निरीक्षण",       bn: "পর্যবেক্ষণ" },
+  data_recording:   { en: "Record",        hi: "रिकॉर्ड",        bn: "রেকর্ড" },
+  physical_task:    { en: "Physical task", hi: "शारीरिक कार्य",  bn: "শারীরিক কাজ" },
+  chain_followup:   { en: "Follow-up",     hi: "फ़ॉलो-अप",       bn: "ফলো-আপ" },
+  incident_task:    { en: "Problem",       hi: "समस्या",         bn: "সমস্যা" },
+  reactive:         { en: "Alert",         hi: "अलर्ट",          bn: "সতর্কতা" },
+  manual:           { en: "Manual",        hi: "मैन्युअल",       bn: "ম্যানুয়াল" },
 };
 
 const SKIP_REASONS = (tc) => [
@@ -50,6 +53,12 @@ const ACTION_TAKEN_OPTIONS = (tc) => [
   { label: tc({ en: "Escalated to vet",  hi: "पशु चिकित्सक बुलाया", bn: "পশু চিকিৎসকে পাঠানো" }), value: "escalated" },
 ];
 
+
+function fmtDate(iso) {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); }
+  catch { return String(iso).slice(0, 10); }
+}
 
 /* ── main component ──────────────────────────────────────────────────────── */
 
@@ -84,8 +93,8 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
   const [incidentDesc, setIncidentDesc] = useState("");
   const [reporting, setReporting]       = useState(false);
 
-  /* Guided response sheet */
-  const [guidedResponse, setGuidedResponse] = useState(null);
+  /* Incident result sheet (full incident context after reporting) */
+  const [incidentResult, setIncidentResult] = useState(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -176,13 +185,20 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
       setIncidentOpen(false);
       setIncidentDesc("");
       if (result?.guided_response) {
-        setGuidedResponse(result.guided_response);
+        setIncidentResult({
+          id:             result.id,
+          severity:       result.severity,
+          description:    result.description,
+          chain_id:       result.chain_id || null,
+          guided_response: result.guided_response,
+          batch_day:      result.batch_day,
+        });
       } else {
         toast(tc({ en: "Problem reported", hi: "समस्या दर्ज हुई", bn: "সমস্যা রিপোর্ট হয়েছে" }), "success");
       }
       load(true);
     } catch (err) {
-      toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর্থ" }), "error");
+      toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব्यर्थ" }), "error");
     } finally { setReporting(false); }
   };
 
@@ -202,6 +218,9 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
   const completedCount = s.completed.tasks.length;
   const chainCount     = s.attention.active_chains.length;
   const incidentCount  = s.attention.open_incidents.length;
+  /* Exclude the recommended task from the "Today" list — it's already prominent above */
+  const recTaskId   = s.recommendation?.task?.id;
+  const todayTasks  = s.pending.tasks.filter(t => t.id !== recTaskId);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -247,10 +266,10 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
         />
       )}
 
-      {/* Today's pending tasks */}
-      {pendingCount > 0 && (
+      {/* Today's pending tasks (recommendation already shown above; excluded here) */}
+      {todayTasks.length > 0 && (
         <TaskSection label={tc({ en: "Today", hi: "आज", bn: "আজ" })}
-          tasks={s.pending.tasks} tc={tc} canRecord={canRecord} canManage={canManage}
+          tasks={todayTasks} tc={tc} canRecord={canRecord} canManage={canManage}
           onComplete={openComplete} onSkip={openSkip} onOutcome={openOutcome} onViewChain={viewChain}
         />
       )}
@@ -266,6 +285,14 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
           chains={s.attention.active_chains} incidents={s.attention.open_incidents}
           tc={tc}
           onViewChain={c => push({ kind: "poultryChainDetail", props: { chainId: c.id } })}
+          onViewGuidance={inc => setIncidentResult({
+            id:             inc.id,
+            severity:       inc.severity,
+            description:    inc.description,
+            chain_id:       inc.chain_id || null,
+            guided_response: inc.guided_response,
+            batch_day:      inc.batch_day,
+          })}
         />
       )}
 
@@ -372,12 +399,19 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
         </div>
       </BottomSheet>
 
-      {/* Guided response */}
-      <BottomSheet open={!!guidedResponse} onClose={() => setGuidedResponse(null)}
-        title={tc({ en: "Guided Response", hi: "मार्गदर्शित प्रतिक्रिया", bn: "নির্দেশিত প্রতিক্রিয়া" })}>
-        {guidedResponse && (
-          <GuidedResponseContent response={guidedResponse} tc={tc}
-            onClose={() => setGuidedResponse(null)} />
+      {/* Problem guidance (full incident context) */}
+      <BottomSheet open={!!incidentResult} onClose={() => setIncidentResult(null)}
+        title={tc({ en: "Problem Guidance", hi: "समस्या मार्गदर्शन", bn: "সমস্যা নির্দেশিকা" })}>
+        {incidentResult && (
+          <GuidedResponseContent
+            incident={incidentResult}
+            tc={tc}
+            onClose={() => setIncidentResult(null)}
+            onViewChain={chainId => {
+              setIncidentResult(null);
+              push({ kind: "poultryChainDetail", props: { chainId } });
+            }}
+          />
         )}
       </BottomSheet>
     </div>
@@ -439,7 +473,7 @@ function RecommendationCard({ task, reason, tc, canRecord, canManage, onComplete
           {isOverdue && (
             <div style={{ marginTop: 4, fontSize: 12, color: T.red, fontWeight: 600 }}>
               {tc({ en: "Overdue", hi: "विलंबित", bn: "বিলম্বিত" })}
-              {task.scheduled_date ? ` · ${task.scheduled_date}` : ""}
+              {task.scheduled_date ? ` · ${fmtDate(task.scheduled_date)}` : ""}
             </div>
           )}
           {isChain && (
@@ -541,7 +575,7 @@ function TaskCard({ task, tc, canRecord, canManage, onComplete, onSkip, onOutcom
             )}
             {/* Date + batch day */}
             <div style={{ fontSize: 12, color: T.inkFaint, marginTop: 4 }}>
-              {task.scheduled_date}
+              {fmtDate(task.scheduled_date)}
               {task.batch_day != null ? ` · ${tc({ en: `Day ${task.batch_day}`, hi: `दिन ${task.batch_day}`, bn: `দিন ${task.batch_day}` })}` : ""}
             </div>
             {/* Blocked message */}
@@ -583,7 +617,7 @@ function TaskCard({ task, tc, canRecord, canManage, onComplete, onSkip, onOutcom
   );
 }
 
-function AttentionSection({ chains, incidents, tc, onViewChain }) {
+function AttentionSection({ chains, incidents, tc, onViewChain, onViewGuidance }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -600,7 +634,7 @@ function AttentionSection({ chains, incidents, tc, onViewChain }) {
               </div>
               <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 3 }}>
                 {tc({ en: "Follow-up chain", hi: "फ़ॉलो-अप चेन", bn: "ফলো-আপ চেইন" })}
-                {c.triggered_at ? ` · ${c.triggered_at.slice(0, 10)}` : ""}
+                {c.triggered_at ? ` · ${fmtDate(c.triggered_at)}` : ""}
               </div>
             </div>
             <Icon name="ChevronRight" size={16} color={T.inkFaint} style={{ flexShrink: 0 }} />
@@ -609,6 +643,7 @@ function AttentionSection({ chains, incidents, tc, onViewChain }) {
       ))}
       {incidents.map(inc => {
         const sColor = inc.severity === "urgent" ? T.red : T.orange;
+        const hasGuidance = !!inc.guided_response;
         return (
           <Card key={inc.id} style={{ borderLeft: `3px solid ${sColor}` }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>
@@ -621,11 +656,22 @@ function AttentionSection({ chains, incidents, tc, onViewChain }) {
             <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.4 }}>
               {(inc.description || "").slice(0, 140)}{(inc.description || "").length > 140 ? "…" : ""}
             </div>
-            {inc.batch_day != null && (
-              <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 4 }}>
-                {tc({ en: `Day ${inc.batch_day}`, hi: `दिन ${inc.batch_day}`, bn: `দিন ${inc.batch_day}` })}
-              </div>
-            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+              {inc.batch_day != null && (
+                <div style={{ fontSize: 12, color: T.inkSoft }}>
+                  {tc({ en: `Day ${inc.batch_day}`, hi: `दिन ${inc.batch_day}`, bn: `দিন ${inc.batch_day}` })}
+                </div>
+              )}
+              {hasGuidance && (
+                <button onClick={() => onViewGuidance(inc)}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0,
+                    fontSize: 12, fontWeight: 600, color: T.primary, fontFamily: T.body,
+                    display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                  <Icon name="BookOpen" size={12} color={T.primary} />
+                  {tc({ en: "View guidance", hi: "मार्गदर्शन देखें", bn: "নির্দেশিকা দেখুন" })}
+                </button>
+              )}
+            </div>
           </Card>
         );
       })}
@@ -656,7 +702,7 @@ function UpcomingSection({ tasks, tc }) {
             padding: "8px 12px", background: T.surface2, borderRadius: T.rMd }}>
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: fg, flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 13.5, color: T.ink }}>{t.title}</span>
-            <span style={{ fontSize: 12, color: T.inkSoft, flexShrink: 0 }}>{t.scheduled_date}</span>
+            <span style={{ fontSize: 12, color: T.inkSoft, flexShrink: 0 }}>{fmtDate(t.scheduled_date)}</span>
           </div>
         );
       })}
@@ -691,9 +737,57 @@ function CompletedSection({ tasks, tc }) {
   );
 }
 
-function GuidedResponseContent({ response, tc, onClose }) {
+function GuidedResponseContent({ incident, tc, onClose, onViewChain }) {
+  const response = incident.guided_response || {};
+  const sColor = incident.severity === "urgent" ? T.red : incident.severity === "high" ? T.orange : T.inkSoft;
+  const severityLabel = incident.severity === "urgent"
+    ? tc({ en: "Urgent", hi: "अत्यावश्यक", bn: "জরুরি" })
+    : incident.severity === "high"
+      ? tc({ en: "High", hi: "गंभीर", bn: "গুরুতর" })
+      : tc({ en: "Normal", hi: "सामान्य", bn: "সাধারণ" });
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "4px 0 8px" }}>
+
+      {/* What was reported + severity badge */}
+      <div style={{ background: T.surface2, borderRadius: T.rMd, padding: "10px 12px",
+        borderLeft: `3px solid ${sColor}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <Icon name="AlertTriangle" size={13} color={sColor} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: sColor, textTransform: "uppercase",
+            letterSpacing: "0.05em" }}>
+            {severityLabel}
+            {incident.batch_day != null
+              ? ` · ${tc({ en: `Day ${incident.batch_day}`, hi: `दिन ${incident.batch_day}`, bn: `দিন ${incident.batch_day}` })}`
+              : ""}
+          </span>
+        </div>
+        <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.5 }}>
+          {incident.description}
+        </div>
+      </div>
+
+      {/* Follow-up chain link (high/urgent only) */}
+      {incident.chain_id && (
+        <button onClick={() => onViewChain(incident.chain_id)}
+          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%",
+            padding: "10px 12px", background: T.surface2, borderRadius: T.rMd,
+            border: `1px solid ${T.lineSoft}`, cursor: "pointer", textAlign: "left",
+            fontFamily: T.body }}>
+          <Icon name="Link2" size={14} color={T.primary} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: T.primary }}>
+              {tc({ en: "Follow-up chain created", hi: "फ़ॉलो-अप चेन बनाई गई", bn: "ফলো-আপ চেইন তৈরি হয়েছে" })}
+            </div>
+            <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
+              {tc({ en: "Tap to view tasks and track progress", hi: "कार्य देखने और प्रगति ट्रैक करने के लिए टैप करें",
+                    bn: "কাজ দেখতে এবং অগ্রগতি ট্র্যাক করতে ট্যাপ করুন" })}
+            </div>
+          </div>
+          <Icon name="ChevronRight" size={16} color={T.inkFaint} style={{ flexShrink: 0 }} />
+        </button>
+      )}
+
       {response.disclaimer && (
         <div style={{ fontSize: 12.5, color: T.orange, background: T.surface2,
           padding: "8px 12px", borderRadius: T.rMd, lineHeight: 1.5 }}>
@@ -727,7 +821,7 @@ function GuidedResponseContent({ response, tc, onClose }) {
         </div>
       )}
       <Button full onClick={onClose}>
-        {tc({ en: "Got it", hi: "समझ गया", bn: "বুঝলাম" })}
+        {tc({ en: "Got it, I'll act on this", hi: "समझ गया, कदम उठाऊँगा", bn: "বুঝলাম, পদক্ষেপ নেব" })}
       </Button>
     </div>
   );

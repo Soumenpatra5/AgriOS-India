@@ -1368,7 +1368,7 @@ export async function generateDailySummary(sql, membership, payload) {
 
   // Open incidents.
   const openIncidents = await sql`
-    select id, severity, description, batch_day, created_at
+    select id, severity, description, batch_day, created_at, chain_id, guided_response
     from poultry_incidents
     where batch_id = ${batchId} and status in ('open','investigating') and deleted_at is null
     order by created_at desc limit 10`;
