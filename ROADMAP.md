@@ -3,7 +3,27 @@
 Built from the Core Concept Document v1.0. Guiding rule: **ship the daily loop deep before going wide.**
 The daily loop = morning (weather + tasks + advice) → evening (record activities, income, expenses).
 
-**Status legend:** ✅ shipped · 🟡 partial · ⬜ planned. Last reviewed: Aug 2026.
+**Status legend:** ✅ shipped · 🟡 partial · ⬜ planned · 🚫 deprioritised. Last reviewed: Sep 2026.
+
+---
+
+## Active priority order (Sep 2026)
+
+**Now / In progress**
+1. Feed-reminder scheduling → wired to notification service
+2. Language dictionary completion (ta, te, mr, pa, or)
+
+**Next**
+3. IMD real-time weather alerts
+4. Season-over-season P&L comparison
+5. B2B / FPO / dealer dashboards
+
+**Later / Deferred**
+6. Image search (vector/backend phase)
+7. Demand forecasting + supply-chain risk (Logistics Analytics)
+
+**Removed from active roadmap**
+- Live market prices (data.gov.in / Agmarknet / eNAM) — scaffold untouched, no active effort
 
 ---
 
@@ -31,16 +51,16 @@ The daily loop = morning (weather + tasks + advice) → evening (record activiti
   - _On-device (optional):_ a runtime-agnostic **inference harness** is built and verified (`localProvider` + `localInference`, `registerModel` seam). Ships **no ML dependency and no model** — dormant until a trained crop-disease model + labels are registered. See [`AUDIT-cloud-vision.md`](AUDIT-cloud-vision.md) (F6). Training/commissioning a model is a product call.
 - ✅ **Government schemes**: curated scheme explorer per enterprise/eligibility.
 - ✅ **Weather upgrade**: location-based dashboard (GPS pin) with ECMWF model + advisories.
-- ⬜ **Live market prices**: Agmarknet / eNAM via data.gov.in — **not yet live.** UI + `priceProxy` → `/api/prices` scaffolding is ready; today the Market tab shows curated MSP + seasonal bands (clearly labelled "not today's rate"). Needs a data.gov.in key + feed implementation in `api/prices.js`.
-- ⬜ IMD real-time alerts.
+- ⬜ **IMD real-time weather alerts** — next in queue after feed-reminder notifications.
+- 🚫 **Live market prices** (Agmarknet / eNAM / data.gov.in) — deprioritised. Existing `priceProxy` → `/api/prices` scaffold and Market tab MSP/seasonal bands are untouched; no active development effort. Revisit only if a reliable, low-maintenance data source becomes available.
 
 ## Phase 3 — Premium anchors
 
 - ✅ **Business/advisory AI**: business-advisor agent shipped (project reports, scaling).
 - ✅ **Bank-format DPR generator** (strongest willingness-to-pay): Detailed Project Reports for a term loan — promoter profile, cost of project, means of finance, repayment ladder, year-wise profitability, and the viability ratios a lending officer reads (NPV, IRR, BCR, DSCR, payback, break-even). Six starting templates (dairy, broiler, goat, fishery, mango orchard, custom) with **indicative** unit economics that are fully editable; exports to a printable A4 document (browser Save-as-PDF) or CSV. Every report carries a disclaimer that it is a planning aid, not a bank appraisal — figures must be checked against the financing bank's current unit-cost norms.
 - ✅ **Livestock modules**: managers for poultry, dairy, goat, pig, sheep, fish, bee — profiles, production, events.
-- 🟡 Cash-flow view ✅, loan EMI calculator ✅; season-over-season comparison ⬜.
-- ⬜ B2B channel: FPO/dealer dashboards sponsoring premium for member farmers.
+- 🟡 Cash-flow view ✅, loan EMI calculator ✅; season-over-season comparison ⬜ — next after IMD alerts.
+- ⬜ B2B channel: FPO/dealer dashboards sponsoring premium for member farmers — follows season-over-season.
 
 ---
 
@@ -64,7 +84,7 @@ The app has grown well past the initial daily-loop MVP. Also live:
 | Need | Source | Status |
 |---|---|---|
 | Weather | Open-Meteo / ECMWF (now), IMD (later) | ✅ live; IMD alerts ⬜ |
-| Market prices | Agmarknet / eNAM via data.gov.in | ⬜ not wired — needs key + feed; MSP/seasonal bands shown meanwhile |
+| Market prices | Agmarknet / eNAM via data.gov.in | 🚫 deprioritised — MSP/seasonal bands shown; no active feed integration |
 | Schemes | PM-KISAN, state portals | ✅ curated (manual quarterly refresh) |
 | AI | Claude (`claude-opus-4-8`) | ✅ behind keyless serverless proxy with failover |
 
