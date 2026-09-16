@@ -119,6 +119,11 @@ const MIGRATIONS = [
   "0013_poultry_sheds_batches.sql", "0014_poultry_daily_weight_feed.sql",
   "0015_poultry_health_vaccination.sql", "0016_poultry_workflow.sql",
   "0018_poultry_finance.sql",
+  /* NOTE: 0017_enable_rls.sql is permanently excluded — it contains
+     `alter table schema_migrations enable row level security` which crashes
+     PGlite because schema_migrations is created by migrate.mjs at runtime,
+     not by a migration file. Never add 0017 back to this array. */
+  "0019_dairy_foundation.sql",
 ];
 
 export async function freshDb() {

@@ -47,6 +47,14 @@ export const PERMISSIONS = [
   "farm.poultry.manage",
   "farm.poultry.finance",
   "farm.poultry.close",
+  /* Dairy (Individual Animal Management). Four levels: reading the herd,
+     recording daily milk/health/events, managing animals and lactations,
+     and accessing financials. No close permission — dairy has no batch-cycle
+     concept to freeze. */
+  "farm.dairy.view",
+  "farm.dairy.record",
+  "farm.dairy.manage",
+  "farm.dairy.finance",
 ];
 
 /* Worker holds the permissions whose ROWS are narrowed elsewhere rather than
@@ -67,6 +75,8 @@ const MATRIX = {
     /* Runs the poultry operation day to day, including its money — but
        closing a cycle (which freezes the batch P&L) stays with the owner. */
     "farm.poultry.view", "farm.poultry.record", "farm.poultry.manage", "farm.poultry.finance",
+    /* Manages the dairy herd day to day, including its financials. */
+    "farm.dairy.view", "farm.dairy.record", "farm.dairy.manage", "farm.dairy.finance",
   ]),
   supervisor: new Set([
     "farm.view", "farm.members.view",
@@ -76,6 +86,8 @@ const MATRIX = {
     "farm.documents.view",
     /* Records the day; cannot create batches, set targets, or touch money. */
     "farm.poultry.view", "farm.poultry.record",
+    /* Records dairy milk, health and events; cannot create animals or see financials. */
+    "farm.dairy.view", "farm.dairy.record",
   ]),
   worker: new Set([
     "farm.view",
@@ -87,6 +99,8 @@ const MATRIX = {
        work in is not narrowed by row: like chat, membership is the access
        rule, and a shed the worker cannot see is one they cannot report on. */
     "farm.poultry.view", "farm.poultry.record",
+    /* The milkman records the morning and evening yield — that is their job. */
+    "farm.dairy.view", "farm.dairy.record",
   ]),
 };
 

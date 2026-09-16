@@ -30,6 +30,9 @@ import * as poultryOps from "./_lib/farm/poultryOps.js";
 import * as poultryHealth from "./_lib/farm/poultryHealth.js";
 import * as poultryFinance from "./_lib/farm/poultryFinance.js";
 import * as wf from "./_lib/farm/poultryWorkflow.js";
+import * as dairy from "./_lib/farm/dairy.js";
+import * as dairyOps from "./_lib/farm/dairyOps.js";
+import * as dairyFinance from "./_lib/farm/dairyFinance.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -268,6 +271,69 @@ const ACTIONS = {
   "poultry.costs.add":        { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => poultryFinance.addCost(sql, membership, user.id, payload) },
   "poultry.costs.delete":     { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryFinance.deleteCost(sql, membership, user.id, payload) },
   "poultry.finance.summary":  { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryFinance.financeSummary(sql, membership, payload) },
+
+  /* Dairy — Individual Animal Management (D1: foundation).
+   *
+   * Canonical identity: animal_id, NOT batch_id. Every table hangs off
+   * dairy_animals for the animal's entire life. Four permission tiers:
+   *   farm.dairy.view    — everyone can read the herd
+   *   farm.dairy.record  — worker/supervisor can record milk, health, events
+   *   farm.dairy.manage  — manager can create/update animals, lactations
+   *   farm.dairy.finance — manager can access sales, costs, finance summary
+   * No close permission: dairy has no batch-cycle concept to freeze. */
+
+  /* Animals — individual animal registry */
+  "dairy.animals.list":       { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairy.listAnimals(sql, membership, payload) },
+  "dairy.animals.get":        { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairy.getAnimal(sql, membership, payload) },
+  "dairy.animals.create":     { permission: "farm.dairy.manage",  run: ({ sql, membership, user, payload }) => dairy.createAnimal(sql, membership, user.id, payload) },
+  "dairy.animals.update":     { permission: "farm.dairy.manage",  run: ({ sql, membership, user, payload }) => dairy.updateAnimal(sql, membership, user.id, payload) },
+  "dairy.animals.setStatus":  { permission: "farm.dairy.manage",  run: ({ sql, membership, user, payload }) => dairy.setAnimalStatus(sql, membership, user.id, payload) },
+
+  /* Lactations — calving and lactation cycle history */
+  "dairy.lactations.list":    { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairy.listLactations(sql, membership, payload) },
+  "dairy.lactations.add":     { permission: "farm.dairy.manage",  run: ({ sql, membership, user, payload }) => dairy.addLactation(sql, membership, user.id, payload) },
+  "dairy.lactations.update":  { permission: "farm.dairy.manage",  run: ({ sql, membership, user, payload }) => dairy.updateLactation(sql, membership, user.id, payload) },
+
+  /* Herd metrics — dashboard summary */
+  "dairy.metrics":            { permission: "farm.dairy.view",    run: ({ sql, membership }) => dairy.herdMetrics(sql, membership) },
+
+  /* Animal history — full timeline for one animal */
+  "dairy.animal.history":     { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairy.animalHistory(sql, membership, payload) },
+
+  /* Milk records — daily AM/PM recording.
+     dairy.milk.delete is farm.dairy.record (not farm.dairy.manage) by design:
+     the milkman who entered the record corrects their own entry. This differs
+     from poultry.daily.delete (farm.poultry.manage), where a separate recorder
+     and a supervisor control deletion. Dairy milking is typically one person;
+     forcing them to escalate a correction to a manager adds friction without
+     meaningful safety, since the scope check still confines deletion to the
+     caller's own farm space. */
+  "dairy.milk.list":          { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairyOps.listMilk(sql, membership, payload) },
+  "dairy.milk.upsert":        { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.upsertMilk(sql, membership, user.id, payload) },
+  "dairy.milk.delete":        { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.deleteMilk(sql, membership, user.id, payload) },
+
+  /* Reproductive events — heat, AI, pregnancy check, calving */
+  "dairy.repro.list":         { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairyOps.listRepro(sql, membership, payload) },
+  "dairy.repro.add":          { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.addRepro(sql, membership, user.id, payload) },
+  "dairy.repro.delete":       { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.deleteRepro(sql, membership, user.id, payload) },
+
+  /* Health events — vaccination, treatment, deworming, vet visit */
+  "dairy.health.list":        { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairyOps.listHealth(sql, membership, payload) },
+  "dairy.health.add":         { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.addHealth(sql, membership, user.id, payload) },
+  "dairy.health.delete":      { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.deleteHealth(sql, membership, user.id, payload) },
+
+  /* Milk sales — farm-level cooperative/buyer sales (no animal_id) */
+  "dairy.sales.list":         { permission: "farm.dairy.finance", run: ({ sql, membership, payload }) => dairyFinance.listSales(sql, membership, payload) },
+  "dairy.sales.add":          { permission: "farm.dairy.finance", run: ({ sql, membership, user, payload }) => dairyFinance.addSale(sql, membership, user.id, payload) },
+  "dairy.sales.delete":       { permission: "farm.dairy.finance", run: ({ sql, membership, user, payload }) => dairyFinance.deleteSale(sql, membership, user.id, payload) },
+
+  /* Operating costs — feed, medicine, labour, AI, equipment, veterinary */
+  "dairy.costs.list":         { permission: "farm.dairy.finance", run: ({ sql, membership, payload }) => dairyFinance.listCosts(sql, membership, payload) },
+  "dairy.costs.add":          { permission: "farm.dairy.finance", run: ({ sql, membership, user, payload }) => dairyFinance.addCost(sql, membership, user.id, payload) },
+  "dairy.costs.delete":       { permission: "farm.dairy.finance", run: ({ sql, membership, user, payload }) => dairyFinance.deleteCost(sql, membership, user.id, payload) },
+
+  /* Finance summary — month-to-date P&L in one consistent snapshot */
+  "dairy.finance.summary":    { permission: "farm.dairy.finance", run: ({ sql, membership }) => dairyFinance.financeSummary(sql, membership) },
 };
 
 export default async function handler(req, res) {
