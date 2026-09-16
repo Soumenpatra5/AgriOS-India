@@ -55,8 +55,8 @@ const ROUTE_OPTIONS = (tc) => [
 ];
 
 const KIND_OPTIONS = (tc) => [
-  { label: tc({ en: "Received (in)", hi: "प्राप्त", bn: "প্রাপ্ত" }), value: "in" },
-  { label: tc({ en: "Adjustment",   hi: "समायोजन", bn: "সমন্বয়" }), value: "adjustment" },
+  { label: tc({ en: "Received (in)",  hi: "प्राप्त",  bn: "প্রাপ্ত" }), value: "received" },
+  { label: tc({ en: "Consumed (out)", hi: "खपत",      bn: "খাওয়া"  }), value: "consumed" },
 ];
 
 export default function PoultryBatchDetail({ batchId }) {
@@ -93,7 +93,7 @@ export default function PoultryBatchDetail({ batchId }) {
 
   /* Feed sheet */
   const [feedOpen, setFeedOpen]   = useState(false);
-  const [fform, setFform] = useState({ logged_at: today(), qty_kg: "", kind: "in", note: "" });
+  const [fform, setFform] = useState({ logged_at: today(), qty_kg: "", kind: "received", note: "" });
   const [fbusy, setFbusy] = useState(false);
 
   /* Health event sheet */
@@ -221,14 +221,14 @@ export default function PoultryBatchDetail({ batchId }) {
     setFbusy(true);
     try {
       await poultryApi.addFeed(space.id, {
-        batchId: batch.id,
-        logged_at: fform.logged_at,
-        qty_kg: Number(fform.qty_kg),
-        kind: fform.kind,
-        note: fform.note.trim() || null,
+        batchId:     batch.id,
+        log_date:    fform.logged_at,
+        quantity_kg: Number(fform.qty_kg),
+        kind:        fform.kind,
+        notes:       fform.note.trim() || null,
       });
       setFeedOpen(false);
-      setFform({ logged_at: today(), qty_kg: "", kind: "in", note: "" });
+      setFform({ logged_at: today(), qty_kg: "", kind: "received", note: "" });
       toast(tc({ en: "Feed logged", hi: "चारा दर्ज हुआ", bn: "খাদ্য লগ হয়েছে" }), "success");
       setFeed(null);
       loadBatch();
