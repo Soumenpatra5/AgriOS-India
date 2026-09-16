@@ -54,8 +54,8 @@ export const palette = {
 export const radius = { sm: 9, md: 12, lg: 16, xl: 22, pill: 999 };
 export const space = { xs: 6, sm: 10, md: 14, lg: 18, xl: 24, xxl: 32 };
 export const type = {
-  display: "'Manrope','Noto Sans Devanagari','Noto Sans Bengali',system-ui,sans-serif",
-  body: "'Inter','Noto Sans Devanagari','Noto Sans Bengali',system-ui,sans-serif",
+  display: "'Manrope','Noto Sans Devanagari','Noto Sans Bengali','Noto Sans Tamil','Noto Sans Telugu','Noto Sans Gurmukhi','Noto Sans Oriya',system-ui,sans-serif",
+  body: "'Inter','Noto Sans Devanagari','Noto Sans Bengali','Noto Sans Tamil','Noto Sans Telugu','Noto Sans Gurmukhi','Noto Sans Oriya',system-ui,sans-serif",
 };
 export const dur = { fast: 140, base: 240, slow: 380 };
 export const ease = "cubic-bezier(.4,0,.2,1)";
