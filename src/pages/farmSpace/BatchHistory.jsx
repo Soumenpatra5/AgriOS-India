@@ -47,7 +47,8 @@ function buildDays(batch, timeline) {
   const byDate = {};
 
   // Synthetic placement event always appears first
-  const pd = batch.placement_date;
+  // Normalise to date-only — API may return full ISO timestamp ("2026-09-16T00:00:00.000Z")
+  const pd = (batch.placement_date || "").slice(0, 10);
   byDate[pd] = [{ event_kind: "placement", event_date: pd, placed_qty: batch.placed_qty, name: batch.name }];
 
   for (const ev of timeline) {
@@ -276,7 +277,7 @@ export default function BatchHistory({ batchId }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <div>
               <div style={{ fontSize: 11, color: T.inkSoft }}>{tc({ en: "Placement", hi: "प्लेसमेंट", bn: "স্থাপন" })}</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>{batch.placement_date || "—"}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>{(batch.placement_date || "").slice(0, 10) || "—"}</div>
             </div>
             <div>
               <div style={{ fontSize: 11, color: T.inkSoft }}>{tc({ en: "Events recorded", hi: "घटनाएं", bn: "ঘটনা" })}</div>
