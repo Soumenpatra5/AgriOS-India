@@ -14,36 +14,36 @@ import { getPlanForDay, LIFECYCLE_MILESTONES, previewTasksForDay } from "../../c
 const PRIORITY_ACCENT = { urgent: "red", high: "orange", normal: "primary", low: "faint" };
 
 const PRIORITY_LABEL = {
-  urgent: { en: "Urgent",  hi: "अत्यंत जरूरी", bn: "জরুরি" },
-  high:   { en: "High",    hi: "उच्च",          bn: "উচ্চ" },
-  normal: { en: "Normal",  hi: "सामान्य",        bn: "সাধারণ" },
-  low:    { en: "Low",     hi: "कम",             bn: "কম" },
+  urgent: { en: "Urgent",  hi: "अत्यंत जरूरी", bn: "জরুরি",   ta: "அவசரம்",  te: "అత్యవసరం", mr: "अत्यंत तातडी", pa: "ਬਹੁਤ ਜ਼ਰੂਰੀ", or: "ଜରୁରୀ" },
+  high:   { en: "High",    hi: "उच्च",          bn: "উচ্চ",     ta: "அதிக",    te: "అధిక",      mr: "उच्च",          pa: "ਉੱਚ",           or: "ଉଚ୍ଚ" },
+  normal: { en: "Normal",  hi: "सामान्य",        bn: "সাধারণ",  ta: "சாதாரண",  te: "సాధారణ",    mr: "सामान्य",       pa: "ਸਾਧਾਰਨ",        or: "ସାଧାରଣ" },
+  low:    { en: "Low",     hi: "कम",             bn: "কম",       ta: "குறைவு",  te: "తక్కువ",    mr: "कमी",           pa: "ਘੱਟ",           or: "କମ" },
 };
 
 const TASK_TYPE_LABEL = {
-  monitoring_check: { en: "Monitoring",    hi: "निरीक्षण",       bn: "পর্যবেক্ষণ" },
-  data_recording:   { en: "Record",        hi: "रिकॉर्ड",        bn: "রেকর্ড" },
-  physical_task:    { en: "Physical task", hi: "शारीरिक कार्य",  bn: "শারীরিক কাজ" },
-  chain_followup:   { en: "Follow-up",     hi: "फ़ॉलो-अप",       bn: "ফলো-আপ" },
-  incident_task:    { en: "Problem",       hi: "समस्या",         bn: "সমস্যা" },
-  reactive:         { en: "Alert",         hi: "अलर्ट",          bn: "সতর্কতা" },
-  manual:           { en: "Manual",        hi: "मैन्युअल",       bn: "ম্যানুয়াল" },
+  monitoring_check: { en: "Monitoring",    hi: "निरीक्षण",       bn: "পর্যবেক্ষণ",  ta: "கண்காணிப்பு",     te: "పర్యవేక్షణ",   mr: "निरीक्षण",      pa: "ਨਿਗਰਾਨੀ",    or: "ନିରୀକ୍ଷଣ" },
+  data_recording:   { en: "Record",        hi: "रिकॉर्ड",        bn: "রেকর্ড",       ta: "பதிவு",           te: "రికార్డ్",     mr: "नोंद",          pa: "ਰਿਕਾਰਡ",     or: "ରିକର୍ଡ" },
+  physical_task:    { en: "Physical task", hi: "शारीरिक कार्य",  bn: "শারীরিক কাজ", ta: "உடல் பணி",        te: "శారీరక పని",   mr: "शारीरिक कार्य", pa: "ਸਰੀਰਕ ਕੰਮ",  or: "ଶାରୀରିକ କାର୍ଯ୍ୟ" },
+  chain_followup:   { en: "Follow-up",     hi: "फ़ॉलो-अप",       bn: "ফলো-আপ",       ta: "தொடர்நடவடிக்கை", te: "ఫాలో-అప్",     mr: "पाठपुरावा",     pa: "ਫ਼ੌਲੋ-ਅੱਪ",  or: "ଫଲୋ-ଅପ" },
+  incident_task:    { en: "Problem",       hi: "समस्या",         bn: "সমস্যা",       ta: "சிக்கல்",         te: "సమస్య",        mr: "समस्या",        pa: "ਸਮੱਸਿਆ",    or: "ସମସ୍ୟା" },
+  reactive:         { en: "Alert",         hi: "अलर्ट",          bn: "সতর্কতা",      ta: "எச்சரிக்கை",      te: "హెచ్చరిక",     mr: "सतर्कता",       pa: "ਸੁਚੇਤ",      or: "ସତର୍କତା" },
+  manual:           { en: "Manual",        hi: "मैन्युअल",       bn: "ম্যানুয়াল",   ta: "கைமுறை",          te: "మాన్యువల్",    mr: "मॅन्युअल",     pa: "ਮੈਨੁਅਲ",    or: "ମ୍ୟାନୁଅଲ" },
 };
 
 const SKIP_REASONS = (tc) => [
-  { label: tc({ en: "Not applicable today",     hi: "आज लागू नहीं",          bn: "আজ প্রযোজ্য নয়" }),        value: "Not applicable today" },
-  { label: tc({ en: "Will complete later",      hi: "बाद में करूँगा",         bn: "পরে করব" }),               value: "Will complete later" },
-  { label: tc({ en: "Birds did not require it", hi: "पक्षियों को जरूरत नहीं", bn: "পাখির প্রয়োজন ছিল না" }), value: "Birds did not require it" },
-  { label: tc({ en: "Manual override",          hi: "मैन्युअल ओवरराइड",      bn: "ম্যানুয়াল ওভাররাইড" }),   value: "Manual override" },
+  { label: tc({ en: "Not applicable today",     hi: "आज लागू नहीं",          bn: "আজ প্রযোজ্য নয়",      ta: "இன்று பொருந்தாது",          te: "ఈరోజు వర్తించదు",             mr: "आज लागू नाही",    pa: "ਅੱਜ ਲਾਗੂ ਨਹੀਂ",               or: "ଆଜି ପ୍ରଯୋଜ୍ୟ ନୁହେ" }),        value: "Not applicable today" },
+  { label: tc({ en: "Will complete later",      hi: "बाद में करूँगा",         bn: "পরে করব",               ta: "பின்னர் முடிப்பேன்",          te: "తర్వాత పూర్తి చేస్తాను",     mr: "नंतर करेन",       pa: "ਬਾਅਦ ਵਿੱਚ ਕਰਾਂਗਾ",            or: "ପରେ କରିବ" }),               value: "Will complete later" },
+  { label: tc({ en: "Birds did not require it", hi: "पक्षियों को जरूरत नहीं", bn: "পাখির প্রয়োজন ছিল না", ta: "பறவைகளுக்கு தேவையில்லை",    te: "పక్షులకు అవసరం లేదు",        mr: "पक्ष्यांना गरज नव्हती", pa: "ਪੰਛੀਆਂ ਨੂੰ ਜ਼ਰੂਰਤ ਨਹੀਂ ਸੀ", or: "ପକ୍ଷୀଙ୍କ ଦରକାର ନଥିଲା" }), value: "Birds did not require it" },
+  { label: tc({ en: "Manual override",          hi: "मैन्युअल ओवरराइड",      bn: "ম্যানুয়াল ওভাররাইড",   ta: "கைமுறை மேலெழுதல்",          te: "మాన్యువల్ ఓవర్‌రైడ్",       mr: "मॅन्युअल ओव्हरराइड", pa: "ਮੈਨੁਅਲ ਓਵਰਰਾਈਡ",           or: "ମ୍ୟାନୁଅଲ ଓଭର୍ରାଇଡ" }),   value: "Manual override" },
 ];
 
 const OUTCOME_OPTIONS = (tc) => [
-  { label: tc({ en: "Improved",  hi: "सुधार हुआ",    bn: "উন্নতি হয়েছে" }),  value: "improved" },
-  { label: tc({ en: "Same",      hi: "वैसा ही",       bn: "একই আছে" }),       value: "same" },
-  { label: tc({ en: "Worse",     hi: "खराब हुआ",      bn: "আরও খারাপ" }),     value: "worse" },
-  { label: tc({ en: "Recovered", hi: "ठीक हो गए",    bn: "সুস্থ হয়েছে" }),  value: "recovered" },
-  { label: tc({ en: "Resolved",  hi: "समाधान हुआ",   bn: "সমাধান হয়েছে" }), value: "resolved" },
-  { label: tc({ en: "Deceased",  hi: "मृत्यु हो गई", bn: "মৃত্যু হয়েছে" }), value: "deceased" },
+  { label: tc({ en: "Improved",  hi: "सुधार हुआ",    bn: "উন্নতি হয়েছে",  ta: "சீரானது",          te: "మెరుగైంది",        mr: "सुधारणा झाली",  pa: "ਸੁਧਾਰ ਹੋਇਆ",   or: "ଉନ୍ନତି ହୋଇଛି" }),  value: "improved" },
+  { label: tc({ en: "Same",      hi: "वैसा ही",       bn: "একই আছে",        ta: "அப்படியே",         te: "అదే",              mr: "तसेच",           pa: "ਉਵੇਂ ਹੀ",      or: "ସେହି ଅଛି" }),       value: "same" },
+  { label: tc({ en: "Worse",     hi: "खराब हुआ",      bn: "আরও খারাপ",      ta: "மோசமாகியது",       te: "మరింత దిగజారింది", mr: "आणखी वाईट",     pa: "ਹੋਰ ਖਰਾਬ",     or: "ଆହୁରି ଖରାପ" }),     value: "worse" },
+  { label: tc({ en: "Recovered", hi: "ठीक हो गए",    bn: "সুস্থ হয়েছে",   ta: "குணமடைந்தது",      te: "కోలుకున్నారు",     mr: "बरे झाले",      pa: "ਠੀਕ ਹੋ ਗਏ",    or: "ସୁସ୍ଥ ହୋଇଛି" }),  value: "recovered" },
+  { label: tc({ en: "Resolved",  hi: "समाधान हुआ",   bn: "সমাধান হয়েছে",  ta: "தீர்வு கிடைத்தது", te: "పరిష్కారమైంది",    mr: "निराकरण झाले",  pa: "ਹੱਲ ਹੋ ਗਿਆ",   or: "ସମାଧାନ ହୋଇଛି" }), value: "resolved" },
+  { label: tc({ en: "Deceased",  hi: "मृत्यु हो गई", bn: "মৃত্যু হয়েছে",  ta: "மரணமடைந்தது",      te: "మరణించారు",        mr: "मृत्यू झाला",   pa: "ਮੌਤ ਹੋ ਗਈ",    or: "ମୃତ୍ୟୁ ହୋଇଛି" }), value: "deceased" },
 ];
 
 const ACTION_TAKEN_OPTIONS = (tc) => [
