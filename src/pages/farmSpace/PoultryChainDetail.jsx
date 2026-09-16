@@ -114,19 +114,19 @@ export default function PoultryChainDetail({ chainId }) {
 
   if (loading) return (
     <div>
-      <AppBar title={tc({ en: "Follow-up Chain", hi: "फ़ॉलो-अप चेन", bn: "ফলো-আপ চেইন" })} />
+      <AppBar title={tc({ en: "Follow-up Chain", hi: "फ़ॉलो-अप चेन", bn: "ফলো-আপ চেইন" })} onBack={pop} />
       <div style={{ padding: 40, display: "grid", placeItems: "center" }}><Spinner /></div>
     </div>
   );
   if (error || !data) return (
     <div>
-      <AppBar title={tc({ en: "Follow-up Chain", hi: "फ़ॉलो-अप चेन", bn: "ফলো-আপ চেইন" })} />
+      <AppBar title={tc({ en: "Follow-up Chain", hi: "फ़ॉलो-अप चेन", bn: "ফলো-আপ চেইন" })} onBack={pop} />
       <ErrorState body={error || tc({ en: "No data", hi: "कोई डेटा नहीं", bn: "কোনো ডেটা নেই" })}
         onRetry={space ? () => load(space.id) : undefined} />
     </div>
   );
 
-  const { chain, tasks = [], outcomes = [] } = data;
+  const { chain, tasks = [], outcomes = [], batch = null, sourceEvent = null } = data;
   const isActive     = chain.status === "active";
   const pendingTasks = tasks.filter(t => !["completed", "skipped", "cancelled"].includes(t.status));
   const doneTasks    = tasks.filter(t =>  ["completed", "skipped"].includes(t.status));
@@ -135,7 +135,25 @@ export default function PoultryChainDetail({ chainId }) {
 
   return (
     <div>
-      <AppBar title={tc({ en: "Follow-up Chain", hi: "फ़ॉलो-अप चेन", bn: "ফলো-আপ চেইন" })} />
+      <AppBar title={tc({ en: "Follow-up Chain", hi: "फ़ॉलो-अप चेन", bn: "ফলো-আপ চেইন" })} onBack={pop} />
+
+      {/* Breadcrumb: Poultry → Batch → Workflow → Follow-up Chain */}
+      <div style={{
+        padding: "7px 16px", display: "flex", alignItems: "center", gap: 4,
+        flexWrap: "wrap", background: T.surface, borderBottom: `1px solid ${T.lineSoft}`,
+        fontSize: 12, color: T.inkFaint,
+      }}>
+        <span>{tc({ en: "Poultry", hi: "पोल्ट्री", bn: "পোলট্রি" })}</span>
+        <Icon name="ChevronRight" size={12} color={T.inkFaint} />
+        <span>{batch ? batch.name : tc({ en: "Batch", hi: "बैच", bn: "ব্যাচ" })}</span>
+        <Icon name="ChevronRight" size={12} color={T.inkFaint} />
+        <span>{tc({ en: "Workflow", hi: "वर्कफ़्लो", bn: "ওয়ার্কফ্লো" })}</span>
+        <Icon name="ChevronRight" size={12} color={T.inkFaint} />
+        <span style={{ color: T.ink, fontWeight: 600 }}>
+          {tc({ en: "Follow-up Chain", hi: "फ़ॉलो-अप चेन", bn: "ফলো-আপ চেইন" })}
+        </span>
+      </div>
+
       <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 16px 32px" }}>
 
         {/* Chain header */}
@@ -153,9 +171,28 @@ export default function PoultryChainDetail({ chainId }) {
                 {chain.title || tc({ en: "Follow-up chain", hi: "फ़ॉलो-अप चेन", bn: "ফলো-আপ চেইন" })}
               </div>
               {chain.source_type && (
-                <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
-                  <Icon name="ArrowUpRight" size={12} color={T.inkFaint} />
-                  {tc({ en: `Source: ${chain.source_type}`, hi: `स्रोत: ${chain.source_type}`, bn: `উৎস: ${chain.source_type}` })}
+                <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 4, display: "flex", alignItems: "flex-start", gap: 4 }}>
+                  <Icon name="ArrowUpRight" size={12} color={T.inkFaint} style={{ marginTop: 2, flexShrink: 0 }} />
+                  <span>
+                    {sourceEvent?.title
+                      ? sourceEvent.title
+                      : tc({ en: `Source: ${chain.source_type}`, hi: `स्रोत: ${chain.source_type}`, bn: `উৎস: ${chain.source_type}` })}
+                  </span>
+                </div>
+              )}
+              {sourceEvent?.detail && (
+                <div style={{ fontSize: 12, color: T.inkFaint, marginTop: 2, paddingLeft: 16, lineHeight: 1.4 }}>
+                  {sourceEvent.detail}
+                </div>
+              )}
+              {/* Batch context: name, code, day */}
+              {batch && (
+                <div style={{ fontSize: 12, color: T.inkFaint, marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <span>{batch.name}</span>
+                  {batch.batch_code && <span>· {batch.batch_code}</span>}
+                  {chain.batch_day != null && (
+                    <span>· {tc({ en: `Day ${chain.batch_day}`, hi: `दिन ${chain.batch_day}`, bn: `দিন ${chain.batch_day}` })}</span>
+                  )}
                 </div>
               )}
               {chain.triggered_at && (

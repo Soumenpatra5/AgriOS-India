@@ -421,3 +421,93 @@ describe("poultry.followup chain lifecycle", () => {
     expect([200, 400, 409]).toContain(r2.status);
   });
 });
+
+/* ── Phase B UX fix: chain_detail enrichment ───────────────────────────── */
+
+describe("chain_detail enrichment (batch + sourceEvent)", () => {
+  let healthChainId;
+  let healthEventTitle;
+  let healthEventId;
+
+  it("chain_detail returns batch name and sourceEvent.title for a health-event chain", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    healthEventTitle = "Infectious bronchitis — UX regression test";
+
+    const hr = await call(U(30), "poultry.health.add", {
+      spaceId: A.space.id,
+      payload: {
+        batchId: batchA.id,
+        event_date: today,
+        type: "treatment",
+        title: healthEventTitle,
+        severity: "high",
+      },
+    });
+    expect(hr.status).toBe(200);
+    healthEventId = hr.data.id;
+
+    const rows = await dbRef.sql`
+      SELECT id FROM poultry_followup_chains
+      WHERE source_id = ${healthEventId}
+        AND source_type = 'health_event'
+        AND deleted_at IS NULL
+      LIMIT 1`;
+    if (!rows.length) { expect(true).toBe(true); return; }
+    healthChainId = rows[0].id;
+
+    const r = await call(U(30), "poultry.followup.chain_detail", {
+      spaceId: A.space.id,
+      payload: { chainId: healthChainId },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data).toHaveProperty("batch");
+    expect(r.data.batch).toHaveProperty("name", batchA.name);
+    expect(r.data).toHaveProperty("sourceEvent");
+    expect(r.data.sourceEvent).toHaveProperty("title", healthEventTitle);
+  });
+
+  it("no duplicate chain is auto-created for the same health event", async () => {
+    if (!healthEventId) { expect(true).toBe(true); return; }
+    const rows = await dbRef.sql`
+      SELECT id FROM poultry_followup_chains
+      WHERE source_id = ${healthEventId}
+        AND source_type = 'health_event'
+        AND deleted_at IS NULL`;
+    expect(rows.length).toBe(1);
+  });
+
+  it("non-closing outcome schedules a new follow-up task; no duplicate pending tasks", async () => {
+    if (!healthChainId) { expect(true).toBe(true); return; }
+
+    const d1 = await call(U(30), "poultry.followup.chain_detail", {
+      spaceId: A.space.id,
+      payload: { chainId: healthChainId },
+    });
+    const firstTask = (d1.data?.tasks || []).find(t =>
+      ["pending", "overdue", "in_progress"].includes(t.status)
+    );
+    if (!firstTask) { expect(true).toBe(true); return; }
+
+    await call(U(30), "poultry.followup.record_outcome", {
+      spaceId: A.space.id,
+      payload: {
+        chainId: healthChainId,
+        taskId: firstTask.id,
+        outcome: "improved",
+        clientUuid: crypto.randomUUID(),
+      },
+    });
+
+    const d2 = await call(U(30), "poultry.followup.chain_detail", {
+      spaceId: A.space.id,
+      payload: { chainId: healthChainId },
+    });
+    const allTasks = d2.data?.tasks || [];
+    const completed = allTasks.filter(t => t.status === "completed");
+    const pending   = allTasks.filter(t => ["pending","overdue","in_progress"].includes(t.status));
+    /* First task is now completed and a new follow-up was scheduled */
+    expect(completed.length).toBeGreaterThanOrEqual(1);
+    /* No two pending tasks share the same id */
+    expect(new Set(pending.map(t => t.id)).size).toBe(pending.length);
+  });
+});

@@ -1251,14 +1251,34 @@ export async function getChainDetail(sql, membership, payload) {
   if (!chain) throw new HttpError(404, "Chain not found");
   requireScope(chain, membership);
 
-  const [tasks, outcomes] = await Promise.all([
+  const [tasks, outcomes, batchRows] = await Promise.all([
     sql`select * from poultry_batch_tasks
          where chain_id = ${chainId} and deleted_at is null order by scheduled_date`,
     sql`select * from poultry_followup_outcomes
          where chain_id = ${chainId} order by created_at`,
+    sql`select id, name, batch_code from poultry_batches where id = ${chain.batch_id} limit 1`,
   ]);
 
-  return { chain, tasks, outcomes };
+  const batch = batchRows[0] || null;
+
+  let sourceEvent = null;
+  if (chain.source_id) {
+    if (chain.source_type === "health_event") {
+      const [row] = await sql`
+        select title, note from poultry_health_events where id = ${chain.source_id} limit 1`;
+      if (row) sourceEvent = { title: row.title, detail: row.note || null };
+    } else if (chain.source_type === "vaccination") {
+      const [row] = await sql`
+        select vaccine_name, note from poultry_vaccinations where id = ${chain.source_id} limit 1`;
+      if (row) sourceEvent = { title: row.vaccine_name, detail: row.note || null };
+    } else if (chain.source_type === "incident") {
+      const [row] = await sql`
+        select description from poultry_incidents where id = ${chain.source_id} limit 1`;
+      if (row) sourceEvent = { title: row.description, detail: null };
+    }
+  }
+
+  return { chain, tasks, outcomes, batch, sourceEvent };
 }
 
 export async function cancelChain(sql, membership, userId, payload) {
