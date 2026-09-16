@@ -28,6 +28,7 @@ import * as dm from "./_lib/farm/dm.js";
 import * as poultry from "./_lib/farm/poultry.js";
 import * as poultryOps from "./_lib/farm/poultryOps.js";
 import * as poultryHealth from "./_lib/farm/poultryHealth.js";
+import * as wf from "./_lib/farm/poultryWorkflow.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -187,11 +188,72 @@ const ACTIONS = {
   "poultry.alerts.signals": { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryOps.alertSignals(sql, membership, payload) },
 
   "poultry.health.list":         { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryHealth.listHealth(sql, membership, payload) },
-  "poultry.health.add":          { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => poultryHealth.addHealth(sql, membership, user.id, payload) },
+  /* poultry.health.add: adds the P4 row, then non-fatally auto-creates a
+     follow-up chain for treatment, outbreak, and urgent-observation events.
+     severity is NOT stored in poultry_health_events (confirmed in 0015) so it
+     is forwarded here from the caller's payload. P4 row is always returned;
+     chain creation failure is logged but does not fail the action. */
+  "poultry.health.add": {
+    permission: "farm.poultry.record",
+    run: async ({ sql, membership, user, payload }) => {
+      const row = await poultryHealth.addHealth(sql, membership, user.id, payload);
+      await wf
+        .maybeCreateFollowupFromHealthEvent(
+          sql, membership, user.id, row, payload.severity ?? null,
+        )
+        .catch((e) => console.error("auto-followup (health):", e.message));
+      return row;
+    },
+  },
   "poultry.health.delete":       { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryHealth.deleteHealth(sql, membership, user.id, payload) },
   "poultry.vaccinations.list":   { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => poultryHealth.listVaccinations(sql, membership, payload) },
-  "poultry.vaccinations.add":    { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => poultryHealth.addVaccination(sql, membership, user.id, payload) },
+  /* poultry.vaccinations.add: adds the P4 row, then non-fatally auto-creates
+     a post-vaccination follow-up chain. Default interval is 7 days; the caller
+     may override via payload.followup_days (any integer 1-365). Vaccination row
+     is always returned regardless of chain creation outcome. */
+  "poultry.vaccinations.add": {
+    permission: "farm.poultry.record",
+    run: async ({ sql, membership, user, payload }) => {
+      const row = await poultryHealth.addVaccination(sql, membership, user.id, payload);
+      const followupDays = wf.vaccinationFollowupDays(payload.followup_days);
+      await wf
+        .maybeCreateFollowupFromVaccination(sql, membership, user.id, row, followupDays)
+        .catch((e) => console.error("auto-followup (vaccination):", e.message));
+      return row;
+    },
+  },
   "poultry.vaccinations.delete": { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => poultryHealth.deleteVaccination(sql, membership, user.id, payload) },
+
+  /* P5 — Workflow Engine (Phase A).
+     Generates daily task lists, tracks follow-up chains, records guided
+     incident responses, and produces a daily operational summary.
+
+     Reads (today, timeline, summary, list) are farm.poultry.view.
+     Recording / completing tasks is farm.poultry.record (same as P2).
+     Skipping tasks, resolving incidents, cancelling chains — and anything
+     that modifies historical records or closes follow-up chains — requires
+     farm.poultry.manage. */
+
+  /* Workflow — task generation and management. */
+  "poultry.workflow.today":    { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => wf.generateTodaysTasks(sql, membership, payload) },
+  "poultry.workflow.complete": { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => wf.markTaskComplete(sql, membership, user.id, payload) },
+  "poultry.workflow.skip":     { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => wf.skipTask(sql, membership, user.id, payload) },
+  "poultry.workflow.timeline": { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => wf.buildTimeline(sql, membership, payload) },
+  "poultry.summary.daily":     { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => wf.generateDailySummary(sql, membership, payload) },
+
+  /* Incidents — report, list, resolve. */
+  "poultry.incident.report":   { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => wf.reportIncident(sql, membership, user.id, payload) },
+  "poultry.incident.list":     { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => wf.listIncidents(sql, membership, payload) },
+  "poultry.incident.resolve":  { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => wf.resolveIncident(sql, membership, user.id, payload) },
+
+  /* Templates — read-only in Phase A; mutation via direct DB in Phase B+. */
+  "poultry.template.list":     { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => wf.listTemplates(sql, membership, payload) },
+
+  /* Follow-up chains. */
+  "poultry.followup.create":         { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => wf.createFollowupChain(sql, membership, user.id, payload) },
+  "poultry.followup.record_outcome": { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => wf.recordFollowupOutcome(sql, membership, user.id, payload) },
+  "poultry.followup.chain_detail":   { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => wf.getChainDetail(sql, membership, payload) },
+  "poultry.followup.cancel":         { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => wf.cancelChain(sql, membership, user.id, payload) },
 };
 
 export default async function handler(req, res) {
