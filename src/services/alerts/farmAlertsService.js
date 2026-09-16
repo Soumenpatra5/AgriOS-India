@@ -106,20 +106,25 @@ export const farmAlertsService = {
     if (!notificationService.isEnabled()) return { dispatched: false, reason: "disabled" };
 
     const all = precomputed || await this.getAll(farmId);
-    const high = all.filter((a) => a.severity === "high");
-    if (high.length === 0) return { dispatched: false, reason: "none" };
+    const toNotify = all.filter((a) =>
+      a.severity === "high" || (a.source === "feed" && a.severity === "medium")
+    );
+    if (toNotify.length === 0) return { dispatched: false, reason: "none" };
 
     const today = new Date().toISOString().slice(0, 10);
     const rec = storage.get(NOTIFY_KEY, {}) || {};
     const seen = rec.date === today ? (rec.keys || []) : [];
     const sig = (a) => `${a.source}:${a.title}:${a.message}`;
-    const fresh = high.filter((a) => !seen.includes(sig(a)));
+    const fresh = toNotify.filter((a) => !seen.includes(sig(a)));
     if (fresh.length === 0) return { dispatched: false, reason: "already_notified" };
 
+    const highCount = fresh.filter((a) => a.severity === "high").length;
     const body = fresh.length === 1
       ? `${fresh[0].title} — ${fresh[0].message}`
-      : `${fresh.length} urgent items need your attention`;
-    notificationService.dispatch("AgriOS — urgent farm alerts", body, "agrios-alerts");
+      : highCount > 0
+        ? `${fresh.length} items need your attention (${highCount} urgent)`
+        : `${fresh.length} feed items need your attention`;
+    notificationService.dispatch("AgriOS — farm alerts", body, "agrios-alerts");
     storage.set(NOTIFY_KEY, { date: today, keys: [...seen, ...fresh.map(sig)] });
     return { dispatched: true, count: fresh.length };
   },

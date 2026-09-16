@@ -11,6 +11,7 @@ import { BottomSheet, Input, Dropdown, Dialog } from "../../components/index.js"
 import { useApp } from "../../store/AppStore.jsx";
 import { feedInventory, FEED_TYPES } from "../../services/feed/feedService.js";
 import { inventoryService } from "../../services/inventory/inventoryService.js";
+import { reminderService } from "../../services/calendar/reminderService.js";
 import StatTile from "../../components/erp/StatTile.jsx";
 import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
 import { rupee } from "../../utils/format.js";
@@ -34,6 +35,7 @@ export default function FeedInventory() {
   const [delId, setDelId] = useState(null);
 
   useEffect(() => {
+    reminderService.boot();
     feedInventory.getAll().then(setItems);
     feedInventory.alerts().then(setAlerts);
   }, [tick]);
@@ -55,6 +57,28 @@ export default function FeedInventory() {
   };
 
   const handleDelete = async () => { await feedInventory.remove(delId); setDelId(null); refresh(); toast(tc({ en: "Deleted", hi: "हटाया गया", bn: "মুছে ফেলা হয়েছে" }), "info"); };
+
+  const toggleReminder = (item) => {
+    const key = `feed-reorder-${item.id}`;
+    if (reminderService.has(key)) {
+      reminderService.remove(key);
+      toast(tc({ en: "Reminder removed", hi: "रिमाइंडर हटाया गया", bn: "রিমাইন্ডার সরানো হয়েছে" }), "info");
+    } else {
+      const dueDate = item.expiryDate || (() => {
+        const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10);
+      })();
+      const hoursBefore = item.expiryDate ? 48 : 0;
+      const label = item.expiryDate
+        ? tc({ en: `${item.name} expires soon — check stock`, hi: `${item.name} जल्द समाप्त होगा — स्टॉक जाँचें`, bn: `${item.name} শীঘ্রই মেয়াদ শেষ — মজুত পরীক্ষা করুন` })
+        : tc({ en: `Reorder ${item.name}`, hi: `${item.name} पुनः ऑर्डर करें`, bn: `${item.name} পুনরায় অর্ডার করুন` });
+      reminderService.set(key, { label, dueDate, hoursBefore });
+      const msg = item.expiryDate
+        ? tc({ en: "Reminder set for 2 days before expiry", hi: "समाप्ति से 2 दिन पहले रिमाइंडर सेट", bn: "মেয়াদের ২ দিন আগে রিমাইন্ডার সেট" })
+        : tc({ en: "Reorder reminder set for tomorrow", hi: "कल के लिए पुनः ऑर्डर रिमाइंडर सेट", bn: "আগামীকালের জন্য পুনরায় অর্ডার রিমাইন্ডার সেট" });
+      toast(msg, "success");
+    }
+    refresh();
+  };
 
   const itemBadge = (i) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -90,11 +114,22 @@ export default function FeedInventory() {
               badge={itemBadge(i)}
               subtitle={`${feedInventory.feedTypeLabel(i.feedType)} · ${i.qty} ${i.unit || ""} in stock${i.unitPrice ? ` · ${rupee(i.unitPrice)}/${i.unit || "kg"}` : ""}${i.expiryDate ? ` · exp ${i.expiryDate}` : ""}`}
               right={
-                <button onClick={(e) => { e.stopPropagation(); setMoveTarget(i); }}
-                  style={{ background: T.primarySoft, color: T.primary, border: "none", borderRadius: 9,
-                    padding: "6px 10px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: T.body, flexShrink: 0 }}>
-                  In / Out
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button onClick={(e) => { e.stopPropagation(); toggleReminder(i); }}
+                    title={reminderService.has(`feed-reorder-${i.id}`) ? tc({ en: "Remove reminder", hi: "रिमाइंडर हटाएँ", bn: "রিমাইন্ডার সরান" }) : tc({ en: "Set reminder", hi: "रिमाइंडर सेट करें", bn: "রিমাইন্ডার সেট করুন" })}
+                    style={{ background: reminderService.has(`feed-reorder-${i.id}`) ? T.orangeSoft : T.surface2,
+                      color: reminderService.has(`feed-reorder-${i.id}`) ? T.orange : T.inkSoft,
+                      border: `1px solid ${reminderService.has(`feed-reorder-${i.id}`) ? T.orange : T.border}`,
+                      borderRadius: 9, padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                    <Icon name={reminderService.has(`feed-reorder-${i.id}`) ? "BellRing" : "Bell"} size={14}
+                      color={reminderService.has(`feed-reorder-${i.id}`) ? T.orange : T.inkSoft} />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); setMoveTarget(i); }}
+                    style={{ background: T.primarySoft, color: T.primary, border: "none", borderRadius: 9,
+                      padding: "6px 10px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: T.body, flexShrink: 0 }}>
+                    In / Out
+                  </button>
+                </div>
               }
               onDelete={() => setDelId(i.id)} />
           ))}
