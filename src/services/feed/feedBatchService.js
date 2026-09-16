@@ -38,8 +38,16 @@ export const feedBatchService = {
   update: (id, patch) => batches.update(id, patch),
   remove: (id) => batches.remove(id),
   getById: (id) => batches.getById(id),
-  getAll: (farmId) => (farmId ? batches.getBy("farmId", farmId) : batches.getAll())
-    .then((l) => l.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))),
+  getAll: (farmId) => {
+    /* ISOLATION WARNING: this IndexedDB-scoped `getAll` returns ALL feed-batch
+       records for the farm, with no poultry batch_id boundary. It must never
+       be used to populate or infer history for a specific poultry batch.
+       Poultry batch feed history lives exclusively in poultry_feed_logs
+       (server-side, batch_id–keyed); use poultryApi.listFeed(spaceId, batchId)
+       or poultryApi.timeline(spaceId, batchId) for batch-isolated feed data. */
+    return (farmId ? batches.getBy("farmId", farmId) : batches.getAll())
+      .then((l) => l.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")));
+  },
   getByEnterprise: (enterprise) => batches.getBy("enterprise", enterprise),
 
   close: (id, { endDate, currentCount, currentWeight }) =>

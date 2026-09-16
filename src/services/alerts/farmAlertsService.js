@@ -19,6 +19,7 @@ import { vaccinationService } from "../livestock/vaccinationService.js";
 import { documentService } from "../employees/documentService.js";
 import { cropCalendarService } from "../calendar/cropCalendarService.js";
 import { feedAlertsService } from "../feed/feedAlertsService.js";
+import { poultryApi } from "../poultry/poultryApi.js";
 import { notificationService } from "../notifications/notificationService.js";
 import { storage } from "../../utils/storage.js";
 import { rupee } from "../../utils/format.js";
@@ -62,7 +63,7 @@ export const farmAlertsService = {
 
     /* Every source is independent — fetch them concurrently so opening the
        Alerts Center costs max(source latency), not the sum. */
-    const [inv, vaccMissed, vaccUpcoming, docs, overdue, dueSoon, feed] = await Promise.all([
+    const [inv, vaccMissed, vaccUpcoming, docs, overdue, dueSoon, feed, poultryBatchAlerts] = await Promise.all([
       safe(() => inventoryService.alerts(farmId), { lowStock: [], expired: [], expiring: [] }),
       safe(() => vaccinationService.missed(), []),
       safe(() => vaccinationService.upcoming(14), []),
@@ -70,6 +71,25 @@ export const farmAlertsService = {
       safe(() => cropCalendarService.overdueTasks(), []),
       safe(() => cropCalendarService.upcomingTasks(3), []),
       safe(() => feedAlertsService.getAll(farmId), []),
+      safe(async () => {
+        if (!farmId) return [];
+        const batches = await poultryApi.listBatches(farmId, { status: "active", limit: 20 });
+        if (!batches?.length) return [];
+        const signals = await Promise.all(
+          batches.map((b) => poultryApi.alertSignals(farmId, b.id).catch(() => null))
+        );
+        const result = [];
+        for (let i = 0; i < batches.length; i++) {
+          const b = batches[i]; const s = signals[i];
+          if (!s) continue;
+          if (s.mortality_over_target) result.push({ severity: "high",   title: "Mortality over target",  message: `${b.name}: ${Number(s.mortality_pct || 0).toFixed(1)}%`, batchId: b.id });
+          if (s.days_since_last_record >= 2) result.push({ severity: "high",   title: "No daily record",        message: `${b.name}: ${s.days_since_last_record}d without record`, batchId: b.id });
+          if (s.adg_negative)            result.push({ severity: "medium", title: "Negative daily gain",     message: b.name, batchId: b.id });
+          if (s.weight_below_target)     result.push({ severity: "medium", title: "Weight below target",     message: b.name, batchId: b.id });
+          if (s.fcr_worse_than_target)   result.push({ severity: "medium", title: "FCR above target",        message: b.name, batchId: b.id });
+        }
+        return result;
+      }, []),
     ]);
 
     /* Inventory (all categories) — low stock / expired / expiring soon */
@@ -91,6 +111,11 @@ export const farmAlertsService = {
 
     /* Feed alerts (already severity-tagged by feedAlertsService) */
     feed.forEach((a) => out.push(alert("feed", a.severity || "medium", a.title, a.message, "feedDashboard")));
+
+    /* Poultry batch signals — per-batch health/performance alerts */
+    poultryBatchAlerts.forEach((a) =>
+      out.push(alert("poultry", a.severity, a.title, a.message, "poultryBatchDetail", { batchId: a.batchId }))
+    );
 
     return out.sort((a, b) => (SEV_WEIGHT[b.severity] || 0) - (SEV_WEIGHT[a.severity] || 0));
   },

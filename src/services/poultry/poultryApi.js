@@ -115,4 +115,7 @@ export const poultryApi = {
   reportIncident:  (spaceId, payload)                   => call("poultry.incident.report",  spaceId, payload),
   listIncidents:   (spaceId, batchId, params = {})       => call("poultry.incident.list",   spaceId, { batchId, ...params }),
   resolveIncident: (spaceId, incidentId, notes)          => call("poultry.incident.resolve", spaceId, { incidentId, notes: notes || null }),
+
+  /* Full batch history timeline (all P1-P4 records, tasks, incidents, outcomes) */
+  timeline: (spaceId, batchId) => call("poultry.workflow.timeline", spaceId, { batchId }),
 };

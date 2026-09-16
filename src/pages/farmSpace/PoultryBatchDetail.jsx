@@ -62,7 +62,7 @@ const KIND_OPTIONS = (tc) => [
 ];
 
 export default function PoultryBatchDetail({ batchId }) {
-  const { pop, tc, toast } = useApp();
+  const { pop, push, tc, toast } = useApp();
   const [space, setSpace]     = useState(null);
   const [batch, setBatch]     = useState(null);
   const [metrics, setMetrics] = useState(null);
@@ -340,7 +340,17 @@ export default function PoultryBatchDetail({ batchId }) {
 
   return (
     <>
-      <AppBar title={batch.name} onBack={pop} />
+      <AppBar title={batch.name} onBack={pop}
+        action={
+          <button
+            onClick={() => push({ kind: "poultryBatchHistory", props: { batchId: batch.id } })}
+            title={tc({ en: "View history", hi: "इतिहास देखें", bn: "ইতিহাস দেখুন" })}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 6,
+              color: T.inkSoft, display: "flex", alignItems: "center" }}>
+            <Icon name="History" size={20} />
+          </button>
+        }
+      />
 
       <div style={{ padding: "4px 16px 100px", display: "flex", flexDirection: "column", gap: 16 }}>
 
