@@ -672,7 +672,7 @@ function WeightsTab({ rows, tc, canRecord, canManage, onAdd, onDelete }) {
               </>}
               right={<>
                 <div style={{ fontSize: 15, fontWeight: 700, color: T.primary }}>
-                  {r.average_weight_g ? `${r.average_weight_g.toFixed(0)} g` : "—"}
+                  {r.average_weight_g != null && !Number.isNaN(Number(r.average_weight_g)) ? `${Number(r.average_weight_g).toFixed(0)} g` : "—"}
                 </div>
                 <div style={{ fontSize: 11, color: T.inkSoft }}>
                   {tc({ en: "avg / bird", hi: "औसत / पक्षी", bn: "গড় / পাখি" })}
