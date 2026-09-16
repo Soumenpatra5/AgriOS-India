@@ -7,6 +7,7 @@ import {
 } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { poultryApi } from "../../services/poultry/poultryApi.js";
+import { getPlanForDay, LIFECYCLE_MILESTONES, previewTasksForDay } from "../../config/poultryBatchPlan.js";
 
 /* ── constants ──────────────────────────────────────────────────────────── */
 
@@ -213,6 +214,7 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
   if (!summary) return null;
 
   const { summary: s } = summary;
+  const phase = getPlanForDay(summary.batchDay ?? 0);
   const overdueCount   = s.overdue.tasks.length;
   const pendingCount   = s.pending.tasks.length;
   const completedCount = s.completed.tasks.length;
@@ -225,18 +227,11 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-      {/* Day + refresh row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 12.5, color: T.inkSoft }}>
-          {tc({ en: `Day ${summary.batchDay ?? "—"}`, hi: `दिन ${summary.batchDay ?? "—"}`, bn: `দিন ${summary.batchDay ?? "—"}` })}
-          {" · "}{summary.date}
-        </span>
-        <button onClick={() => load(true)} disabled={refreshing} aria-label="Refresh"
-          style={{ background: "none", border: "none", cursor: "pointer", padding: 4,
-            color: T.primary, opacity: refreshing ? 0.4 : 1, lineHeight: 0 }}>
-          <Icon name="RefreshCw" size={16} />
-        </button>
-      </div>
+      {/* Daily briefing card (phase name, focus, milestones, refresh) */}
+      <DailyBriefingCard
+        phase={phase} batchDay={summary.batchDay} date={summary.date}
+        tc={tc} refreshing={refreshing} onRefresh={() => load(true)}
+      />
 
       {/* Summary stats */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
@@ -262,6 +257,7 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
       {overdueCount > 0 && (
         <TaskSection label={tc({ en: "Overdue", hi: "विलंबित", bn: "বিলম্বিত" })} labelColor={T.red}
           tasks={s.overdue.tasks} tc={tc} canRecord={canRecord} canManage={canManage}
+          phase={phase}
           onComplete={openComplete} onSkip={openSkip} onOutcome={openOutcome} onViewChain={viewChain}
         />
       )}
@@ -270,6 +266,7 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
       {todayTasks.length > 0 && (
         <TaskSection label={tc({ en: "Today", hi: "आज", bn: "আজ" })}
           tasks={todayTasks} tc={tc} canRecord={canRecord} canManage={canManage}
+          phase={phase}
           onComplete={openComplete} onSkip={openSkip} onOutcome={openOutcome} onViewChain={viewChain}
         />
       )}
@@ -278,6 +275,33 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
         <EmptyState icon="CheckCircle2"
           title={tc({ en: "All tasks done for today!", hi: "आज सभी कार्य पूरे!", bn: "আজকের সব কাজ শেষ!" })} />
       )}
+
+      {/* Cautions for today's phase */}
+      {phase.cautions?.length > 0 && (
+        <CautionsCard cautions={phase.cautions} tc={tc} />
+      )}
+
+      {/* Watch-for triggers */}
+      {phase.watchFor?.length > 0 && (
+        <WatchForCard
+          items={phase.watchFor} tc={tc}
+          onReport={(hint) => { setIncidentDesc(tc(hint)); setIncidentOpen(true); }}
+        />
+      )}
+
+      {/* Tomorrow preview */}
+      <TomorrowPreviewCard
+        batchDay={summary.batchDay ?? 0}
+        poultryType={batch.type}
+        tc={tc}
+      />
+
+      {/* 7-day timeline */}
+      <SevenDayTimeline
+        batchDay={summary.batchDay ?? 0}
+        poultryType={batch.type}
+        tc={tc}
+      />
 
       {/* Attention needed */}
       {(chainCount > 0 || incidentCount > 0) && (
@@ -520,13 +544,14 @@ function RecommendationCard({ task, reason, tc, canRecord, canManage, onComplete
   );
 }
 
-function TaskSection({ label, labelColor, tasks, tc, canRecord, canManage, onComplete, onSkip, onOutcome, onViewChain }) {
+function TaskSection({ label, labelColor, tasks, tc, canRecord, canManage, phase, onComplete, onSkip, onOutcome, onViewChain }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <SectionLabel label={label} color={labelColor} />
       {tasks.map(t => (
         <TaskCard key={t.id} task={t} tc={tc}
           canRecord={canRecord} canManage={canManage}
+          isMandatory={phase?.mandatory?.includes(t.template_id)}
           onComplete={() => onComplete(t)} onSkip={() => onSkip(t)}
           onOutcome={() => onOutcome(t)} onViewChain={() => onViewChain(t)}
         />
@@ -535,7 +560,7 @@ function TaskSection({ label, labelColor, tasks, tc, canRecord, canManage, onCom
   );
 }
 
-function TaskCard({ task, tc, canRecord, canManage, onComplete, onSkip, onOutcome, onViewChain }) {
+function TaskCard({ task, tc, canRecord, canManage, isMandatory, onComplete, onSkip, onOutcome, onViewChain }) {
   const isChain   = task.task_type === "chain_followup";
   const isBlocked = task.status === "blocked";
   const isOverdue = task.status === "overdue";
@@ -556,6 +581,9 @@ function TaskCard({ task, tc, canRecord, canManage, onComplete, onSkip, onOutcom
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center", marginBottom: 5 }}>
               <Badge label={prLabel} a={prAccent} />
               <span style={{ fontSize: 11.5, color: T.inkSoft }}>{typeLabel}</span>
+              {isMandatory && (
+                <Badge label={tc({ en: "Required", hi: "अनिवार्य", bn: "আবশ্যক" })} a="primary" />
+              )}
               {isChain && <Icon name="Link2" size={12} color={T.inkSoft} />}
               {isOverdue && (
                 <span style={{ fontSize: 11, fontWeight: 700, color: T.red }}>
@@ -841,6 +869,218 @@ function ResponseBlock({ title, items, icon, color }) {
         <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "3px 0" }}>
           <span style={{ fontSize: 12, color: T.inkSoft, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
           <span style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.5 }}>{item}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Batch Operating Plan components ─────────────────────────────────────── */
+
+function DailyBriefingCard({ phase, batchDay, date, tc, refreshing, onRefresh }) {
+  return (
+    <Card style={{ background: T.surface2, borderRadius: T.rMd, padding: 0, overflow: "hidden" }}>
+      {/* Header row */}
+      <div style={{ padding: "12px 14px 8px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: T.primary, textTransform: "uppercase",
+            letterSpacing: "0.05em", marginBottom: 2 }}>
+            {tc(phase.label)}
+          </div>
+          <div style={{ fontSize: 12.5, color: T.inkSoft, lineHeight: 1.4 }}>
+            {tc(phase.focus)}
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
+          <button onClick={onRefresh} disabled={refreshing} aria-label="Refresh"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 4,
+              color: T.primary, opacity: refreshing ? 0.4 : 1, lineHeight: 0 }}>
+            <Icon name="RefreshCw" size={16} />
+          </button>
+          <span style={{ fontSize: 11.5, color: T.inkFaint }}>
+            {tc({ en: `Day ${batchDay ?? "—"}`, hi: `दिन ${batchDay ?? "—"}`, bn: `দিন ${batchDay ?? "—"}` })}
+            {date ? ` · ${date}` : ""}
+          </span>
+        </div>
+      </div>
+      {/* Milestone strip */}
+      <MilestoneStrip batchDay={batchDay ?? 0} tc={tc} />
+    </Card>
+  );
+}
+
+function MilestoneStrip({ batchDay, tc }) {
+  return (
+    <div style={{ display: "flex", overflowX: "auto", gap: 0, padding: "0 14px 10px",
+      scrollbarWidth: "none" }}>
+      {LIFECYCLE_MILESTONES.map((m, i) => {
+        const isPast    = batchDay > m.day;
+        const isCurrent = batchDay === m.day;
+        const color     = isCurrent ? T.primary : isPast ? T.inkFaint : T.inkSoft;
+        return (
+          <div key={m.day} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+            {i > 0 && (
+              <div style={{ width: 20, height: 1, background: isPast ? T.primary : T.lineSoft,
+                opacity: isPast ? 0.5 : 0.3 }} />
+            )}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "0 4px" }}>
+              <div style={{ width: 26, height: 26, borderRadius: "50%",
+                background: isCurrent ? T.primary : isPast ? T.surface2 : T.surface2,
+                border: `1.5px solid ${isCurrent ? T.primary : isPast ? T.inkFaint : T.lineSoft}`,
+                display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icon name={m.icon} size={13} color={color} />
+              </div>
+              <span style={{ fontSize: 10, color, whiteSpace: "nowrap", fontWeight: isCurrent ? 700 : 400 }}>
+                {tc(m.label)}
+              </span>
+              <span style={{ fontSize: 9.5, color: T.inkFaint }}>
+                {tc({ en: `d${m.day}`, hi: `दि${m.day}`, bn: `দি${m.day}` })}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CautionsCard({ cautions, tc }) {
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? cautions : cautions.slice(0, 2);
+  return (
+    <Card pad={0} style={{ borderLeft: `3px solid ${T.orange}` }}>
+      <div style={{ padding: "10px 14px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Icon name="AlertCircle" size={14} color={T.orange} />
+            <SectionLabel label={tc({ en: "Cautions for today", hi: "आज की सावधानियाँ", bn: "আজকের সতর্কতা" })} color={T.orange} />
+          </div>
+          {cautions.length > 2 && (
+            <button onClick={() => setExpanded(v => !v)}
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12,
+                color: T.primary, padding: 0, fontFamily: T.body }}>
+              {expanded
+                ? tc({ en: "Less", hi: "कम", bn: "কম" })
+                : tc({ en: `+${cautions.length - 2} more`, hi: `+${cautions.length - 2} और`, bn: `+${cautions.length - 2} আরও` })}
+            </button>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          {shown.map((c, i) => (
+            <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <span style={{ color: T.orange, fontSize: 13, flexShrink: 0, marginTop: 1 }}>•</span>
+              <span style={{ fontSize: 13, color: T.ink, lineHeight: 1.45 }}>{tc(c)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function WatchForCard({ items, tc, onReport }) {
+  return (
+    <Card pad={0} style={{ borderLeft: `3px solid ${T.red}` }}>
+      <div style={{ padding: "10px 14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+          <Icon name="Eye" size={14} color={T.red} />
+          <SectionLabel label={tc({ en: "Watch for", hi: "ध्यान रखें", bn: "লক্ষ্য রাখুন" })} color={T.red} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {items.map((item, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flex: 1 }}>
+                <span style={{ color: T.red, fontSize: 13, flexShrink: 0, marginTop: 1 }}>⚑</span>
+                <span style={{ fontSize: 13, color: T.ink, lineHeight: 1.45 }}>{tc(item)}</span>
+              </div>
+              {item.incidentHint && (
+                <button onClick={() => onReport(item.incidentHint)}
+                  style={{ background: "none", border: `1px solid ${T.red}`, borderRadius: T.rMd,
+                    cursor: "pointer", padding: "3px 8px", fontSize: 11.5, fontWeight: 600,
+                    color: T.red, fontFamily: T.body, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {tc({ en: "Report", hi: "रिपोर्ट", bn: "রিপোর্ট" })}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function TomorrowPreviewCard({ batchDay, poultryType, tc }) {
+  const tomorrowDay = batchDay + 1;
+  const tasks = previewTasksForDay(tomorrowDay, poultryType || "broiler");
+  if (tasks.length === 0) return null;
+  const CATEGORY_COLOR = { milestone: T.primary, feed: T.orange, weight: T.primary, biosecurity: T.inkSoft, daily_ops: T.inkFaint };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <Icon name="Sunrise" size={14} color={T.inkSoft} />
+        <SectionLabel label={tc({ en: `Tomorrow (Day ${tomorrowDay})`, hi: `कल (दिन ${tomorrowDay})`, bn: `আগামীকাল (দিন ${tomorrowDay})` })} />
+      </div>
+      {tasks.map(t => (
+        <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8,
+          padding: "7px 12px", background: T.surface2, borderRadius: T.rMd }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%",
+            background: CATEGORY_COLOR[t.category] || T.inkFaint, flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: T.inkSoft, flex: 1 }}>{tc(t.title)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SevenDayTimeline({ batchDay, poultryType, tc }) {
+  const [expanded, setExpanded] = useState(false);
+  const pType = poultryType || "broiler";
+  const days = Array.from({ length: 7 }, (_, i) => batchDay + 1 + i);
+  const rows = days.map(d => ({ day: d, tasks: previewTasksForDay(d, pType) }));
+  const CATEGORY_ICON = { milestone: "Star", feed: "Wheat", weight: "Scale", biosecurity: "Shield", daily_ops: "Activity" };
+  if (!expanded) {
+    return (
+      <button onClick={() => setExpanded(true)}
+        style={{ background: "none", border: "none", cursor: "pointer", padding: "6px 0",
+          fontSize: 13, color: T.primary, textAlign: "left", fontFamily: T.body,
+          display: "flex", alignItems: "center", gap: 5 }}>
+        <Icon name="CalendarDays" size={14} color={T.primary} />
+        {tc({ en: "Show 7-day plan", hi: "7-दिन योजना देखें", bn: "৭-দিনের পরিকল্পনা দেখুন" })}
+      </button>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="CalendarDays" size={14} color={T.inkSoft} />
+          <SectionLabel label={tc({ en: "Next 7 days", hi: "अगले 7 दिन", bn: "আগামী ৭ দিন" })} />
+        </div>
+        <button onClick={() => setExpanded(false)}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12,
+            color: T.primary, padding: 0, fontFamily: T.body }}>
+          {tc({ en: "Hide", hi: "छिपाएँ", bn: "লুকান" })}
+        </button>
+      </div>
+      {rows.map(({ day, tasks }) => (
+        <div key={day} style={{ display: "flex", gap: 10, padding: "8px 12px",
+          background: T.surface2, borderRadius: T.rMd, alignItems: "flex-start" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.primary, minWidth: 36, flexShrink: 0, paddingTop: 2 }}>
+            {tc({ en: `D${day}`, hi: `दि${day}`, bn: `দি${day}` })}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, flex: 1 }}>
+            {tasks.length === 0
+              ? <span style={{ fontSize: 12, color: T.inkFaint }}>—</span>
+              : tasks.map(t => (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 4,
+                  padding: "2px 7px", background: T.surface2, borderRadius: 999,
+                  border: `1px solid ${T.lineSoft}` }}>
+                  <Icon name={CATEGORY_ICON[t.category] || "Circle"} size={10} color={T.inkFaint} />
+                  <span style={{ fontSize: 11.5, color: T.inkSoft }}>{tc(t.title)}</span>
+                </div>
+              ))
+            }
+          </div>
         </div>
       ))}
     </div>
