@@ -130,6 +130,7 @@ const MIGRATIONS = [
   "0023_fish_foundation.sql",
   "0024_bee_foundation.sql",
   "0025_crop_foundation.sql",
+  "0026_notifications.sql",
 ];
 
 export async function freshDb() {

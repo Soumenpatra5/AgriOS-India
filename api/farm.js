@@ -44,6 +44,7 @@ import * as beeOps from "./_lib/farm/beeOps.js";
 import * as crop from "./_lib/farm/crop.js";
 import * as cropOps from "./_lib/farm/cropOps.js";
 import * as analytics from "./_lib/farm/analytics.js";
+import * as notifs from "./_lib/farm/notifications.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -627,6 +628,15 @@ const ACTIONS = {
    *   Individual transaction details are NOT exposed here, only aggregates. */
   "farm.analytics.summary":     { permission: "farm.view", run: ({ sql, membership, payload }) => analytics.farmAnalytics(sql, membership, payload) },
   "farm.analytics.leaderboard": { permission: "farm.view", run: ({ sql, membership, payload }) => analytics.activityLeaderboard(sql, membership, payload) },
+
+  /* ── Notifications ────────────────────────────────────────────────────────
+   *   All gated on farm.view. mark-read and dismiss are personal (scoped to
+   *   the caller) so any member may act on their own inbox. */
+  "notifications.list":     { permission: "farm.view", run: ({ sql, membership, user, payload }) => notifs.listNotifications(sql, membership, user.id, payload) },
+  "notifications.count":    { permission: "farm.view", run: ({ sql, membership, user })          => notifs.unreadCount(sql, membership, user.id) },
+  "notifications.markRead": { permission: "farm.view", run: ({ sql, membership, user, payload }) => notifs.markRead(sql, membership, user.id, payload) },
+  "notifications.dismiss":  { permission: "farm.view", run: ({ sql, membership, user, payload }) => notifs.dismissNotification(sql, membership, user.id, payload) },
+  "notifications.check":    { permission: "farm.view", run: ({ sql, membership, user })          => notifs.checkAndGenerateAlerts(sql, membership, user.id) },
 };
 
 export default async function handler(req, res) {
