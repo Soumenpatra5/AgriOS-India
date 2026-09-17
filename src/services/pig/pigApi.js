@@ -54,16 +54,15 @@ export const pigApi = {
   getAnimal:    (spaceId, animalId)      => call("pig.animals.get",      spaceId, { animalId }),
   createAnimal: (spaceId, payload)       => call("pig.animals.create",   spaceId, payload),
   updateAnimal: (spaceId, payload)       => call("pig.animals.update",   spaceId, payload),
-  setStatus:    (spaceId, animalId, status) => call("pig.animals.setStatus", spaceId, { animalId, status }),
+  setStatus:    (spaceId, payload)       => call("pig.animals.setStatus", spaceId, payload),
 
   /* Animal history (unified timeline) */
-  animalHistory: (spaceId, animalId, limit = 50) =>
-    call("pig.animal.history", spaceId, { animalId, limit }),
+  animalHistory: (spaceId, payload = {}) => call("pig.animal.history",   spaceId, payload),
 
   /* Weight records */
-  listWeight:  (spaceId, animalId)      => call("pig.weight.list",       spaceId, { animalId }),
+  listWeight:  (spaceId, payload = {})  => call("pig.weight.list",       spaceId, payload),
   addWeight:   (spaceId, payload)       => call("pig.weight.add",        spaceId, payload),
-  deleteWeight:(spaceId, weightId)      => call("pig.weight.delete",     spaceId, { weightId }),
+  deleteWeight:(spaceId, payload)       => call("pig.weight.delete",     spaceId, payload),
 
   /* Reproductive events */
   listRepro:   (spaceId, animalId)      => call("pig.repro.list",        spaceId, { animalId }),
@@ -87,8 +86,8 @@ export const pigApi = {
   financeSummary: (spaceId, params = {}) => call("pig.finance.summary",  spaceId, params),
   listSales:      (spaceId, params = {}) => call("pig.sales.list",       spaceId, params),
   addSale:        (spaceId, payload)     => call("pig.sales.add",        spaceId, payload),
-  deleteSale:     (spaceId, saleId)      => call("pig.sales.delete",     spaceId, { saleId }),
+  deleteSale:     (spaceId, payload)     => call("pig.sales.delete",     spaceId, payload),
   listCosts:      (spaceId, params = {}) => call("pig.costs.list",       spaceId, params),
   addCost:        (spaceId, payload)     => call("pig.costs.add",        spaceId, payload),
-  deleteCost:     (spaceId, costId)      => call("pig.costs.delete",     spaceId, { costId }),
+  deleteCost:     (spaceId, payload)     => call("pig.costs.delete",     spaceId, payload),
 };
