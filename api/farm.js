@@ -35,6 +35,8 @@ import * as dairyOps from "./_lib/farm/dairyOps.js";
 import * as dairyFinance from "./_lib/farm/dairyFinance.js";
 import * as goat from "./_lib/farm/goat.js";
 import * as goatOps from "./_lib/farm/goatOps.js";
+import * as pig from "./_lib/farm/pig.js";
+import * as pigOps from "./_lib/farm/pigOps.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -404,6 +406,61 @@ const ACTIONS = {
 
   /* Finance summary */
   "goat.finance.summary":   { permission: "farm.goat.finance", run: ({ sql, membership, payload }) => goatOps.financeSummary(sql, membership, payload) },
+
+  /* ── Pig / Swine module ────────────────────────────────────────────────────
+   *   farm.pig.view    — everyone can read the herd
+   *   farm.pig.record  — worker/supervisor records weight, health, events
+   *   farm.pig.manage  — manager creates/updates animals
+   *   farm.pig.finance — manager accesses sales, costs, finance summary */
+
+  /* Animals */
+  "pig.animals.list":      { permission: "farm.pig.view",    run: ({ sql, membership, payload }) => pig.listAnimals(sql, membership, payload) },
+  "pig.animals.get":       { permission: "farm.pig.view",    run: ({ sql, membership, payload }) => pig.getAnimal(sql, membership, payload) },
+  "pig.animals.create":    { permission: "farm.pig.manage",  run: ({ sql, membership, user, payload }) => pig.createAnimal(sql, membership, user.id, payload) },
+  "pig.animals.update":    { permission: "farm.pig.manage",  run: ({ sql, membership, user, payload }) => pig.updateAnimal(sql, membership, user.id, payload) },
+  "pig.animals.setStatus": { permission: "farm.pig.manage",  run: ({ sql, membership, user, payload }) => pig.setAnimalStatus(sql, membership, user.id, payload) },
+
+  /* Herd metrics */
+  "pig.metrics":           { permission: "farm.pig.view",    run: ({ sql, membership }) => pig.herdMetrics(sql, membership) },
+
+  /* Animal history */
+  "pig.animal.history":    { permission: "farm.pig.view",    run: ({ sql, membership, payload }) => pig.animalHistory(sql, membership, payload) },
+
+  /* Weight records */
+  "pig.weight.list":       { permission: "farm.pig.view",    run: ({ sql, membership, payload }) => pigOps.listWeight(sql, membership, payload) },
+  "pig.weight.add":        { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.addWeight(sql, membership, user.id, payload) },
+  "pig.weight.delete":     { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.deleteWeight(sql, membership, user.id, payload) },
+
+  /* Reproductive events */
+  "pig.repro.list":        { permission: "farm.pig.view",    run: ({ sql, membership, payload }) => pigOps.listRepro(sql, membership, payload) },
+  "pig.repro.add":         { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.addRepro(sql, membership, user.id, payload) },
+  "pig.repro.update":      { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.updateRepro(sql, membership, user.id, payload) },
+  "pig.repro.delete":      { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.deleteRepro(sql, membership, user.id, payload) },
+
+  /* Health events */
+  "pig.health.list":       { permission: "farm.pig.view",    run: ({ sql, membership, payload }) => pigOps.listHealth(sql, membership, payload) },
+  "pig.health.add":        { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.addHealth(sql, membership, user.id, payload) },
+  "pig.health.update":     { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.updateHealth(sql, membership, user.id, payload) },
+  "pig.health.delete":     { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.deleteHealth(sql, membership, user.id, payload) },
+
+  /* Feed records */
+  "pig.feed.list":         { permission: "farm.pig.view",    run: ({ sql, membership, payload }) => pigOps.listFeed(sql, membership, payload) },
+  "pig.feed.add":          { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.addFeed(sql, membership, user.id, payload) },
+  "pig.feed.update":       { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.updateFeed(sql, membership, user.id, payload) },
+  "pig.feed.delete":       { permission: "farm.pig.record",  run: ({ sql, membership, user, payload }) => pigOps.deleteFeed(sql, membership, user.id, payload) },
+
+  /* Sales */
+  "pig.sales.list":        { permission: "farm.pig.finance", run: ({ sql, membership, payload }) => pigOps.listSales(sql, membership, payload) },
+  "pig.sales.add":         { permission: "farm.pig.finance", run: ({ sql, membership, user, payload }) => pigOps.addSale(sql, membership, user.id, payload) },
+  "pig.sales.delete":      { permission: "farm.pig.finance", run: ({ sql, membership, user, payload }) => pigOps.deleteSale(sql, membership, user.id, payload) },
+
+  /* Costs */
+  "pig.costs.list":        { permission: "farm.pig.finance", run: ({ sql, membership, payload }) => pigOps.listCosts(sql, membership, payload) },
+  "pig.costs.add":         { permission: "farm.pig.finance", run: ({ sql, membership, user, payload }) => pigOps.addCost(sql, membership, user.id, payload) },
+  "pig.costs.delete":      { permission: "farm.pig.finance", run: ({ sql, membership, user, payload }) => pigOps.deleteCost(sql, membership, user.id, payload) },
+
+  /* Finance summary */
+  "pig.finance.summary":   { permission: "farm.pig.finance", run: ({ sql, membership, payload }) => pigOps.financeSummary(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {
