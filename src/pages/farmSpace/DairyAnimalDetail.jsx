@@ -1399,6 +1399,130 @@ function StatPill({ label, value, accent }) {
   );
 }
 
+/* ── Per-animal 30-day lactation trend chart ────────────────────────────── */
+
+function StatTile({ label, value, highlight }) {
+  return (
+    <div style={{ flex: "1 1 0", minWidth: 0, padding: "7px 8px", textAlign: "center" }}>
+      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: T.display, lineHeight: 1.2,
+        color: highlight ? T.orange : T.ink }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 10, color: T.inkSoft, fontFamily: T.body, marginTop: 1 }}>{label}</div>
+    </div>
+  );
+}
+
+function MilkTrendChart({ milkList, tc }) {
+  /* Build a 30-slot array, oldest→newest. */
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+
+  const byDate = {};
+  for (const r of milkList) {
+    const key = (r.record_date || "").slice(0, 10);
+    const total = Number(r.total_yield_kg) || (Number(r.am_yield_kg) + Number(r.pm_yield_kg));
+    byDate[key] = (byDate[key] || 0) + total;
+  }
+
+  const values  = days.map(d => byDate[d] || 0);
+  const maxVal  = Math.max(...values, 1);
+  const hasData = values.some(v => v > 0);
+  if (!hasData) return null;
+
+  /* Derived statistics. */
+  const daysWithData = values.filter(v => v > 0);
+  const avgKg  = daysWithData.reduce((s, v) => s + v, 0) / daysWithData.length;
+  const peakKg = Math.max(...values);
+  const peakIdx = values.lastIndexOf(peakKg);
+  const proj305 = avgKg * 305;
+  const proj305Str = proj305 < 1000
+    ? `${proj305.toFixed(0)} kg`
+    : `${(proj305 / 1000).toFixed(1)} t`;
+
+  const VW = 300; const VH = 60;
+  const slotW = VW / 30;
+  const barW  = Math.max(slotW - 1.5, 1);
+  const avgY  = VH - Math.max((avgKg / maxVal) * (VH - 4), 0);
+
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.line}`,
+      borderRadius: T.rMd, overflow: "hidden" }}>
+
+      {/* Header */}
+      <div style={{ padding: "10px 14px 4px", display: "flex",
+        justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: T.inkFaint,
+          fontFamily: T.body, textTransform: "uppercase", letterSpacing: 0.7 }}>
+          {tc({ en: "30-day trend", hi: "30 दिन रुझान", bn: "৩০ দিনের ট্রেন্ড" })}
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: T.body, color: T.orange }}>
+          ↑ {peakKg.toFixed(1)} {tc({ en: "kg peak", hi: "kg सर्वाधिक", bn: "kg শীর্ষ" })}
+        </span>
+      </div>
+
+      {/* SVG bar chart */}
+      <div style={{ padding: "0 14px" }}>
+        <svg viewBox={`0 0 ${VW} ${VH}`}
+          style={{ width: "100%", height: VH, display: "block", overflow: "visible" }}
+          aria-label={tc({ en: "30-day milk trend", hi: "30 दिन दूध रुझान", bn: "৩০ দিনের দুধ ট্রেন্ড" })}>
+
+          {/* Average dashed line */}
+          <line x1={0} y1={avgY} x2={VW} y2={avgY}
+            stroke={T.blue} strokeWidth={1} strokeDasharray="3 2" opacity={0.55} />
+
+          {/* Bars */}
+          {values.map((v, i) => {
+            const barH  = Math.max((v / maxVal) * (VH - 4), v > 0 ? 3 : 0);
+            const x     = i * slotW;
+            const fill  = (i === peakIdx && v > 0) ? T.orange
+                        : (i === 29)               ? T.primary
+                        :                            T.primarySoft;
+            return (
+              <rect key={i}
+                x={x + (slotW - barW) / 2} y={VH - barH}
+                width={barW} height={barH}
+                fill={fill} rx={1.5} />
+            );
+          })}
+        </svg>
+
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2, marginBottom: 8 }}>
+          <span style={{ fontSize: 9.5, color: T.inkFaint, fontFamily: T.body }}>
+            {days[0].slice(5).replace("-", "/")}
+          </span>
+          <span style={{ fontSize: 9.5, color: T.blue, fontFamily: T.body }}>
+            — {tc({ en: "avg", hi: "औसत", bn: "গড়" })}
+          </span>
+          <span style={{ fontSize: 9.5, color: T.inkFaint, fontFamily: T.body }}>
+            {tc({ en: "today", hi: "आज", bn: "আজ" })}
+          </span>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ borderTop: `1px solid ${T.line}`, display: "flex" }}>
+        <StatTile
+          label={tc({ en: "Avg / day", hi: "औसत/दिन", bn: "গড়/দিন" })}
+          value={`${avgKg.toFixed(1)} kg`} />
+        <div style={{ width: 1, background: T.line }} />
+        <StatTile
+          label={tc({ en: "Peak day", hi: "सर्वाधिक", bn: "সর্বোচ্চ" })}
+          value={`${peakKg.toFixed(1)} kg`}
+          highlight />
+        <div style={{ width: 1, background: T.line }} />
+        <StatTile
+          label={tc({ en: "305-day est.", hi: "305 दिन अनु.", bn: "৩০৫ দিন অনু." })}
+          value={proj305Str} />
+      </div>
+    </div>
+  );
+}
+
 function MilkTab({ milkList, canRecord, isTerminal, tc, locale, fmtDateShort, onAdd, onDelete }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1408,6 +1532,9 @@ function MilkTab({ milkList, canRecord, isTerminal, tc, locale, fmtDateShort, on
           {tc({ en: "Log milk", hi: "दूध दर्ज करें", bn: "দুধ লিখুন" })}
         </Button>
       )}
+
+      <MilkTrendChart milkList={milkList} tc={tc} />
+
       {milkList.length === 0 ? (
         <EmptyState
           icon="Droplets"
