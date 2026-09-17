@@ -51,43 +51,43 @@ const MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
 /* ── Goat finance constants ───────────────────────────────────────────── */
 
 const SALE_TYPE_OPTIONS = [
-  { value: "live_animal", label: { en: "Live animal",  hi: "जीवित पशु",   bn: "জীবন্ত পশু"   } },
-  { value: "milk_sale",   label: { en: "Milk sale",    hi: "दूध बिक्री",  bn: "দুধ বিক্রয়"  } },
-  { value: "kid_sale",    label: { en: "Kid / lamb",   hi: "बच्चा बिक्री", bn: "বাচ্চা বিক্রয়" } },
-  { value: "wool",        label: { en: "Wool / fibre", hi: "ऊन / रेशा",   bn: "পশম / তন্তু"  } },
-  { value: "other",       label: { en: "Other",        hi: "अन्य",        bn: "অন্যান্য"     } },
+  { value: "milk",   label: { en: "Milk sale",    hi: "दूध बिक्री",    bn: "দুধ বিক্রয়"    } },
+  { value: "animal", label: { en: "Animal sale",  hi: "पशु बिक्री",    bn: "পশু বিক্রয়"    } },
+  { value: "fiber",  label: { en: "Fiber / wool", hi: "ऊन / रेशा",     bn: "ফাইবার / পশম"  } },
+  { value: "other",  label: { en: "Other",        hi: "अन्य",          bn: "অন্যান্য"       } },
 ];
 
 const SALE_TYPE_LABEL = Object.fromEntries(SALE_TYPE_OPTIONS.map((o) => [o.value, o.label]));
 
 const COST_CATEGORY_OPTIONS = [
-  { value: "feed",       label: { en: "Feed",       hi: "चारा",          bn: "খাদ্য"       } },
-  { value: "medicine",   label: { en: "Medicine",   hi: "दवाई",          bn: "ওষুধ"        } },
-  { value: "labour",     label: { en: "Labour",     hi: "श्रम",          bn: "শ্রম"        } },
-  { value: "veterinary", label: { en: "Veterinary", hi: "पशु चिकित्सा",  bn: "পশুচিকিৎসা" } },
-  { value: "equipment",  label: { en: "Equipment",  hi: "उपकरण",         bn: "সরঞ্জাম"     } },
-  { value: "housing",    label: { en: "Housing",    hi: "आवास",          bn: "আবাসন"       } },
-  { value: "other",      label: { en: "Other",      hi: "अन्य",          bn: "অন্যান্য"    } },
+  { value: "concentrate_feed", label: { en: "Concentrate feed", hi: "सांद्र चारा",   bn: "ঘনীভূত খাদ্য"  } },
+  { value: "fodder",           label: { en: "Fodder",           hi: "हरा चारा",      bn: "ঘাস / খড়"      } },
+  { value: "medicine",         label: { en: "Medicine",         hi: "दवाई",          bn: "ওষুধ"           } },
+  { value: "labour",           label: { en: "Labour",           hi: "श्रम",          bn: "শ্রম"           } },
+  { value: "veterinary",       label: { en: "Veterinary",       hi: "पशु चिकित्सा",  bn: "পশুচিকিৎসা"    } },
+  { value: "equipment",        label: { en: "Equipment",        hi: "उपकरण",         bn: "সরঞ্জাম"        } },
+  { value: "fiber_shearing",   label: { en: "Fiber shearing",   hi: "ऊन कटाई",       bn: "পশম ছাঁটাই"    } },
+  { value: "other",            label: { en: "Other",            hi: "अन्य",          bn: "অন্যান্য"       } },
 ];
 
 const COST_CATEGORY_LABEL = Object.fromEntries(COST_CATEGORY_OPTIONS.map((o) => [o.value, o.label]));
 
 const SALE_TYPE_COLOR = {
-  live_animal: { fg: "#5a6e1a", bg: "#eef4d2" },
-  milk_sale:   { fg: "#1a5c8b", bg: "#ddeef8" },
-  kid_sale:    { fg: T.primary, bg: T.primarySoft },
-  wool:        { fg: "#7a5a1a", bg: "#f8f0d8" },
-  other:       { fg: "#4a4a4a", bg: "#f0f0f0" },
+  milk:   { fg: "#1a5c8b", bg: "#ddeef8" },
+  animal: { fg: "#5a6e1a", bg: "#eef4d2" },
+  fiber:  { fg: "#6b3a8b", bg: "#ede0f8" },
+  other:  { fg: "#4a4a4a", bg: "#f0f0f0" },
 };
 
 const COST_CATEGORY_COLOR = {
-  feed:       { fg: "#5a6e1a", bg: "#eef4d2" },
-  medicine:   { fg: "#8b2828", bg: "#fde8e8" },
-  labour:     { fg: "#1a5c8b", bg: "#ddeef8" },
-  veterinary: { fg: "#8b4a1a", bg: "#fbe8d8" },
-  equipment:  { fg: "#7a5a1a", bg: "#f8f0d8" },
-  housing:    { fg: "#4a7a6a", bg: "#d8f0eb" },
-  other:      { fg: "#4a4a4a", bg: "#f0f0f0" },
+  concentrate_feed: { fg: "#5a6e1a", bg: "#eef4d2" },
+  fodder:           { fg: "#7c5a1e", bg: "#f5ead8" },
+  medicine:         { fg: "#8b2828", bg: "#fde8e8" },
+  labour:           { fg: "#1a5c8b", bg: "#ddeef8" },
+  veterinary:       { fg: "#8b4a1a", bg: "#fbe8d8" },
+  equipment:        { fg: "#7a5a1a", bg: "#f8f0d8" },
+  fiber_shearing:   { fg: "#6b3a8b", bg: "#ede0f8" },
+  other:            { fg: "#4a4a4a", bg: "#f0f0f0" },
 };
 
 /* ── Sub-components ──────────────────────────────────────────────────── */
@@ -116,6 +116,18 @@ function SummaryCard({ summary, tc }) {
           value={`${net >= 0 ? "+" : ""}${fmtAmount(net)}`}
           icon={net >= 0 ? "ArrowUpRight" : "ArrowDownRight"} color={netColor} bg={netBg} />
       </div>
+      {summary?.month_milk_produced_kg != null && (
+        <div style={{ borderTop: `1px solid ${T.line}`, padding: "8px 14px",
+          background: T.surface, display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="Droplets" size={13} color={T.blue} />
+          <span style={{ fontSize: 12, color: T.inkSoft, fontFamily: T.body }}>
+            {tc({ en: "Milk produced", hi: "दूध उत्पादन", bn: "দুধ উৎপাদন" })}
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.blue, fontFamily: T.display, marginLeft: "auto" }}>
+            {Number(summary.month_milk_produced_kg).toFixed(1)} kg
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -174,7 +186,7 @@ export default function GoatFinance() {
 
   /* Add sale */
   const blankSform = () => ({
-    saleDate: today(), saleType: "live_animal", buyer: "", quantity: "",
+    saleDate: today(), saleType: "milk", buyer: "", quantity: "",
     unit: "", unitPrice: "", amount: "", notes: "", clientUuid: crypto.randomUUID(),
   });
   const [saleOpen, setSaleOpen] = useState(false);
@@ -183,7 +195,7 @@ export default function GoatFinance() {
 
   /* Add cost */
   const blankCform = () => ({
-    costDate: today(), category: "feed", description: "", quantity: "",
+    costDate: today(), category: "concentrate_feed", description: "", quantity: "",
     unit: "", unitCost: "", amount: "", notes: "", clientUuid: crypto.randomUUID(),
   });
   const [costOpen, setCostOpen] = useState(false);
@@ -303,12 +315,15 @@ export default function GoatFinance() {
   const share = async () => {
     if (!summary) return;
     const { fromDate, toDate } = monthRange(ym.year, ym.month);
+    const milkLine = summary.month_milk_produced_kg != null
+      ? `\nMilk produced: ${Number(summary.month_milk_produced_kg).toFixed(1)} kg`
+      : "";
     const text = [
-      `🐐 Goat & Sheep Finance Report — ${MONTH_NAMES[ym.month]} ${ym.year}`,
+      `🐐 Goat Finance Report — ${MONTH_NAMES[ym.month]} ${ym.year}`,
       `Period: ${fromDate} to ${toDate}`,
       `Revenue: ${fmtAmount(summary.total_revenue)}`,
       `Costs:   ${fmtAmount(summary.total_costs)}`,
-      `Net P&L: ${fmtAmount(summary.net_profit)}`,
+      `Net P&L: ${fmtAmount(summary.net_profit)}${milkLine}`,
     ].join("\n");
     try {
       if (navigator.share) { await navigator.share({ text }); }
@@ -374,7 +389,7 @@ export default function GoatFinance() {
           {sales.length === 0 ? (
             <EmptyState icon="TrendingUp"
               title={tc({ en: "No sales this month", hi: "इस माह कोई बिक्री नहीं", bn: "এ মাসে কোনো বিক্রয় নেই" })}
-              body={tc({ en: "Log animal, milk or kid sales to get started.", hi: "शुरू करने के लिए बिक्री दर्ज करें।", bn: "শুরু করতে পশু, দুধ বা বাচ্চা বিক্রয় লিখুন।" })} />
+              body={tc({ en: "Log milk, animal or fiber sales to track revenue.", hi: "राजस्व ट्रैक करने के लिए दूध, पशु या ऊन की बिक्री दर्ज करें।", bn: "রাজস্ব ট্র্যাক করতে দুধ, পশু বা পশম বিক্রয় লিখুন।" })} />
           ) : (
             sales.map((s) => (
               <Card key={s.id} pad={0}>
