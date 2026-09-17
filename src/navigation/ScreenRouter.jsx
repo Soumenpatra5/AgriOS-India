@@ -82,6 +82,9 @@ const PigDashboard       = lazy(() => import("../pages/farmSpace/PigDashboard.js
 const PigAnimalDetail    = lazy(() => import("../pages/farmSpace/PigAnimalDetail.jsx"));
 const PigFinance         = lazy(() => import("../pages/farmSpace/PigFinance.jsx"));
 const FishDashboard      = lazy(() => import("../pages/farmSpace/FishDashboard.jsx"));
+const BeeDashboard       = lazy(() => import("../pages/farmSpace/BeeDashboard.jsx"));
+const HiveDetail         = lazy(() => import("../pages/farmSpace/HiveDetail.jsx"));
+const BeeFinance         = lazy(() => import("../pages/farmSpace/BeeFinance.jsx"));
 const FishPondDetail     = lazy(() => import("../pages/farmSpace/FishPondDetail.jsx"));
 const FishFinance        = lazy(() => import("../pages/farmSpace/FishFinance.jsx"));
 const DairyAnimalDetail  = lazy(() => import("../pages/farmSpace/DairyAnimalDetail.jsx"));
@@ -239,6 +242,9 @@ function StackScreen({ item }) {
   if (item.kind === "fishDashboard")       return <FishDashboard      {...(item.props || {})} />;
   if (item.kind === "fishPondDetail")      return <FishPondDetail     {...(item.props || {})} />;
   if (item.kind === "fishFinance")         return <FishFinance        {...(item.props || {})} />;
+  if (item.kind === "beeDashboard")        return <BeeDashboard       {...(item.props || {})} />;
+  if (item.kind === "hiveDetail")          return <HiveDetail         {...(item.props || {})} />;
+  if (item.kind === "beeFinance")          return <BeeFinance         {...(item.props || {})} />;
   if (item.kind === "dairyAnimalDetail")   return <DairyAnimalDetail {...(item.props || {})} />;
   if (item.kind === "dairyFinance")         return <DairyFinance      {...(item.props || {})} />;
   if (item.kind === "dairyMilkEntry")       return <DairyMilkEntry    {...(item.props || {})} />;

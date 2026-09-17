@@ -70,6 +70,11 @@ export const PERMISSIONS = [
   "farm.fish.record",
   "farm.fish.manage",
   "farm.fish.finance",
+  /* Beekeeping / apiculture. Same four levels. */
+  "farm.bee.view",
+  "farm.bee.record",
+  "farm.bee.manage",
+  "farm.bee.finance",
 ];
 
 /* Worker holds the permissions whose ROWS are narrowed elsewhere rather than
@@ -98,6 +103,8 @@ const MATRIX = {
     "farm.pig.view", "farm.pig.record", "farm.pig.manage", "farm.pig.finance",
     /* Manages the fish ponds day to day, including its financials. */
     "farm.fish.view", "farm.fish.record", "farm.fish.manage", "farm.fish.finance",
+    /* Manages hives and apiaries day to day, including its financials. */
+    "farm.bee.view", "farm.bee.record", "farm.bee.manage", "farm.bee.finance",
   ]),
   supervisor: new Set([
     "farm.view", "farm.members.view",
@@ -115,6 +122,8 @@ const MATRIX = {
     "farm.pig.view", "farm.pig.record",
     /* Records fish feed, water quality and events; cannot create ponds or see financials. */
     "farm.fish.view", "farm.fish.record",
+    /* Records hive inspections, harvests and treatments; cannot create hives or see financials. */
+    "farm.bee.view", "farm.bee.record",
   ]),
   worker: new Set([
     "farm.view",
@@ -134,6 +143,8 @@ const MATRIX = {
     "farm.pig.view", "farm.pig.record",
     /* The fish farmer records daily feed, water quality and events. */
     "farm.fish.view", "farm.fish.record",
+    /* The beekeeper records inspections, harvests and treatments. */
+    "farm.bee.view", "farm.bee.record",
   ]),
 };
 

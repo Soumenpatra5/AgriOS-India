@@ -25,6 +25,7 @@ describe("ownerTabOf", () => {
       "goatDashboard",  "goatAnimalDetail",  "goatFinance",  "goatMilkEntry",
       "pigDashboard",   "pigAnimalDetail",   "pigFinance",
       "fishDashboard", "fishPondDetail", "fishFinance",
+      "beeDashboard", "hiveDetail", "beeFinance",
       "poultryDashboard", "poultryBatchDetail", "poultryBatchFinance",
       "poultryBatchHistory", "poultryChainDetail",
     ]) {

@@ -39,6 +39,8 @@ import * as pig from "./_lib/farm/pig.js";
 import * as pigOps from "./_lib/farm/pigOps.js";
 import * as fish from "./_lib/farm/fish.js";
 import * as fishOps from "./_lib/farm/fishOps.js";
+import * as bee from "./_lib/farm/bee.js";
+import * as beeOps from "./_lib/farm/beeOps.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -521,6 +523,56 @@ const ACTIONS = {
 
   /* Finance summary */
   "fish.finance.summary":  { permission: "farm.fish.finance", run: ({ sql, membership, payload }) => fishOps.financeSummary(sql, membership, payload) },
+
+  /* ── Bee / Apiculture module ──────────────────────────────────────────────
+   *   farm.bee.view    — everyone can read apiaries and hives
+   *   farm.bee.record  — worker/supervisor records inspections, harvests, treatments
+   *   farm.bee.manage  — manager creates/updates hives and apiaries
+   *   farm.bee.finance — manager accesses sales, costs, finance summary */
+
+  /* Apiaries */
+  "bee.apiaries.list":   { permission: "farm.bee.view",    run: ({ sql, membership })                  => bee.listApiaries(sql, membership) },
+  "bee.apiaries.create": { permission: "farm.bee.manage",  run: ({ sql, membership, user, payload })   => bee.createApiary(sql, membership, user.id, payload) },
+  "bee.apiaries.delete": { permission: "farm.bee.manage",  run: ({ sql, membership, user, payload })   => bee.deleteApiary(sql, membership, user.id, payload) },
+
+  /* Hives */
+  "bee.hives.list":      { permission: "farm.bee.view",    run: ({ sql, membership, payload })          => bee.listHives(sql, membership, payload) },
+  "bee.hives.get":       { permission: "farm.bee.view",    run: ({ sql, membership, payload })          => bee.getHive(sql, membership, payload) },
+  "bee.hives.create":    { permission: "farm.bee.manage",  run: ({ sql, membership, user, payload })    => bee.createHive(sql, membership, user.id, payload) },
+  "bee.hives.update":    { permission: "farm.bee.manage",  run: ({ sql, membership, user, payload })    => bee.updateHive(sql, membership, user.id, payload) },
+  "bee.hives.setStatus": { permission: "farm.bee.manage",  run: ({ sql, membership, user, payload })    => bee.setHiveStatus(sql, membership, user.id, payload) },
+
+  /* Hive metrics + history */
+  "bee.metrics":         { permission: "farm.bee.view",    run: ({ sql, membership })                   => bee.hiveMetrics(sql, membership) },
+  "bee.hive.history":    { permission: "farm.bee.view",    run: ({ sql, membership, payload })          => bee.hiveHistory(sql, membership, payload) },
+
+  /* Inspections */
+  "bee.inspections.list":   { permission: "farm.bee.view",    run: ({ sql, membership, payload })       => bee.listInspections(sql, membership, payload) },
+  "bee.inspections.add":    { permission: "farm.bee.record",  run: ({ sql, membership, user, payload }) => bee.addInspection(sql, membership, user.id, payload) },
+  "bee.inspections.delete": { permission: "farm.bee.manage",  run: ({ sql, membership, user, payload }) => bee.deleteInspection(sql, membership, user.id, payload) },
+
+  /* Harvests */
+  "bee.harvests.list":   { permission: "farm.bee.view",    run: ({ sql, membership, payload })          => bee.listHarvests(sql, membership, payload) },
+  "bee.harvests.add":    { permission: "farm.bee.record",  run: ({ sql, membership, user, payload })    => bee.addHarvest(sql, membership, user.id, payload) },
+  "bee.harvests.delete": { permission: "farm.bee.manage",  run: ({ sql, membership, user, payload })    => bee.deleteHarvest(sql, membership, user.id, payload) },
+
+  /* Treatments */
+  "bee.treatments.list":   { permission: "farm.bee.view",    run: ({ sql, membership, payload })        => bee.listTreatments(sql, membership, payload) },
+  "bee.treatments.add":    { permission: "farm.bee.record",  run: ({ sql, membership, user, payload })  => bee.addTreatment(sql, membership, user.id, payload) },
+  "bee.treatments.delete": { permission: "farm.bee.manage",  run: ({ sql, membership, user, payload })  => bee.deleteTreatment(sql, membership, user.id, payload) },
+
+  /* Sales */
+  "bee.sales.list":   { permission: "farm.bee.finance", run: ({ sql, membership, payload })             => beeOps.listSales(sql, membership, payload) },
+  "bee.sales.add":    { permission: "farm.bee.finance", run: ({ sql, membership, user, payload })       => beeOps.addSale(sql, membership, user.id, payload) },
+  "bee.sales.delete": { permission: "farm.bee.finance", run: ({ sql, membership, user, payload })       => beeOps.deleteSale(sql, membership, user.id, payload) },
+
+  /* Costs */
+  "bee.costs.list":   { permission: "farm.bee.finance", run: ({ sql, membership, payload })             => beeOps.listCosts(sql, membership, payload) },
+  "bee.costs.add":    { permission: "farm.bee.finance", run: ({ sql, membership, user, payload })       => beeOps.addCost(sql, membership, user.id, payload) },
+  "bee.costs.delete": { permission: "farm.bee.finance", run: ({ sql, membership, user, payload })       => beeOps.deleteCost(sql, membership, user.id, payload) },
+
+  /* Finance summary */
+  "bee.finance.summary": { permission: "farm.bee.finance", run: ({ sql, membership, payload })          => beeOps.financeSummary(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {
