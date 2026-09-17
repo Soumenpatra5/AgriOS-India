@@ -1968,4 +1968,155 @@ describe("record editing — repro, health, feed update", () => {
     });
     expect(r.status).toBe(409);
   });
+
+  it("updateFeed on a terminal (retired) animal returns 409", async () => {
+    const a = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: { name: "TerminalFeedUpdate", species: "cow", currentStatus: "milking",
+                 clientUuid: "tu-animal-03" },
+    });
+    const tid = a.data.id;
+
+    const fe = await call(U(30), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: tid, feedDate: "2026-09-06", feedType: "concentrate",
+                 quantityKg: 3, clientUuid: "tu-feed-01" },
+    });
+    expect(fe.status).toBe(200);
+    const feId = fe.data.id;
+    const feType  = fe.data.feed_type;
+    const feQty   = fe.data.quantity_kg;
+
+    await call(U(30), "dairy.animals.setStatus", {
+      spaceId: spaceA.id,
+      payload: { animalId: tid, status: "retired" },
+    });
+
+    const r = await call(U(30), "dairy.feed.update", {
+      spaceId: spaceA.id,
+      payload: { feedId: feId, feedDate: "2026-09-07", feedType: "fodder", quantityKg: 5 },
+    });
+    expect(r.status).toBe(409);
+
+    /* original record must be unchanged */
+    const list = await call(U(30), "dairy.feed.list", {
+      spaceId: spaceA.id,
+      payload: { animalId: tid },
+    });
+    expect(list.status).toBe(200);
+    const orig = list.data.find((f) => f.id === feId);
+    expect(orig).toBeTruthy();
+    expect(orig.feed_type).toBe(feType);
+    expect(Number(orig.quantity_kg)).toBeCloseTo(Number(feQty), 1);
+  });
+});
+
+/* ── P7-B: milk reconciliation (Produced / Sold / Retained) ──────────────── */
+
+describe("P7-B milk reconciliation — financeSummary produced/sold/retained", () => {
+  /* Use a narrow August 2026 window (05–31) — the boundary test above writes
+     a record on 2026-08-01; starting at 08-05 excludes it so the arithmetic
+     is deterministic. Animal A1 (milking, spaceA) is used. */
+  const FROM = "2026-08-05";
+  const TO   = "2026-08-31";
+
+  /* Known quantities that make the arithmetic easy to verify. */
+  const PROD_DAY1 = { am: 5.5, pm: 4.5 }; // total = 10.0 kg
+  const PROD_DAY2 = { am: 6.0, pm: 5.0 }; // total = 11.0 kg
+  const TOTAL_PRODUCED = 21.0;
+
+  const SOLD_KG   = 15.0;
+  const RETAINED  = TOTAL_PRODUCED - SOLD_KG; // 6.0
+
+  beforeAll(async () => {
+    /* Production records for animal A1 on two Aug dates. */
+    const m1 = await call(U(32), "dairy.milk.upsert", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, recordDate: "2026-08-10",
+                 amYieldKg: PROD_DAY1.am, pmYieldKg: PROD_DAY1.pm,
+                 clientUuid: "p7b-milk-0810" },
+    });
+    expect(m1.status).toBe(200);
+
+    const m2 = await call(U(32), "dairy.milk.upsert", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, recordDate: "2026-08-11",
+                 amYieldKg: PROD_DAY2.am, pmYieldKg: PROD_DAY2.pm,
+                 clientUuid: "p7b-milk-0811" },
+    });
+    expect(m2.status).toBe(200);
+
+    /* One sale in Aug. */
+    const s = await call(U(30), "dairy.sales.add", {
+      spaceId: spaceA.id,
+      payload: { saleDate: "2026-08-10", saleType: "morning",
+                 quantityKg: SOLD_KG, pricePerLitre: 45,
+                 clientUuid: "p7b-sale-0810" },
+    });
+    expect(s.status).toBe(200);
+  });
+
+  it("financeSummary returns correct produced kg for the date range", async () => {
+    const r = await call(U(30), "dairy.finance.summary", {
+      spaceId: spaceA.id,
+      payload: { fromDate: FROM, toDate: TO },
+    });
+    expect(r.status).toBe(200);
+    expect(Number(r.data.month_milk_produced_kg)).toBeCloseTo(TOTAL_PRODUCED, 1);
+  });
+
+  it("financeSummary returns correct sold kg for the date range", async () => {
+    const r = await call(U(30), "dairy.finance.summary", {
+      spaceId: spaceA.id,
+      payload: { fromDate: FROM, toDate: TO },
+    });
+    expect(r.status).toBe(200);
+    expect(Number(r.data.total_milk_sold_kg)).toBeCloseTo(SOLD_KG, 1);
+  });
+
+  it("retained = produced − sold (reconciliation arithmetic)", async () => {
+    const r = await call(U(30), "dairy.finance.summary", {
+      spaceId: spaceA.id,
+      payload: { fromDate: FROM, toDate: TO },
+    });
+    expect(r.status).toBe(200);
+    const produced = Number(r.data.month_milk_produced_kg);
+    const sold     = Number(r.data.total_milk_sold_kg);
+    const retained = produced - sold;
+    expect(retained).toBeCloseTo(RETAINED, 1);
+    expect(retained).toBeGreaterThanOrEqual(0);
+  });
+
+  it("records outside the queried date range are excluded from produced", async () => {
+    /* July 2026 has no production data — must return 0. */
+    const r = await call(U(30), "dairy.finance.summary", {
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-07-01", toDate: "2026-07-31" },
+    });
+    expect(r.status).toBe(200);
+    expect(Number(r.data.month_milk_produced_kg)).toBe(0);
+    expect(Number(r.data.total_milk_sold_kg)).toBe(0);
+  });
+
+  it("sold > produced edge case: retained is clamped to 0 by UI (financeSummary returns raw values)", async () => {
+    /* Add an extra sale that makes sold > produced for a narrow window. */
+    await call(U(30), "dairy.sales.add", {
+      spaceId: spaceA.id,
+      payload: { saleDate: "2026-08-10", saleType: "evening",
+                 quantityKg: 100, pricePerLitre: 45,
+                 clientUuid: "p7b-sale-oversell" },
+    });
+
+    const r = await call(U(30), "dairy.finance.summary", {
+      spaceId: spaceA.id,
+      payload: { fromDate: FROM, toDate: TO },
+    });
+    expect(r.status).toBe(200);
+    const produced = Number(r.data.month_milk_produced_kg);
+    const sold     = Number(r.data.total_milk_sold_kg);
+    /* The backend returns raw values; the UI clamps retained with Math.max(0, …). */
+    expect(sold).toBeGreaterThan(produced);
+    const retainedUi = Math.max(0, produced - sold);
+    expect(retainedUi).toBe(0);
+  });
 });
