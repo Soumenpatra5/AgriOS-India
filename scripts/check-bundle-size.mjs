@@ -14,7 +14,7 @@ import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const DIST = "dist";
-const BUDGET_KB = 480; // raised from 452: 200-line i18n/strings.js expansion (+27 KB eager) + P6 Finance lazy route (+0.4 KB)
+const BUDGET_KB = 482; // raised from 480: Phase 12 GoatAnimalDetail screen (+~1.5 KB eager, new screen component)
 const FORBIDDEN = /^(fb-|config-)/; // firebase auth/core/firestore/messaging + config
 
 const html = readFileSync(join(DIST, "index.html"), "utf8");
