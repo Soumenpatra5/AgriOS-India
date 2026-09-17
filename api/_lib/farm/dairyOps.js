@@ -220,6 +220,50 @@ export async function deleteRepro(sql, membership, actorUserId, payload) {
   return { deleted: true };
 }
 
+export async function updateRepro(sql, membership, actorUserId, payload) {
+  const { eventId, eventDate, eventType, bullName, semenLot,
+          pregnancyResult, calfCount, calfSex, calfAlive, notes } = payload ?? {};
+  if (!eventId) throw new HttpError(400, "eventId required");
+  if (eventType !== undefined && !REPRO_TYPES.has(eventType)) throw new HttpError(400, "Invalid event_type");
+  if (pregnancyResult != null && pregnancyResult !== "" && !PREG_RESULTS.has(pregnancyResult))
+    throw new HttpError(400, "Invalid pregnancy_result");
+
+  const rows = await sql`
+    select e.*, a.current_status as animal_status
+    from dairy_reproductive_events e
+    join dairy_animals a on a.id = e.animal_id
+    where e.id = ${eventId} and e.deleted_at is null
+  `;
+  if (!rows.length) throw new HttpError(404, "Reproductive event not found");
+  requireScope(rows[0], membership);
+  assertAnimalWritable({ current_status: rows[0].animal_status });
+
+  const updated = await sql`
+    update dairy_reproductive_events set
+      event_date       = ${eventDate        !== undefined ? eventDate                     : rows[0].event_date},
+      event_type       = ${eventType        !== undefined ? eventType                     : rows[0].event_type},
+      bull_name        = ${bullName         !== undefined ? (bullName        || null)     : rows[0].bull_name},
+      semen_lot        = ${semenLot         !== undefined ? (semenLot        || null)     : rows[0].semen_lot},
+      pregnancy_result = ${pregnancyResult  !== undefined ? (pregnancyResult || null)    : rows[0].pregnancy_result},
+      calf_count       = ${calfCount        !== undefined ? (calfCount       ?? null)    : rows[0].calf_count},
+      calf_sex         = ${calfSex          !== undefined ? (calfSex         || null)    : rows[0].calf_sex},
+      calf_alive       = ${calfAlive        !== undefined ? calfAlive                    : rows[0].calf_alive},
+      notes            = ${notes            !== undefined ? (notes           || null)    : rows[0].notes},
+      updated_at       = now()
+    where id = ${eventId}
+    returning *
+  `;
+
+  await audit(sql, {
+    spaceId: membership.space_id, actorUserId,
+    action: "dairy.repro.update",
+    targetType: "dairy_reproductive_events", targetId: eventId,
+    meta: { eventType: updated[0].event_type, eventDate: updated[0].event_date },
+  });
+
+  return updated[0];
+}
+
 /* ── health events ────────────────────────────────────────────────────────── */
 
 const HEALTH_TYPES = new Set([
@@ -306,6 +350,49 @@ export async function deleteHealth(sql, membership, actorUserId, payload) {
   return { deleted: true };
 }
 
+export async function updateHealth(sql, membership, actorUserId, payload) {
+  const { eventId, eventDate, eventType, title, medicine, dose, vetName,
+          nextDueDate, isZoonoticConcern, notes } = payload ?? {};
+  if (!eventId) throw new HttpError(400, "eventId required");
+  if (eventType !== undefined && !HEALTH_TYPES.has(eventType)) throw new HttpError(400, "Invalid event_type");
+  if (title !== undefined && !title?.trim()) throw new HttpError(400, "title cannot be empty");
+
+  const rows = await sql`
+    select e.*, a.current_status as animal_status
+    from dairy_health_events e
+    join dairy_animals a on a.id = e.animal_id
+    where e.id = ${eventId} and e.deleted_at is null
+  `;
+  if (!rows.length) throw new HttpError(404, "Health event not found");
+  requireScope(rows[0], membership);
+  assertAnimalWritable({ current_status: rows[0].animal_status });
+
+  const updated = await sql`
+    update dairy_health_events set
+      event_date          = ${eventDate          !== undefined ? eventDate                   : rows[0].event_date},
+      event_type          = ${eventType          !== undefined ? eventType                   : rows[0].event_type},
+      title               = ${title              !== undefined ? title.trim()               : rows[0].title},
+      medicine            = ${medicine            !== undefined ? (medicine     || null)     : rows[0].medicine},
+      dose                = ${dose                !== undefined ? (dose         || null)     : rows[0].dose},
+      vet_name            = ${vetName             !== undefined ? (vetName      || null)     : rows[0].vet_name},
+      next_due_date       = ${nextDueDate         !== undefined ? (nextDueDate  || null)     : rows[0].next_due_date},
+      is_zoonotic_concern = ${isZoonoticConcern   !== undefined ? isZoonoticConcern          : rows[0].is_zoonotic_concern},
+      notes               = ${notes               !== undefined ? (notes        || null)     : rows[0].notes},
+      updated_at          = now()
+    where id = ${eventId}
+    returning *
+  `;
+
+  await audit(sql, {
+    spaceId: membership.space_id, actorUserId,
+    action: "dairy.health.update",
+    targetType: "dairy_health_events", targetId: eventId,
+    meta: { eventType: updated[0].event_type, title: updated[0].title },
+  });
+
+  return updated[0];
+}
+
 /* ── feed records ─────────────────────────────────────────────────────────── */
 
 const FEED_TYPES = new Set([
@@ -385,4 +472,40 @@ export async function deleteFeed(sql, membership, actorUserId, payload) {
   });
 
   return { deleted: true };
+}
+
+export async function updateFeed(sql, membership, actorUserId, payload) {
+  const { feedId, feedDate, feedType, quantityKg, notes } = payload ?? {};
+  if (!feedId) throw new HttpError(400, "feedId required");
+  if (feedType !== undefined && !FEED_TYPES.has(feedType)) throw new HttpError(400, "Invalid feed_type");
+
+  const rows = await sql`
+    select f.*, a.current_status as animal_status
+    from dairy_feed_records f
+    join dairy_animals a on a.id = f.animal_id
+    where f.id = ${feedId} and f.deleted_at is null
+  `;
+  if (!rows.length) throw new HttpError(404, "Feed record not found");
+  requireScope(rows[0], membership);
+  assertAnimalWritable({ current_status: rows[0].animal_status });
+
+  const updated = await sql`
+    update dairy_feed_records set
+      feed_date   = ${feedDate   !== undefined ? feedDate              : rows[0].feed_date},
+      feed_type   = ${feedType   !== undefined ? feedType              : rows[0].feed_type},
+      quantity_kg = ${quantityKg !== undefined ? (quantityKg ?? null)  : rows[0].quantity_kg},
+      notes       = ${notes      !== undefined ? (notes || null)       : rows[0].notes},
+      updated_at  = now()
+    where id = ${feedId}
+    returning *
+  `;
+
+  await audit(sql, {
+    spaceId: membership.space_id, actorUserId,
+    action: "dairy.feed.update",
+    targetType: "dairy_feed_records", targetId: feedId,
+    meta: { feedType: updated[0].feed_type, feedDate: updated[0].feed_date },
+  });
+
+  return updated[0];
 }

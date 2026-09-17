@@ -239,6 +239,11 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
   const [delFeedId, setDelFeedId] = useState(null);
   const [delFeedBusy, setDelFeedBusy] = useState(false);
 
+  /* Edit mode — id of the record being edited (null = add mode) */
+  const [editReproId,  setEditReproId]  = useState(null);
+  const [editHealthId, setEditHealthId] = useState(null);
+  const [editFeedId,   setEditFeedId]   = useState(null);
+
   /* ── Load ── */
   const load = useCallback(async () => {
     try {
@@ -342,50 +347,92 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
     } finally { setEbusy(false); }
   };
 
-  /* ── Add repro event ── */
+  /* ── Add / Edit repro event ── */
   const resetRform = () => setRform({
     eventDate: today(), eventType: "heat_observed",
     bullName: "", semenLot: "", pregnancyResult: "",
     calfCount: "", calfSex: "", calfAlive: "", notes: "",
   });
 
+  const openEditRepro = (ev) => {
+    const full = reproList.find((r) => r.id === ev.id) || ev;
+    setRform({
+      eventDate:       toDateInput(full.event_date),
+      eventType:       full.event_type       || "heat_observed",
+      bullName:        full.bull_name        || "",
+      semenLot:        full.semen_lot        || "",
+      pregnancyResult: full.pregnancy_result || "",
+      calfCount:       full.calf_count != null ? String(full.calf_count) : "",
+      calfSex:         full.calf_sex         || "",
+      calfAlive:       full.calf_alive === true ? "yes" : full.calf_alive === false ? "no" : "",
+      notes:           full.notes            || "",
+    });
+    setEditReproId(ev.id);
+    setReproOpen(true);
+  };
+
   const saveRepro = async () => {
     if (!rform.eventDate) return;
     setRbusy(true);
     try {
-      const payload = {
-        animalId,
-        eventDate:  rform.eventDate,
-        eventType:  rform.eventType,
-        notes:      rform.notes || null,
-      };
-      if (rform.bullName)       payload.bullName       = rform.bullName;
-      if (rform.semenLot)       payload.semenLot       = rform.semenLot;
-      if (rform.pregnancyResult) payload.pregnancyResult = rform.pregnancyResult;
-      if (rform.eventType === "calving") {
-        payload.calfCount = rform.calfCount ? parseInt(rform.calfCount, 10) : null;
-        payload.calfSex   = rform.calfSex   || null;
-        payload.calfAlive = rform.calfAlive === "yes" ? true : rform.calfAlive === "no" ? false : null;
-      }
-
-      const newEvent = await dairyApi.addRepro(space.id, payload);
-
-      /* Optimistic prepend → isPregnant recomputes immediately */
-      setReproList((prev) => [newEvent, ...prev]);
-      /* Async history refresh */
-      dairyApi.animalHistory(space.id, animalId).then((h) => setHistory(h?.history || [])).catch(() => {});
-
-      setReproOpen(false);
-      resetRform();
-      toast(tc({ en: "Event recorded", hi: "घटना दर्ज हुई", bn: "ঘটনা রেকর্ড হয়েছে" }), "success");
-
-      /* Calving → prompt to start new lactation */
-      if (rform.eventType === "calving") {
-        setCalvingLacData({
-          calvingDate: rform.eventDate,
-          calfSex:     rform.calfSex   || null,
-          calfAlive:   rform.calfAlive,
+      if (editReproId) {
+        /* ── Edit mode ── */
+        await dairyApi.updateRepro(space.id, {
+          eventId:         editReproId,
+          eventDate:       rform.eventDate,
+          eventType:       rform.eventType,
+          pregnancyResult: rform.pregnancyResult || null,
+          bullName:        rform.bullName        || null,
+          semenLot:        rform.semenLot        || null,
+          calfCount:       rform.eventType === "calving" && rform.calfCount
+                             ? parseInt(rform.calfCount, 10) : null,
+          calfSex:         rform.eventType === "calving" ? (rform.calfSex || null)  : null,
+          calfAlive:       rform.eventType === "calving"
+                             ? (rform.calfAlive === "yes" ? true : rform.calfAlive === "no" ? false : null)
+                             : null,
+          notes:           rform.notes || null,
         });
+        const [newRepro, newHistory] = await Promise.all([
+          dairyApi.listRepro(space.id, animalId),
+          dairyApi.animalHistory(space.id, animalId),
+        ]);
+        setReproList(newRepro || []);
+        setHistory(newHistory?.history || []);
+        toast(tc({ en: "Event updated", hi: "घटना अपडेट हुई", bn: "ঘটনা আপডেট হয়েছে" }), "success");
+        setReproOpen(false);
+        setEditReproId(null);
+        resetRform();
+      } else {
+        /* ── Add mode ── */
+        const payload = {
+          animalId,
+          eventDate:  rform.eventDate,
+          eventType:  rform.eventType,
+          notes:      rform.notes || null,
+        };
+        if (rform.bullName)        payload.bullName        = rform.bullName;
+        if (rform.semenLot)        payload.semenLot        = rform.semenLot;
+        if (rform.pregnancyResult) payload.pregnancyResult = rform.pregnancyResult;
+        if (rform.eventType === "calving") {
+          payload.calfCount = rform.calfCount ? parseInt(rform.calfCount, 10) : null;
+          payload.calfSex   = rform.calfSex   || null;
+          payload.calfAlive = rform.calfAlive === "yes" ? true : rform.calfAlive === "no" ? false : null;
+        }
+
+        const newEvent = await dairyApi.addRepro(space.id, payload);
+        setReproList((prev) => [newEvent, ...prev]);
+        dairyApi.animalHistory(space.id, animalId).then((h) => setHistory(h?.history || [])).catch(() => {});
+        setReproOpen(false);
+        resetRform();
+        toast(tc({ en: "Event recorded", hi: "घटना दर्ज हुई", bn: "ঘটনা রেকর্ড হয়েছে" }), "success");
+
+        if (rform.eventType === "calving") {
+          setCalvingLacData({
+            calvingDate: rform.eventDate,
+            calfSex:     rform.calfSex   || null,
+            calfAlive:   rform.calfAlive,
+          });
+        }
       }
     } catch (err) {
       toast(err.message || tc({ en: "Save failed", hi: "सहेजा नहीं जा सका", bn: "সংরক্ষণ ব্যর্থ" }), "error");
@@ -481,33 +528,71 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
     } finally { setLebusy(false); }
   };
 
-  /* ── Add health event ── */
+  /* ── Add / Edit health event ── */
   const resetHform = () => setHform({
     eventDate: today(), eventType: "observation", title: "",
     medicine: "", dose: "", vetName: "", nextDueDate: "",
     isZoonotic: false, notes: "",
   });
 
+  const openEditHealth = (ev) => {
+    setHform({
+      eventDate:   toDateInput(ev.event_date),
+      eventType:   ev.event_type  || "observation",
+      title:       ev.title       || "",
+      medicine:    ev.medicine    || "",
+      dose:        ev.dose        || "",
+      vetName:     ev.vet_name    || "",
+      nextDueDate: toDateInput(ev.next_due_date),
+      isZoonotic:  ev.is_zoonotic_concern || false,
+      notes:       ev.notes       || "",
+    });
+    setEditHealthId(ev.id);
+    setHealthOpen(true);
+  };
+
   const saveHealth = async () => {
     if (!hform.eventDate || !hform.title.trim()) return;
     setHbusy(true);
     try {
-      await dairyApi.addHealth(space.id, {
-        animalId,
-        eventDate:        hform.eventDate,
-        eventType:        hform.eventType,
-        title:            hform.title.trim(),
-        medicine:         hform.medicine  || null,
-        dose:             hform.dose      || null,
-        vetName:          hform.vetName   || null,
-        nextDueDate:      hform.nextDueDate || null,
-        isZoonoticConcern: hform.isZoonotic,
-        notes:            hform.notes     || null,
-      });
-      toast(tc({ en: "Health event saved", hi: "स्वास्थ्य घटना दर्ज", bn: "স্বাস্থ্য ঘটনা সংরক্ষিত" }), "success");
-      setHealthOpen(false);
-      resetHform();
-      dairyApi.animalHistory(space.id, animalId).then((h) => setHistory(h?.history || [])).catch(() => {});
+      if (editHealthId) {
+        /* ── Edit mode ── */
+        await dairyApi.updateHealth(space.id, {
+          eventId:           editHealthId,
+          eventDate:         hform.eventDate,
+          eventType:         hform.eventType,
+          title:             hform.title.trim(),
+          medicine:          hform.medicine    || null,
+          dose:              hform.dose        || null,
+          vetName:           hform.vetName     || null,
+          nextDueDate:       hform.nextDueDate || null,
+          isZoonoticConcern: hform.isZoonotic,
+          notes:             hform.notes       || null,
+        });
+        dairyApi.animalHistory(space.id, animalId).then((h) => setHistory(h?.history || [])).catch(() => {});
+        toast(tc({ en: "Event updated", hi: "घटना अपडेट हुई", bn: "ঘটনা আপডেট হয়েছে" }), "success");
+        setHealthOpen(false);
+        setEditHealthId(null);
+        resetHform();
+      } else {
+        /* ── Add mode ── */
+        await dairyApi.addHealth(space.id, {
+          animalId,
+          eventDate:         hform.eventDate,
+          eventType:         hform.eventType,
+          title:             hform.title.trim(),
+          medicine:          hform.medicine    || null,
+          dose:              hform.dose        || null,
+          vetName:           hform.vetName     || null,
+          nextDueDate:       hform.nextDueDate || null,
+          isZoonoticConcern: hform.isZoonotic,
+          notes:             hform.notes       || null,
+        });
+        toast(tc({ en: "Health event saved", hi: "स्वास्थ्य घटना दर्ज", bn: "স্বাস্থ্য ঘটনা সংরক্ষিত" }), "success");
+        setHealthOpen(false);
+        resetHform();
+        dairyApi.animalHistory(space.id, animalId).then((h) => setHistory(h?.history || [])).catch(() => {});
+      }
     } catch (err) {
       toast(err.message || tc({ en: "Save failed", hi: "सहेजा नहीं जा सका", bn: "সংরক্ষণ ব্যর্থ" }), "error");
     } finally { setHbusy(false); }
@@ -526,26 +611,54 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
     } finally { setDelHealthBusy(false); }
   };
 
-  /* ── Add feed record ── */
+  /* ── Add / Edit feed record ── */
   const resetFform = () => setFform({
     feedDate: today(), feedType: "concentrate", quantityKg: "", notes: "",
   });
+
+  const openEditFeed = (ev) => {
+    setFform({
+      feedDate:   toDateInput(ev.event_date),
+      feedType:   ev.feed_type    || "concentrate",
+      quantityKg: ev.quantity_kg != null ? String(ev.quantity_kg) : "",
+      notes:      ev.notes        || "",
+    });
+    setEditFeedId(ev.id);
+    setFeedOpen(true);
+  };
 
   const saveFeed = async () => {
     if (!fform.feedDate) return;
     setFbusy(true);
     try {
-      await dairyApi.addFeed(space.id, {
-        animalId,
-        feedDate:    fform.feedDate,
-        feedType:    fform.feedType,
-        quantityKg:  fform.quantityKg ? parseFloat(fform.quantityKg) : null,
-        notes:       fform.notes || null,
-      });
-      toast(tc({ en: "Feed record saved", hi: "आहार रिकॉर्ड दर्ज", bn: "খাদ্য রেকর্ড সংরক্ষিত" }), "success");
-      setFeedOpen(false);
-      resetFform();
-      dairyApi.animalHistory(space.id, animalId).then((h) => setHistory(h?.history || [])).catch(() => {});
+      if (editFeedId) {
+        /* ── Edit mode ── */
+        await dairyApi.updateFeed(space.id, {
+          feedId:     editFeedId,
+          feedDate:   fform.feedDate,
+          feedType:   fform.feedType,
+          quantityKg: fform.quantityKg ? parseFloat(fform.quantityKg) : null,
+          notes:      fform.notes || null,
+        });
+        dairyApi.animalHistory(space.id, animalId).then((h) => setHistory(h?.history || [])).catch(() => {});
+        toast(tc({ en: "Feed record updated", hi: "आहार रिकॉर्ड अपडेट हुआ", bn: "খাদ্য রেকর্ড আপডেট হয়েছে" }), "success");
+        setFeedOpen(false);
+        setEditFeedId(null);
+        resetFform();
+      } else {
+        /* ── Add mode ── */
+        await dairyApi.addFeed(space.id, {
+          animalId,
+          feedDate:   fform.feedDate,
+          feedType:   fform.feedType,
+          quantityKg: fform.quantityKg ? parseFloat(fform.quantityKg) : null,
+          notes:      fform.notes || null,
+        });
+        toast(tc({ en: "Feed record saved", hi: "आहार रिकॉर्ड दर्ज", bn: "খাদ্য রেকর্ড সংরক্ষিত" }), "success");
+        setFeedOpen(false);
+        resetFform();
+        dairyApi.animalHistory(space.id, animalId).then((h) => setHistory(h?.history || [])).catch(() => {});
+      }
     } catch (err) {
       toast(err.message || tc({ en: "Save failed", hi: "सहेजा नहीं जा सका", bn: "সংরক্ষণ ব্যর্থ" }), "error");
     } finally { setFbusy(false); }
@@ -696,10 +809,13 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
             canRecord={canRecord}
             isTerminal={isTerminal}
             onAddRepro={() => setReproOpen(true)}
+            onEditRepro={openEditRepro}
             onDeleteRepro={(id) => setDelReproId(id)}
             onAddHealth={() => setHealthOpen(true)}
+            onEditHealth={openEditHealth}
             onDeleteHealth={(id) => setDelHealthId(id)}
             onAddFeed={() => setFeedOpen(true)}
+            onEditFeed={openEditFeed}
             onDeleteFeed={(id) => setDelFeedId(id)}
           />
         )}
@@ -823,8 +939,10 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
       {/* ── Repro event sheet ── */}
       <BottomSheet
         open={reproOpen}
-        onClose={() => { setReproOpen(false); resetRform(); }}
-        title={tc({ en: "Log Repro Event", hi: "प्रजनन घटना दर्ज करें", bn: "প্রজনন ঘটনা লিখুন" })}>
+        onClose={() => { setReproOpen(false); resetRform(); setEditReproId(null); }}
+        title={editReproId
+          ? tc({ en: "Edit Repro Event", hi: "प्रजनन घटना संपादन", bn: "প্রজনন ঘটনা সম্পাদন" })
+          : tc({ en: "Log Repro Event", hi: "प्रजनन घटना दर्ज करें", bn: "প্রজনন ঘটনা লিখুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Input label={tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })} type="date"
             value={rform.eventDate} onChange={(v) => setRform((f) => ({ ...f, eventDate: v }))} />
@@ -909,8 +1027,10 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
       {/* ── Health event sheet ── */}
       <BottomSheet
         open={healthOpen}
-        onClose={() => { setHealthOpen(false); resetHform(); }}
-        title={tc({ en: "Log Health Event", hi: "स्वास्थ्य घटना दर्ज करें", bn: "স্বাস্থ্য ঘটনা লিখুন" })}>
+        onClose={() => { setHealthOpen(false); resetHform(); setEditHealthId(null); }}
+        title={editHealthId
+          ? tc({ en: "Edit Health Event", hi: "स्वास्थ्य घटना संपादन", bn: "স্বাস্থ্য ঘটনা সম্পাদন" })
+          : tc({ en: "Log Health Event", hi: "स्वास्थ्य घटना दर्ज करें", bn: "স্বাস্থ্য ঘটনা লিখুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Input label={tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })} type="date"
             value={hform.eventDate} onChange={(v) => setHform((f) => ({ ...f, eventDate: v }))} />
@@ -969,8 +1089,10 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
       {/* ── Feed record sheet ── */}
       <BottomSheet
         open={feedOpen}
-        onClose={() => { setFeedOpen(false); resetFform(); }}
-        title={tc({ en: "Log Feed", hi: "आहार दर्ज करें", bn: "খাদ্য লিখুন" })}>
+        onClose={() => { setFeedOpen(false); resetFform(); setEditFeedId(null); }}
+        title={editFeedId
+          ? tc({ en: "Edit Feed Record", hi: "आहार रिकॉर्ड संपादन", bn: "খাদ্য রেকর্ড সম্পাদন" })
+          : tc({ en: "Log Feed", hi: "आहार दर्ज करें", bn: "খাদ্য লিখুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Input label={tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })} type="date"
             value={fform.feedDate} onChange={(v) => setFform((f) => ({ ...f, feedDate: v }))} />
@@ -1328,7 +1450,7 @@ function MilkTab({ milkList, canRecord, isTerminal, tc, locale, fmtDateShort, on
   );
 }
 
-function HistoryTab({ history, tc, fmtDate, canRecord, isTerminal, onAddRepro, onDeleteRepro, onAddHealth, onDeleteHealth, onAddFeed, onDeleteFeed }) {
+function HistoryTab({ history, tc, fmtDate, canRecord, isTerminal, onAddRepro, onEditRepro, onDeleteRepro, onAddHealth, onEditHealth, onDeleteHealth, onAddFeed, onEditFeed, onDeleteFeed }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {/* Action buttons */}
@@ -1386,27 +1508,42 @@ function HistoryTab({ history, tc, fmtDate, canRecord, isTerminal, onAddRepro, o
                         <div style={{ fontSize: 11, color: T.inkFaint, fontFamily: T.body, marginTop: 2 }}>
                           {fmtDate(ev.event_date)}
                         </div>
-                        {ev.kind === "repro_event" && canRecord && !isTerminal && (
+                        {ev.kind === "repro_event" && canRecord && !isTerminal && (<>
+                          <button onClick={() => onEditRepro(ev)}
+                            style={{ background: "none", border: "none", cursor: "pointer",
+                              color: T.inkFaint, padding: "2px 0" }}>
+                            <Icon name="Pencil" size={13} />
+                          </button>
                           <button onClick={() => onDeleteRepro(ev.id)}
                             style={{ background: "none", border: "none", cursor: "pointer",
                               color: T.inkFaint, padding: "2px 0" }}>
                             <Icon name="Trash2" size={13} />
                           </button>
-                        )}
-                        {ev.kind === "health_event" && canRecord && !isTerminal && (
+                        </>)}
+                        {ev.kind === "health_event" && canRecord && !isTerminal && (<>
+                          <button onClick={() => onEditHealth(ev)}
+                            style={{ background: "none", border: "none", cursor: "pointer",
+                              color: T.inkFaint, padding: "2px 0" }}>
+                            <Icon name="Pencil" size={13} />
+                          </button>
                           <button onClick={() => onDeleteHealth(ev.id)}
                             style={{ background: "none", border: "none", cursor: "pointer",
                               color: T.inkFaint, padding: "2px 0" }}>
                             <Icon name="Trash2" size={13} />
                           </button>
-                        )}
-                        {ev.kind === "feed_record" && canRecord && !isTerminal && (
+                        </>)}
+                        {ev.kind === "feed_record" && canRecord && !isTerminal && (<>
+                          <button onClick={() => onEditFeed(ev)}
+                            style={{ background: "none", border: "none", cursor: "pointer",
+                              color: T.inkFaint, padding: "2px 0" }}>
+                            <Icon name="Pencil" size={13} />
+                          </button>
                           <button onClick={() => onDeleteFeed(ev.id)}
                             style={{ background: "none", border: "none", cursor: "pointer",
                               color: T.inkFaint, padding: "2px 0" }}>
                             <Icon name="Trash2" size={13} />
                           </button>
-                        )}
+                        </>)}
                       </div>
                     </div>
                   </Card>

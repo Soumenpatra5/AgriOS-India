@@ -71,18 +71,21 @@ export const dairyApi = {
     call("dairy.animal.history", spaceId, { animalId, limit }),
 
   /* Reproductive events */
-  listRepro:  (spaceId, animalId)       => call("dairy.repro.list",        spaceId, { animalId }),
-  addRepro:   (spaceId, payload)        => call("dairy.repro.add",         spaceId, payload),
-  deleteRepro:(spaceId, eventId)        => call("dairy.repro.delete",      spaceId, { eventId }),
+  listRepro:   (spaceId, animalId)      => call("dairy.repro.list",        spaceId, { animalId }),
+  addRepro:    (spaceId, payload)       => call("dairy.repro.add",         spaceId, payload),
+  updateRepro: (spaceId, payload)       => call("dairy.repro.update",      spaceId, payload),
+  deleteRepro: (spaceId, eventId)       => call("dairy.repro.delete",      spaceId, { eventId }),
 
   /* Health events */
-  listHealth:  (spaceId, animalId)      => call("dairy.health.list",       spaceId, { animalId }),
-  addHealth:   (spaceId, payload)       => call("dairy.health.add",        spaceId, payload),
-  deleteHealth:(spaceId, eventId)       => call("dairy.health.delete",     spaceId, { eventId }),
+  listHealth:   (spaceId, animalId)     => call("dairy.health.list",       spaceId, { animalId }),
+  addHealth:    (spaceId, payload)      => call("dairy.health.add",        spaceId, payload),
+  updateHealth: (spaceId, payload)      => call("dairy.health.update",     spaceId, payload),
+  deleteHealth: (spaceId, eventId)      => call("dairy.health.delete",     spaceId, { eventId }),
 
   /* Feed records */
   listFeed:    (spaceId, animalId)      => call("dairy.feed.list",         spaceId, { animalId }),
   addFeed:     (spaceId, payload)       => call("dairy.feed.add",          spaceId, payload),
+  updateFeed:  (spaceId, payload)       => call("dairy.feed.update",       spaceId, payload),
   deleteFeed:  (spaceId, feedId)        => call("dairy.feed.delete",       spaceId, { feedId }),
 
   /* Finance — farm.dairy.finance permission required */

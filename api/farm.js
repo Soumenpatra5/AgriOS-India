@@ -315,16 +315,19 @@ const ACTIONS = {
   /* Reproductive events — heat, AI, pregnancy check, calving */
   "dairy.repro.list":         { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairyOps.listRepro(sql, membership, payload) },
   "dairy.repro.add":          { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.addRepro(sql, membership, user.id, payload) },
+  "dairy.repro.update":       { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.updateRepro(sql, membership, user.id, payload) },
   "dairy.repro.delete":       { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.deleteRepro(sql, membership, user.id, payload) },
 
   /* Health events — vaccination, treatment, deworming, vet visit */
   "dairy.health.list":        { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairyOps.listHealth(sql, membership, payload) },
   "dairy.health.add":         { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.addHealth(sql, membership, user.id, payload) },
+  "dairy.health.update":      { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.updateHealth(sql, membership, user.id, payload) },
   "dairy.health.delete":      { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.deleteHealth(sql, membership, user.id, payload) },
 
   /* Feed records — operational per-animal feed tracking (not finance) */
   "dairy.feed.list":          { permission: "farm.dairy.view",    run: ({ sql, membership, payload }) => dairyOps.listFeed(sql, membership, payload) },
   "dairy.feed.add":           { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.addFeed(sql, membership, user.id, payload) },
+  "dairy.feed.update":        { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.updateFeed(sql, membership, user.id, payload) },
   "dairy.feed.delete":        { permission: "farm.dairy.record",  run: ({ sql, membership, user, payload }) => dairyOps.deleteFeed(sql, membership, user.id, payload) },
 
   /* Milk sales — farm-level cooperative/buyer sales (no animal_id) */

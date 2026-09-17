@@ -1757,3 +1757,215 @@ describe("bulk milk entry — space-wide milk list and date filtering", () => {
     expect(dryAnimal.current_status).toBe("dry");
   });
 });
+
+/* ── record editing — repro, health, feed update ─────────────────────────── */
+
+describe("record editing — repro, health, feed update", () => {
+  let editAnimalId, editReproId, editHealthId, editFeedId;
+
+  beforeAll(async () => {
+    /* Create a fresh milking animal for this describe block — avoids scope
+       dependency on animalA3Id which is local to the bulk-milk describe. */
+    const animal = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: { name: "Editing Test Cow", species: "cow", currentStatus: "milking",
+                 clientUuid: "edit-test-animal-01" },
+    });
+    expect(animal.status).toBe(200);
+    editAnimalId = animal.data.id;
+
+    const repro = await call(U(30), "dairy.repro.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: editAnimalId, eventDate: "2026-09-01",
+                 eventType: "heat_observed", notes: "initial notes" },
+    });
+    editReproId = repro.data.id;
+
+    const health = await call(U(30), "dairy.health.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: editAnimalId, eventDate: "2026-09-02",
+                 eventType: "vaccination", title: "FMD Dose 1",
+                 medicine: "FMD-vax", dose: "5ml", notes: "initial" },
+    });
+    editHealthId = health.data.id;
+
+    const feed = await call(U(30), "dairy.feed.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: editAnimalId, feedDate: "2026-09-03",
+                 feedType: "concentrate", quantityKg: 5, notes: "initial" },
+    });
+    editFeedId = feed.data.id;
+  });
+
+  it("owner can update a repro event — changes persist", async () => {
+    const r = await call(U(30), "dairy.repro.update", {
+      spaceId: spaceA.id,
+      payload: { eventId: editReproId, eventDate: "2026-09-05",
+                 eventType: "ai_done", bullName: "Red Bull", notes: "updated" },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.event_type).toBe("ai_done");
+    expect(r.data.bull_name).toBe("Red Bull");
+    expect(r.data.notes).toBe("updated");
+    /* event_date should update */
+    const dateStr = new Date(r.data.event_date).toISOString().slice(0, 10);
+    expect(dateStr).toBe("2026-09-05");
+  });
+
+  it("updated repro event appears correctly in listRepro", async () => {
+    const r = await call(U(30), "dairy.repro.list", {
+      spaceId: spaceA.id,
+      payload: { animalId: editAnimalId },
+    });
+    expect(r.status).toBe(200);
+    const ev = r.data.find(e => e.id === editReproId);
+    expect(ev).toBeTruthy();
+    expect(ev.event_type).toBe("ai_done");
+    expect(ev.bull_name).toBe("Red Bull");
+  });
+
+  it("owner can update a health event — title and medicine change", async () => {
+    const r = await call(U(30), "dairy.health.update", {
+      spaceId: spaceA.id,
+      payload: { eventId: editHealthId, eventDate: "2026-09-02",
+                 eventType: "vaccination", title: "FMD Dose 2",
+                 medicine: "FMD-vax-v2", dose: "5ml", notes: "second dose" },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.title).toBe("FMD Dose 2");
+    expect(r.data.medicine).toBe("FMD-vax-v2");
+    expect(r.data.notes).toBe("second dose");
+  });
+
+  it("owner can update a feed record — type and quantity change", async () => {
+    const r = await call(U(30), "dairy.feed.update", {
+      spaceId: spaceA.id,
+      payload: { feedId: editFeedId, feedDate: "2026-09-03",
+                 feedType: "fodder", quantityKg: 8.5, notes: "switched to fodder" },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.feed_type).toBe("fodder");
+    expect(Number(r.data.quantity_kg)).toBeCloseTo(8.5, 1);
+    expect(r.data.notes).toBe("switched to fodder");
+  });
+
+  it("missing eventId returns 400", async () => {
+    const r = await call(U(30), "dairy.repro.update", {
+      spaceId: spaceA.id,
+      payload: { eventDate: "2026-09-05", eventType: "ai_done" },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("invalid event_type returns 400", async () => {
+    const r = await call(U(30), "dairy.repro.update", {
+      spaceId: spaceA.id,
+      payload: { eventId: editReproId, eventDate: "2026-09-05", eventType: "invalid_type" },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("health update with empty title returns 400", async () => {
+    const r = await call(U(30), "dairy.health.update", {
+      spaceId: spaceA.id,
+      payload: { eventId: editHealthId, eventDate: "2026-09-02",
+                 eventType: "vaccination", title: "" },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("cross-space isolation — spaceB owner cannot update spaceA repro event (404)", async () => {
+    const r = await call(U(40), "dairy.repro.update", {
+      spaceId: spaceA.id,
+      payload: { eventId: editReproId, eventDate: "2026-09-05", eventType: "ai_done" },
+    });
+    expect(r.status).toBe(404); /* not a member of spaceA */
+  });
+
+  it("worker (farm.dairy.record) can update a feed record — 200", async () => {
+    /* workers hold farm.dairy.record — update is allowed */
+    const r = await call(U(32), "dairy.feed.update", {
+      spaceId: spaceA.id,
+      payload: { feedId: editFeedId, feedDate: "2026-09-03", feedType: "silage", quantityKg: 4 },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.feed_type).toBe("silage");
+  });
+
+  it("non-existent eventId returns 404", async () => {
+    const r = await call(U(30), "dairy.repro.update", {
+      spaceId: spaceA.id,
+      payload: { eventId: "00000000-0000-0000-0000-000000000000",
+                 eventDate: "2026-09-05", eventType: "ai_done" },
+    });
+    expect(r.status).toBe(404);
+  });
+
+  it("update preserves the original record ID", async () => {
+    const before = editReproId;
+    const r = await call(U(30), "dairy.repro.update", {
+      spaceId: spaceA.id,
+      payload: { eventId: editReproId, eventDate: "2026-09-10", eventType: "pregnancy_check" },
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.id).toBe(before);
+  });
+
+  it("updateRepro on a terminal (sold) animal returns 409", async () => {
+    /* Create a fresh animal, add a repro event, then sell the animal */
+    const a = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: { name: "TerminalUpdateTest", species: "cow", currentStatus: "milking",
+                 clientUuid: "tu-animal-01" },
+    });
+    expect(a.status).toBe(200);
+    const tid = a.data.id;
+
+    const re = await call(U(30), "dairy.repro.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: tid, eventDate: "2026-09-06", eventType: "heat_observed",
+                 clientUuid: "tu-repro-01" },
+    });
+    expect(re.status).toBe(200);
+    const reId = re.data.id;
+
+    await call(U(30), "dairy.animals.setStatus", {
+      spaceId: spaceA.id,
+      payload: { animalId: tid, status: "sold" },
+    });
+
+    const r = await call(U(30), "dairy.repro.update", {
+      spaceId: spaceA.id,
+      payload: { eventId: reId, eventDate: "2026-09-07", eventType: "ai_done" },
+    });
+    expect(r.status).toBe(409);
+  });
+
+  it("updateHealth on a terminal (deceased) animal returns 409", async () => {
+    const a = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: { name: "TerminalHealthUpdate", species: "cow", currentStatus: "milking",
+                 clientUuid: "tu-animal-02" },
+    });
+    const tid = a.data.id;
+
+    const he = await call(U(30), "dairy.health.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: tid, eventDate: "2026-09-06", eventType: "vaccination",
+                 title: "FMD test", clientUuid: "tu-health-01" },
+    });
+    const heId = he.data.id;
+
+    await call(U(30), "dairy.animals.setStatus", {
+      spaceId: spaceA.id,
+      payload: { animalId: tid, status: "deceased" },
+    });
+
+    const r = await call(U(30), "dairy.health.update", {
+      spaceId: spaceA.id,
+      payload: { eventId: heId, eventDate: "2026-09-07", eventType: "vaccination",
+                 title: "Updated title" },
+    });
+    expect(r.status).toBe(409);
+  });
+});

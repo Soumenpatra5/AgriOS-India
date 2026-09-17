@@ -123,14 +123,26 @@ function SummaryCard({ summary, tc }) {
           icon={net >= 0 ? "ArrowUpRight" : "ArrowDownRight"}
           color={netColor} bg={netBg} />
       </div>
-      {summary?.total_milk_sold_kg > 0 && (
-        <div style={{ padding: "7px 14px", borderTop: `1px solid ${T.line}`,
-          background: T.surface2, fontSize: 12, color: T.inkSoft, fontFamily: T.body }}>
-          {tc({ en: "Milk sold", hi: "दूध बेचा", bn: "দুধ বিক্রি" })}{" "}
-          <strong style={{ color: T.ink }}>
-            {Number(summary.total_milk_sold_kg).toFixed(1)} kg
-          </strong>
-          {summary.month_milk_produced_kg > 0 && ` / ${Number(summary.month_milk_produced_kg).toFixed(1)} kg ${tc({ en: "produced", hi: "उत्पादित", bn: "উৎপাদিত" })}`}
+      {(summary?.month_milk_produced_kg > 0 || summary?.total_milk_sold_kg > 0) && (
+        <div style={{ borderTop: `1px solid ${T.line}`, background: T.surface2 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: T.inkFaint, fontFamily: T.body,
+            letterSpacing: 0.6, textTransform: "uppercase", padding: "6px 14px 2px" }}>
+            {tc({ en: "Milk (kg)", hi: "दूध (किलो)", bn: "দুধ (কেজি)" })}
+          </div>
+          <div style={{ display: "flex" }}>
+            <ReconcileTile
+              label={tc({ en: "Produced", hi: "उत्पादित", bn: "উৎপাদিত" })}
+              value={Number(summary?.month_milk_produced_kg || 0).toFixed(1)} />
+            <div style={{ width: 1, background: T.line, flexShrink: 0 }} />
+            <ReconcileTile
+              label={tc({ en: "Sold", hi: "बेचा", bn: "বিক্রিত" })}
+              value={Number(summary?.total_milk_sold_kg || 0).toFixed(1)} />
+            <div style={{ width: 1, background: T.line, flexShrink: 0 }} />
+            <ReconcileTile
+              label={tc({ en: "Retained", hi: "बचाया", bn: "ধরে রাখা" })}
+              value={Math.max(0, Number(summary?.month_milk_produced_kg || 0) - Number(summary?.total_milk_sold_kg || 0)).toFixed(1)}
+              highlight />
+          </div>
         </div>
       )}
     </div>
@@ -149,6 +161,19 @@ function SummaryTile({ label, value, icon, color, bg }) {
         lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {value}
       </div>
+    </div>
+  );
+}
+
+function ReconcileTile({ label, value, highlight }) {
+  const color = highlight ? T.primary : T.ink;
+  return (
+    <div style={{ flex: "1 1 0", minWidth: 0, padding: "6px 8px 8px", textAlign: "center" }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color, fontFamily: T.display, lineHeight: 1.2 }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 10, color: highlight ? T.primary : T.inkSoft,
+        fontFamily: T.body, marginTop: 2 }}>{label}</div>
     </div>
   );
 }
