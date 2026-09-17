@@ -6,6 +6,7 @@ import { ToastHost, Spinner } from "../components/index.js";
 import Icon from "../components/Icon.jsx";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import UpdateBanner from "../components/UpdateBanner.jsx";
+import OfflineSyncBanner from "../components/OfflineSyncBanner.jsx";
 
 /* Core screens loaded eagerly (always visible on every session) */
 import Splash from "../pages/Splash.jsx";
@@ -370,6 +371,7 @@ export default function ScreenRouter() {
   return (
     <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg, position: "relative" }}>
       {!online && <OfflineBar tc={tc} />}
+      <OfflineSyncBanner />
       {/* ag-push-in starts a pushed screen at translateX(24px), and a transform
           extends the scrollable area rather than being clipped by it. With the
           scrollbars hidden globally, that left every screen silently scrollable
