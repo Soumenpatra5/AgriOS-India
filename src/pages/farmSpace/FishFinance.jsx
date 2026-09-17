@@ -377,10 +377,10 @@ export default function FishFinance() {
           { id: "costs", label: { en: "Costs", hi: "लागत",   bn: "খরচ"    } },
         ].map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
-            background: "none", border: "none", cursor: "pointer",
+            background: tab === t.id ? T.primarySoft : "transparent",
+            border: "none", cursor: "pointer",
             padding: "6px 14px", borderRadius: 20, fontFamily: T.body, fontSize: 13, fontWeight: 600,
             color: tab === t.id ? T.primary : T.inkSoft,
-            background: tab === t.id ? T.primarySoft : "transparent",
           }}>
             {tc(t.label)}
           </button>
