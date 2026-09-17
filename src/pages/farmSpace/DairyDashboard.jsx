@@ -522,6 +522,15 @@ function AnimalCard({ animal, tc, onPress }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: T.ink }}>{animal.name}</span>
             <StatusChip status={animal.current_status} tc={tc} />
+            {animal.overdue_count > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: T.red,
+                background: T.redSoft, borderRadius: 5, padding: "1px 6px",
+                whiteSpace: "nowrap" }}>
+                {tc({ en: `${animal.overdue_count} overdue`,
+                      hi: `${animal.overdue_count} बकाया`,
+                      bn: `${animal.overdue_count} বকেয়া` })}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
             {speciesLabel}

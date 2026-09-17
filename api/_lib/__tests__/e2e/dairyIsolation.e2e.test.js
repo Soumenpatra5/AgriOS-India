@@ -126,6 +126,80 @@ describe("cross-animal isolation", () => {
   });
 });
 
+/* ── listAnimals overdue_count field ─────────────────────────────────────── */
+
+describe("listAnimals — overdue_count per-animal badge data", () => {
+  let overdueAnimalId;
+
+  beforeAll(async () => {
+    /* Create a fresh milking animal and add two health events:
+       one with a past next_due_date (overdue) and one with a future date (not overdue). */
+    const a = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: { name: "OverdueTestCow", species: "cow", currentStatus: "milking",
+                 clientUuid: "overdue-animal-01" },
+    });
+    expect(a.status).toBe(200);
+    overdueAnimalId = a.data.id;
+
+    await call(U(30), "dairy.health.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: overdueAnimalId, eventDate: "2026-01-10",
+                 eventType: "vaccination", title: "FMD Dose 1",
+                 nextDueDate: "2026-02-10", /* past — overdue */
+                 clientUuid: "overdue-h-01" },
+    });
+    await call(U(30), "dairy.health.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: overdueAnimalId, eventDate: "2026-09-01",
+                 eventType: "deworming", title: "Albendazole",
+                 nextDueDate: "2027-03-01", /* future — not overdue */
+                 clientUuid: "overdue-h-02" },
+    });
+  });
+
+  it("listAnimals includes overdue_count field on every row", async () => {
+    const r = await call(U(30), "dairy.animals.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    for (const a of r.data) {
+      expect(typeof a.overdue_count).toBe("number");
+    }
+  });
+
+  it("animal with one past next_due_date has overdue_count = 1", async () => {
+    const r = await call(U(30), "dairy.animals.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    const a = r.data.find((x) => x.id === overdueAnimalId);
+    expect(a).toBeTruthy();
+    expect(a.overdue_count).toBe(1);
+  });
+
+  it("animal with no overdue events has overdue_count = 0", async () => {
+    /* animalA2Id has no health events at all */
+    const r = await call(U(30), "dairy.animals.list", { spaceId: spaceA.id });
+    const a = r.data.find((x) => x.id === animalA2Id);
+    expect(a).toBeTruthy();
+    expect(a.overdue_count).toBe(0);
+  });
+
+  it("overdue_count ignores soft-deleted health events", async () => {
+    /* Add and immediately delete an overdue event — count must not rise */
+    const added = await call(U(30), "dairy.health.add", {
+      spaceId: spaceA.id,
+      payload: { animalId: overdueAnimalId, eventDate: "2026-03-01",
+                 eventType: "vaccination", title: "Deleted overdue",
+                 nextDueDate: "2026-04-01", clientUuid: "overdue-h-03" },
+    });
+    await call(U(30), "dairy.health.delete", {
+      spaceId: spaceA.id,
+      payload: { eventId: added.data.id },
+    });
+    const r = await call(U(30), "dairy.animals.list", { spaceId: spaceA.id });
+    const a = r.data.find((x) => x.id === overdueAnimalId);
+    expect(a.overdue_count).toBe(1); /* unchanged */
+  });
+});
+
 /* ── new animal clean state ───────────────────────────────────────────────── */
 
 describe("new animal clean state", () => {

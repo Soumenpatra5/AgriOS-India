@@ -47,12 +47,21 @@ export async function listAnimals(sql, membership, payload = {}) {
     : sql``;
 
   return sql`
-    select * from dairy_animals
-    where space_id = ${membership.space_id}
-      and deleted_at is null
+    select a.*,
+      (
+        select count(*)::int
+        from dairy_health_events h
+        where h.animal_id = a.id
+          and h.deleted_at is null
+          and h.next_due_date is not null
+          and h.next_due_date < current_date
+      ) as overdue_count
+    from dairy_animals a
+    where a.space_id = ${membership.space_id}
+      and a.deleted_at is null
       and ${terminalClause}
       ${statusClause}
-    order by name asc
+    order by a.name asc
   `;
 }
 
