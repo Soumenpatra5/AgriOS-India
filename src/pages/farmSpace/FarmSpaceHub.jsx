@@ -25,9 +25,6 @@ const MENU = [
   { kind: "dairyDashboard",   perm: "farm.dairy.view",      icon: "Milk",        a: "blue",
     label: { en: "Dairy",          hi: "डेयरी",            bn: "ডেয়ারি" },
     desc:  { en: "Animal herd, milk records & history", hi: "पशु झुंड, दूध रिकॉर्ड और इतिहास", bn: "প্রাণীর পাল, দুধ রেকর্ড ও ইতিহাস" } },
-  { kind: "farmSpaceTeam",     perm: "farm.members.view",   icon: "Users",       a: "primary",
-    label: { en: "Team",          hi: "टीम",            bn: "দল" },
-    desc:  { en: "Members & roles", hi: "सदस्य और भूमिकाएँ", bn: "সদস্য ও ভূমিকা" } },
   { kind: "farmSpaceTasks",    perm: "farm.tasks.view",     icon: "ClipboardList", a: "blue",
     label: { en: "Tasks",         hi: "कार्य",           bn: "কাজ" },
     desc:  { en: "Assign & track",  hi: "सौंपें और देखें",   bn: "বরাদ্দ ও ট্র্যাক" } },
@@ -184,31 +181,40 @@ export default function FarmSpaceHub({ asTab = false }) {
 
   const roleLabel = tc(farmSpaceService.roleLabel(space.role));
   const visible = MENU.filter((m) => farmSpaceService.can(space, m.perm));
+  const canTeam = farmSpaceService.can(space, "farm.members.view");
 
   return (
     <>
       {bar}
       <div style={{ padding: `4px 16px 24px`, display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {/* which space, and who you are inside it — the two facts that decide
-            what everything below means */}
-        <Card elevated style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 46, height: 46, borderRadius: 14, flexShrink: 0, display: "grid", placeItems: "center",
-            background: T.primarySoft, color: T.primary }}>
-            <Icon name="Sprout" size={22} />
+        {/* Team card — replaces the old identity card; tapping opens the team
+            roster directly so "Team" only ever appears once on the screen */}
+        <Card elevated pad={0}>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <button
+              onClick={canTeam ? () => push({ kind: "farmSpaceTeam" }) : undefined}
+              style={{ flex: 1, display: "flex", alignItems: "center", gap: 14,
+                padding: "13px 14px", background: "none", border: "none",
+                cursor: canTeam ? "pointer" : "default", fontFamily: T.body, textAlign: "left" }}>
+              <IconTile name="Users" accent="primary" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: T.display, fontSize: 16, fontWeight: 700, color: T.ink }}>
+                  {space.name} {tc({ en: "Team", hi: "टीम", bn: "দল" })}
+                </div>
+                <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 1 }}>
+                  {roleLabel}
+                  {space.member_count ? ` · ${tc({
+                    en: `${space.member_count} member${space.member_count > 1 ? "s" : ""}`,
+                    hi: `${space.member_count} सदस्य`,
+                    bn: `${space.member_count} জন সদস্য`,
+                  })}` : ""}
+                </div>
+              </div>
+              {canTeam && <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />}
+            </button>
+            <SwitchSpace />
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: T.display, fontSize: 17, fontWeight: 700, color: T.ink }}>{space.name}</div>
-            <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 1 }}>
-              {roleLabel}
-              {space.member_count ? ` · ${tc({
-                en: `${space.member_count} member${space.member_count > 1 ? "s" : ""}`,
-                hi: `${space.member_count} सदस्य`,
-                bn: `${space.member_count} জন সদস্য`,
-              })}` : ""}
-            </div>
-          </div>
-          <SwitchSpace />
         </Card>
 
         <PendingInviteBanner />
