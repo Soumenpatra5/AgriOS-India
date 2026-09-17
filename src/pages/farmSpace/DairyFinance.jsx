@@ -403,6 +403,64 @@ export default function DairyFinance({ spaceId }) {
 
   const atCurrentMonth = !isFuture(nextYM(ym));
 
+  /* ── Share handler ──────────────────────────────────────────────────────── */
+
+  const handleShare = async () => {
+    const month = `${MONTH_NAMES[ym.month]} ${ym.year}`;
+    const revenue  = summary?.total_revenue ?? 0;
+    const totalCosts = summary?.total_costs ?? 0;
+    const net      = summary?.net_profit    ?? 0;
+    const produced = Number(summary?.month_milk_produced_kg || 0);
+    const sold     = Number(summary?.total_milk_sold_kg     || 0);
+    const retained = Math.max(0, produced - sold);
+
+    const lines = [
+      `🐄 ${tc({ en: "Dairy Report", hi: "डेयरी रिपोर्ट", bn: "ডেয়ারি রিপোর্ট" })} — ${month}`,
+    ];
+    if (space?.name) lines.push(`🏡 ${space.name}`);
+    lines.push(
+      "",
+      `💰 ${tc({ en: "Revenue", hi: "राजस्व", bn: "রাজস্ব" })}: ${fmtAmount(revenue)}`,
+      `💸 ${tc({ en: "Costs",   hi: "लागत",   bn: "খরচ"    })}: ${fmtAmount(totalCosts)}`,
+      `${net >= 0 ? "✅" : "⚠️"} ${tc({ en: "Net P&L", hi: "शुद्ध लाभ/हानि", bn: "নিট লাভ/ক্ষতি" })}: ${net >= 0 ? "+" : ""}${fmtAmount(net)}`,
+    );
+    if (produced > 0 || sold > 0) {
+      lines.push(
+        "",
+        `🥛 ${tc({ en: "Milk (kg)", hi: "दूध (किलो)", bn: "দুধ (কেজি)" })}:`,
+        `  ${tc({ en: "Produced", hi: "उत्पादित", bn: "উৎপাদিত" })}: ${produced.toFixed(1)}`,
+        `  ${tc({ en: "Sold",     hi: "बेचा",     bn: "বিক্রিত" })}: ${sold.toFixed(1)}`,
+        `  ${tc({ en: "Retained", hi: "बचाया",    bn: "ধরে রাখা" })}: ${retained.toFixed(1)}`,
+      );
+    }
+    if (sales.length || costs.length) {
+      lines.push(
+        "",
+        `${tc({ en: "Sales", hi: "बिक्री", bn: "বিক্রয়" })}: ${sales.length}  |  ${tc({ en: "Costs", hi: "लागत", bn: "খরচ" })}: ${costs.length}`,
+      );
+    }
+    lines.push("", "— AgriOS India");
+
+    const text  = lines.join("\n");
+    const title = `${tc({ en: "Dairy Report", hi: "डेयरी रिपोर्ट", bn: "ডেয়ারি রিপোর্ট" })} ${month}`;
+
+    const copyFallback = async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast(tc({ en: "Copied to clipboard", hi: "क्लिपबोर्ड पर कॉपी हुआ", bn: "ক্লিপবোর্ডে কপি হয়েছে" }), "success");
+      } catch {
+        toast(tc({ en: "Share not available", hi: "शेयर उपलब्ध नहीं", bn: "শেয়ার উপলব্ধ নেই" }), "error");
+      }
+    };
+
+    if (navigator.share) {
+      try { await navigator.share({ title, text }); }
+      catch (err) { if (err?.name !== "AbortError") await copyFallback(); }
+    } else {
+      await copyFallback();
+    }
+  };
+
   /* ── AppBar ─────────────────────────────────────────────────────────────── */
 
   const monthLabel = `${MONTH_NAMES[ym.month]} ${ym.year}`;
@@ -413,6 +471,13 @@ export default function DairyFinance({ spaceId }) {
       onBack={pop}
       action={
         <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+          {canFinance && state === "ready" && (
+            <button onClick={handleShare}
+              style={{ background: "none", border: "none", cursor: "pointer",
+                padding: "6px 8px", borderRadius: 8 }}>
+              <Icon name="Share2" size={17} color={T.ink} />
+            </button>
+          )}
           <button onClick={goToPrev}
             style={{ background: "none", border: "none", cursor: "pointer",
               padding: "6px 8px", borderRadius: 8, color: T.ink }}>
