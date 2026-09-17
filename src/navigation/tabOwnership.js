@@ -30,6 +30,7 @@ const OWNER_TAB = {
   pigFinance:             "farmSpace",
   fishDashboard:          "farmSpace",
   fishPondDetail:         "farmSpace",
+  fishFinance:            "farmSpace",
   dairyAnimalDetail:      "farmSpace",
   dairyFinance:           "farmSpace",
   dairyMilkEntry:         "farmSpace",
