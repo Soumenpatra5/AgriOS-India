@@ -21,6 +21,7 @@ const OWNER_TAB = {
   farmSpace:              "farmSpace",
   farmSpacePicker:        "farmSpace",
   dairyDashboard:         "farmSpace",
+  goatDashboard:          "farmSpace",
   dairyAnimalDetail:      "farmSpace",
   dairyFinance:           "farmSpace",
   dairyMilkEntry:         "farmSpace",
