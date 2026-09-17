@@ -54,46 +54,45 @@ export const goatApi = {
   getAnimal:    (spaceId, animalId)      => call("goat.animals.get",      spaceId, { animalId }),
   createAnimal: (spaceId, payload)       => call("goat.animals.create",   spaceId, payload),
   updateAnimal: (spaceId, payload)       => call("goat.animals.update",   spaceId, payload),
-  setStatus:    (spaceId, animalId, status) => call("goat.animals.setStatus", spaceId, { animalId, status }),
+  setStatus:    (spaceId, payload)       => call("goat.animals.setStatus", spaceId, payload),
 
   /* Animal history (unified timeline) */
-  animalHistory: (spaceId, animalId, limit = 50) =>
-    call("goat.animal.history", spaceId, { animalId, limit }),
+  animalHistory: (spaceId, payload = {}) => call("goat.animal.history",   spaceId, payload),
 
   /* Milk records */
   listMilk:  (spaceId, params = {})     => call("goat.milk.list",         spaceId, params),
   upsertMilk:(spaceId, payload)         => call("goat.milk.upsert",       spaceId, payload),
-  deleteMilk:(spaceId, recordId)        => call("goat.milk.delete",       spaceId, { recordId }),
+  deleteMilk:(spaceId, payload)         => call("goat.milk.delete",       spaceId, payload),
 
   /* Weight records */
-  listWeight:  (spaceId, animalId)      => call("goat.weight.list",       spaceId, { animalId }),
+  listWeight:  (spaceId, payload = {})  => call("goat.weight.list",       spaceId, payload),
   addWeight:   (spaceId, payload)       => call("goat.weight.add",        spaceId, payload),
-  deleteWeight:(spaceId, weightId)      => call("goat.weight.delete",     spaceId, { weightId }),
+  deleteWeight:(spaceId, payload)       => call("goat.weight.delete",     spaceId, payload),
 
   /* Reproductive events */
-  listRepro:   (spaceId, animalId)      => call("goat.repro.list",        spaceId, { animalId }),
+  listRepro:   (spaceId, payload = {})  => call("goat.repro.list",        spaceId, payload),
   addRepro:    (spaceId, payload)       => call("goat.repro.add",         spaceId, payload),
   updateRepro: (spaceId, payload)       => call("goat.repro.update",      spaceId, payload),
-  deleteRepro: (spaceId, eventId)       => call("goat.repro.delete",      spaceId, { eventId }),
+  deleteRepro: (spaceId, payload)       => call("goat.repro.delete",      spaceId, payload),
 
   /* Health events */
-  listHealth:   (spaceId, animalId)     => call("goat.health.list",       spaceId, { animalId }),
+  listHealth:   (spaceId, payload = {}) => call("goat.health.list",       spaceId, payload),
   addHealth:    (spaceId, payload)      => call("goat.health.add",        spaceId, payload),
   updateHealth: (spaceId, payload)      => call("goat.health.update",     spaceId, payload),
-  deleteHealth: (spaceId, eventId)      => call("goat.health.delete",     spaceId, { eventId }),
+  deleteHealth: (spaceId, payload)      => call("goat.health.delete",     spaceId, payload),
 
   /* Feed records */
-  listFeed:    (spaceId, animalId)      => call("goat.feed.list",         spaceId, { animalId }),
+  listFeed:    (spaceId, payload = {})  => call("goat.feed.list",         spaceId, payload),
   addFeed:     (spaceId, payload)       => call("goat.feed.add",          spaceId, payload),
   updateFeed:  (spaceId, payload)       => call("goat.feed.update",       spaceId, payload),
-  deleteFeed:  (spaceId, feedId)        => call("goat.feed.delete",       spaceId, { feedId }),
+  deleteFeed:  (spaceId, payload)       => call("goat.feed.delete",       spaceId, payload),
 
   /* Finance — farm.goat.finance permission required */
   financeSummary: (spaceId, params = {}) => call("goat.finance.summary",  spaceId, params),
   listSales:      (spaceId, params = {}) => call("goat.sales.list",       spaceId, params),
   addSale:        (spaceId, payload)     => call("goat.sales.add",        spaceId, payload),
-  deleteSale:     (spaceId, saleId)      => call("goat.sales.delete",     spaceId, { saleId }),
+  deleteSale:     (spaceId, payload)     => call("goat.sales.delete",     spaceId, payload),
   listCosts:      (spaceId, params = {}) => call("goat.costs.list",       spaceId, params),
   addCost:        (spaceId, payload)     => call("goat.costs.add",        spaceId, payload),
-  deleteCost:     (spaceId, costId)      => call("goat.costs.delete",     spaceId, { costId }),
+  deleteCost:     (spaceId, payload)     => call("goat.costs.delete",     spaceId, payload),
 };

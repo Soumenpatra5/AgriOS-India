@@ -221,7 +221,7 @@ export default function GoatAnimalDetail({ animalId, spaceId }) {
   const [delFeedBusy, setDelFeedBusy] = useState(false);
 
   const refreshHistory = useCallback(() => {
-    goatApi.animalHistory(spaceId || space?.id, animalId)
+    goatApi.animalHistory(spaceId || space?.id, { animalId })
       .then((h) => setHistory(h?.history || []))
       .catch(() => {});
   }, [animalId, spaceId, space?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -236,8 +236,8 @@ export default function GoatAnimalDetail({ animalId, spaceId }) {
       setSpace(active);
       const [aData, hData, wData] = await Promise.all([
         goatApi.getAnimal(active.id, animalId),
-        goatApi.animalHistory(active.id, animalId),
-        goatApi.listWeight(active.id, animalId),
+        goatApi.animalHistory(active.id, { animalId }),
+        goatApi.listWeight(active.id, { animalId }),
       ]);
       setAnimal(aData);
       setHistory(hData?.history || []);
@@ -284,7 +284,7 @@ export default function GoatAnimalDetail({ animalId, spaceId }) {
   const confirmDeleteMilk = async () => {
     setDelMilkBusy(true);
     try {
-      await goatApi.deleteMilk(space.id, delMilkId);
+      await goatApi.deleteMilk(space.id, { recordId: delMilkId });
       setHistory((prev) => prev.filter((e) => !(e.kind === "milk_record" && e.id === delMilkId)));
       setDelMilkId(null);
       toast(tc({ en: "Record deleted", hi: "रिकॉर्ड हटाया गया", bn: "রেকর্ড মুছে গেছে" }), "info");
@@ -318,7 +318,7 @@ export default function GoatAnimalDetail({ animalId, spaceId }) {
   const confirmDeleteWeight = async () => {
     setDelWeightBusy(true);
     try {
-      await goatApi.deleteWeight(space.id, delWeightId);
+      await goatApi.deleteWeight(space.id, { weightId: delWeightId });
       setWeights((prev) => prev.filter((r) => r.id !== delWeightId));
       setHistory((prev) => prev.filter((e) => !(e.kind === "weight_record" && e.id === delWeightId)));
       setDelWeightId(null);
@@ -333,7 +333,7 @@ export default function GoatAnimalDetail({ animalId, spaceId }) {
     if (!newStatus) return;
     setSBusy(true);
     try {
-      const updated = await goatApi.setStatus(space.id, animalId, newStatus);
+      const updated = await goatApi.setStatus(space.id, { animalId, status: newStatus });
       setAnimal((a) => ({ ...a, current_status: updated.current_status }));
       setStatusOpen(false);
       toast(tc({ en: "Status updated", hi: "स्थिति अपडेट हो गई", bn: "অবস্থা আপডেট হয়েছে" }), "success");
@@ -432,7 +432,7 @@ export default function GoatAnimalDetail({ animalId, spaceId }) {
   const confirmDeleteRepro = async () => {
     setDelReproBusy(true);
     try {
-      await goatApi.deleteRepro(space.id, delReproId);
+      await goatApi.deleteRepro(space.id, { eventId: delReproId });
       setHistory((prev) => prev.filter((e) => !(e.kind === "repro_event" && e.id === delReproId)));
       setDelReproId(null);
       toast(tc({ en: "Event deleted", hi: "घटना हटाई गई", bn: "ঘটনা মুছে গেছে" }), "info");
@@ -502,7 +502,7 @@ export default function GoatAnimalDetail({ animalId, spaceId }) {
   const confirmDeleteHealth = async () => {
     setDelHealthBusy(true);
     try {
-      await goatApi.deleteHealth(space.id, delHealthId);
+      await goatApi.deleteHealth(space.id, { eventId: delHealthId });
       setHistory((prev) => prev.filter((e) => !(e.kind === "health_event" && e.id === delHealthId)));
       setDelHealthId(null);
       toast(tc({ en: "Event deleted", hi: "घटना हटाई गई", bn: "ঘটনা মুছে গেছে" }), "info");
@@ -558,7 +558,7 @@ export default function GoatAnimalDetail({ animalId, spaceId }) {
   const confirmDeleteFeed = async () => {
     setDelFeedBusy(true);
     try {
-      await goatApi.deleteFeed(space.id, delFeedId);
+      await goatApi.deleteFeed(space.id, { feedId: delFeedId });
       setHistory((prev) => prev.filter((e) => !(e.kind === "feed_record" && e.id === delFeedId)));
       setDelFeedId(null);
       toast(tc({ en: "Record deleted", hi: "रिकॉर्ड हटाया गया", bn: "রেকর্ড মুছে গেছে" }), "info");
