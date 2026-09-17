@@ -2244,6 +2244,11 @@ describe("herd metrics — calving_due_count", () => {
   });
 
   it("animal with expected_next_calving 30 days away is NOT counted", async () => {
+    /* Capture count BEFORE inserting the out-of-window record. */
+    const before = await call(U(30), "dairy.metrics", { spaceId: spaceA.id });
+    expect(before.status).toBe(200);
+    const countBefore = before.data.calving_due_count;
+
     /* Create an animal whose calving is 30 days out — outside the 21-day window. */
     const animalRes = await call(U(30), "dairy.animals.create", {
       spaceId: spaceA.id,
@@ -2265,11 +2270,7 @@ describe("herd metrics — calving_due_count", () => {
       },
     });
 
-    /* Store count before — adding the far-calving animal should not change it. */
-    const before = await call(U(30), "dairy.metrics", { spaceId: spaceA.id });
-    const countBefore = before.data.calving_due_count;
-
-    /* The 30-day animal must not increase the count. */
+    /* Count after insert must equal count before — the 30-day animal is excluded. */
     const after = await call(U(30), "dairy.metrics", { spaceId: spaceA.id });
     expect(after.data.calving_due_count).toBe(countBefore);
   });

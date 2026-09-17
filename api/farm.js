@@ -33,6 +33,8 @@ import * as wf from "./_lib/farm/poultryWorkflow.js";
 import * as dairy from "./_lib/farm/dairy.js";
 import * as dairyOps from "./_lib/farm/dairyOps.js";
 import * as dairyFinance from "./_lib/farm/dairyFinance.js";
+import * as goat from "./_lib/farm/goat.js";
+import * as goatOps from "./_lib/farm/goatOps.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -342,6 +344,66 @@ const ACTIONS = {
 
   /* Finance summary — month-to-date P&L in one consistent snapshot */
   "dairy.finance.summary":    { permission: "farm.dairy.finance", run: ({ sql, membership, payload }) => dairyFinance.financeSummary(sql, membership, payload) },
+
+  /* ── Goat / Small Ruminant module ─────────────────────────────────────────
+   *   farm.goat.view    — everyone can read the flock
+   *   farm.goat.record  — worker/supervisor records milk, weight, health, events
+   *   farm.goat.manage  — manager creates/updates animals
+   *   farm.goat.finance — manager accesses sales, costs, finance summary */
+
+  /* Animals */
+  "goat.animals.list":      { permission: "farm.goat.view",    run: ({ sql, membership, payload }) => goat.listAnimals(sql, membership, payload) },
+  "goat.animals.get":       { permission: "farm.goat.view",    run: ({ sql, membership, payload }) => goat.getAnimal(sql, membership, payload) },
+  "goat.animals.create":    { permission: "farm.goat.manage",  run: ({ sql, membership, user, payload }) => goat.createAnimal(sql, membership, user.id, payload) },
+  "goat.animals.update":    { permission: "farm.goat.manage",  run: ({ sql, membership, user, payload }) => goat.updateAnimal(sql, membership, user.id, payload) },
+  "goat.animals.setStatus": { permission: "farm.goat.manage",  run: ({ sql, membership, user, payload }) => goat.setAnimalStatus(sql, membership, user.id, payload) },
+
+  /* Herd metrics */
+  "goat.metrics":           { permission: "farm.goat.view",    run: ({ sql, membership }) => goat.herdMetrics(sql, membership) },
+
+  /* Animal history */
+  "goat.animal.history":    { permission: "farm.goat.view",    run: ({ sql, membership, payload }) => goat.animalHistory(sql, membership, payload) },
+
+  /* Milk records */
+  "goat.milk.list":         { permission: "farm.goat.view",    run: ({ sql, membership, payload }) => goatOps.listMilk(sql, membership, payload) },
+  "goat.milk.upsert":       { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.upsertMilk(sql, membership, user.id, payload) },
+  "goat.milk.delete":       { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.deleteMilk(sql, membership, user.id, payload) },
+
+  /* Weight records */
+  "goat.weight.list":       { permission: "farm.goat.view",    run: ({ sql, membership, payload }) => goatOps.listWeight(sql, membership, payload) },
+  "goat.weight.add":        { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.addWeight(sql, membership, user.id, payload) },
+  "goat.weight.delete":     { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.deleteWeight(sql, membership, user.id, payload) },
+
+  /* Reproductive events */
+  "goat.repro.list":        { permission: "farm.goat.view",    run: ({ sql, membership, payload }) => goatOps.listRepro(sql, membership, payload) },
+  "goat.repro.add":         { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.addRepro(sql, membership, user.id, payload) },
+  "goat.repro.update":      { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.updateRepro(sql, membership, user.id, payload) },
+  "goat.repro.delete":      { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.deleteRepro(sql, membership, user.id, payload) },
+
+  /* Health events */
+  "goat.health.list":       { permission: "farm.goat.view",    run: ({ sql, membership, payload }) => goatOps.listHealth(sql, membership, payload) },
+  "goat.health.add":        { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.addHealth(sql, membership, user.id, payload) },
+  "goat.health.update":     { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.updateHealth(sql, membership, user.id, payload) },
+  "goat.health.delete":     { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.deleteHealth(sql, membership, user.id, payload) },
+
+  /* Feed records */
+  "goat.feed.list":         { permission: "farm.goat.view",    run: ({ sql, membership, payload }) => goatOps.listFeed(sql, membership, payload) },
+  "goat.feed.add":          { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.addFeed(sql, membership, user.id, payload) },
+  "goat.feed.update":       { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.updateFeed(sql, membership, user.id, payload) },
+  "goat.feed.delete":       { permission: "farm.goat.record",  run: ({ sql, membership, user, payload }) => goatOps.deleteFeed(sql, membership, user.id, payload) },
+
+  /* Sales */
+  "goat.sales.list":        { permission: "farm.goat.finance", run: ({ sql, membership, payload }) => goatOps.listSales(sql, membership, payload) },
+  "goat.sales.add":         { permission: "farm.goat.finance", run: ({ sql, membership, user, payload }) => goatOps.addSale(sql, membership, user.id, payload) },
+  "goat.sales.delete":      { permission: "farm.goat.finance", run: ({ sql, membership, user, payload }) => goatOps.deleteSale(sql, membership, user.id, payload) },
+
+  /* Costs */
+  "goat.costs.list":        { permission: "farm.goat.finance", run: ({ sql, membership, payload }) => goatOps.listCosts(sql, membership, payload) },
+  "goat.costs.add":         { permission: "farm.goat.finance", run: ({ sql, membership, user, payload }) => goatOps.addCost(sql, membership, user.id, payload) },
+  "goat.costs.delete":      { permission: "farm.goat.finance", run: ({ sql, membership, user, payload }) => goatOps.deleteCost(sql, membership, user.id, payload) },
+
+  /* Finance summary */
+  "goat.finance.summary":   { permission: "farm.goat.finance", run: ({ sql, membership, payload }) => goatOps.financeSummary(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {

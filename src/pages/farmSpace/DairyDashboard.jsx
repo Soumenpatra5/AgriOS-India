@@ -242,7 +242,7 @@ export default function DairyDashboard() {
       {metrics?.calving_due_count > 0 && (
         <div style={{ margin: "8px 16px 0", background: T.blueSoft, borderRadius: T.rMd,
           padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
-          <Icon name="Baby" size={15} color={T.blue} />
+          <Icon name="Beef" size={15} color={T.blue} />
           <span style={{ fontSize: 12.5, color: T.blue, fontWeight: 600, fontFamily: T.body }}>
             {tc({
               en: `${metrics.calving_due_count} animal${metrics.calving_due_count > 1 ? "s" : ""} due to calve in 21 days`,

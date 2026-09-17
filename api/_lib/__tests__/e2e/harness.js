@@ -125,6 +125,7 @@ const MIGRATIONS = [
      not by a migration file. Never add 0017 back to this array. */
   "0019_dairy_foundation.sql",
   "0020_dairy_feed_records.sql",
+  "0021_goat_foundation.sql",
 ];
 
 export async function freshDb() {

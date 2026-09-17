@@ -55,6 +55,11 @@ export const PERMISSIONS = [
   "farm.dairy.record",
   "farm.dairy.manage",
   "farm.dairy.finance",
+  /* Goat / small ruminant. Same four levels as dairy. */
+  "farm.goat.view",
+  "farm.goat.record",
+  "farm.goat.manage",
+  "farm.goat.finance",
 ];
 
 /* Worker holds the permissions whose ROWS are narrowed elsewhere rather than
@@ -77,6 +82,8 @@ const MATRIX = {
     "farm.poultry.view", "farm.poultry.record", "farm.poultry.manage", "farm.poultry.finance",
     /* Manages the dairy herd day to day, including its financials. */
     "farm.dairy.view", "farm.dairy.record", "farm.dairy.manage", "farm.dairy.finance",
+    /* Manages the goat/sheep flock day to day, including its financials. */
+    "farm.goat.view", "farm.goat.record", "farm.goat.manage", "farm.goat.finance",
   ]),
   supervisor: new Set([
     "farm.view", "farm.members.view",
@@ -88,6 +95,8 @@ const MATRIX = {
     "farm.poultry.view", "farm.poultry.record",
     /* Records dairy milk, health and events; cannot create animals or see financials. */
     "farm.dairy.view", "farm.dairy.record",
+    /* Records goat milk, weight, health and events; cannot create animals or see financials. */
+    "farm.goat.view", "farm.goat.record",
   ]),
   worker: new Set([
     "farm.view",
@@ -101,6 +110,8 @@ const MATRIX = {
     "farm.poultry.view", "farm.poultry.record",
     /* The milkman records the morning and evening yield — that is their job. */
     "farm.dairy.view", "farm.dairy.record",
+    /* The goat herder records daily milk, weight, and health — that is their job. */
+    "farm.goat.view", "farm.goat.record",
   ]),
 };
 
