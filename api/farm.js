@@ -41,6 +41,8 @@ import * as fish from "./_lib/farm/fish.js";
 import * as fishOps from "./_lib/farm/fishOps.js";
 import * as bee from "./_lib/farm/bee.js";
 import * as beeOps from "./_lib/farm/beeOps.js";
+import * as crop from "./_lib/farm/crop.js";
+import * as cropOps from "./_lib/farm/cropOps.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -573,6 +575,51 @@ const ACTIONS = {
 
   /* Finance summary */
   "bee.finance.summary": { permission: "farm.bee.finance", run: ({ sql, membership, payload })          => beeOps.financeSummary(sql, membership, payload) },
+
+  /* ── Crop / Field module ──────────────────────────────────────────────────
+   *   farm.crop.view    — read fields, activities, sowing, harvests
+   *   farm.crop.record  — worker/supervisor records activities, sowing, harvests
+   *   farm.crop.manage  — manager creates/updates/deactivates fields
+   *   farm.crop.finance — manager accesses sales, costs, finance summary */
+
+  /* Field metrics */
+  "crop.metrics":             { permission: "farm.crop.view",    run: ({ sql, membership })                  => crop.fieldMetrics(sql, membership) },
+
+  /* Fields */
+  "crop.fields.list":         { permission: "farm.crop.view",    run: ({ sql, membership, payload })          => crop.listFields(sql, membership, payload) },
+  "crop.fields.get":          { permission: "farm.crop.view",    run: ({ sql, membership, payload })          => crop.getField(sql, membership, payload) },
+  "crop.fields.create":       { permission: "farm.crop.manage",  run: ({ sql, membership, user, payload })    => crop.createField(sql, membership, user.id, payload) },
+  "crop.fields.update":       { permission: "farm.crop.manage",  run: ({ sql, membership, user, payload })    => crop.updateField(sql, membership, user.id, payload) },
+  "crop.fields.setStatus":    { permission: "farm.crop.manage",  run: ({ sql, membership, user, payload })    => crop.setFieldStatus(sql, membership, user.id, payload) },
+  "crop.field.history":       { permission: "farm.crop.view",    run: ({ sql, membership, payload })          => crop.fieldHistory(sql, membership, payload) },
+
+  /* Sowing */
+  "crop.sowing.list":         { permission: "farm.crop.view",    run: ({ sql, membership, payload })          => crop.listSowing(sql, membership, payload) },
+  "crop.sowing.add":          { permission: "farm.crop.record",  run: ({ sql, membership, user, payload })    => crop.addSowing(sql, membership, user.id, payload) },
+  "crop.sowing.delete":       { permission: "farm.crop.manage",  run: ({ sql, membership, user, payload })    => crop.deleteSowing(sql, membership, user.id, payload) },
+
+  /* Activities */
+  "crop.activities.list":     { permission: "farm.crop.view",    run: ({ sql, membership, payload })          => crop.listActivities(sql, membership, payload) },
+  "crop.activities.add":      { permission: "farm.crop.record",  run: ({ sql, membership, user, payload })    => crop.addActivity(sql, membership, user.id, payload) },
+  "crop.activities.delete":   { permission: "farm.crop.manage",  run: ({ sql, membership, user, payload })    => crop.deleteActivity(sql, membership, user.id, payload) },
+
+  /* Harvests */
+  "crop.harvests.list":       { permission: "farm.crop.view",    run: ({ sql, membership, payload })          => crop.listHarvests(sql, membership, payload) },
+  "crop.harvests.add":        { permission: "farm.crop.record",  run: ({ sql, membership, user, payload })    => crop.addHarvest(sql, membership, user.id, payload) },
+  "crop.harvests.delete":     { permission: "farm.crop.manage",  run: ({ sql, membership, user, payload })    => crop.deleteHarvest(sql, membership, user.id, payload) },
+
+  /* Sales */
+  "crop.sales.list":          { permission: "farm.crop.finance", run: ({ sql, membership, payload })           => cropOps.listSales(sql, membership, payload) },
+  "crop.sales.add":           { permission: "farm.crop.finance", run: ({ sql, membership, user, payload })     => cropOps.addSale(sql, membership, user.id, payload) },
+  "crop.sales.delete":        { permission: "farm.crop.finance", run: ({ sql, membership, user, payload })     => cropOps.deleteSale(sql, membership, user.id, payload) },
+
+  /* Costs */
+  "crop.costs.list":          { permission: "farm.crop.finance", run: ({ sql, membership, payload })           => cropOps.listCosts(sql, membership, payload) },
+  "crop.costs.add":           { permission: "farm.crop.finance", run: ({ sql, membership, user, payload })     => cropOps.addCost(sql, membership, user.id, payload) },
+  "crop.costs.delete":        { permission: "farm.crop.finance", run: ({ sql, membership, user, payload })     => cropOps.deleteCost(sql, membership, user.id, payload) },
+
+  /* Finance summary */
+  "crop.finance.summary":     { permission: "farm.crop.finance", run: ({ sql, membership, payload })           => cropOps.financeSummary(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {
