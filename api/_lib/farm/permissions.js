@@ -65,6 +65,11 @@ export const PERMISSIONS = [
   "farm.pig.record",
   "farm.pig.manage",
   "farm.pig.finance",
+  /* Fish / aquaculture. Same four levels. */
+  "farm.fish.view",
+  "farm.fish.record",
+  "farm.fish.manage",
+  "farm.fish.finance",
 ];
 
 /* Worker holds the permissions whose ROWS are narrowed elsewhere rather than
@@ -91,6 +96,8 @@ const MATRIX = {
     "farm.goat.view", "farm.goat.record", "farm.goat.manage", "farm.goat.finance",
     /* Manages the pig herd day to day, including its financials. */
     "farm.pig.view", "farm.pig.record", "farm.pig.manage", "farm.pig.finance",
+    /* Manages the fish ponds day to day, including its financials. */
+    "farm.fish.view", "farm.fish.record", "farm.fish.manage", "farm.fish.finance",
   ]),
   supervisor: new Set([
     "farm.view", "farm.members.view",
@@ -106,6 +113,8 @@ const MATRIX = {
     "farm.goat.view", "farm.goat.record",
     /* Records pig weight, health and events; cannot create animals or see financials. */
     "farm.pig.view", "farm.pig.record",
+    /* Records fish feed, water quality and events; cannot create ponds or see financials. */
+    "farm.fish.view", "farm.fish.record",
   ]),
   worker: new Set([
     "farm.view",
@@ -123,6 +132,8 @@ const MATRIX = {
     "farm.goat.view", "farm.goat.record",
     /* The pig herder records daily weight, health and feed — that is their job. */
     "farm.pig.view", "farm.pig.record",
+    /* The fish farmer records daily feed, water quality and events. */
+    "farm.fish.view", "farm.fish.record",
   ]),
 };
 

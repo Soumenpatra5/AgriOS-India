@@ -24,6 +24,7 @@ describe("ownerTabOf", () => {
       "dairyDashboard", "dairyAnimalDetail", "dairyFinance", "dairyMilkEntry",
       "goatDashboard",  "goatAnimalDetail",  "goatFinance",  "goatMilkEntry",
       "pigDashboard",   "pigAnimalDetail",   "pigFinance",
+      "fishDashboard", "fishPondDetail",
     ]) {
       expect(ownerTabOf(kind), kind).toBe("farmSpace");
     }

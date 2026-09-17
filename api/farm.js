@@ -37,6 +37,8 @@ import * as goat from "./_lib/farm/goat.js";
 import * as goatOps from "./_lib/farm/goatOps.js";
 import * as pig from "./_lib/farm/pig.js";
 import * as pigOps from "./_lib/farm/pigOps.js";
+import * as fish from "./_lib/farm/fish.js";
+import * as fishOps from "./_lib/farm/fishOps.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -461,6 +463,64 @@ const ACTIONS = {
 
   /* Finance summary */
   "pig.finance.summary":   { permission: "farm.pig.finance", run: ({ sql, membership, payload }) => pigOps.financeSummary(sql, membership, payload) },
+
+  /* ── Fish / Aquaculture module ────────────────────────────────────────────
+   *   farm.fish.view    — everyone can read the ponds
+   *   farm.fish.record  — worker/supervisor records feed, water quality, events
+   *   farm.fish.manage  — manager creates/updates ponds
+   *   farm.fish.finance — manager accesses sales, costs, finance summary */
+
+  /* Ponds */
+  "fish.ponds.list":       { permission: "farm.fish.view",    run: ({ sql, membership, payload }) => fish.listPonds(sql, membership, payload) },
+  "fish.ponds.get":        { permission: "farm.fish.view",    run: ({ sql, membership, payload }) => fish.getPond(sql, membership, payload) },
+  "fish.ponds.create":     { permission: "farm.fish.manage",  run: ({ sql, membership, user, payload }) => fish.createPond(sql, membership, user.id, payload) },
+  "fish.ponds.update":     { permission: "farm.fish.manage",  run: ({ sql, membership, user, payload }) => fish.updatePond(sql, membership, user.id, payload) },
+  "fish.ponds.setStatus":  { permission: "farm.fish.manage",  run: ({ sql, membership, user, payload }) => fish.setPondStatus(sql, membership, user.id, payload) },
+
+  /* Pond metrics */
+  "fish.metrics":          { permission: "farm.fish.view",    run: ({ sql, membership }) => fish.pondMetrics(sql, membership) },
+
+  /* Pond history */
+  "fish.pond.history":     { permission: "farm.fish.view",    run: ({ sql, membership, payload }) => fish.pondHistory(sql, membership, payload) },
+
+  /* Water quality */
+  "fish.water.list":       { permission: "farm.fish.view",    run: ({ sql, membership, payload }) => fishOps.listWater(sql, membership, payload) },
+  "fish.water.add":        { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.addWater(sql, membership, user.id, payload) },
+  "fish.water.delete":     { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.deleteWater(sql, membership, user.id, payload) },
+
+  /* Feed records */
+  "fish.feed.list":        { permission: "farm.fish.view",    run: ({ sql, membership, payload }) => fishOps.listFeed(sql, membership, payload) },
+  "fish.feed.add":         { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.addFeed(sql, membership, user.id, payload) },
+  "fish.feed.delete":      { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.deleteFeed(sql, membership, user.id, payload) },
+
+  /* Health events */
+  "fish.health.list":      { permission: "farm.fish.view",    run: ({ sql, membership, payload }) => fishOps.listHealth(sql, membership, payload) },
+  "fish.health.add":       { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.addHealth(sql, membership, user.id, payload) },
+  "fish.health.update":    { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.updateHealth(sql, membership, user.id, payload) },
+  "fish.health.delete":    { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.deleteHealth(sql, membership, user.id, payload) },
+
+  /* Mortality records */
+  "fish.mortality.list":   { permission: "farm.fish.view",    run: ({ sql, membership, payload }) => fishOps.listMortality(sql, membership, payload) },
+  "fish.mortality.add":    { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.addMortality(sql, membership, user.id, payload) },
+  "fish.mortality.delete": { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.deleteMortality(sql, membership, user.id, payload) },
+
+  /* Harvest records */
+  "fish.harvest.list":     { permission: "farm.fish.view",    run: ({ sql, membership, payload }) => fishOps.listHarvest(sql, membership, payload) },
+  "fish.harvest.add":      { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.addHarvest(sql, membership, user.id, payload) },
+  "fish.harvest.delete":   { permission: "farm.fish.record",  run: ({ sql, membership, user, payload }) => fishOps.deleteHarvest(sql, membership, user.id, payload) },
+
+  /* Sales */
+  "fish.sales.list":       { permission: "farm.fish.finance", run: ({ sql, membership, payload }) => fishOps.listSales(sql, membership, payload) },
+  "fish.sales.add":        { permission: "farm.fish.finance", run: ({ sql, membership, user, payload }) => fishOps.addSale(sql, membership, user.id, payload) },
+  "fish.sales.delete":     { permission: "farm.fish.finance", run: ({ sql, membership, user, payload }) => fishOps.deleteSale(sql, membership, user.id, payload) },
+
+  /* Costs */
+  "fish.costs.list":       { permission: "farm.fish.finance", run: ({ sql, membership, payload }) => fishOps.listCosts(sql, membership, payload) },
+  "fish.costs.add":        { permission: "farm.fish.finance", run: ({ sql, membership, user, payload }) => fishOps.addCost(sql, membership, user.id, payload) },
+  "fish.costs.delete":     { permission: "farm.fish.finance", run: ({ sql, membership, user, payload }) => fishOps.deleteCost(sql, membership, user.id, payload) },
+
+  /* Finance summary */
+  "fish.finance.summary":  { permission: "farm.fish.finance", run: ({ sql, membership, payload }) => fishOps.financeSummary(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {
