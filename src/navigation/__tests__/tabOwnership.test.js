@@ -22,7 +22,7 @@ describe("ownerTabOf", () => {
   it("claims all livestock dashboard and detail screens", () => {
     for (const kind of [
       "dairyDashboard", "dairyAnimalDetail", "dairyFinance", "dairyMilkEntry",
-      "goatDashboard",  "goatAnimalDetail",  "goatFinance",
+      "goatDashboard",  "goatAnimalDetail",  "goatFinance",  "goatMilkEntry",
       "pigDashboard",   "pigAnimalDetail",   "pigFinance",
     ]) {
       expect(ownerTabOf(kind), kind).toBe("farmSpace");
