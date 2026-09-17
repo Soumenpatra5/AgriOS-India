@@ -432,7 +432,7 @@ export default function GoatFinance() {
           {costs.length === 0 ? (
             <EmptyState icon="ShoppingCart"
               title={tc({ en: "No costs this month", hi: "इस माह कोई लागत नहीं", bn: "এ মাসে কোনো খরচ নেই" })}
-              body={tc({ en: "Log feed, medicine and other expenses.", hi: "चारा, दवाई और अन्य खर्च दर्ज करें।", bn: "খাদ্য, ওষুধ এবং অন্যান্য খরচ লিখুন।" })} />
+              body={tc({ en: "Log fodder, medicine, shearing and other expenses.", hi: "चारा, दवाई, ऊन कटाई और अन्य खर्च दर्ज करें।", bn: "ঘাস, ওষুধ, পশম ছাঁটাই এবং অন্যান্য খরচ লিখুন।" })} />
           ) : (
             costs.map((c) => (
               <Card key={c.id} pad={0}>
