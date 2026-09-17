@@ -1611,3 +1611,149 @@ describe("finance summary — with data", () => {
     expect(r.data.cost_breakdown).toHaveLength(0);
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* Phase 6 — Bulk Milk Entry: space-wide list, date filtering, isolation     */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+describe("bulk milk entry — space-wide milk list and date filtering", () => {
+  /* animalA1Id is milking (Lakshmi). We create two new animals: a second milking
+     animal for multi-animal tests and a dedicated dry animal to verify status reporting. */
+  let animalA3Id, animalA4DryId;
+
+  beforeAll(async () => {
+    const a3 = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: { name: "Priya", species: "cow", currentStatus: "milking",
+                 clientUuid: "a3-create-bulk" },
+    });
+    expect(a3.status).toBe(200);
+    animalA3Id = a3.data.id;
+
+    const a4 = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: { name: "Ganga", species: "buffalo", currentStatus: "dry",
+                 clientUuid: "a4-create-bulk-dry" },
+    });
+    expect(a4.status).toBe(200);
+    animalA4DryId = a4.data.id;
+  });
+
+  it("space-wide listMilk (no animalId) returns records for all animals in the space", async () => {
+    /* Upsert records for both milking animals on the same day. */
+    await call(U(32), "dairy.milk.upsert", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, recordDate: "2026-09-12",
+                 amYieldKg: 6, pmYieldKg: 5, clientUuid: "bulk-a1-sep12" },
+    });
+    await call(U(32), "dairy.milk.upsert", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA3Id, recordDate: "2026-09-12",
+                 amYieldKg: 4, pmYieldKg: 3, clientUuid: "bulk-a3-sep12" },
+    });
+
+    /* Space-wide query — omit animalId. */
+    const r = await call(U(30), "dairy.milk.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.data)).toBe(true);
+    const ids = r.data.map(rec => rec.animal_id);
+    expect(ids).toContain(animalA1Id);
+    expect(ids).toContain(animalA3Id);
+  });
+
+  it("space-wide records include am_yield_kg, pm_yield_kg and record_date fields", async () => {
+    const r = await call(U(30), "dairy.milk.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    const a3rec = r.data.find(
+      rec => rec.animal_id === animalA3Id &&
+             new Date(rec.record_date).toISOString().slice(0, 10) === "2026-09-12"
+    );
+    expect(a3rec).toBeTruthy();
+    expect(Number(a3rec.am_yield_kg)).toBeCloseTo(4, 1);
+    expect(Number(a3rec.pm_yield_kg)).toBeCloseTo(3, 1);
+  });
+
+  it("fromDate/toDate restricts results to the selected day (preload support)", async () => {
+    const r = await call(U(30), "dairy.milk.list", {
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-09-12", toDate: "2026-09-12" },
+    });
+    expect(r.status).toBe(200);
+    for (const rec of r.data) {
+      expect(new Date(rec.record_date).toISOString().slice(0, 10)).toBe("2026-09-12");
+    }
+    /* Both milking animals appear for Sep 12. */
+    const ids = r.data.map(rec => rec.animal_id);
+    expect(ids).toContain(animalA1Id);
+    expect(ids).toContain(animalA3Id);
+  });
+
+  it("records outside the queried date range are excluded (30-day boundary)", async () => {
+    /* A record on 2026-08-01 (well outside a Sep query) must not appear. */
+    await call(U(32), "dairy.milk.upsert", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA1Id, recordDate: "2026-08-01",
+                 amYieldKg: 5, pmYieldKg: 3, clientUuid: "bulk-a1-aug01" },
+    });
+    const r = await call(U(30), "dairy.milk.list", {
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-09-01", toDate: "2026-09-30" },
+    });
+    expect(r.status).toBe(200);
+    const augRec = r.data.find(
+      rec => new Date(rec.record_date).toISOString().slice(0, 10) === "2026-08-01"
+    );
+    expect(augRec).toBeUndefined();
+  });
+
+  it("clientUuid idempotency — replaying the same UUID does not create a second record", async () => {
+    /* Use the clientUuid already submitted for bulk-a3-sep12. */
+    const r = await call(U(32), "dairy.milk.upsert", {
+      spaceId: spaceA.id,
+      payload: { animalId: animalA3Id, recordDate: "2026-09-12",
+                 amYieldKg: 99, pmYieldKg: 99, clientUuid: "bulk-a3-sep12" },
+    });
+    expect(r.status).toBe(200);
+    /* Original values must be preserved (short-circuit returns existing). */
+    const list = await call(U(30), "dairy.milk.list", {
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-09-12", toDate: "2026-09-12" },
+    });
+    const a3rec = list.data.find(rec => rec.animal_id === animalA3Id);
+    expect(Number(a3rec.am_yield_kg)).toBeCloseTo(4, 1); // original value, not 99
+  });
+
+  it("cross-space isolation — spaceB owner cannot list spaceA milk records (404)", async () => {
+    const r = await call(U(40), "dairy.milk.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(404);
+  });
+
+  it("worker with farm.dairy.view can read space-wide milk list", async () => {
+    const r = await call(U(32), "dairy.milk.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.data)).toBe(true);
+  });
+
+  it("chart aggregation basis — sum of am+pm per day matches individual upserts", async () => {
+    const r = await call(U(30), "dairy.milk.list", {
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-09-12", toDate: "2026-09-12" },
+    });
+    expect(r.status).toBe(200);
+    /* Sep 12: A1=6+5=11, A3=4+3=7 → 18 total. */
+    const total = r.data.reduce(
+      (sum, rec) => sum + (Number(rec.am_yield_kg) || 0) + (Number(rec.pm_yield_kg) || 0), 0
+    );
+    expect(total).toBeCloseTo(18, 1);
+  });
+
+  it("dry animal appears in listAnimals with current_status=dry — UI client filters it out of bulk entry", async () => {
+    /* The server accepts milk records for any non-terminal animal; milking-only exclusion is client-side.
+       animalA4DryId was created as dry in this describe block's beforeAll — guaranteed to be dry here. */
+    const r = await call(U(30), "dairy.animals.list", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    const dryAnimal = r.data.find(a => a.id === animalA4DryId);
+    expect(dryAnimal).toBeTruthy();
+    expect(dryAnimal.current_status).toBe("dry");
+  });
+});

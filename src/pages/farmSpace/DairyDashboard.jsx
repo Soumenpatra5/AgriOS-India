@@ -82,6 +82,9 @@ export default function DairyDashboard() {
   const [finSummary, setFinSummary] = useState(null);
   const [finState,   setFinState]   = useState("idle");
 
+  /* 30-day milk history — non-blocking, shown to all farm.dairy.view users */
+  const [milkHistory, setMilkHistory] = useState(null);
+
   /* Add animal sheet */
   const [addOpen, setAddOpen]   = useState(false);
   const [aform, setAform] = useState({
@@ -109,6 +112,16 @@ export default function DairyDashboard() {
           .then((d) => { setFinSummary(d); setFinState("ready"); })
           .catch(() => setFinState("error"));
       }
+      /* Non-blocking 30-day milk history for production chart (all dairy.view users). */
+      {
+        const d = new Date();
+        d.setDate(d.getDate() - 29);
+        const fromDate = d.toISOString().slice(0, 10);
+        const toDate   = new Date().toISOString().slice(0, 10);
+        dairyApi.listMilk(active.id, { fromDate, toDate, limit: 300 })
+          .then(records => setMilkHistory(records || []))
+          .catch(() => setMilkHistory([]));
+      }
     } catch (err) {
       if (state !== "ready") { setReason(err?.reason || FARM_ERROR.FAILED); setState("error"); }
     }
@@ -117,6 +130,7 @@ export default function DairyDashboard() {
   useEffect(() => { load(); }, [load]);
 
   const canManage  = space && farmSpaceService.can(space, "farm.dairy.manage");
+  const canRecord  = space && farmSpaceService.can(space, "farm.dairy.record");
   const canFinance = space && farmSpaceService.can(space, "farm.dairy.finance");
 
   const filtered = filter
@@ -222,6 +236,16 @@ export default function DairyDashboard() {
             })}
           </span>
         </div>
+      )}
+
+      {/* 30-day milk production chart — visible to all dairy.view users; Record button for canRecord */}
+      {milkHistory !== null && (
+        <MilkProductionCard
+          milkHistory={milkHistory}
+          canRecord={canRecord}
+          tc={tc}
+          onRecord={() => push({ kind: "dairyMilkEntry", props: { spaceId: space.id } })}
+        />
       )}
 
       {/* Finance summary card — visible to farm.dairy.finance only */}
@@ -368,6 +392,111 @@ export default function DairyDashboard() {
         </div>
       </BottomSheet>
     </>
+  );
+}
+
+/* ── 30-day milk production chart ──────────────────────────────────────── */
+
+function MilkProductionCard({ milkHistory, canRecord, tc, onRecord }) {
+  const todayISO = new Date().toISOString().slice(0, 10);
+
+  /* Build ordered 30-day array (oldest → newest). */
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+
+  /* Aggregate: sum am + pm per record_date. */
+  const byDate = {};
+  for (const r of milkHistory) {
+    const key = (r.record_date || "").slice(0, 10);
+    byDate[key] = (byDate[key] || 0) + (Number(r.am_yield_kg) || 0) + (Number(r.pm_yield_kg) || 0);
+  }
+
+  const values  = days.map(d => byDate[d] || 0);
+  const maxVal  = Math.max(...values, 1);
+  const hasData = values.some(v => v > 0);
+  const todayKg = byDate[todayISO] || 0;
+
+  /* SVG bar chart constants. */
+  const VW = 300; const VH = 56;
+  const slotW = VW / 30;
+  const barW  = Math.max(slotW - 1.5, 1);
+
+  return (
+    <div style={{ margin: "10px 16px 0", background: T.surface,
+      border: `1px solid ${T.line}`, borderRadius: T.rMd, padding: "12px 14px" }}>
+
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between",
+        alignItems: "center", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: T.inkFaint,
+            fontFamily: T.body, textTransform: "uppercase", letterSpacing: 0.8 }}>
+            {tc({ en: "Production · 30 days", hi: "उत्पादन · 30 दिन", bn: "উৎপাদন · ৩০ দিন" })}
+          </span>
+          {todayKg > 0 && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.primary, fontFamily: T.body }}>
+              {todayKg.toFixed(1)} kg {tc({ en: "today", hi: "आज", bn: "আজ" })}
+            </span>
+          )}
+        </div>
+        {canRecord && (
+          <button onClick={onRecord}
+            style={{ background: T.primarySoft, color: T.primary, border: "none",
+              borderRadius: T.rSm, padding: "5px 12px", fontSize: 12, fontWeight: 700,
+              fontFamily: T.body, cursor: "pointer" }}>
+            {tc({ en: "Record", hi: "दर्ज करें", bn: "লিখুন" })}
+          </button>
+        )}
+      </div>
+
+      {/* Chart or empty state */}
+      {hasData ? (
+        <div>
+          <svg viewBox={`0 0 ${VW} ${VH}`}
+            style={{ width: "100%", height: VH, display: "block", overflow: "visible" }}
+            aria-label={tc({ en: "30-day milk production chart", hi: "30 दिन दूध उत्पादन चार्ट", bn: "৩০ দিনের দুধ উৎপাদন চার্ট" })}>
+            {values.map((v, i) => {
+              const barH   = Math.max((v / maxVal) * (VH - 4), v > 0 ? 3 : 0);
+              const x      = i * slotW;
+              const isLast = i === 29;
+              return (
+                <rect key={i}
+                  x={x + (slotW - barW) / 2} y={VH - barH}
+                  width={barW} height={barH}
+                  fill={isLast ? T.primary : T.primarySoft}
+                  rx={1.5} />
+              );
+            })}
+          </svg>
+          <div style={{ display: "flex", justifyContent: "space-between",
+            marginTop: 4, padding: "0 1px" }}>
+            <span style={{ fontSize: 9.5, color: T.inkFaint, fontFamily: T.body }}>
+              {days[0].slice(5).replace("-", "/")}
+            </span>
+            <span style={{ fontSize: 9.5, color: T.inkFaint, fontFamily: T.body }}>
+              {tc({ en: "kg/day", hi: "कि.ग्रा./दिन", bn: "কেজি/দিন" })}
+            </span>
+            <span style={{ fontSize: 9.5, color: T.inkFaint, fontFamily: T.body }}>
+              {tc({ en: "today", hi: "आज", bn: "আজ" })}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 8,
+          padding: "4px 0", color: T.inkSoft }}>
+          <Icon name="Droplets" size={14} color={T.inkSoft} />
+          <span style={{ fontSize: 12, fontFamily: T.body }}>
+            {tc({ en: "No milk records in the last 30 days",
+                  hi: "पिछले 30 दिनों में कोई दूध रिकॉर्ड नहीं",
+                  bn: "গত ৩০ দিনে কোনো দুধের রেকর্ড নেই" })}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
