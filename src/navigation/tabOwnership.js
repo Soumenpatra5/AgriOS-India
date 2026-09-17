@@ -37,6 +37,7 @@ const OWNER_TAB = {
   cropDashboard:          "farmSpace",
   fieldDetail:            "farmSpace",
   cropFinance:            "farmSpace",
+  farmSpaceAnalytics:     "farmSpace",
   poultryDashboard:       "farmSpace",
   poultryBatchDetail:     "farmSpace",
   poultryBatchFinance:    "farmSpace",

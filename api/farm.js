@@ -43,6 +43,7 @@ import * as bee from "./_lib/farm/bee.js";
 import * as beeOps from "./_lib/farm/beeOps.js";
 import * as crop from "./_lib/farm/crop.js";
 import * as cropOps from "./_lib/farm/cropOps.js";
+import * as analytics from "./_lib/farm/analytics.js";
 
 /* Confirming who a User ID belongs to before sending an invitation. The id
    space (32^8, no clustering the way a phone number range has) makes blind
@@ -620,6 +621,12 @@ const ACTIONS = {
 
   /* Finance summary */
   "crop.finance.summary":     { permission: "farm.crop.finance", run: ({ sql, membership, payload })           => cropOps.financeSummary(sql, membership, payload) },
+
+  /* ── Cross-module Analytics ───────────────────────────────────────────────
+   *   Gated on farm.view — every member can see the aggregated totals.
+   *   Individual transaction details are NOT exposed here, only aggregates. */
+  "farm.analytics.summary":     { permission: "farm.view", run: ({ sql, membership, payload }) => analytics.farmAnalytics(sql, membership, payload) },
+  "farm.analytics.leaderboard": { permission: "farm.view", run: ({ sql, membership, payload }) => analytics.activityLeaderboard(sql, membership, payload) },
 };
 
 export default async function handler(req, res) {
