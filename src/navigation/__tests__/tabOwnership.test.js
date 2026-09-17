@@ -19,6 +19,16 @@ describe("ownerTabOf", () => {
     }
   });
 
+  it("claims all livestock dashboard and detail screens", () => {
+    for (const kind of [
+      "dairyDashboard", "dairyAnimalDetail", "dairyFinance", "dairyMilkEntry",
+      "goatDashboard",  "goatAnimalDetail",
+      "pigDashboard",   "pigAnimalDetail",   "pigFinance",
+    ]) {
+      expect(ownerTabOf(kind), kind).toBe("farmSpace");
+    }
+  });
+
   it("claims nothing else", () => {
     /* A calculator opened from Services is not really "in" Services, and the
        app has always treated it that way. */
@@ -47,6 +57,19 @@ describe("activeTab", () => {
     for (const kind of ["farmSpaceTeam", "farmSpaceTasks", "farmSpaceChat", "farmSpaceSettings"]) {
       expect(activeTab({ tab: "farmSpace", stack: [{ kind }] }), kind).toBe("farmSpace");
     }
+  });
+
+  it("lights Farm Space when navigating to goatAnimalDetail", () => {
+    expect(activeTab({
+      tab: "home",
+      stack: [{ kind: "goatAnimalDetail", props: { animalId: "a1", spaceId: "s1" } }],
+    })).toBe("farmSpace");
+  });
+
+  it("lights Farm Space when on goatDashboard or pigDashboard", () => {
+    expect(activeTab({ tab: "home", stack: [{ kind: "goatDashboard" }] })).toBe("farmSpace");
+    expect(activeTab({ tab: "home", stack: [{ kind: "pigDashboard"  }] })).toBe("farmSpace");
+    expect(activeTab({ tab: "home", stack: [{ kind: "pigAnimalDetail" }] })).toBe("farmSpace");
   });
 
   it("lights Farm Space even when it was opened from another tab", () => {
