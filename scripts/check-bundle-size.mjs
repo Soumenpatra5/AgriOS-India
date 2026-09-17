@@ -14,7 +14,7 @@ import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const DIST = "dist";
-const BUDGET_KB = 482; // raised from 480: Phase 12 GoatAnimalDetail screen (+~1.5 KB eager, new screen component)
+const BUDGET_KB = 492; // raised from 482: Phase 22 offline queue (IndexedDB store + replay hook + sync banner, +~5 KB eager)
 const FORBIDDEN = /^(fb-|config-)/; // firebase auth/core/firestore/messaging + config
 
 const html = readFileSync(join(DIST, "index.html"), "utf8");
