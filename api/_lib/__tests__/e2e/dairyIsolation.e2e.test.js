@@ -2194,3 +2194,83 @@ describe("P7-B milk reconciliation — financeSummary produced/sold/retained", (
     expect(retainedUi).toBe(0);
   });
 });
+
+/* ── herd metrics — calving_due_count ────────────────────────────────────── */
+
+describe("herd metrics — calving_due_count", () => {
+  let calvingAnimalId;
+
+  beforeAll(async () => {
+    /* Create a fresh animal with a lactation due to calve in 10 days. */
+    const animalRes = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: {
+        name: "Calving-Due-Cow",
+        species: "cow",
+        currentStatus: "milking",
+        clientUuid: "calving-due-cow-01",
+      },
+    });
+    expect(animalRes.status).toBe(200);
+    calvingAnimalId = animalRes.data.id;
+
+    const tenDaysLater = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
+    await call(U(30), "dairy.lactations.add", {
+      spaceId: spaceA.id,
+      payload: {
+        animalId: calvingAnimalId,
+        calvingDate: "2026-03-01",
+        expectedNextCalving: tenDaysLater,
+      },
+    });
+  });
+
+  it("calving_due_count is present as a number in herdMetrics", async () => {
+    const r = await call(U(30), "dairy.metrics", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    expect(typeof r.data.calving_due_count).toBe("number");
+  });
+
+  it("calving_due_count >= 1 after adding an animal due in 10 days", async () => {
+    const r = await call(U(30), "dairy.metrics", { spaceId: spaceA.id });
+    expect(r.status).toBe(200);
+    expect(r.data.calving_due_count).toBeGreaterThanOrEqual(1);
+  });
+
+  it("calving_due_count is 0 for space B (no upcoming calvings)", async () => {
+    const r = await call(U(40), "dairy.metrics", { spaceId: spaceB.id });
+    expect(r.status).toBe(200);
+    expect(r.data.calving_due_count).toBe(0);
+  });
+
+  it("animal with expected_next_calving 30 days away is NOT counted", async () => {
+    /* Create an animal whose calving is 30 days out — outside the 21-day window. */
+    const animalRes = await call(U(30), "dairy.animals.create", {
+      spaceId: spaceA.id,
+      payload: {
+        name: "Far-Calving-Cow",
+        species: "cow",
+        currentStatus: "dry",
+        clientUuid: "far-calving-cow-01",
+      },
+    });
+    expect(animalRes.status).toBe(200);
+    const thirtyDaysLater = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    await call(U(30), "dairy.lactations.add", {
+      spaceId: spaceA.id,
+      payload: {
+        animalId: animalRes.data.id,
+        calvingDate: "2026-04-01",
+        expectedNextCalving: thirtyDaysLater,
+      },
+    });
+
+    /* Store count before — adding the far-calving animal should not change it. */
+    const before = await call(U(30), "dairy.metrics", { spaceId: spaceA.id });
+    const countBefore = before.data.calving_due_count;
+
+    /* The 30-day animal must not increase the count. */
+    const after = await call(U(30), "dairy.metrics", { spaceId: spaceA.id });
+    expect(after.data.calving_due_count).toBe(countBefore);
+  });
+});

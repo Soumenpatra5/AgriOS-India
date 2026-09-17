@@ -238,6 +238,21 @@ export default function DairyDashboard() {
         </div>
       )}
 
+      {/* Calving due alert */}
+      {metrics?.calving_due_count > 0 && (
+        <div style={{ margin: "8px 16px 0", background: T.blueSoft, borderRadius: T.rMd,
+          padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+          <Icon name="Baby" size={15} color={T.blue} />
+          <span style={{ fontSize: 12.5, color: T.blue, fontWeight: 600, fontFamily: T.body }}>
+            {tc({
+              en: `${metrics.calving_due_count} animal${metrics.calving_due_count > 1 ? "s" : ""} due to calve in 21 days`,
+              hi: `21 दिन में ${metrics.calving_due_count} पशु ब्याने वाले हैं`,
+              bn: `21 দিনে ${metrics.calving_due_count}টি প্রাণী প্রসব করবে`,
+            })}
+          </span>
+        </div>
+      )}
+
       {/* 30-day milk production chart — visible to all dairy.view users; Record button for canRecord */}
       {milkHistory !== null && (
         <MilkProductionCard

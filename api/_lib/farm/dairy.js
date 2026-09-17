@@ -288,9 +288,10 @@ export async function herdMetrics(sql, membership) {
   const spaceId = membership.space_id;
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = today.slice(0, 8) + "01";
-  const twoWeeksLater = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+  const twoWeeksLater   = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+  const threeWeeksLater = new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10);
 
-  const [statusCounts, todayMilk, monthMilk, healthDue, healthOverdue] = await Promise.all([
+  const [statusCounts, todayMilk, monthMilk, healthDue, healthOverdue, calvingDue] = await Promise.all([
     sql`
       select current_status, count(*)::int as count
       from dairy_animals
@@ -325,6 +326,19 @@ export async function herdMetrics(sql, membership) {
         and next_due_date < ${today}
         and deleted_at is null
     `,
+    sql`
+      select count(*)::int as count
+      from (
+        select distinct on (l.animal_id) l.expected_next_calving
+        from dairy_lactations l
+        join dairy_animals a on a.id = l.animal_id
+        where a.space_id = ${spaceId}
+          and a.deleted_at is null
+        order by l.animal_id, l.lactation_number desc
+      ) latest
+      where latest.expected_next_calving is not null
+        and latest.expected_next_calving between ${today} and ${threeWeeksLater}
+    `,
   ]);
 
   const byStatus = {};
@@ -336,6 +350,7 @@ export async function herdMetrics(sql, membership) {
     month_milk_kg: parseFloat(monthMilk[0].kg),
     health_due_in_14_days: healthDue[0].count,
     health_overdue_count: healthOverdue[0].count,
+    calving_due_count: calvingDue[0].count,
   };
 }
 
