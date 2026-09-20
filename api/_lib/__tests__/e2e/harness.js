@@ -131,6 +131,7 @@ const MIGRATIONS = [
   "0024_bee_foundation.sql",
   "0025_crop_foundation.sql",
   "0026_notifications.sql",
+  "0027_enable_rls_remaining.sql",
 ];
 
 export async function freshDb() {

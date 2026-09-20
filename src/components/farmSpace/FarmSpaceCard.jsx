@@ -4,7 +4,6 @@ import Icon from "../../components/Icon.jsx";
 import { Card } from "../index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, onFarmSpaceChanged } from "../../services/farmSpace/farmSpaceService.js";
-import { notificationService } from "../../services/notifications/notificationService.js";
 
 /* The Farm Space entry point on Home.
 
@@ -26,13 +25,19 @@ import { notificationService } from "../../services/notifications/notificationSe
    every fresh sign-in, not just ones that arrive from here on. */
 const seen = new Set();
 let announcedFirstLoad = false;
-function announceNew(invitations, tc) {
-  const canDispatch = notificationService.isEnabled?.();
+async function announceNew(invitations, tc) {
+  let canDispatch = false;
+  let notif = null;
+  try {
+    const mod = await import("../../services/notifications/notificationService.js");
+    notif = mod.notificationService;
+    canDispatch = notif?.isEnabled?.();
+  } catch { /* no-op */ }
   for (const i of invitations) {
     if (seen.has(i.id)) continue;
     seen.add(i.id);
-    if (announcedFirstLoad && canDispatch) {
-      notificationService.dispatch(
+    if (announcedFirstLoad && canDispatch && notif) {
+      notif.dispatch(
         tc({ en: "Farm Space invitation", hi: "फ़ार्म स्पेस निमंत्रण", bn: "ফার্ম স্পেস আমন্ত্রণ" }),
         tc({ en: `Invited to ${i.space_name}`, hi: `${i.space_name} में बुलाया गया`, bn: `${i.space_name}-এ ডাকা হয়েছে` }),
         `farm-invite-${i.id}`,
