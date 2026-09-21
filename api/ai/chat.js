@@ -11,7 +11,7 @@
      OPENAI_API_KEY_2    = sk-...           (backup OpenAI key, optional)  */
 
 import { verifyToken } from "../_middleware/verifyAuth.js";
-import { streamGemini } from "./geminiAdapter.js";
+import { streamGemini } from "./_geminiAdapter.js";
 
 const MAX_TOKENS_CAP = 4096;
 const MAX_BODY_CHARS = 400_000;
