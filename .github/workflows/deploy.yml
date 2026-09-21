@@ -86,11 +86,12 @@ jobs:
         id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           set -euo pipefail
           # No --prebuilt: Vercel builds this, so the project's real (Sensitive)
           # environment variables are available at build time.
-          url=$(npx --yes vercel@latest deploy --prod --yes --token="$VERCEL_TOKEN")
+          url=$(npx --yes vercel@latest deploy --prod --yes -e DATABASE_URL="$DATABASE_URL" --token="$VERCEL_TOKEN")
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Deployed $url"
 
