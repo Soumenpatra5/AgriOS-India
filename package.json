@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:e2e": "vite build --mode e2e",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test --config playwright.config.js",
@@ -38,6 +39,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "fake-indexeddb": "^6.2.5",
     "globals": "^17.10.0",
+    "rollup-plugin-visualizer": "^7.1.1",
     "vite": "^5.4.11",
     "vitest": "^4.1.10"
   }

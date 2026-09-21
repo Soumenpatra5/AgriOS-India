@@ -1,75 +1,30 @@
-/* Curated icon registry. We import only the icons the app actually uses so the
-   bundle stays small — important for users on slow rural connections. Add a
-   name here when you reference a new icon; unknown names fall back to Circle. */
+/* Curated icon registry. Shell-critical icons are imported eagerly (always in the
+   initial bundle). The remaining ~190 icons live in iconRegistryDeferred.js and
+   load via a single dynamic import that fires immediately — by the time any lazy
+   screen renders they are already available. Unknown names fall back to Circle. */
 import {
-  Circle, Search, X, ChevronDown, ChevronLeft, ChevronRight, Check, CheckCircle2,
-  Info, AlertCircle, AlertTriangle, CloudOff, RotateCcw, Inbox, Wrench, SearchX,
-  House, Sparkles, LayoutGrid, User, Store, Bell, Settings, LogOut, Languages,
-  Sprout, Wheat, Milk, Bird, Rabbit, PiggyBank, Fish, Bug, Leaf, Package,
-  Bot, Stethoscope, Calculator, Scale, Landmark, CloudSun, LineChart, CalendarDays,
-  Briefcase, MessageCircle, TrendingUp, TrendingDown, BarChart3, Users, ShoppingBag,
-  Tractor, Pill, FlaskConical, Send, GraduationCap, Building2, ShieldCheck, Truck,
-  Crown, CreditCard, FileText, LifeBuoy, Lock, CloudRain, Droplets, Wind,
-  ArrowDownLeft, ArrowUpRight, ScanLine, Camera, Newspaper, Moon, Sun, SmartphoneNfc,
-  SlidersHorizontal, Wallet, Mic, Volume2, Star, Download, Trash2,
-  Cloud, CloudFog, CloudDrizzle, CloudLightning, Snowflake, Umbrella,
-  Thermometer, Gauge, MapPin, Navigation, Compass, LocateFixed, Plus, RefreshCw,
-  Clock, SprayCan, Timer, CameraOff, ImagePlus, FlipHorizontal2, Aperture, Zap,
-  BookmarkPlus, BookmarkCheck, ExternalLink, BadgeCheck, BadgeAlert, Lightbulb,
-  Receipt, PlusCircle, ArrowDownCircle, ArrowUpCircle, BellRing, BellOff,
-  Microscope, HeartPulse, Scan, ClipboardList, FileDown, History, Share2, Printer, GitBranch,
-  Database, GitMerge, Activity, BarChart2, Layers, Package2, Cpu, Boxes,
-  PieChart, Target, Crosshair, Radio, Network, ShieldAlert,
-  XCircle, PlayCircle, PauseCircle, StopCircle, Hourglass,
-  ArrowRight, ArrowLeft, ChevronUp, Eye, EyeOff, Tag, FolderOpen,
-  Upload, Link, Unlink, Workflow, Server, HardDrive,
-  LayoutDashboard, ListFilter, SortAsc, SortDesc, Pencil, Copy, MoreHorizontal,
-  Syringe, Egg, BookOpen, ArrowLeftRight, Percent, Warehouse, Map, ClipboardCheck,
-  ListChecks, CalendarClock, Banknote, Handshake, Contact, Factory, UserCheck,
-  Satellite, Beef, Heart, ShoppingCart, Minus,
-  Container, Gavel, FileSignature, IndianRupee, Route, Fuel, Calendar,
-  BrainCircuit, Flame, PackageX, Dot,
-  PanelLeftOpen, PanelLeftClose, ToggleLeft, CalendarCheck, GripVertical, GitCompare, Award,
-  Fingerprint, MailOpen, UserPlus, UserX,
-  Pin, PinOff, CornerUpLeft, SmilePlus,
-  Paperclip, Video,
+  Circle,
+  AlertTriangle, Bell, BellRing, Bot, CheckCircle2,
+  ChevronDown, ChevronLeft, ChevronRight,
+  CloudOff, CloudSun, Download, Droplets,
+  Info, Languages, LocateFixed, MapPin, Microscope,
+  ScanLine, Search, Sparkles, Sun, Wind,
 } from "lucide-react";
 
-const REGISTRY = {
-  Circle, Search, X, ChevronDown, ChevronLeft, ChevronRight, Check, CheckCircle2,
-  Info, AlertCircle, AlertTriangle, CloudOff, RotateCcw, Inbox, Wrench, SearchX,
-  House, Sparkles, LayoutGrid, User, Store, Bell, Settings, LogOut, Languages,
-  Sprout, Wheat, Milk, Bird, Rabbit, PiggyBank, Fish, Bug, Leaf, Package,
-  Bot, Stethoscope, Calculator, Scale, Landmark, CloudSun, LineChart, CalendarDays,
-  Briefcase, MessageCircle, TrendingUp, TrendingDown, BarChart3, Users, ShoppingBag,
-  Tractor, Pill, FlaskConical, Send, GraduationCap, Building2, ShieldCheck, Truck,
-  Crown, CreditCard, FileText, LifeBuoy, Lock, CloudRain, Droplets, Wind,
-  ArrowDownLeft, ArrowUpRight, ScanLine, Camera, Newspaper, Moon, Sun, SmartphoneNfc,
-  SlidersHorizontal, Wallet, Mic, Volume2, Star, Download, Trash2,
-  Cloud, CloudFog, CloudDrizzle, CloudLightning, Snowflake, Umbrella,
-  Thermometer, Gauge, MapPin, Navigation, Compass, LocateFixed, Plus, RefreshCw,
-  Clock, SprayCan, Timer, CameraOff, ImagePlus, FlipHorizontal2, Aperture, Zap,
-  BookmarkPlus, BookmarkCheck, ExternalLink, BadgeCheck, BadgeAlert, Lightbulb,
-  Receipt, PlusCircle, ArrowDownCircle, ArrowUpCircle, BellRing, BellOff,
-  Microscope, HeartPulse, Scan, ClipboardList, FileDown, History, Share2, Printer, GitBranch,
-  Database, GitMerge, Activity, BarChart2, Layers, Package2, Cpu, Boxes,
-  PieChart, Target, Crosshair, Radio, Network, ShieldAlert,
-  XCircle, PlayCircle, PauseCircle, StopCircle, Hourglass,
-  ArrowRight, ArrowLeft, ChevronUp, Eye, EyeOff, Tag, FolderOpen,
-  Upload, Link, Unlink, Workflow, Server, HardDrive,
-  LayoutDashboard, ListFilter, SortAsc, SortDesc, Pencil, Copy, MoreHorizontal,
-  Syringe, Egg, BookOpen, ArrowLeftRight, Percent, Warehouse, Map, ClipboardCheck,
-  ListChecks, CalendarClock, Banknote, Handshake, Contact, Factory, UserCheck,
-  Satellite, Beef, Heart, ShoppingCart, Minus,
-  Container, Gavel, FileSignature, IndianRupee, Route, Fuel, Calendar,
-  BrainCircuit, Flame, PackageX, Dot,
-  PanelLeftOpen, PanelLeftClose, ToggleLeft, CalendarCheck, GripVertical, GitCompare, Award,
-  Fingerprint, MailOpen, UserPlus, UserX,
-  Pin, PinOff, CornerUpLeft, SmilePlus,
-  Paperclip, Video,
+const EAGER = {
+  Circle,
+  AlertTriangle, Bell, BellRing, Bot, CheckCircle2,
+  ChevronDown, ChevronLeft, ChevronRight,
+  CloudOff, CloudSun, Download, Droplets,
+  Info, Languages, LocateFixed, MapPin, Microscope,
+  ScanLine, Search, Sparkles, Sun, Wind,
 };
 
+let deferred = {};
+// Fires immediately on first import of Icon.jsx — well before any lazy screen loads.
+import("./iconRegistryDeferred.js").then((m) => { deferred = m; });
+
 export default function Icon({ name, size = 20, color = "currentColor", strokeWidth = 2, style }) {
-  const Cmp = REGISTRY[name] || Circle;
+  const Cmp = EAGER[name] || deferred[name] || Circle;
   return <Cmp size={size} color={color} strokeWidth={strokeWidth} style={style} />;
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
-import { AppBar, Card, Button, EmptyState, ErrorState, Spinner, IconTile } from "../../components/index.js";
+import { AppBar, Card, Button, EmptyState, ErrorState, Spinner, IconTile, BottomSheet } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, onFarmSpaceChanged, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 
@@ -107,6 +107,7 @@ export default function FarmSpaceHub({ asTab = false }) {
   const [space, setSpace] = useState(null);
   const [state, setState] = useState("loading");   // loading | ready | error | none
   const [reason, setReason] = useState(null);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   /* Resolves an already-fetched spaces list to what the hub should show,
      without deciding what to DO about ambiguity — that is load()'s call,
@@ -209,19 +210,18 @@ export default function FarmSpaceHub({ asTab = false }) {
       {bar}
       <div style={{ padding: `4px 16px 24px`, display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {/* Team card — replaces the old identity card; tapping opens the team
-            roster directly so "Team" only ever appears once on the screen */}
+        {/* Farm Space switcher card — tap left to switch spaces, tap right to manage Team */}
         <Card elevated pad={0}>
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "stretch" }}>
             <button
-              onClick={canTeam ? () => push({ kind: "farmSpaceTeam" }) : undefined}
+              onClick={() => setSwitcherOpen(true)}
               style={{ flex: 1, display: "flex", alignItems: "center", gap: 14,
                 padding: "13px 14px", background: "none", border: "none",
-                cursor: canTeam ? "pointer" : "default", fontFamily: T.body, textAlign: "left" }}>
-              <IconTile name="Users" accent="primary" />
+                cursor: "pointer", fontFamily: T.body, textAlign: "left" }}>
+              <IconTile name="Sprout" accent="primary" />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: T.display, fontSize: 16, fontWeight: 700, color: T.ink }}>
-                  {space.name} {tc({ en: "Team", hi: "टीम", bn: "দল" })}
+                <div style={{ fontFamily: T.display, fontSize: 16, fontWeight: 700, color: T.ink, display: "flex", alignItems: "center", gap: 6 }}>
+                  {space.name} <Icon name="ChevronDown" size={16} style={{ color: T.inkFaint }} />
                 </div>
                 <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 1 }}>
                   {roleLabel}
@@ -232,11 +232,22 @@ export default function FarmSpaceHub({ asTab = false }) {
                   })}` : ""}
                 </div>
               </div>
-              {canTeam && <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />}
             </button>
-            <SwitchSpace />
+            {canTeam && (
+              <>
+                <div style={{ width: 1, background: T.lineSoft, margin: "10px 0" }} />
+                <button
+                  onClick={() => push({ kind: "farmSpaceTeam" })}
+                  aria-label={tc({ en: "Team", hi: "टीम", bn: "দল" })}
+                  style={{ display: "grid", placeItems: "center", padding: "0 18px", background: "none", border: "none", cursor: "pointer", color: T.primary, fontFamily: T.body }}>
+                  <Icon name="Users" size={20} />
+                  <div style={{ fontSize: 11, fontWeight: 600, marginTop: 3 }}>{tc({ en: "Team", hi: "टीम", bn: "দল" })}</div>
+                </button>
+              </>
+            )}
           </div>
         </Card>
+        <FarmSpaceSwitcherSheet open={switcherOpen} onClose={() => setSwitcherOpen(false)} activeId={space.id} />
 
         <PendingInviteBanner />
 
@@ -268,27 +279,76 @@ export default function FarmSpaceHub({ asTab = false }) {
   );
 }
 
-/* Only worth drawing for someone who actually belongs to more than one space —
-   most farmers have one, and a switcher would just be a control that does
-   nothing. */
-function SwitchSpace() {
+/* The bottom sheet switcher that lists all available farm spaces. */
+function FarmSpaceSwitcherSheet({ open, onClose, activeId }) {
   const { push, tc } = useApp();
-  const [many, setMany] = useState(false);
+  const [spaces, setSpaces] = useState([]);
+  const [state, setState] = useState("loading");
 
   useEffect(() => {
+    if (!open) return;
     let alive = true;
-    farmSpaceService.spaces().then((s) => { if (alive) setMany(s.length > 1); }).catch(() => {});
+    setState("loading");
+    farmSpaceService.spaces({ fresh: false })
+      .then((s) => {
+        if (!alive) return;
+        setSpaces(s);
+        setState("ready");
+      })
+      .catch(() => {
+        if (alive) setState("error");
+      });
     return () => { alive = false; };
-  }, []);
+  }, [open]);
 
-  if (!many) return null;
+  const choose = (id) => {
+    farmSpaceService.setActive(id);
+    onClose();
+  };
+
+  const title = tc({ en: "Select Farm Space", hi: "फ़ार्म स्पेस चुनें", bn: "ফার্ম স্পেস বাছুন" });
+
   return (
-    <button onClick={() => push({ kind: "farmSpacePicker" })}
-      aria-label={tc({ en: "Switch Farm Space", hi: "फ़ार्म स्पेस बदलें", bn: "ফার্ম স্পেস বদলান" })}
-      style={{ background: T.surface2, border: "none", borderRadius: 11, padding: "8px 10px", cursor: "pointer",
-        color: T.primary, fontSize: 12.5, fontWeight: 600, fontFamily: T.body, flexShrink: 0 }}>
-      {tc({ en: "Switch", hi: "बदलें", bn: "বদলান" })}
-    </button>
+    <BottomSheet open={open} onClose={onClose} title={title}>
+      {state === "loading" && <div style={{ padding: 40, display: "grid", placeItems: "center" }}><Spinner /></div>}
+      {state === "error" && <div style={{ padding: 20 }}><ErrorState body={farmErrorText(FARM_ERROR.FAILED, tc)} onRetry={() => {}} /></div>}
+      
+      {state === "ready" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {spaces.map((s) => {
+            const current = s.id === activeId;
+            return (
+              <Card key={s.id} pad={0} style={current ? { border: `2px solid ${T.primary}` } : undefined}>
+                <button onClick={() => choose(s.id)}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "12px",
+                    background: "none", border: "none", cursor: "pointer", fontFamily: T.body, textAlign: "left" }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0, display: "grid", placeItems: "center",
+                    background: current ? T.primary : T.primarySoft, color: current ? "#fff" : T.primary }}>
+                    <Icon name="Sprout" size={20} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: T.ink }}>{s.name}</div>
+                    <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
+                      {tc(farmSpaceService.roleLabel(s.role))}
+                      {s.member_count ? ` · ${s.member_count}` : ""}
+                    </div>
+                  </div>
+                  {current && <Icon name="Check" size={20} style={{ color: T.primary, marginRight: 4 }} />}
+                </button>
+              </Card>
+            );
+          })}
+
+          <div style={{ height: 4 }} />
+          <Button full variant="soft" onClick={() => { onClose(); push({ kind: "farmSpaceCreate" }); }}>
+            {tc({ en: "Create Farm Space", hi: "एक और फ़ार्म स्पेस बनाएँ", bn: "ফার্ম স্পেস তৈরি করুন" })}
+          </Button>
+          <Button full variant="outline" onClick={() => { onClose(); push({ kind: "farmSpaceInvites" }); }}>
+            {tc({ en: "I Have an Invitation", hi: "मेरे पास निमंत्रण है", bn: "আমার একটি আমন্ত্রণ আছে" })}
+          </Button>
+        </div>
+      )}
+    </BottomSheet>
   );
 }
 
