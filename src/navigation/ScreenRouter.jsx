@@ -102,6 +102,8 @@ const PoultryChainDetail = lazy(() => import("../pages/farmSpace/PoultryChainDet
 const PoultryBatchHistory  = lazy(() => import("../pages/farmSpace/BatchHistory.jsx"));
 const PoultryBatchFinance  = lazy(() => import("../pages/farmSpace/PoultryBatchFinance.jsx"));
 const FarmSpacePicker    = lazy(() => import("../pages/farmSpace/FarmSpacePicker.jsx"));
+const FarmSpaceCustomize = lazy(() => import("../pages/farmSpace/FarmSpaceCustomize.jsx"));
+const ModuleGuard = lazy(() => import("../pages/farmSpace/ModuleGuard.jsx"));
 const FarmSpaceCreate    = lazy(() => import("../pages/farmSpace/FarmSpaceCreate.jsx"));
 const FarmSpaceInvites   = lazy(() => import("../pages/farmSpace/FarmSpaceInvites.jsx"));
 const FarmSpaceTeam      = lazy(() => import("../pages/farmSpace/FarmSpaceTeam.jsx"));
@@ -237,12 +239,12 @@ function StackScreen({ item }) {
   if (item.kind === "dprGenerator")         return <DprGenerator />;
   if (item.kind === "dprEditor")            return <DprEditor  {...(item.props || {})} />;
   if (item.kind === "dprPreview")           return <DprPreview {...(item.props || {})} />;
-  if (item.kind === "dairyDashboard")       return <DairyDashboard />;
-  if (item.kind === "goatDashboard")        return <GoatDashboard />;
+  if (item.kind === "dairyDashboard") return <ModuleGuard moduleId="dairyDashboard"><DairyDashboard /></ModuleGuard>;
+  if (item.kind === "goatDashboard") return <ModuleGuard moduleId="goatDashboard"><GoatDashboard /></ModuleGuard>;
   if (item.kind === "goatAnimalDetail")    return <GoatAnimalDetail  {...(item.props || {})} />;
   if (item.kind === "goatFinance")         return <GoatFinance        {...(item.props || {})} />;
   if (item.kind === "goatMilkEntry")       return <GoatMilkEntry      {...(item.props || {})} />;
-  if (item.kind === "pigDashboard")        return <PigDashboard />;
+  if (item.kind === "pigDashboard") return <ModuleGuard moduleId="pigDashboard"><PigDashboard /></ModuleGuard>;
   if (item.kind === "pigAnimalDetail")     return <PigAnimalDetail   {...(item.props || {})} />;
   if (item.kind === "pigFinance")          return <PigFinance        {...(item.props || {})} />;
   if (item.kind === "fishDashboard")       return <FishDashboard      {...(item.props || {})} />;
@@ -254,12 +256,12 @@ function StackScreen({ item }) {
   if (item.kind === "cropDashboard")       return <CropDashboard      {...(item.props || {})} />;
   if (item.kind === "fieldDetail")         return <FieldDetail        {...(item.props || {})} />;
   if (item.kind === "cropFinance")         return <CropFinance        {...(item.props || {})} />;
-  if (item.kind === "farmSpaceAnalytics")      return <FarmSpaceAnalytics />;
+  if (item.kind === "farmSpaceAnalytics") return <ModuleGuard moduleId="farmSpaceAnalytics"><FarmSpaceAnalytics /></ModuleGuard>;
   if (item.kind === "farmSpaceNotifications")  return <FarmSpaceNotifications />;
   if (item.kind === "dairyAnimalDetail")   return <DairyAnimalDetail {...(item.props || {})} />;
   if (item.kind === "dairyFinance")         return <DairyFinance      {...(item.props || {})} />;
   if (item.kind === "dairyMilkEntry")       return <DairyMilkEntry    {...(item.props || {})} />;
-  if (item.kind === "poultryDashboard")     return <PoultryDashboard />;
+  if (item.kind === "poultryDashboard") return <ModuleGuard moduleId="poultryDashboard"><PoultryDashboard /></ModuleGuard>;
   if (item.kind === "poultryBatchDetail")   return <PoultryBatchDetail {...(item.props || {})} />;
   if (item.kind === "poultryChainDetail")   return <PoultryChainDetail {...(item.props || {})} />;
   if (item.kind === "poultryBatchHistory")  return <PoultryBatchHistory {...(item.props || {})} />;
@@ -267,6 +269,7 @@ function StackScreen({ item }) {
   if (item.kind === "farmSpace")            return <FarmSpaceHub />;
   if (item.kind === "farmSpacePicker")      return <FarmSpacePicker />;
   if (item.kind === "farmSpaceCreate")      return <FarmSpaceCreate />;
+    if (item.kind === "farmSpaceCustomize")   return <FarmSpaceCustomize spaceId={item.props?.spaceId} />;
   if (item.kind === "farmSpaceInvites")     return <FarmSpaceInvites />;
   if (item.kind === "farmSpaceTeam")        return <FarmSpaceTeam />;
   if (item.kind === "farmSpaceTasks")       return <FarmSpaceTasks />;

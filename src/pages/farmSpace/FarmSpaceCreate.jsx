@@ -4,6 +4,7 @@ import { AppBar, Card, Button, Input } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService } from "../../services/farmSpace/farmSpaceService.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
+import { MODULE_CATALOG, OPTIONAL_MODULES_ORDER, CORE_MODULES_ORDER } from "./moduleCatalog.js";
 
 /* Creating a Farm Space.
 
@@ -17,13 +18,14 @@ export default function FarmSpaceCreate() {
   const { pop, tc, toast } = useApp();
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
+  const [selectedModules, setSelectedModules] = useState(OPTIONAL_MODULES_ORDER);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     if (!name.trim() || busy) return;
     setBusy(true);
     try {
-      await farmSpaceService.create({ name: name.trim(), location: location.trim() || undefined });
+      await farmSpaceService.create({ name: name.trim(), location: location.trim() || undefined, orderedModuleIds: [...CORE_MODULES_ORDER, ...selectedModules] });
       toast(tc({ en: "Farm Space created.", hi: "फ़ार्म स्पेस बन गया।", bn: "ফার্ম স্পেস তৈরি হয়েছে।" }), "success");
       pop();
     } catch (err) {

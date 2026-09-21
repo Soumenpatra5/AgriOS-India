@@ -79,6 +79,8 @@ const ACTIONS = {
 
   /* --- space-scoped: gate runs all six steps before these are reached --- */
   "spaces.get":          { permission: "farm.view",             run: ({ membership }) => membership },
+  "spaces.modules.get":  { permission: "farm.view",             run: ({ sql, membership }) => ops.getModules(sql, membership) },
+  "spaces.modules.update": { permission: "farm.settings.manage", run: ({ sql, membership, user, payload }) => ops.updateModules(sql, membership, user.id, payload) },
   "spaces.update":       { permission: "farm.settings.manage",  run: ({ sql, membership, user, payload }) => ops.updateSpace(sql, membership, user.id, payload) },
   "spaces.archive":      { permission: "farm.settings.manage",  run: ({ sql, membership, user }) => ops.archiveSpace(sql, membership, user.id) },
   /* Both re-check role === "owner" inside the handler: farm.settings.manage is

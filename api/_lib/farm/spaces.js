@@ -12,6 +12,8 @@ import { HttpError } from "../http.js";
 import { audit, requireMembership, requireScope } from "./gate.js";
 import { ROLES, canAssignRole } from "./permissions.js";
 import { normalizeAgriosUserId } from "../agriosId.js";
+import { validateModuleConfiguration, CORE_MODULES } from "./modules.js";
+
 
 const MAX_NAME = 80;
 const MAX_DESC = 500;
@@ -121,6 +123,17 @@ export async function createSpace(sql, userId, input) {
     await tx`
       insert into farm_space_memberships (space_id, user_id, role, status)
       values (${s.id}, ${userId}, 'owner', 'active')`;
+
+    let sortOrder = 0;
+    const initialModules = input.orderedModuleIds && Array.isArray(input.orderedModuleIds) ? input.orderedModuleIds : CORE_MODULES;
+    const { value: validModules, error: modError } = validateModuleConfiguration(initialModules);
+    if (modError) throw new HttpError(400, modError);
+
+    for (const moduleId of validModules) {
+      await tx`insert into farm_space_modules (space_id, module_id, sort_order, enabled) values (${s.id}, ${moduleId}, ${sortOrder}, true)`;
+      sortOrder++;
+    }
+
     return s;
   });
 
@@ -449,3 +462,50 @@ export async function listAudit(sql, membership, { limit = 50 } = {}) {
 /* Re-exported so handlers compose the gate and these operations from one
    import rather than reaching past this module. */
 export { requireMembership };
+
+
+
+export async function getModules(sql, membership) {
+  return sql`
+    select module_id, enabled, sort_order
+      from farm_space_modules
+     where space_id = ${membership.space_id}
+     order by sort_order asc`;
+}
+
+export async function updateModules(sql, membership, actorUserId, payload) {
+  const { expected_version, orderedModuleIds } = payload || {};
+  if (typeof expected_version !== "number") throw new HttpError(400, "expected_version is required");
+
+  const { value: validModules, error } = validateModuleConfiguration(orderedModuleIds);
+  if (error) throw new HttpError(400, error);
+
+  return sql.begin(async (tx) => {
+    const [spaceRow] = await tx`
+      select configuration_version from farm_spaces
+       where id = ${membership.space_id} for update`;
+
+    if (spaceRow.configuration_version !== expected_version) {
+      throw new HttpError(409, "Farm Space configuration was modified by another user. Please refresh.");
+    }
+
+    await tx`delete from farm_space_modules where space_id = ${membership.space_id}`;
+
+    let sortOrder = 0;
+    for (const moduleId of validModules) {
+      await tx`
+        insert into farm_space_modules (space_id, module_id, sort_order, enabled)
+        values (${membership.space_id}, ${moduleId}, ${sortOrder}, true)`;
+      sortOrder++;
+    }
+
+    const nextVersion = expected_version + 1;
+    await tx`update farm_spaces set configuration_version = ${nextVersion}, updated_at = now()
+              where id = ${membership.space_id}`;
+
+    await audit(tx, { spaceId: membership.space_id, actorUserId, action: "space.modules_updated",
+      targetType: "space", targetId: membership.space_id, meta: { version: nextVersion } });
+
+    return { configuration_version: nextVersion };
+  });
+}

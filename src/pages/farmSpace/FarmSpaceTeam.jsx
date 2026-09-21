@@ -45,6 +45,7 @@ export default function FarmSpaceTeam() {
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(null);
+  const [memberDetails, setMemberDetails] = useState(null);
 
   const load = useCallback(async () => {
     setState("loading");

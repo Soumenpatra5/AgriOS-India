@@ -111,6 +111,7 @@ const _activityCache = keyedCache((spaceId) => farmSpaceApi.listActivity(spaceId
    exists so returning to a chat already opened this session does not wait on
    a network round trip to show the same messages it showed a moment ago. */
 const _chatCache = keyedCache((spaceId) => farmSpaceApi.listMessages(spaceId, { limit: 50 }));
+const _modulesCache = keyedCache((spaceId) => farmSpaceApi.getModules(spaceId));
 
 export const farmSpaceService = {
   /* ── membership ─────────────────────────────────────────────────────────── */
@@ -306,6 +307,10 @@ export const farmSpaceService = {
 
   /* ── tasks ──────────────────────────────────────────────────────────────── */
 
+  async modules(spaceId, opts) { return _modulesCache.get(spaceId, opts); },
+  peekModules(spaceId) { return _modulesCache.peek(spaceId); },
+  setModules(spaceId, list) { _modulesCache.set(spaceId, list); notify(); },
+
   async tasks(spaceId, opts) { return _tasksCache.get(spaceId, opts); },
   peekTasks(spaceId) { return _tasksCache.peek(spaceId); },
 
@@ -382,7 +387,7 @@ export const farmSpaceService = {
   reset() {
     _spaces = null; _invitations = null;
     _members.clear(); _membersPromise.clear();
-    _tasksCache.clear(); _attendanceCache.clear();
+    _tasksCache.clear(); _attendanceCache.clear(); _modulesCache.clear();
     _announcementsCache.clear(); _activityCache.clear(); _chatCache.clear();
     storage.remove(ACTIVE_KEY);
     storage.remove(SNAPSHOT_KEY);

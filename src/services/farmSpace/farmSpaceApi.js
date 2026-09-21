@@ -89,6 +89,8 @@ export const farmSpaceApi = {
   /* Space-scoped — the server re-checks membership on every one of these; the
      spaceId travelling from the client is a lookup key, never a claim. */
   getSpace:      (spaceId) => call("spaces.get", { spaceId }),
+  getModules:    (spaceId) => call("spaces.modules.get", { spaceId }),
+  updateModules: (spaceId, payload) => call("spaces.modules.update", { spaceId, payload }),
   updateSpace:   (spaceId, payload) => call("spaces.update", { spaceId, payload }),
   archiveSpace:  (spaceId) => call("spaces.archive", { spaceId }),
   transferOwnership: (spaceId, userId) => call("spaces.transfer", { spaceId, payload: { userId } }),
