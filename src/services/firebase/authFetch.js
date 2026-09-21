@@ -5,13 +5,18 @@ export async function authFetch(url, options = {}) {
   const headers = { ...options.headers };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), 10000);
+  let signal = options.signal;
+  let timeoutId;
+  
+  if (!signal && options.timeout !== false) {
+    const controller = new AbortController();
+    timeoutId = setTimeout(() => controller.abort(), 10000);
+    signal = controller.signal;
+  }
   
   try {
-    const res = await fetch(url, { ...options, headers, signal: controller.signal });
-    return res;
+    return await fetch(url, { ...options, headers, signal });
   } finally {
-    clearTimeout(id);
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
