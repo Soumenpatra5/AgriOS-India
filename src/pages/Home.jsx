@@ -12,7 +12,6 @@ import { greetingKey, longDate, initials, compact } from "../utils/format.js";
 import { weatherService } from "../services/weather/weatherService.js";
 import { locationService } from "../services/location/locationService.js";
 import { ledgerService } from "../services/ledger/ledgerService.js";
-import { notificationService } from "../services/notifications/notificationService.js";
 import { cropCalendarService } from "../services/calendar/cropCalendarService.js";
 import {
   QUICK_ACTIONS, NEWS, CALCULATORS, AI_TOOLS,
@@ -132,19 +131,37 @@ export default function Home() {
   const dueToday = calCounts.today + taskCounts.today;
   const openTasks = taskCounts.open + cropCalendarService.upcomingTasks(3650).length + calCounts.overdue;
 
-  const [showNotifBanner, setShowNotifBanner] = useState(
-    () => notificationService.isSupported() && !notificationService.hasPrompted()
-  );
+  const [showNotifBanner, setShowNotifBanner] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    import("../services/notifications/notificationService.js")
+      .then(({ notificationService }) => {
+        if (!alive) return;
+        if (notificationService.isSupported() && !notificationService.hasPrompted()) {
+          setShowNotifBanner(true);
+        }
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const handleNotifAllow = async () => {
-    const result = await notificationService.requestPermission();
+    let result = "denied";
+    try {
+      const { notificationService } = await import("../services/notifications/notificationService.js");
+      result = await notificationService.requestPermission();
+    } catch { /* no-op */ }
     setShowNotifBanner(false);
     if (result === "granted") toast(tc({en:"Weather alerts enabled", hi:"मौसम अलर्ट चालू", bn:"আবহাওয়া সতর্কতা চালু হয়েছে"}), "success");
     else toast(tc({en:"Notifications blocked — enable in browser settings", hi:"सूचनाएँ ब्लॉक — ब्राउज़र सेटिंग्स में चालू करें", bn:"বিজ্ঞপ্তি ব্লক — ব্রাউজার সেটিংসে চালু করুন"}), "info");
   };
 
-  const handleNotifDismiss = () => {
-    notificationService.markPrompted();
+  const handleNotifDismiss = async () => {
+    try {
+      const { notificationService } = await import("../services/notifications/notificationService.js");
+      notificationService.markPrompted();
+    } catch { /* no-op */ }
     setShowNotifBanner(false);
   };
 
