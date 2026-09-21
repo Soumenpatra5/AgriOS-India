@@ -20,6 +20,9 @@
     "check:scripts": "node scripts/check-scripts.mjs",
     "check:upstash": "node scripts/check-upstash.mjs"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "@google/genai": "^2.23.0",
     "@vercel/blob": "^2.8.0",
