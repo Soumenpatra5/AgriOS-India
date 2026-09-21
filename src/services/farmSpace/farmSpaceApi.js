@@ -21,13 +21,16 @@ export const FARM_ERROR = {
   FAILED: "failed",              // anything else
 };
 
-function reasonFor(status) {
-  if (status === 503) return FARM_ERROR.UNCONFIGURED;
-  if (status === 401) return FARM_ERROR.SIGNED_OUT;
-  if (status === 404) return FARM_ERROR.NOT_FOUND;
-  if (status === 403) return FARM_ERROR.FORBIDDEN;
-  if (status === 409) return FARM_ERROR.ARCHIVED;
-  return FARM_ERROR.FAILED;
+function reasonFor(status, body) {
+  switch (status) {
+    case 401: return FARM_ERROR.SIGNED_OUT;
+    case 403: return FARM_ERROR.FORBIDDEN;
+    case 404: 
+      return body?.error?.message === "Farm Space not found" ? FARM_ERROR.NOT_FOUND : FARM_ERROR.FAILED;
+    case 409: return FARM_ERROR.ARCHIVED;
+    case 503: return FARM_ERROR.UNCONFIGURED;
+    default: return FARM_ERROR.FAILED;
+  }
 }
 
 async function call(action, { spaceId = null, payload = {} } = {}) {
@@ -55,7 +58,7 @@ async function call(action, { spaceId = null, payload = {} } = {}) {
   if (!res.ok) {
     const err = new Error(body?.error?.message || `Request failed (${res.status})`);
     err.status = res.status;
-    err.reason = reasonFor(res.status);
+    err.reason = reasonFor(res.status, body);
     throw err;
   }
 
