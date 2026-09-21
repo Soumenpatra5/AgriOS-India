@@ -7,9 +7,11 @@
    Setup — add in Vercel → Project → Settings → Environment Variables:
      OPENAI_API_KEY      = sk-...           (primary OpenAI key)
      ANTHROPIC_API_KEY   = sk-ant-...       (Anthropic Claude key)
+     GEMINI_API_KEY      = AIza...          (Google Gemini key)
      OPENAI_API_KEY_2    = sk-...           (backup OpenAI key, optional)  */
 
 import { verifyToken } from "../_middleware/verifyAuth.js";
+import { streamGemini } from "./geminiAdapter.js";
 
 const MAX_TOKENS_CAP = 4096;
 const MAX_BODY_CHARS = 400_000;
@@ -28,6 +30,9 @@ function limited(ip) {
 
 // ── Provider definitions ─────────────────────────────────────────────
 const PROVIDERS = {
+  gemini: {
+    models: ["gemini-3-flash-preview", "gemini-2.5-pro", "gemini-3-pro-preview", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+  },
   openai: {
     url: "https://api.openai.com/v1/chat/completions",
     models: ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "o3-mini"],
@@ -42,8 +47,12 @@ const PROVIDERS = {
   },
   anthropic: {
     url: "https://api.anthropic.com/v1/messages",
-    models: ["claude-opus-4-8", "claude-sonnet-5", "claude-haiku-4-5", "claude-sonnet-4-5-20250514"],
-    headers: (key) => ({ "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" }),
+    models: ["claude-3-7-sonnet-20250219", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
+    headers: (key) => ({
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+    }),
     buildBody: ({ model, messages, tools, max_tokens }) => {
       // Extract system message from messages array
       let system = "";
@@ -112,6 +121,7 @@ const PROVIDERS = {
 function getKeys() {
   const keys = [];
   const add = (provider, raw) => { const key = (raw || "").trim(); if (key) keys.push({ provider, key }); };
+  add("gemini", process.env.GEMINI_API_KEY);
   add("openai", process.env.OPENAI_API_KEY);
   add("anthropic", process.env.ANTHROPIC_API_KEY);
   add("openai", process.env.OPENAI_API_KEY_2);
@@ -169,6 +179,10 @@ async function tryKey(entry, body) {
     reqBody.model = provider.models[0];
   }
 
+  if (entry.provider === "gemini") {
+    return await streamGemini(entry.key, reqBody);
+  }
+
   const upstream = await fetch(provider.url, {
     method: "POST",
     headers: provider.headers(entry.key),
@@ -220,7 +234,9 @@ export default async function handler(req, res) {
     const result = await tryKey(entry, body);
     if (!result.ok) {
       lastError = result.message;
-      if (result.status === 401 || result.status === 429 || result.status === 403) continue;
+      if (result.status === 401 || result.status === 429 || result.status === 403 || result.status === 500 || result.status === 502 || result.status === 503) {
+        continue;
+      }
       return res.status(result.status).json({ error: { message: result.message } });
     }
 
@@ -230,6 +246,16 @@ export default async function handler(req, res) {
       "cache-control": "no-cache, no-transform",
       connection: "keep-alive",
     });
+
+    if (result.iterator) {
+      try {
+        for await (const chunk of result.iterator) {
+          res.write(chunk);
+        }
+      } catch (err) { console.error("Gemini stream error", err); }
+      finally { res.end(); }
+      return;
+    }
 
     const reader = result.upstream.body.getReader();
     const decoder = new TextDecoder();

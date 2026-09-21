@@ -3,8 +3,10 @@
    Key management is handled by keyManager.js — no keys stored here. */
 
 export const MODELS = {
-  answer: "gpt-4o",
-  router: "gpt-4o-mini",
+  answer: "gemini-2.5-pro",
+  router: "gemini-3-flash-preview",
+  vision: "gemini-3-flash-preview",
+  fast: "gemini-3-flash-preview",
 };
 
 export const LIMITS = {

@@ -2,8 +2,10 @@
    Local-first now; syncs to the backend profile in a later phase. */
 
 import { storage } from "../../utils/storage.js";
+import { farmSpaceService } from "../../services/farmSpace/farmSpaceService.js";
 
-const KEY = "ai:farmProfile";
+const getSpaceId = () => farmSpaceService.activeId() || "global";
+const profileKey = () => `ai:farmProfile:${getSpaceId()}`;
 const MAX_FACTS = 30;
 
 const empty = () => ({
@@ -16,21 +18,33 @@ const empty = () => ({
 });
 
 export const profileMemory = {
-  get() { return { ...empty(), ...storage.get(KEY, {}) }; },
+  get() {
+    const k = profileKey();
+    let data = storage.get(k, null);
+    if (data === null) {
+      if (k === "ai:farmProfile:global") {
+        data = storage.get("ai:farmProfile", {});
+        storage.set(k, data);
+      } else {
+        data = {};
+      }
+    }
+    return { ...empty(), ...data };
+  },
 
   update(patch) {
     const next = { ...this.get(), ...patch };
-    storage.set(KEY, next);
+    storage.set(profileKey(), next);
     return next;
   },
 
   remember(text) {
     const p = this.get();
     p.facts = [{ text: String(text).slice(0, 200), ts: Date.now() }, ...p.facts].slice(0, MAX_FACTS);
-    storage.set(KEY, p);
+    storage.set(profileKey(), p);
   },
 
-  clear() { storage.remove(KEY); },
+  clear() { storage.remove(profileKey()); },
 
   /* Compact block for the system prompt; empty string when nothing is known. */
   toPromptBlock() {

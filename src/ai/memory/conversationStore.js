@@ -7,12 +7,25 @@
 import { storage } from "../../utils/storage.js";
 import { LIMITS } from "../config.js";
 import { newConversation, textOf } from "../models/message.js";
+import { farmSpaceService } from "../../services/farmSpace/farmSpaceService.js";
 
-const INDEX_KEY = "ai:convos";
+const getSpaceId = () => farmSpaceService.activeId() || "global";
+const indexKey = () => `ai:convos:${getSpaceId()}`;
 const bodyKey = (id) => `ai:convo:${id}`;
 
-const readIndex = () => storage.get(INDEX_KEY, []);
-const writeIndex = (idx) => storage.set(INDEX_KEY, idx);
+const readIndex = () => {
+  const k = indexKey();
+  const idx = storage.get(k, null);
+  if (idx !== null) return idx;
+  if (k === "ai:convos:global") {
+    // Safely migrate legacy un-namespaced global index
+    const legacy = storage.get("ai:convos", []);
+    storage.set(k, legacy);
+    return legacy;
+  }
+  return [];
+};
+const writeIndex = (idx) => storage.set(indexKey(), idx);
 
 export const conversationStore = {
   list() {

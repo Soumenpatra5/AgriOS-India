@@ -21,6 +21,7 @@
     "check:upstash": "node scripts/check-upstash.mjs"
   },
   "dependencies": {
+    "@google/genai": "^2.23.0",
     "@vercel/blob": "^2.8.0",
     "firebase": "^12.16.0",
     "jose": "^6.1.0",

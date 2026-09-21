@@ -131,8 +131,9 @@ registerProvider({
   name: "Google Gemini",
   apiUrl: "https://generativelanguage.googleapis.com/v1beta/models",
   models: [
+    { id: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview", tier: "router" },
     { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", tier: "answer" },
-    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", tier: "router" },
+    { id: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview", tier: "answer" }
   ],
   authHeader: (key) => ({ "x-goog-api-key": key }),
 });
