@@ -8,52 +8,27 @@
    anyone but the owner. */
 
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { readFile } from "node:fs/promises";
-import { PGlite } from "@electric-sql/pglite";
+import { freshDb, makeSql } from './e2e/harness.js';
 
 import { requireMembership } from "../farm/gate.js";
 import { createSpace, listSpaces, transferOwnership, deleteSpace } from "../farm/spaces.js";
 
+import { generateAgriosUserId } from "../agriosId.js";
+
 let db, sql;
 
-function makeSql(pg) {
-  const run = async (strings, ...values) => {
-    let text = ""; const params = [];
-    strings.forEach((chunk, i) => {
-      text += chunk;
-      if (i < values.length) {
-        const v = values[i];
-        params.push(v && v.__json ? JSON.stringify(v.value) : v);
-        text += `$${params.length}`;
-      }
-    });
-    return (await pg.query(text, params)).rows;
-  };
-  run.json = (value) => ({ __json: true, value });
-  run.begin = async (fn) => {
-    await pg.exec("begin");
-    try { const out = await fn(run); await pg.exec("commit"); return out; }
-    catch (err) { await pg.exec("rollback"); throw err; }
-  };
-  return run;
-}
-
-const mig = (n) => new URL(`../../../supabase/migrations/${n}`, import.meta.url);
-
 beforeAll(async () => {
-  db = new PGlite();
-  for (const m of ["0001_commerce_foundation.sql", "0002_farm_space.sql"]) {
-    await db.exec(await readFile(mig(m), "utf8"));
-  }
-  sql = makeSql(db);
+  const env = await freshDb();
+  db = env.pg;
+  sql = env.sql;
 }, 40000);
 
 let A, B, W, farmA, farmB, memA, memW;
 
 async function seedUser(uid, phone, name = uid) {
   return (await db.query(
-    `insert into users (firebase_uid, phone, name) values ($1,$2,$3) returning *`,
-    [uid, phone, name])).rows[0];
+    `insert into users (firebase_uid, phone, name, agrios_user_id) values ($1,$2,$3,$4) returning *`,
+    [uid, phone, name, generateAgriosUserId()])).rows[0];
 }
 async function statusOf(fn) {
   try { await fn(); return 200; } catch (e) { return e?.status ?? 500; }

@@ -132,10 +132,19 @@ const MIGRATIONS = [
   "0025_crop_foundation.sql",
   "0026_notifications.sql",
   "0027_enable_rls_remaining.sql",
+    "0028_farm_space_modules.sql",
 ];
 
 export async function freshDb() {
   const pg = new PGlite();
+
+  await pg.exec(`
+    create schema if not exists auth;
+    create or replace function auth.uid() returns uuid as $$
+      select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+    $$ language sql;
+  `);
+
   for (const m of MIGRATIONS) {
     const url = new URL(`../../../../supabase/migrations/${m}`, import.meta.url);
     await pg.exec(await readFile(url, "utf8"));

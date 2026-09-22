@@ -12,8 +12,7 @@
      W  worker in Farm A         V  a second worker in Farm A */
 
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { readFile } from "node:fs/promises";
-import { PGlite } from "@electric-sql/pglite";
+import { freshDb, makeSql } from './e2e/harness.js';
 
 import { requireMembership } from "../farm/gate.js";
 import { createSpace } from "../farm/spaces.js";
@@ -25,39 +24,10 @@ import {
 
 let db, sql;
 
-function makeSql(pg) {
-  const run = async (strings, ...values) => {
-    let text = ""; const params = [];
-    strings.forEach((chunk, i) => {
-      text += chunk;
-      if (i < values.length) {
-        const v = values[i];
-        params.push(v && v.__json ? JSON.stringify(v.value) : v);
-        text += `$${params.length}`;
-      }
-    });
-    return (await pg.query(text, params)).rows;
-  };
-  run.json = (value) => ({ __json: true, value });
-  run.begin = async (fn) => {
-    await pg.exec("begin");
-    try { const out = await fn(run); await pg.exec("commit"); return out; }
-    catch (err) { await pg.exec("rollback"); throw err; }
-  };
-  return run;
-}
-
-const mig = (n) => new URL(`../../../supabase/migrations/${n}`, import.meta.url);
-
 beforeAll(async () => {
-  db = new PGlite();
-  await db.exec(await readFile(mig("0001_commerce_foundation.sql"), "utf8"));
-  await db.exec(await readFile(mig("0002_farm_space.sql"), "utf8"));
-  await db.exec(await readFile(mig("0003_farm_tasks.sql"), "utf8"));
-  /* listTasks/getTask now select the assignee's agrios_user_id as a name
-     fallback. */
-  await db.exec(await readFile(mig("0007_agrios_user_id.sql"), "utf8"));
-  sql = makeSql(db);
+  const env = await freshDb();
+  db = env.pg;
+  sql = env.sql;
 }, 40000);
 
 let A, B, M, S, W, V, farmA, farmB, memA, memB, memM, memS, memW, memV;

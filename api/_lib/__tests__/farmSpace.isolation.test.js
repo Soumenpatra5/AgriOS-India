@@ -16,8 +16,7 @@
    prove authorization does not depend on it. */
 
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { readFile } from "node:fs/promises";
-import { PGlite } from "@electric-sql/pglite";
+import { freshDb, makeSql } from './e2e/harness.js';
 
 import {
   requireMembership, requirePermission, requireScope, visibilityFor, audit,
@@ -33,46 +32,10 @@ import { generateAgriosUserId } from "../agriosId.js";
 
 let db, sql;
 
-/* A tagged-template client over PGlite with the small surface the code uses:
-   sql``, sql.json() and sql.begin(). Written once here so the production code
-   runs unmodified — the alternative, parameterising every query, would mean
-   the tests exercise a different code path than production does. */
-function makeSql(pg) {
-  const run = async (strings, ...values) => {
-    let text = "";
-    const params = [];
-    strings.forEach((chunk, i) => {
-      text += chunk;
-      if (i < values.length) {
-        const v = values[i];
-        params.push(v && v.__json ? JSON.stringify(v.value) : v);
-        text += `$${params.length}`;
-      }
-    });
-    const r = await pg.query(text, params);
-    return r.rows;
-  };
-  run.json = (value) => ({ __json: true, value });
-  run.begin = async (fn) => {
-    await pg.exec("begin");
-    try { const out = await fn(run); await pg.exec("commit"); return out; }
-    catch (err) { await pg.exec("rollback"); throw err; }
-  };
-  return run;
-}
-
-const m0001 = new URL("../../../supabase/migrations/0001_commerce_foundation.sql", import.meta.url);
-const m0002 = new URL("../../../supabase/migrations/0002_farm_space.sql", import.meta.url);
-const m0007 = new URL("../../../supabase/migrations/0007_agrios_user_id.sql", import.meta.url);
-const m0008 = new URL("../../../supabase/migrations/0008_invitation_by_user_id.sql", import.meta.url);
-
 beforeAll(async () => {
-  db = new PGlite();
-  await db.exec(await readFile(m0001, "utf8"));
-  await db.exec(await readFile(m0002, "utf8"));
-  await db.exec(await readFile(m0007, "utf8"));
-  await db.exec(await readFile(m0008, "utf8"));
-  sql = makeSql(db);
+  const env = await freshDb();
+  db = env.pg;
+  sql = env.sql;
 }, 40000);
 
 let A, B, W, O, farmA, farmB, memA, memB, memW;

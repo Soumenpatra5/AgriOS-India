@@ -42,6 +42,7 @@ export const EXPECTED_PROTECTED_TABLES = [
   "farm_notifications",
   "farm_space_invitations",
   "farm_space_memberships",
+  "farm_space_modules",
   "farm_spaces",
   "farm_task_events",
   "farm_tasks",
@@ -113,6 +114,11 @@ describe("Database RLS coverage contract", () => {
 
     // Bootstrap schema_migrations as migrate.mjs does at runtime
     await pg.exec(`
+      create schema if not exists auth;
+      create or replace function auth.uid() returns uuid as $$
+        select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+      $$ language sql;
+
       create table if not exists schema_migrations (
         name text primary key,
         applied_at timestamptz not null default now()
@@ -142,7 +148,7 @@ describe("Database RLS coverage contract", () => {
     publicTables = res.rows;
   });
 
-  it("replays all 27 migrations successfully", () => {
+  it("replays all 28 migrations successfully", () => {
     expect(publicTables.length).toBe(EXPECTED_PROTECTED_TABLES.length);
   });
 
