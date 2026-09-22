@@ -13,7 +13,7 @@
      M manager in Farm A   W and V, two workers in Farm A */
 
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { freshDb, makeSql } from './e2e/harness.js';
+import { freshDb } from './e2e/harness.js';
 
 import { requireMembership } from "../farm/gate.js";
 import { createSpace } from "../farm/spaces.js";

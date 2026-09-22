@@ -5,7 +5,7 @@ import { AppBar, Card, EmptyState, Button, IconTile } from "../../components/ind
 import { useApp } from "../../store/AppStore.jsx";
 import { seedLog } from "../../services/logistics/seedLog.js";
 import { logisticsAnalytics } from "../../services/logistics/logisticsAnalytics.js";
-import { rupee, compact } from "../../utils/format.js";
+import { compact } from "../../utils/format.js";
 
 export default function LogisticsHub() {
   const { pop, push, toast, tc } = useApp();

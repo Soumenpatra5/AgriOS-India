@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
-import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, SectionHeader } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import Restricted from "../../components/Restricted.jsx";

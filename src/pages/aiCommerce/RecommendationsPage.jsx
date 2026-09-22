@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
-import { AppBar, Chip, SectionHeader, EmptyState } from "../../components/index.js";
+import { AppBar, Chip, EmptyState } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import RecommendationRow from "../../components/aiCommerce/RecommendationRow.jsx";
 import ConfidenceBar from "../../components/aiCommerce/ConfidenceBar.jsx";

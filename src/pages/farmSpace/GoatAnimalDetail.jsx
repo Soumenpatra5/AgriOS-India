@@ -224,7 +224,7 @@ export default function GoatAnimalDetail({ animalId, spaceId }) {
     goatApi.animalHistory(spaceId || space?.id, { animalId })
       .then((h) => setHistory(h?.history || []))
       .catch(() => {});
-  }, [animalId, spaceId, space?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [animalId, spaceId, space?.id]);  
 
   const load = useCallback(async () => {
     try {

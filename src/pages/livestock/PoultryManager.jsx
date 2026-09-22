@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
-import { AppBar, Card, Chip, SectionHeader, Button } from "../../components/index.js";
+import { AppBar, Card, Chip, Button } from "../../components/index.js";
 import { BottomSheet, Input, Dropdown, Dialog } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { animalService, productionService, eventService } from "../../services/livestock/livestockService.js";
-import { rupee } from "../../utils/format.js";
 
 /* id drives state and the render branches; label is display only. Translating
    the value itself would silently break every `tab === "Flocks"` check. */

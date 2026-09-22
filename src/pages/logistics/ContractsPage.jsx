@@ -9,7 +9,7 @@ import StatusPill from "../../components/logistics/StatusPill.jsx";
 import CapacityBar from "../../components/logistics/CapacityBar.jsx";
 import { contractService, CONTRACT_TEMPLATES } from "../../services/logistics/contractService.js";
 import { CONTRACT_STATUS, COMMODITIES, QUALITY_GRADES } from "../../services/logistics/constantsLog.js";
-import { rupee, compact } from "../../utils/format.js";
+import { rupee } from "../../utils/format.js";
 
 const EMPTY = { title: "", buyerName: "", farmerName: "", commodity: "Paddy", quantityKg: "", pricePerKg: "", qualityGrade: "A / FAQ", deliveryDate: "", templateId: "seasonal" };
 

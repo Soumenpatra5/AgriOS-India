@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
-import Icon from "../components/Icon.jsx";
 import { useApp, nextAfterSplash } from "../store/AppStore.jsx";
 
 export default function Splash() {

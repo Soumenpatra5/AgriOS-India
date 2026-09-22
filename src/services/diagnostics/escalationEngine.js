@@ -1,7 +1,6 @@
 /* Escalation engine — decides when and how to escalate beyond AI diagnosis.
    Rules-based; new escalation types plug in via RULES array. */
 
-import { reportService } from "./reportService.js";
 
 const RULES = [
   {

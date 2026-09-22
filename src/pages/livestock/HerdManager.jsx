@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
-import { AppBar, Card, Chip, Button } from "../../components/index.js";
+import { AppBar, Chip, Button } from "../../components/index.js";
 import { BottomSheet, Input, Dropdown, Dialog } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { animalService, productionService, eventService } from "../../services/livestock/livestockService.js";

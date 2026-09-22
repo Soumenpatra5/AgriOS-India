@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import { useApp } from "../../store/AppStore.jsx";
 import {
-  AppBar, Card, Button, EmptyState, ErrorState, Spinner
+  AppBar, Card, EmptyState, ErrorState, Spinner
 } from "../../components/index.js";
 import { farmSpaceService } from "../../services/farmSpace/farmSpaceService.js";
 import { FARM_ERROR } from "../../services/farmSpace/farmSpaceApi.js";

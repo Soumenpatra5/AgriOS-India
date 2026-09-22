@@ -12,7 +12,6 @@ import { API_ENDPOINT } from "../config.js";
 import { parseStream } from "./streamParser.js";
 import { authFetch } from "../../services/firebase/authFetch.js";
 import { keyManager } from "../keyManager.js";
-import { getProvider } from "../providers/providerRegistry.js";
 
 /* Convert Anthropic-style messages to OpenAI format */
 function toOpenAIMessages(system, messages) {

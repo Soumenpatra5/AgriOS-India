@@ -3,7 +3,7 @@
    and, on save, automatically stocks the feed into inventory: either
    restocking an existing feed item or creating a new one. No duplicate
    purchase-order or finance system. */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import { AppBar, Screen, Card } from "../../components/index.js";
 import { Input, Dropdown } from "../../components/inputs.jsx";

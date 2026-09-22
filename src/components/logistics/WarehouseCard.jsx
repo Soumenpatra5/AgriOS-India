@@ -4,7 +4,6 @@ import { Card, accent } from "../primitives.jsx";
 import { Pill } from "../erp/RecordList.jsx";
 import CapacityBar from "./CapacityBar.jsx";
 import { warehouseMeta } from "../../services/logistics/constantsLog.js";
-import { warehouseService } from "../../services/logistics/warehouseService.js";
 import { rupee } from "../../utils/format.js";
 
 export default function WarehouseCard({ warehouse: w, onClick }) {

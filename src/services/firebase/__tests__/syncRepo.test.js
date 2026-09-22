@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CORE_DBS, firestoreName, FIRESTORE_RENAMES } from "../dbRegistry.js";
+import { CORE_DBS, firestoreName } from "../dbRegistry.js";
 import { enqueue, getAll, clear } from "../syncQueue.js";
 
 describe("dbRegistry", () => {

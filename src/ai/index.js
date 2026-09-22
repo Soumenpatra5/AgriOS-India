@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { sendMessage } from "./gateway/aiGateway.js";
 import { conversationStore } from "./memory/conversationStore.js";
 import { textOf } from "./models/message.js";
-import { getAgent, listAgents, DEFAULT_AGENT_ID } from "./agents/registry.js";
+import { getAgent } from "./agents/registry.js";
 
 export { conversationStore } from "./memory/conversationStore.js";
 export { responseCache } from "./memory/responseCache.js";

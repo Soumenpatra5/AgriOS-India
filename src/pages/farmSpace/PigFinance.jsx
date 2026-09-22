@@ -213,7 +213,7 @@ export default function PigFinance() {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
     }
-  }, [ym]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ym]);  
 
   useEffect(() => { load(); }, [load]);
 

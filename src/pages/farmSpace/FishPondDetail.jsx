@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import {
-  AppBar, Card, Button, Chip, Input, Dropdown,
+  AppBar, Card, Button, Input, Dropdown,
   EmptyState, Spinner, BottomSheet,
 } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";

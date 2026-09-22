@@ -9,7 +9,6 @@ import StatusPill from "../../components/logistics/StatusPill.jsx";
 import CapacityBar from "../../components/logistics/CapacityBar.jsx";
 import { exportService } from "../../services/logistics/exportService.js";
 import { EXPORT_STATUS, COMMODITIES } from "../../services/logistics/constantsLog.js";
-import { rupee } from "../../utils/format.js";
 
 const EMPTY = { buyerName: "", destinationCountry: "", commodity: "Mango", quantityKg: "", value: "" };
 

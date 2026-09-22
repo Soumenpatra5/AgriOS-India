@@ -5,7 +5,7 @@
    it, even though they are a fully authorized member of the same space. */
 
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
-import { freshDb, makeSql } from './e2e/harness.js';
+import { freshDb } from './e2e/harness.js';
 
 vi.mock("../blobStore.js", () => ({ deleteAttachment: vi.fn(async () => {}) }));
 import { deleteAttachment } from "../blobStore.js";

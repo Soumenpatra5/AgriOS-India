@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
-import { AppBar, Card, SectionHeader, EmptyState, IconTile, Chip } from "../../components/index.js";
+import { AppBar, Card, EmptyState, IconTile, Chip } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import RatingStars from "../../components/marketplace/RatingStars.jsx";
 import { providerService } from "../../services/svcMarketplace/providerService.js";

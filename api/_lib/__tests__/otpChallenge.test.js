@@ -5,7 +5,7 @@
    than a bug, so they are written from the attacker's side: replay it, guess
    it, race it, read it out of the table, keep an old one alive after a resend. */
 
-import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 

@@ -3,7 +3,6 @@
 
 import { plService } from "../business/plService.js";
 import { kpiService } from "../business/kpiService.js";
-import { ledgerService } from "../ledger/ledgerService.js";
 import { inventoryService } from "../inventory/inventoryService.js";
 import { animalService, ENTERPRISES } from "../livestock/livestockService.js";
 import { productionAggregator } from "../production/productionAggregator.js";

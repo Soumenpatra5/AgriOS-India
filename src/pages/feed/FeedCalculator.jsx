@@ -9,7 +9,6 @@
    workflow" rule the rest of this app's calculators follow. */
 import { useMemo, useState } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
-import Icon from "../../components/Icon.jsx";
 import { AppBar, Screen, Card } from "../../components/index.js";
 import { Input, Dropdown } from "../../components/inputs.jsx";
 import { useApp } from "../../store/AppStore.jsx";

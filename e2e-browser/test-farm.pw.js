@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { blockExternal, collectErrors, realErrors, seedSignedIn, bootToHome } from "../e2e-browser/helpers.js";
+import { test } from "@playwright/test";
+import { blockExternal, collectErrors, seedSignedIn, bootToHome } from "../e2e-browser/helpers.js";
 
 test.beforeEach(async ({ context, page }) => {
   await blockExternal(context);

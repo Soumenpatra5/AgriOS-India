@@ -22,7 +22,6 @@ import { feedAlertsService } from "../feed/feedAlertsService.js";
 import { poultryApi } from "../poultry/poultryApi.js";
 import { notificationService } from "../notifications/notificationService.js";
 import { storage } from "../../utils/storage.js";
-import { rupee } from "../../utils/format.js";
 
 const NOTIFY_KEY = "alerts:notified"; // { date, keys[] } — one browser notification per urgent alert per day
 

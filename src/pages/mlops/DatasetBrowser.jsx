@@ -4,7 +4,6 @@ import Icon from "../../components/Icon.jsx";
 import { AppBar, EmptyState } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { datasetRegistry, DATASET_CATEGORIES } from "../../services/mlops/datasets/datasetRegistry.js";
-import { datasetValidator } from "../../services/mlops/datasets/datasetValidator.js";
 
 function QualityDot({ score }) {
   const color = score >= 70 ? "var(--ag-primary)" : score >= 40 ? "var(--ag-orange)" : "var(--ag-red)";

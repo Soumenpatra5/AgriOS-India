@@ -5,7 +5,7 @@ import { AppBar, Card, SectionHeader, EmptyState } from "../../components/index.
 import { useApp } from "../../store/AppStore.jsx";
 import StatTile from "../../components/erp/StatTile.jsx";
 import { logisticsAnalytics } from "../../services/logistics/logisticsAnalytics.js";
-import { rupee, compact } from "../../utils/format.js";
+import { compact } from "../../utils/format.js";
 
 export default function LogisticsAnalytics() {
   const { pop, tc } = useApp();

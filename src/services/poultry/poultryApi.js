@@ -3,7 +3,7 @@
    All calls are space-scoped; the server re-checks membership and permission
    on every request so the client never has to trust its own state. */
 
-import { farmSpaceApi, FARM_ERROR } from "../farmSpace/farmSpaceApi.js";
+import { FARM_ERROR } from "../farmSpace/farmSpaceApi.js";
 
 /* Re-export for convenience so callers only import from one place. */
 export { FARM_ERROR };

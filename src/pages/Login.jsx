@@ -5,7 +5,6 @@ import Icon from "../components/Icon.jsx";
 import { useApp } from "../store/AppStore.jsx";
 import {
   setupRecaptcha,
-  sendOtp,
   signInWithGoogle,
   signInWithApple,
   signInWithFacebook,

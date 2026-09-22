@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
-import Icon from "../../components/Icon.jsx";
-import { AppBar, Card, Chip, Button, EmptyState, IconTile } from "../../components/index.js";
+import { AppBar, Card, Chip, Button, IconTile } from "../../components/index.js";
 import { BottomSheet, Dialog } from "../../components/overlays.jsx";
 import { Input, Dropdown } from "../../components/inputs.jsx";
 import { useApp } from "../../store/AppStore.jsx";
@@ -15,7 +14,7 @@ import { fleetService } from "../../services/logistics/fleetService.js";
 import { driverService } from "../../services/logistics/driverService.js";
 import { shipmentService } from "../../services/logistics/shipmentService.js";
 import { PROVIDER_TYPES, VEHICLE_CATEGORIES, SHIPMENT_STATUS } from "../../services/logistics/constantsLog.js";
-import { rupee, compact } from "../../utils/format.js";
+import { compact } from "../../utils/format.js";
 
 const EMPTY_VEH = { category: "truck", regNumber: "", model: "", insuranceExpiry: "", fitnessExpiry: "", permitExpiry: "" };
 const EMPTY_DRV = { name: "", phone: "", licenseNumber: "", licenseExpiry: "", languages: "" };

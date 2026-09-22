@@ -7,7 +7,6 @@
 
 import { feedAnalyticsService } from "./feedAnalyticsService.js";
 import { feedInventory, LIVESTOCK_TYPES } from "./feedService.js";
-import { feedBatchService } from "./feedBatchService.js";
 import { feedWastageService } from "./feedWastageService.js";
 import { feedPriceHistoryService } from "./feedPriceHistoryService.js";
 import { orderService } from "../crm/orderService.js";

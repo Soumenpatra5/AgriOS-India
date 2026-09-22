@@ -246,7 +246,7 @@ export default function BatchHistory({ batchId }) {
       setReason(err?.reason || FARM_ERROR.FAILED);
       setState("error");
     }
-  }, [batchId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [batchId]);  
 
   useEffect(() => { load(); }, [load]);
 

@@ -1,4 +1,4 @@
-import { driftDetector, DRIFT_SEVERITY } from "./driftDetector.js";
+import { driftDetector } from "./driftDetector.js";
 import { storage } from "../../../utils/storage.js";
 
 const KEY = "mlops:drift_reports";

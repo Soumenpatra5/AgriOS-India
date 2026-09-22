@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
-import { AppBar, Button, Chip } from "../../components/index.js";
+import { AppBar, Button } from "../../components/index.js";
 import Icon from "../../components/Icon.jsx";
 import { BottomSheet, Input, Dropdown, Dialog } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
-import { AppBar, Card, Chip, EmptyState, Button, IconTile } from "../../components/index.js";
+import { AppBar, Card, Chip, EmptyState, Button } from "../../components/index.js";
 import { BottomSheet, Dialog } from "../../components/overlays.jsx";
 import { Input } from "../../components/inputs.jsx";
 import { Pill } from "../../components/erp/RecordList.jsx";
@@ -11,9 +11,8 @@ import TimeSlotPicker from "../../components/svcMarketplace/TimeSlotPicker.jsx";
 import { bookingService } from "../../services/svcMarketplace/bookingService.js";
 import { availabilityService } from "../../services/svcMarketplace/availabilityService.js";
 import { svcReviewService } from "../../services/svcMarketplace/svcReviewService.js";
-import { BOOKING_STATUS, categoryMeta } from "../../services/svcMarketplace/constantsSvc.js";
+import { BOOKING_STATUS } from "../../services/svcMarketplace/constantsSvc.js";
 import { rupee } from "../../utils/format.js";
-import { accent } from "../../components/primitives.jsx";
 
 const FILTERS = [
   { id: "all",       label: {en:"All", hi:"सभी", bn:"সব"} },

@@ -2,7 +2,6 @@
    Supports toggle, select, and text input types. */
 
 import { T } from "../theme/ThemeProvider.jsx";
-import Icon from "./Icon.jsx";
 import { useApp } from "../store/AppStore.jsx";
 
 export default function SymptomChecklist({ symptoms = [], answers = {}, onChange }) {

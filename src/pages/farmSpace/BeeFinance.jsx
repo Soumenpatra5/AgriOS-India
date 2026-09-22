@@ -3,7 +3,7 @@ import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import {
   AppBar, Card, Button, Chip, Input, Dropdown,
-  EmptyState, ErrorState, Spinner, BottomSheet,
+  EmptyState, Spinner, BottomSheet,
 } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService } from "../../services/farmSpace/farmSpaceService.js";

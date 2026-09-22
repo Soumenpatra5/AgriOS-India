@@ -3,7 +3,6 @@
 
 import { repo } from "./logisticsDb.js";
 import { fleetService } from "./fleetService.js";
-import { warehouseService } from "./warehouseService.js";
 
 const shipments = repo("shipments");
 const vehicles = repo("vehicles");

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { repo } from "../../erp/erpDb.js";
-import { storage as local } from "../../../utils/storage.js";
 import { documentService, storagePathFor } from "../documentService.js";
 import { filterDocuments, facets, matches } from "../documentSearch.js";
 import {

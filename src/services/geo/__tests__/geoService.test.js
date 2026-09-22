@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  states, districtsOf, getState, getDistrict, searchStates, searchDistricts,
+  states, districtsOf, getDistrict, searchStates, searchDistricts,
   validate, describe as describeLoc, matchState, matchDistrict, upgradeLegacy,
   stats, DATASET, DEFAULT_COUNTRY_ID,
 } from "../geoService.js";

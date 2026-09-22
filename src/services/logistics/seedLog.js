@@ -2,7 +2,7 @@
    exists. Every seeded record carries demo:true for selective clearing. */
 
 import { repo } from "./logisticsDb.js";
-import { telemetryService, deviceIdFor } from "./telemetryService.js";
+import { telemetryService } from "./telemetryService.js";
 import { trackingService } from "./trackingService.js";
 import { routingService } from "./routingService.js";
 import { CONTRACT_TEMPLATES } from "./contractService.js";

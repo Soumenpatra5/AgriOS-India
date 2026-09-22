@@ -6,7 +6,7 @@
  * Mount once at the root (AppStore or ScreenRouter) — not in every screen. */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { queueSize, listQueue } from "./offlineQueueStore.js";
+import { queueSize } from "./offlineQueueStore.js";
 import { replayQueue } from "./offlineQueue.js";
 
 export function useOfflineSync(farmCallFn, online) {

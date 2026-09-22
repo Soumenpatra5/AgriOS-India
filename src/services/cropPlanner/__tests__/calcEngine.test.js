@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  safeNum, round2, seedCalc, fertilizerCalc, protectionCalc, organicCalc,
+  safeNum, seedCalc, fertilizerCalc, protectionCalc, organicCalc,
   irrigationCalc, labourCalc, machineryCalc, otherCostsCalc,
   yieldEstimate, revenueEstimate, profitEstimate, breakEven, computePlan, applyScenario,
 } from "../calcEngine.js";

@@ -16,7 +16,7 @@
    prove authorization does not depend on it. */
 
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { freshDb, makeSql } from './e2e/harness.js';
+import { freshDb } from './e2e/harness.js';
 
 import {
   requireMembership, requirePermission, requireScope, visibilityFor, audit,

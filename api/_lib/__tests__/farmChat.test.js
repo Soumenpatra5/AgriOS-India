@@ -7,7 +7,7 @@
    tests here the important ones. */
 
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
-import { freshDb, makeSql } from './e2e/harness.js';
+import { freshDb } from './e2e/harness.js';
 
 /* removeMessage's delete-for-everyone path frees the actual Blob file too
    (see chat.js) — mocked here so this suite never makes a real network call

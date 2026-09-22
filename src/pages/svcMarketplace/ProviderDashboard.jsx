@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
-import { AppBar, Card, Chip, Button, EmptyState, IconTile, Dropdown } from "../../components/index.js";
+import { AppBar, Card, Chip, Button, IconTile, Dropdown } from "../../components/index.js";
 import { BottomSheet, Dialog } from "../../components/overlays.jsx";
 import { Input } from "../../components/inputs.jsx";
 import { useApp } from "../../store/AppStore.jsx";
@@ -14,8 +14,7 @@ import { bookingService } from "../../services/svcMarketplace/bookingService.js"
 import { availabilityService } from "../../services/svcMarketplace/availabilityService.js";
 import { svcReviewService } from "../../services/svcMarketplace/svcReviewService.js";
 import { SERVICE_CATEGORIES, PROVIDER_TYPES, PRICING_TYPES, BOOKING_STATUS, LANGUAGES, categoryMeta } from "../../services/svcMarketplace/constantsSvc.js";
-import { rupee, compact } from "../../utils/format.js";
-import { accent } from "../../components/primitives.jsx";
+import { rupee } from "../../utils/format.js";
 
 const EMPTY_SVC = { title: "", category: "vet", pricingType: "fixed", price: "", duration: "", description: "" };
 

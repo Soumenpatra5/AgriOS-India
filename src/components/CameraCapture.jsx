@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import { useApp } from "../store/AppStore.jsx";
 import Icon from "./Icon.jsx";
-import { cameraService, FACING } from "../services/vision/cameraService.js";
+import { cameraService } from "../services/vision/cameraService.js";
 import { galleryService }         from "../services/vision/galleryService.js";
 
 export default function CameraCapture({ onCapture, onCancel }) {

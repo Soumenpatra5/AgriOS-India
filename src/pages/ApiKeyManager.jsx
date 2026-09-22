@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { T } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
-import { AppBar, Card, BottomSheet, Dialog, Spinner, EmptyState } from "../components/index.js";
+import { AppBar, Card, BottomSheet, Dialog, EmptyState } from "../components/index.js";
 import { useApp } from "../store/AppStore.jsx";
 import { keyManager } from "../ai/keyManager.js";
 import { listProviders } from "../ai/providers/providerRegistry.js";

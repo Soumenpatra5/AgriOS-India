@@ -4,7 +4,7 @@ import { AppBar, Card, Button, Input } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService } from "../../services/farmSpace/farmSpaceService.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
-import { MODULE_CATALOG, OPTIONAL_MODULES_ORDER, CORE_MODULES_ORDER } from "./moduleCatalog.js";
+import { OPTIONAL_MODULES_ORDER, CORE_MODULES_ORDER } from "./moduleCatalog.js";
 
 /* Creating a Farm Space.
 
