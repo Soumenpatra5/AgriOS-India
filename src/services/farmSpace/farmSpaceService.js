@@ -68,6 +68,7 @@ function keyedCache(fetch) {
       return p;
     },
     peek(key) { return store.has(key) ? store.get(key) : null; },
+    set(key, value) { store.set(key, value); notify(); },
     update(key, updater) {
       if (!store.has(key)) return;
       store.set(key, updater(store.get(key)));
@@ -310,6 +311,18 @@ export const farmSpaceService = {
   async modules(spaceId, opts) { return _modulesCache.get(spaceId, opts); },
   peekModules(spaceId) { return _modulesCache.peek(spaceId); },
   setModules(spaceId, list) { _modulesCache.set(spaceId, list); notify(); },
+  async updateModules(spaceId, payload) {
+    const res = await farmSpaceApi.updateModules(spaceId, payload);
+    const updatedList = (payload.orderedModuleIds || []).map((id, index) => ({
+      module_id: id,
+      enabled: true,
+      sort_order: index,
+    }));
+    _modulesCache.set(spaceId, updatedList);
+    this.patchSpace(spaceId, { configuration_version: res.configuration_version });
+    notify();
+    return res;
+  },
 
   async tasks(spaceId, opts) { return _tasksCache.get(spaceId, opts); },
   peekTasks(spaceId) { return _tasksCache.peek(spaceId); },

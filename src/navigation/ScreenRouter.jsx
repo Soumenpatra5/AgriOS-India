@@ -247,13 +247,13 @@ function StackScreen({ item }) {
   if (item.kind === "pigDashboard") return <ModuleGuard moduleId="pigDashboard"><PigDashboard /></ModuleGuard>;
   if (item.kind === "pigAnimalDetail")     return <PigAnimalDetail   {...(item.props || {})} />;
   if (item.kind === "pigFinance")          return <PigFinance        {...(item.props || {})} />;
-  if (item.kind === "fishDashboard")       return <FishDashboard      {...(item.props || {})} />;
+  if (item.kind === "fishDashboard")       return <ModuleGuard moduleId="fishDashboard"><FishDashboard {...(item.props || {})} /></ModuleGuard>;
   if (item.kind === "fishPondDetail")      return <FishPondDetail     {...(item.props || {})} />;
   if (item.kind === "fishFinance")         return <FishFinance        {...(item.props || {})} />;
-  if (item.kind === "beeDashboard")        return <BeeDashboard       {...(item.props || {})} />;
+  if (item.kind === "beeDashboard")        return <ModuleGuard moduleId="beeDashboard"><BeeDashboard {...(item.props || {})} /></ModuleGuard>;
   if (item.kind === "hiveDetail")          return <HiveDetail         {...(item.props || {})} />;
   if (item.kind === "beeFinance")          return <BeeFinance         {...(item.props || {})} />;
-  if (item.kind === "cropDashboard")       return <CropDashboard      {...(item.props || {})} />;
+  if (item.kind === "cropDashboard")       return <ModuleGuard moduleId="cropDashboard"><CropDashboard {...(item.props || {})} /></ModuleGuard>;
   if (item.kind === "fieldDetail")         return <FieldDetail        {...(item.props || {})} />;
   if (item.kind === "cropFinance")         return <CropFinance        {...(item.props || {})} />;
   if (item.kind === "farmSpaceAnalytics") return <ModuleGuard moduleId="farmSpaceAnalytics"><FarmSpaceAnalytics /></ModuleGuard>;

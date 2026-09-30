@@ -4,6 +4,7 @@ import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, Button, EmptyState, ErrorState, Spinner, IconTile, BottomSheet } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, onFarmSpaceChanged, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
+import { MODULE_CATALOG } from "./moduleCatalog.js";
 
 /* My Farm Space — the hub.
 
@@ -108,6 +109,7 @@ export default function FarmSpaceHub({ asTab = false }) {
   const [state, setState] = useState("loading");   // loading | ready | error | none
   const [reason, setReason] = useState(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [spaceModules, setSpaceModules] = useState(null);
 
   /* Resolves an already-fetched spaces list to what the hub should show,
      without deciding what to DO about ambiguity — that is load()'s call,
@@ -161,6 +163,24 @@ export default function FarmSpaceHub({ asTab = false }) {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!space?.id) return;
+    let alive = true;
+    farmSpaceService.modules(space.id).then((mods) => {
+      if (alive) setSpaceModules(mods);
+    }).catch(() => {
+      if (alive) setSpaceModules([]);
+    });
+
+    const unsub = onFarmSpaceChanged(() => {
+      farmSpaceService.modules(space.id, { fresh: true }).then((mods) => {
+        if (alive) setSpaceModules(mods);
+      }).catch(() => {});
+    });
+
+    return () => { alive = false; unsub(); };
+  }, [space?.id]);
+
   const title = tc({ en: "My Farm Space", hi: "मेरा फ़ार्म स्पेस", bn: "আমার ফার্ম স্পেস" });
   /* As the tab root there is nothing beneath this screen to return to, so the
      back arrow is omitted and the heading takes the larger tab-root style the
@@ -202,8 +222,28 @@ export default function FarmSpaceHub({ asTab = false }) {
   }
 
   const roleLabel = tc(farmSpaceService.roleLabel(space.role));
-  const visible = MENU.filter((m) => farmSpaceService.can(space, m.perm));
   const canTeam = farmSpaceService.can(space, "farm.members.view");
+  const canManageSettings = farmSpaceService.can(space, "farm.settings.manage");
+
+  const dynamicModules = spaceModules && spaceModules.length > 0
+    ? [...spaceModules]
+        .filter((m) => m.enabled !== false)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        .map((m) => MODULE_CATALOG[m.module_id])
+        .filter(Boolean)
+        .filter((def) => farmSpaceService.can(space, def.perm))
+    : MENU.filter((m) => farmSpaceService.can(space, m.perm) && m.kind !== "farmSpaceDmInbox" && m.kind !== "farmSpaceSettings");
+
+  const utilityItems = [
+    { kind: "farmSpaceDmInbox", perm: "farm.chat.view", icon: "MessageCircle", a: "primary",
+      label: { en: "Direct messages", hi: "सीधे संदेश", bn: "সরাসরি বার্তা" },
+      desc: { en: "Message one teammate privately", hi: "किसी एक साथी को निजी संदेश", bn: "একজন সহকর্মীকে ব্যক্তিগত বার্তা" } },
+    { kind: "farmSpaceSettings", perm: "farm.settings.manage", icon: "Settings", a: "faint",
+      label: { en: "Farm Space settings", hi: "फ़ार्म स्पेस सेटिंग्स", bn: "ফার্ম স্পেস সেটিংস" },
+      desc: { en: "Name, members, ownership", hi: "नाम, सदस्य, स्वामित्व", bn: "নাম, सदस्य, মালিকানা" } },
+  ].filter((u) => farmSpaceService.can(space, u.perm));
+
+  const visible = [...dynamicModules, ...utilityItems];
 
   return (
     <>
@@ -250,6 +290,29 @@ export default function FarmSpaceHub({ asTab = false }) {
         <FarmSpaceSwitcherSheet open={switcherOpen} onClose={() => setSwitcherOpen(false)} activeId={space.id} />
 
         <PendingInviteBanner />
+
+        {canManageSettings && (
+          <Card pad={0} style={{ border: `1.5px dashed ${T.primary}`, background: T.primarySoft || "#f0fdf4" }}>
+            <button
+              onClick={() => push({ kind: "farmSpaceCustomize", props: { spaceId: space.id } })}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                background: "none", border: "none", cursor: "pointer", fontFamily: T.body, textAlign: "left",
+              }}
+            >
+              <IconTile name="Sliders" accent="primary" size={32} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.primary }}>
+                  {tc({ en: "Customize Farm Space", hi: "फ़ार्म स्पेस कस्टमाइज़ करें", bn: "ফার্ম স্পেস কাস্টমাইজ করুন" })}
+                </div>
+                <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
+                  {tc({ en: "Enable, disable and reorder modules for your farm", hi: "अपने फ़ार्म के लिए मॉड्यूल जोड़ें या बदलें", bn: "আপনার খামারের মডিউল সাজান" })}
+                </div>
+              </div>
+              <Icon name="ChevronRight" size={18} style={{ color: T.primary }} />
+            </button>
+          </Card>
+        )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {visible.map((m) => (

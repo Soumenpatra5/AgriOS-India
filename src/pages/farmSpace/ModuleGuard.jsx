@@ -4,6 +4,12 @@ import { farmSpaceService } from "../../services/farmSpace/farmSpaceService.js";
 import { AppBar, ErrorState, Button, Spinner } from "../../components/index.js";
 import { MODULE_CATALOG } from "./moduleCatalog.js";
 
+export function isModuleEnabled(mods, moduleId) {
+  if (!mods || !Array.isArray(mods)) return false;
+  const m = mods.find((x) => x.module_id === moduleId);
+  return !!m && m.enabled !== false;
+}
+
 /* Wrapper for optional modules. Checks if the module is enabled in the current Farm Space. */
 export default function ModuleGuard({ moduleId, children }) {
   const { tc, pop, push } = useApp();
@@ -18,9 +24,7 @@ export default function ModuleGuard({ moduleId, children }) {
 
     farmSpaceService.modules(s.id).then(mods => {
       if (!alive) return;
-      const m = mods.find(x => x.module_id === moduleId);
-      // It's enabled if it's explicitly in the enabled array
-      setEnabled(!!m && m.enabled !== false);
+      setEnabled(isModuleEnabled(mods, moduleId));
     }).catch(() => {
       if (alive) setEnabled(false);
     });

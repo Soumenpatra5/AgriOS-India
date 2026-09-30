@@ -12,7 +12,7 @@ import { HttpError } from "../http.js";
 import { audit, requireMembership, requireScope } from "./gate.js";
 import { ROLES, canAssignRole } from "./permissions.js";
 import { normalizeAgriosUserId } from "../agriosId.js";
-import { validateModuleConfiguration, CORE_MODULES } from "./modules.js";
+import { validateModuleConfiguration, CORE_MODULES, OPTIONAL_MODULES } from "./modules.js";
 
 
 const MAX_NAME = 80;
@@ -94,7 +94,7 @@ export async function listSpaces(sql, userId) {
   const rows = await sql`
     select
       s.id, s.name, s.description, s.photo_url, s.location, s.status,
-      s.owner_user_id, s.created_at,
+      s.owner_user_id, s.configuration_version, s.created_at,
       m.user_id, m.role, m.permissions, m.joined_at,
       (select count(*)::int from farm_space_memberships x
         where x.space_id = s.id and x.status = 'active') as member_count
@@ -466,11 +466,19 @@ export { requireMembership };
 
 
 export async function getModules(sql, membership) {
-  return sql`
+  const rows = await sql`
     select module_id, enabled, sort_order
       from farm_space_modules
      where space_id = ${membership.space_id}
      order by sort_order asc`;
+  if (!rows || rows.length === 0) {
+    return [...CORE_MODULES, ...OPTIONAL_MODULES].map((id, index) => ({
+      module_id: id,
+      enabled: true,
+      sort_order: index,
+    }));
+  }
+  return rows;
 }
 
 export async function updateModules(sql, membership, actorUserId, payload) {

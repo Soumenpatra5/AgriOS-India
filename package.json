@@ -7,9 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "build:e2e": "vite build --mode e2e",
+    "build:e2e:auth": "vite build --mode e2e-auth",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:auth": "vitest run api/_lib/__tests__ src/services/__tests__",
     "test:e2e": "playwright test --config playwright.config.js",
+    "test:e2e:auth": "npx firebase-tools emulators:exec --only auth \"playwright test --config auth.playwright.config.js e2e-browser/auth.pw.js\"",
     "load-server": "node load-harness/server.mjs",
     "load-test": "k6 run load-test.js",
     "lint": "eslint .",
@@ -18,7 +21,9 @@
     "release-stale": "node scripts/release-stale.mjs",
     "check:db": "node scripts/check-db.mjs",
     "check:scripts": "node scripts/check-scripts.mjs",
-    "check:upstash": "node scripts/check-upstash.mjs"
+    "check:upstash": "node scripts/check-upstash.mjs",
+    "lint:emulator": "node scripts/check-emulator-leak.js",
+    "verify:auth": "npm run test:auth && npm run lint && npm run lint:emulator"
   },
   "engines": {
     "node": "20.x"

@@ -1,4 +1,6 @@
 import { defineConfig } from "@playwright/test";
+// Ensure OTP API uses emulator mock in Playwright auth tests
+process.env.VITE_USE_AUTH_EMULATOR = "true";
 
 /* Tier-2 browser E2E (QA program). Runs the real production bundle:
    `npm run build` first (with VITE_FB_API_KEY blank — see e2e-browser/helpers.js
@@ -9,10 +11,10 @@ import { defineConfig } from "@playwright/test";
    *.spec.* file) never picks them up, and vice versa.
    Run with: npx playwright test */
 export default defineConfig({
-  outputDir: "test-results/e2e",
+  outputDir: "test-results/auth",
   testDir: "./e2e-browser",
   testMatch: "**/*.pw.js",
-  testIgnore: "**/auth.pw.js",
+  // testIgnore: process.env.VITE_USE_AUTH_EMULATOR ? undefined : "**/auth.pw.js",
   timeout: 45_000,
   fullyParallel: true,
   retries: 0,
@@ -24,7 +26,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm run preview -- --port 4173 --strictPort",
+    command: "VITE_USE_AUTH_EMULATOR=true npm run build:e2e:auth && VITE_USE_AUTH_EMULATOR=true npm run preview -- --port 4173 --strictPort",
     url: "http://localhost:4173",
     reuseExistingServer: true,
     timeout: 30_000,

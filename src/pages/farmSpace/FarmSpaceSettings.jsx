@@ -183,6 +183,29 @@ export default function FarmSpaceSettings() {
           </button>
         </Card>
 
+        {/* ── modules customization shortcut ── */}
+        <Card pad={0}>
+          <button onClick={() => push({ kind: "farmSpaceCustomize", props: { spaceId: space.id } })}
+            style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 12px",
+              background: "none", border: "none", cursor: "pointer", fontFamily: T.body, textAlign: "left" }}>
+            <div style={{ width: 36, height: 36, borderRadius: 11, flexShrink: 0, display: "grid",
+              placeItems: "center", background: T.primarySoft, color: T.primary }}>
+              <Icon name="Sliders" size={17} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>
+                {tc({ en: "Customize Modules", hi: "मॉड्यूल कस्टमाइज़ करें", bn: "মডিউল কাস্টমাইজ করুন" })}
+              </div>
+              <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
+                {tc({ en: "Enable, disable and reorder operational modules",
+                      hi: "कार्यात्मक मॉड्यूल सक्षम करें, हटाएँ और क्रम बदलें",
+                      bn: "কার্যকরী মডিউল সক্রিয়, নিষ্ক্রিয় ও পুনর্বিন্যাস করুন" })}
+              </div>
+            </div>
+            <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
+          </button>
+        </Card>
+
         {/* ── the irreversible half ── */}
         {isOwner && (
           <>

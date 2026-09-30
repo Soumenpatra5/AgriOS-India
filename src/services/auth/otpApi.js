@@ -68,12 +68,35 @@ async function call(action, payload = {}) {
 export const otpApi = {
   /* Which delivery methods this deployment can actually offer. Static
      configuration — no number is sent, so nothing can be enumerated. */
-  channels: () => call("otp.channels"),
+  channels: async () => {
+    if (import.meta.env.VITE_USE_AUTH_EMULATOR === "true") return { whatsapp: true, sms: true };
+    return call("otp.channels");
+  },
 
-  request: (phone, channel) => call("otp.request", { phone, channel }),
-  resend:  (phone, channel) => call("otp.resend", { phone, channel }),
+  request: async (phone, channel) => {
+    if (import.meta.env.VITE_USE_AUTH_EMULATOR === "true") return { challengeId: "e2e-challenge", resendInSeconds: 0 };
+    return call("otp.request", { phone, channel });
+  },
+
+  resend: async (phone, channel) => {
+    if (import.meta.env.VITE_USE_AUTH_EMULATOR === "true") return { challengeId: "e2e-challenge", resendInSeconds: 0 };
+    return call("otp.resend", { phone, channel });
+  },
 
   /* Returns { customToken, isNewAccount }. The token is exchanged for a real
      Firebase session by the caller; it is never stored. */
-  verify: (challengeId, code) => call("otp.verify", { challengeId, code }),
+  verify: async (challengeId, code) => {
+    if (import.meta.env.VITE_USE_AUTH_EMULATOR === "true") {
+      const b64 = (obj) => btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const customToken = `${b64({alg:"none",typ:"JWT"})}.${b64({
+        iss: "https://securetoken.google.com/demo-agrios",
+        aud: "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit",
+        iat: Math.floor(Date.now()/1000),
+        exp: Math.floor(Date.now()/1000) + 3600,
+        uid: "e2e-test-uid"
+      })}.`;
+      return { customToken, isNewAccount: false };
+    }
+    return call("otp.verify", { challengeId, code });
+  },
 };

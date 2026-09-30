@@ -15,10 +15,16 @@ import {
   signOut,
   browserLocalPersistence,
   setPersistence,
+  connectAuthEmulator,
 } from "firebase/auth";
 import { auth, fbEnabled } from "./config.js";
 
-if (fbEnabled) setPersistence(auth, browserLocalPersistence).catch(() => {});
+if (fbEnabled) {
+  setPersistence(auth, browserLocalPersistence).catch(() => {});
+  if (import.meta.env.VITE_USE_AUTH_EMULATOR === "true") {
+    connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  }
+}
 
 /* Firebase is optional — the app runs offline-first without it, so config.js
    leaves `auth` null when VITE_FB_API_KEY is absent. Every call below needs
@@ -28,6 +34,7 @@ if (fbEnabled) setPersistence(auth, browserLocalPersistence).catch(() => {});
 
    which reached the farmer as an unactionable string and told nobody that the
    build simply has no Firebase config. Fail with a real code instead. */
+
 function requireAuth() {
   if (!fbEnabled || !auth) {
     const err = new Error("Firebase is not configured for this build");
@@ -36,6 +43,7 @@ function requireAuth() {
   }
   return auth;
 }
+
 
 let confirmationResult = null;
 
