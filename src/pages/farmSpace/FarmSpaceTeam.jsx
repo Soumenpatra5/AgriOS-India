@@ -1,14 +1,26 @@
 import { useState, useEffect, useCallback } from "react";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
-import { AppBar, Card, Button, Input, Dropdown, ErrorState, Spinner, BottomSheet, Dialog } from "../../components/index.js";
+import {
+  AppBar,
+  Card,
+  Button,
+  Input,
+  SearchBar,
+  Dropdown,
+  EmptyState,
+  ErrorState,
+  Spinner,
+  BottomSheet,
+  Dialog,
+} from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
+import { shareText } from "../../utils/share.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 
 /* The team inside one Farm Space.
-
    Every action here is offered only when the member's role allows it, and
    every one is re-checked server-side — the role dropdown refuses to offer a
    role at or above the actor's own, and the server refuses it again if the
@@ -28,6 +40,24 @@ const ROLE_OPTIONS = (tc, actorRole) => {
     .map((r) => ({ value: r.id, label: tc(r.label) }));
 };
 
+const ROLE_FILTER_TABS = [
+  { id: "all", label: { en: "All", hi: "सभी", bn: "সব" } },
+  { id: "manager", label: { en: "Managers", hi: "प्रबंधक", bn: "ম্যানেজার" } },
+  { id: "supervisor", label: { en: "Supervisors", hi: "पर्यवेक्षक", bn: "সুপারভাইজার" } },
+  { id: "worker", label: { en: "Workers", hi: "कर्मचारी", bn: "কর্মী" } },
+];
+
+function formatJoinedDate(iso) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  } catch {
+    return "—";
+  }
+}
+
 export default function FarmSpaceTeam() {
   const { pop, tc, toast } = useApp();
   const [space, setSpace] = useState(null);
@@ -35,6 +65,9 @@ export default function FarmSpaceTeam() {
   const [pendingInvites, setPendingInvites] = useState([]);
   const [state, setState] = useState("loading");
   const [reason, setReason] = useState(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [idInput, setIdInput] = useState("");
@@ -121,6 +154,8 @@ export default function FarmSpaceTeam() {
       await farmSpaceApi.setMemberRole(space.id, m.user_id, next);
       setMembers((list) => list.map((x) => (x.user_id === m.user_id ? { ...x, role: next } : x)));
       farmSpaceService.patchMember(space.id, m.user_id, { role: next });
+      setMemberDetails((prev) => (prev && prev.user_id === m.user_id ? { ...prev, role: next } : prev));
+      toast(tc({ en: "Role updated.", hi: "भूमिका अपडेट की गई।", bn: "ভূমিকা আপডেট হয়েছে।" }), "success");
     } catch (err) {
       toast(err?.status === 403 || err?.status === 409 ? err.message : farmErrorText(err?.reason, tc), "error");
     }
@@ -133,12 +168,26 @@ export default function FarmSpaceTeam() {
       await farmSpaceApi.removeMember(space.id, m.user_id);
       setMembers((list) => list.filter((x) => x.user_id !== m.user_id));
       farmSpaceService.removeMemberFromCache(space.id, m.user_id);
+      if (memberDetails && memberDetails.user_id === m.user_id) {
+        setMemberDetails(null);
+      }
       const who = farmSpaceService.displayName(m) || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" });
       toast(tc({ en: `${who} removed.`, hi: `${who} हटाया गया।`, bn: `${who} সরানো হয়েছে।` }));
     } catch (err) {
       toast(err?.status === 409 ? err.message : farmErrorText(err?.reason, tc), "error");
     }
   };
+
+  /* Filter roster without mutating original members state */
+  const filteredMembers = members.filter((m) => {
+    if (roleFilter !== "all" && m.role !== roleFilter) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+    const name = (m.name || "").toLowerCase();
+    const id = (m.agrios_user_id || "").toLowerCase();
+    const phone = (m.phone || "").toLowerCase();
+    return name.includes(q) || id.includes(q) || phone.includes(q);
+  });
 
   const title = tc({ en: "Team", hi: "टीम", bn: "দল" });
 
@@ -156,10 +205,20 @@ export default function FarmSpaceTeam() {
       <AppBar title={title} onBack={pop} />
       <div style={{ padding: "4px 16px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
 
+        {/* ── Header: Member count + Invite action ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ fontSize: 12.5, color: T.inkSoft }}>
-            {tc({ en: `${members.length} member${members.length === 1 ? "" : "s"}`,
-                  hi: `${members.length} सदस्य`, bn: `${members.length} জন সদস্য` })}
+            {filteredMembers.length !== members.length
+              ? tc({
+                  en: `${filteredMembers.length} of ${members.length} member${members.length === 1 ? "" : "s"}`,
+                  hi: `${members.length} में से ${filteredMembers.length} सदस्य`,
+                  bn: `${members.length}-এর মধ্যে ${filteredMembers.length} জন সদস্য`,
+                })
+              : tc({
+                  en: `${members.length} member${members.length === 1 ? "" : "s"}`,
+                  hi: `${members.length} सदस्य`,
+                  bn: `${members.length} জন সদস্য`,
+                })}
           </div>
           {canManage && (
             <Button size="sm" onClick={() => setInviteOpen(true)}>
@@ -168,44 +227,135 @@ export default function FarmSpaceTeam() {
           )}
         </div>
 
-        <Card pad={0}>
-          {members.map((m, i) => {
-            /* A missing name falls back to phone, then to the permanent
-               AgriOS User ID — never a generic "Member" that makes every
-               nameless member read as the same person. Phone is only
-               repeated on the second line when a real name is already
-               showing on the first, so nothing displays twice. */
-            const name = farmSpaceService.displayName(m) || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" });
-            return (
-            <div key={m.user_id}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 12px",
-                borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
-              <div style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, display: "grid", placeItems: "center",
-                background: T.surface2, color: T.inkSoft, fontWeight: 700, fontFamily: T.display }}>
-                {name.trim().charAt(0).toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>
-                  {name}
-                </div>
-                <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
-                  {tc(farmSpaceService.roleLabel(m.role))}
-                  {m.name && m.phone ? ` · ${m.phone}` : ""}
-                </div>
-              </div>
+        {/* ── Search & Role Filters ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder={tc({
+              en: "Search by name, ID or phone…",
+              hi: "नाम, आईडी या फ़ोन से खोजें…",
+              bn: "নাম, আইডি বা ফোন দিয়ে খুঁজুন…",
+            })}
+          />
 
-              {canManage && m.role !== "owner" && (
-                <button onClick={() => setConfirmRemove(m)}
-                  aria-label={tc({ en: "Remove member", hi: "सदस्य हटाएँ", bn: "সদস্য সরান" })}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, display: "flex" }}>
-                  <Icon name="UserMinus" size={16} />
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+            {ROLE_FILTER_TABS.map((tab) => {
+              const isSelected = roleFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setRoleFilter(tab.id)}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 20,
+                    fontSize: 12.5,
+                    fontWeight: isSelected ? 600 : 500,
+                    fontFamily: T.body,
+                    whiteSpace: "nowrap",
+                    cursor: "pointer",
+                    border: isSelected ? "none" : `1px solid ${T.lineSoft}`,
+                    background: isSelected ? T.primary : T.surface2,
+                    color: isSelected ? "#fff" : T.inkSoft,
+                    transition: "all .15s ease",
+                  }}>
+                  {tc(tab.label)}
                 </button>
-              )}
-            </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Member Roster ── */}
+        <Card pad={0}>
+          {filteredMembers.length === 0 ? (
+            <EmptyState
+              icon="Users"
+              title={tc({ en: "No members found", hi: "कोई सदस्य नहीं मिला", bn: "কোনও সদস্য পাওয়া যায়নি" })}
+              body={tc({
+                en: "Try adjusting your search or role filter.",
+                hi: "अपनी खोज या भूमिका फ़िल्टर बदलकर देखें।",
+                bn: "অনুসন্ধান বা ভূমিকা ফিল্টার পরিবর্তন করে দেখুন।",
+              })}
+              action={(searchQuery || roleFilter !== "all") ? tc({ en: "Clear filters", hi: "फ़िल्टर साफ़ करें", bn: "ফিল্টার সাফ করুন" }) : undefined}
+              onAction={() => { setSearchQuery(""); setRoleFilter("all"); }}
+            />
+          ) : (
+            filteredMembers.map((m, i) => {
+              /* A missing name falls back to phone, then to the permanent
+                 AgriOS User ID — never a generic "Member" that makes every
+                 nameless member read as the same person. Phone is only
+                 repeated on the second line when a real name is already
+                 showing on the first, so nothing displays twice. */
+              const name = farmSpaceService.displayName(m) || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" });
+              const isOwner = m.role === "owner";
+              return (
+                <div
+                  key={m.user_id}
+                  onClick={() => setMemberDetails(m)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 12px",
+                    borderTop: i ? `1px solid ${T.lineSoft}` : "none",
+                    cursor: "pointer",
+                    transition: "background .15s ease",
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setMemberDetails(m);
+                    }
+                  }}>
+                  <div style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 12,
+                    flexShrink: 0,
+                    display: "grid",
+                    placeItems: "center",
+                    background: isOwner ? "#fef3c7" : T.surface2,
+                    color: isOwner ? "#b45309" : T.inkSoft,
+                    fontWeight: 700,
+                    fontFamily: T.display,
+                  }}>
+                    {name.trim().charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>
+                      {name}
+                    </div>
+                    <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
+                      {tc(farmSpaceService.roleLabel(m.role))}
+                      {m.name && m.phone ? ` · ${m.phone}` : ""}
+                    </div>
+                  </div>
+
+                  <Icon name="ChevronRight" size={16} style={{ color: T.inkFaint }} />
+
+                  {canManage && !isOwner && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmRemove(m);
+                      }}
+                      aria-label={tc({ en: "Remove member", hi: "सदस्य हटाएँ", bn: "সদস্য সরান" })}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, display: "flex" }}>
+                      <Icon name="UserMinus" size={16} />
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
         </Card>
 
+        {/* ── Pending invitations (only managers/owners can see or manage) ── */}
         {canManage && pendingInvites.length > 0 && (
           <Card pad={0}>
             <div style={{ padding: "12px 12px 4px", fontSize: 12.5, fontWeight: 600, color: T.inkSoft }}>
@@ -222,7 +372,9 @@ export default function FarmSpaceTeam() {
                     {tc(farmSpaceService.roleLabel(i.role))} · {i.agrios_user_id}
                   </div>
                 </div>
-                <button onClick={() => setConfirmCancel(i)}
+                <button
+                  type="button"
+                  onClick={() => setConfirmCancel(i)}
                   aria-label={tc({ en: "Cancel invitation", hi: "निमंत्रण रद्द करें", bn: "আমন্ত্রণ বাতিল করুন" })}
                   style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, display: "flex" }}>
                   <Icon name="UserX" size={16} />
@@ -232,12 +384,13 @@ export default function FarmSpaceTeam() {
           </Card>
         )}
 
-        {canManage && members.some((m) => m.role !== "owner") && (
+        {/* ── Quick role change card for managers/owners ── */}
+        {canManage && filteredMembers.some((m) => m.role !== "owner") && (
           <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft }}>
               {tc({ en: "Change a role", hi: "भूमिका बदलें", bn: "ভূমিকা বদলান" })}
             </div>
-            {members.filter((m) => m.role !== "owner").map((m) => (
+            {filteredMembers.filter((m) => m.role !== "owner").map((m) => (
               <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: T.ink }}>
                   {farmSpaceService.displayName(m) || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" })}
@@ -252,6 +405,190 @@ export default function FarmSpaceTeam() {
         )}
       </div>
 
+      {/* ── Member Details BottomSheet ── */}
+      <BottomSheet
+        open={!!memberDetails}
+        onClose={() => setMemberDetails(null)}
+        title={tc({ en: "Member details", hi: "सदस्य विवरण", bn: "সদস্যের বিবরণ" })}>
+        {memberDetails && (() => {
+          const name = farmSpaceService.displayName(memberDetails) || tc({ en: "Member", hi: "सदस्य", bn: "সদস্য" });
+          const isOwner = memberDetails.role === "owner";
+          const joinedDateStr = formatJoinedDate(memberDetails.joined_at);
+          const agriosId = memberDetails.agrios_user_id || "—";
+          const phoneStr = memberDetails.phone ? `+91 ${memberDetails.phone}` : "—";
+          const roleLabel = tc(farmSpaceService.roleLabel(memberDetails.role));
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Profile Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 16,
+                  flexShrink: 0,
+                  display: "grid",
+                  placeItems: "center",
+                  background: isOwner ? "#fef3c7" : T.primarySoft,
+                  color: isOwner ? "#b45309" : T.primary,
+                  fontWeight: 700,
+                  fontSize: 20,
+                  fontFamily: T.display,
+                }}>
+                  {name.trim().charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>
+                    {name}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                    <span style={{
+                      display: "inline-block",
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      background: isOwner ? "#fef3c7" : memberDetails.role === "manager" ? "#dbeafe" : memberDetails.role === "supervisor" ? "#ede9fe" : "#dcfce7",
+                      color: isOwner ? "#b45309" : memberDetails.role === "manager" ? "#1d4ed8" : memberDetails.role === "supervisor" ? "#6d28d9" : "#15803d",
+                    }}>
+                      {roleLabel}
+                    </span>
+                    <span style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      background: "#dcfce7",
+                      color: "#15803d",
+                    }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a" }} />
+                      {tc({ en: "Active", hi: "सक्रिय", bn: "সক্রিয়" })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Information Card */}
+              <Card pad={0}>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {/* AgriOS ID */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderBottom: `1px solid ${T.lineSoft}` }}>
+                    <div style={{ fontSize: 12.5, color: T.inkSoft }}>
+                      {tc({ en: "AgriOS ID", hi: "AgriOS आईडी", bn: "AgriOS আইডি" })}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink, fontFamily: "monospace" }}>
+                        {agriosId}
+                      </span>
+                      {memberDetails.agrios_user_id && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await shareText(memberDetails.agrios_user_id, "AgriOS ID");
+                            toast(tc({ en: "Copied ID", hi: "आईडी कॉपी की गई", bn: "আইডি কপি হয়েছে" }), "success");
+                          }}
+                          aria-label={tc({ en: "Copy ID", hi: "आईडी कॉपी करें", bn: "আইডি কপি করুন" })}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 2 }}>
+                          <Icon name="Copy" size={15} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Role */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderBottom: `1px solid ${T.lineSoft}` }}>
+                    <div style={{ fontSize: 12.5, color: T.inkSoft }}>
+                      {tc({ en: "Role", hi: "भूमिका", bn: "ভূমিকা" })}
+                    </div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>
+                      {roleLabel}
+                    </div>
+                  </div>
+
+                  {/* Phone */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderBottom: `1px solid ${T.lineSoft}` }}>
+                    <div style={{ fontSize: 12.5, color: T.inkSoft }}>
+                      {tc({ en: "Contact / Phone", hi: "संपर्क / फ़ोन", bn: "যোগাযোগ / ফোন" })}
+                    </div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>
+                      {phoneStr}
+                    </div>
+                  </div>
+
+                  {/* Joined Date */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderBottom: `1px solid ${T.lineSoft}` }}>
+                    <div style={{ fontSize: 12.5, color: T.inkSoft }}>
+                      {tc({ en: "Joined date", hi: "जुड़ने की तिथि", bn: "যোগদানের তারিখ" })}
+                    </div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>
+                      {joinedDateStr}
+                    </div>
+                  </div>
+
+                  {/* Membership Status */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px" }}>
+                    <div style={{ fontSize: 12.5, color: T.inkSoft }}>
+                      {tc({ en: "Membership status", hi: "सदस्यता स्थिति", bn: "সদস্যপদ অবস্থা" })}
+                    </div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: "#15803d" }}>
+                      {tc({ en: "Active", hi: "सक्रिय", bn: "সক্রিয়" })}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Management Controls */}
+              {canManage && !isOwner && (
+                <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: T.inkSoft }}>
+                    {tc({ en: "Manage member", hi: "सदस्य प्रबंधन", bn: "সদস্য পরিচালনা" })}
+                  </div>
+                  <Dropdown
+                    label={tc({ en: "Change role", hi: "भूमिका बदलें", bn: "ভূমিকা বদলান" })}
+                    value={memberDetails.role}
+                    onChange={(nextRole) => changeRole(memberDetails, nextRole)}
+                    options={ROLE_OPTIONS(tc, space.role)}
+                  />
+                  <Button
+                    full
+                    variant="outline"
+                    style={{ color: T.red, borderColor: T.red, marginTop: 4 }}
+                    onClick={() => {
+                      const m = memberDetails;
+                      setMemberDetails(null);
+                      setConfirmRemove(m);
+                    }}>
+                    <Icon name="UserMinus" size={16} />
+                    {tc({ en: "Remove member", hi: "सदस्य हटाएँ", bn: "সদস্য সরান" })}
+                  </Button>
+                </Card>
+              )}
+
+              {isOwner && (
+                <div style={{
+                  fontSize: 12,
+                  color: T.inkSoft,
+                  background: T.surface2,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  lineHeight: 1.5,
+                }}>
+                  {tc({
+                    en: "Farm Owner. Ownership cannot be changed or removed here — transfer ownership from Farm Settings.",
+                    hi: "फ़ार्म मालिक। यहाँ स्वामित्व नहीं बदला या हटाया जा सकता — फ़ार्म सेटिंग्स से स्वामित्व हस्तांतरित करें।",
+                    bn: "খামারের মালিক। এখানে মালিকানা পরিবর্তন বা সরানো যাবে না — ফার্ম সেটিংস থেকে মালিকানা হস্তান্তর করুন।",
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </BottomSheet>
+
+      {/* ── Invite BottomSheet ── */}
       <BottomSheet open={inviteOpen} onClose={resetInvite}
         title={tc({ en: "Invite a member", hi: "सदस्य बुलाएँ", bn: "সদস্য ডাকুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -282,11 +619,13 @@ export default function FarmSpaceTeam() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 600, color: T.ink }}>
-                    {found.name || tc({ en: "AgriOS member", hi: "AgriOS सदस्य", bn: "AgriOS সদস্য" })}
+                    {found.name || tc({ en: "AgriOS member", hi: "AgriOS सदस्य", bn: "AgriOS सदस्य" })}
                   </div>
                   <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>{found.agrios_user_id}</div>
                 </div>
-                <button onClick={() => { setFound(null); setIdInput(""); }}
+                <button
+                  type="button"
+                  onClick={() => { setFound(null); setIdInput(""); }}
                   style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, fontSize: 12, fontWeight: 600, fontFamily: T.body }}>
                   {tc({ en: "Change", hi: "बदलें", bn: "বদলান" })}
                 </button>
