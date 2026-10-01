@@ -1082,7 +1082,8 @@ describe("finance operations", () => {
 
   it("financeSummary revenue > 0 after adding sales", async () => {
     const r = await call(U(51), "goat.finance.summary", {
-      spaceId: spaceA.id, payload: {},
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-09-01", toDate: "2026-09-30" },
     });
     expect(r.status).toBe(200);
     expect(r.data.total_revenue).toBeGreaterThan(0);

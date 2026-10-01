@@ -380,15 +380,16 @@ describe("weight records", () => {
   });
 
   it("clientUuid idempotency on addWeight", async () => {
+    const today = new Date().toISOString().slice(0, 10);
     const r1 = await call(U(72), "pig.weight.add", {
       spaceId: spaceA.id,
-      payload: { animalId: animalA1Id, weighDate: "2026-09-20",
+      payload: { animalId: animalA1Id, weighDate: today,
                   weightKg: 82.0, clientUuid: "pig-wt-idem-1" },
     });
     expect(r1.status).toBe(200);
     const r2 = await call(U(72), "pig.weight.add", {
       spaceId: spaceA.id,
-      payload: { animalId: animalA1Id, weighDate: "2026-09-20",
+      payload: { animalId: animalA1Id, weighDate: today,
                   weightKg: 82.0, clientUuid: "pig-wt-idem-1" },
     });
     expect(r2.status).toBe(200);
@@ -1007,7 +1008,8 @@ describe("finance operations", () => {
 
   it("financeSummary revenue > 0 after adding sales", async () => {
     const r = await call(U(71), "pig.finance.summary", {
-      spaceId: spaceA.id, payload: {},
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-09-01", toDate: "2026-09-30" },
     });
     expect(r.status).toBe(200);
     expect(r.data.total_revenue).toBeGreaterThan(0);

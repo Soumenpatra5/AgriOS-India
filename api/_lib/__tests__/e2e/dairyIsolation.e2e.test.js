@@ -1636,7 +1636,10 @@ describe("finance summary — with data", () => {
   });
 
   it("total_revenue reflects all sales in the month", async () => {
-    const r = await call(U(30), "dairy.finance.summary", { spaceId: spaceA.id });
+    const r = await call(U(30), "dairy.finance.summary", {
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-09-01", toDate: "2026-09-30" },
+    });
     expect(r.status).toBe(200);
     /* Cumulative in spaceA (Sept 2026):
      *   sale-0901 (from existing Phase 1 tests): 50 kg × ₹35 = 1750
@@ -1648,7 +1651,10 @@ describe("finance summary — with data", () => {
   });
 
   it("total_costs is sum of all cost entries and cost_breakdown has correct categories", async () => {
-    const r = await call(U(30), "dairy.finance.summary", { spaceId: spaceA.id });
+    const r = await call(U(30), "dairy.finance.summary", {
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-09-01", toDate: "2026-09-30" },
+    });
     expect(r.status).toBe(200);
     /* Cumulative in spaceA (Sept 2026):
      *   cost-0901 (existing): concentrate_feed ₹800
@@ -1664,7 +1670,10 @@ describe("finance summary — with data", () => {
   });
 
   it("net_profit equals total_revenue minus total_costs", async () => {
-    const r = await call(U(30), "dairy.finance.summary", { spaceId: spaceA.id });
+    const r = await call(U(30), "dairy.finance.summary", {
+      spaceId: spaceA.id,
+      payload: { fromDate: "2026-09-01", toDate: "2026-09-30" },
+    });
     expect(r.status).toBe(200);
     const { total_revenue, total_costs, net_profit } = r.data;
     /* Relationship check (holds regardless of accumulated data). */

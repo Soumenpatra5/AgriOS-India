@@ -403,11 +403,12 @@ describe("G5 — Harvests", () => {
   });
 
   it("supervisor can add honey harvest", async () => {
+    const today = new Date().toISOString().slice(0, 10);
     const r = await call(supervisor, "bee.harvests.add", {
       spaceId: space.id,
       payload: {
         hiveId: hive.id,
-        harvestDate: "2026-09-05",
+        harvestDate: today,
         productType: "honey",
         quantityKg: 3.5,
         qualityGrade: "A",
