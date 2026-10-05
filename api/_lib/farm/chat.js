@@ -422,15 +422,55 @@ export async function searchMessages(sql, membership, { query = "", limit = 30 }
 
 /* How many messages have arrived since the caller last looked. Cheap enough to
    poll: one indexed count, no rows returned. Unaffected by reactions/edits to
-   older messages — those are not what "unread" means. */
+   older messages — those are not what "unread" means.
+   If since is omitted, falls back to the member's server-stored last_read_chat_at. */
 export async function unreadCount(sql, membership, { since = null } = {}) {
-  if (!since) return { unread: 0 };
+  let sinceCursor = since;
+  if (!sinceCursor) {
+    const [mem] = await sql`
+      select last_read_chat_at
+        from farm_space_memberships
+       where space_id = ${membership.space_id}
+         and user_id = ${membership.user_id}
+       limit 1`;
+    sinceCursor = mem?.last_read_chat_at || null;
+  }
+  if (!sinceCursor) return { unread: 0 };
   const [row] = await sql`
     select count(*)::int as unread
       from farm_chat_messages
      where space_id = ${membership.space_id}
        and deleted_at is null
        and sender_user_id <> ${membership.user_id}
-       and created_at > ${since}::timestamptz`;
-  return row;
+       and created_at > ${sinceCursor}::timestamptz`;
+  return row || { unread: 0 };
+}
+
+/* Advances the member's read cursor to the authoritative created_at timestamp
+   of throughMessageId. Verifies message is in space and not deleted. Monotonic:
+   cannot regress if an earlier message ID is sent. */
+export async function markRead(sql, membership, userId, { throughMessageId = null } = {}) {
+  if (!throughMessageId || typeof throughMessageId !== "string") {
+    throw new HttpError(400, "throughMessageId is required");
+  }
+
+  const [msg] = await sql`
+    select id, created_at, deleted_at, space_id
+      from farm_chat_messages
+     where id = ${throughMessageId}
+       and space_id = ${membership.space_id}
+     limit 1`;
+
+  if (!msg || msg.deleted_at) {
+    throw new HttpError(404, "Message not found");
+  }
+
+  const [updated] = await sql`
+    update farm_space_memberships
+       set last_read_chat_at = greatest(coalesce(last_read_chat_at, '-infinity'::timestamptz), ${msg.created_at}::timestamptz)
+     where space_id = ${membership.space_id}
+       and user_id = ${userId}
+     returning last_read_chat_at`;
+
+  return { success: true, last_read_chat_at: updated?.last_read_chat_at };
 }

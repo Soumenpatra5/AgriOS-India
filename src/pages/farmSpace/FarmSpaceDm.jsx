@@ -63,6 +63,7 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
 
   const bottomRef = useRef(null);
   const newestRef = useRef(null);
+  const lastMarkedIdRef = useRef(null);
 
   const load = useCallback(async () => {
     try {
@@ -96,6 +97,23 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
   useFarmPoll(poll, { intervalMs: 4000, enabled: state === "ready" && !!conversation });
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ block: "end" }); }, [messages.length, pending.length]);
+
+  /* Reset last marked message if space or conversation changes */
+  useEffect(() => {
+    lastMarkedIdRef.current = null;
+  }, [space?.id, conversation?.id]);
+
+  /* Mark read only after messages are successfully loaded/rendered */
+  useEffect(() => {
+    if (state !== "ready" || !space?.id || !conversation?.id || !messages.length) return;
+    const latest = [...messages].reverse().find((m) => m && m.id && !m.localId);
+    if (!latest || latest.id === lastMarkedIdRef.current) return;
+
+    lastMarkedIdRef.current = latest.id;
+    farmSpaceApi.dmMarkRead(space.id, conversation.id, latest.id).catch(() => {
+      lastMarkedIdRef.current = null;
+    });
+  }, [state, space?.id, conversation?.id, messages]);
 
   const patchLocal = (updated) => setMessages((prev) => mergeMessages(prev, [updated]));
 
@@ -193,8 +211,21 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
     }
   };
 
-  const title = otherName || conversation?.other_display_name
+  const displayName = otherName || conversation?.other_display_name
     || tc({ en: "Direct message", hi: "सीधा संदेश", bn: "সরাসরি বার্তা" });
+
+  const isOnline = Boolean(conversation?.other_is_online);
+  const title = (
+    <div>
+      <div style={{ lineHeight: 1.2 }}>{displayName}</div>
+      {conversation && (
+        <div style={{ fontSize: 11.5, fontWeight: 500, color: isOnline ? (T.primary || "#16a34a") : (T.inkFaint || "#94a3b8"), display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOnline ? (T.primary || "#16a34a") : (T.line || "#cbd5e1"), display: "inline-block" }} />
+          <span>{isOnline ? tc({ en: "Online", hi: "ऑनलाइन", bn: "অনলাইন" }) : tc({ en: "Offline", hi: "ऑफ़लाइन", bn: "অফলাইন" })}</span>
+        </div>
+      )}
+    </div>
+  );
 
   if (state === "loading") {
     return <><AppBar title={title} onBack={pop} />

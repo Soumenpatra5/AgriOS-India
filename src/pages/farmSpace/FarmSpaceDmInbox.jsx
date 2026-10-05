@@ -5,6 +5,7 @@ import { AppBar, Card, ErrorState, Spinner, EmptyState, BottomSheet } from "../.
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
+import { useFarmPoll } from "../../hooks/useFarmPoll.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 
 /* Direct messages — the inbox for 1:1 conversations, separate from the
@@ -40,6 +41,18 @@ export default function FarmSpaceDmInbox() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const poll = useCallback(async () => {
+    if (!space?.id) return;
+    try {
+      const list = await farmSpaceApi.listConversations(space.id);
+      setConversations(list);
+    } catch {
+      /* silent by design */
+    }
+  }, [space?.id]);
+
+  useFarmPoll(poll, { intervalMs: 15000, enabled: state === "ready" && !!space });
 
   const openWith = (member) => {
     setPickerOpen(false);
@@ -85,13 +98,51 @@ export default function FarmSpaceDmInbox() {
         ) : conversations.map((c) => (
           <Card key={c.id} onClick={() => openConversation(c)}
             style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 999, background: T.primarySoft, color: T.primary,
-              display: "grid", placeItems: "center", fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
-              {(c.other_display_name || "?").slice(0, 1).toUpperCase()}
+            <div style={{ position: "relative", width: 42, height: 42, flexShrink: 0 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 999, background: T.primarySoft, color: T.primary,
+                display: "grid", placeItems: "center", fontSize: 15, fontWeight: 700 }}>
+                {(c.other_display_name || "?").slice(0, 1).toUpperCase()}
+              </div>
+              {c.other_is_online && (
+                <span
+                  data-testid="presence-online-indicator"
+                  style={{
+                    position: "absolute", bottom: 0, right: 0, width: 11, height: 11,
+                    borderRadius: "50%", background: T.primary || "#16a34a",
+                    border: `2px solid ${T.bg || "#ffffff"}`,
+                  }}
+                />
+              )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 700, color: T.ink }}>{c.other_display_name}</div>
-              <div style={{ fontSize: 12.5, color: T.inkSoft, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: 14.5, fontWeight: c.unread_count > 0 ? 800 : 700, color: T.ink, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span>{c.other_display_name}</span>
+                {c.unread_count > 0 && (
+                  <span
+                    data-testid={`dm-unread-badge-${c.id}`}
+                    style={{
+                      padding: "2px 7px",
+                      borderRadius: 10,
+                      background: T.accentRed || "#ef4444",
+                      color: "#fff",
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {c.unread_count > 99 ? "99+" : c.unread_count}
+                  </span>
+                )}
+              </div>
+              <div style={{
+                fontSize: 12.5,
+                fontWeight: c.unread_count > 0 ? 600 : 400,
+                color: c.unread_count > 0 ? T.ink : T.inkSoft,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}>
                 {c.last_message
                   ? (c.last_message.deleted
                       ? tc({ en: "Message deleted", hi: "संदेश हटाया गया", bn: "বার্তা মুছে ফেলা হয়েছে" })

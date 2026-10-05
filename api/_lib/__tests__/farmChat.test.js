@@ -21,7 +21,7 @@ import { createSpace } from "../farm/spaces.js";
 import { createTask } from "../farm/tasks.js";
 import { generateAgriosUserId } from "../agriosId.js";
 import {
-  sendMessage, listMessages, removeMessage, unreadCount, validateMessageInput,
+  sendMessage, listMessages, removeMessage, unreadCount, markRead, validateMessageInput,
   editMessage, hideMessageForSelf, reactToMessage, removeReaction,
   pinMessage, unpinMessage, listPinnedMessages, searchMessages, REACTION_EMOJI,
 } from "../farm/chat.js";
@@ -367,12 +367,18 @@ describe("paging and polling", () => {
 
   it("counts only other people's new messages as unread", async () => {
     const start = (await sendMessage(sql, memM, M.id, { body: "seen" })).created_at;
-    await sendMessage(sql, memW, W.id, { body: "from someone else" });
+    const msgW = await sendMessage(sql, memW, W.id, { body: "from someone else" });
     await sendMessage(sql, memM, M.id, { body: "my own, later" });
 
     /* Your own message must not make your own badge light up. */
     expect((await unreadCount(sql, memM, { since: start })).unread).toBe(1);
-    expect((await unreadCount(sql, memM, {})).unread, "no marker yet means nothing unread").toBe(0);
+
+    /* When since is absent, uses server-side last_read_chat_at */
+    expect((await unreadCount(sql, memM, {})).unread).toBe(1);
+
+    /* markRead advances the cursor through msgW */
+    await markRead(sql, memM, M.id, { throughMessageId: msgW.id });
+    expect((await unreadCount(sql, memM, {})).unread).toBe(0);
   });
 });
 

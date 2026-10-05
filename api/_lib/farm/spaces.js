@@ -184,7 +184,7 @@ export async function archiveSpace(sql, membership, actorUserId) {
    each other. */
 export async function listMembers(sql, membership) {
   return sql`
-    select m.id, m.user_id, m.role, m.status, m.permissions, m.joined_at,
+    select m.id, m.user_id, m.role, m.status, m.permissions, m.joined_at, m.last_seen_at,
            u.name, u.phone, u.agrios_user_id
       from farm_space_memberships m
       join users u on u.id = m.user_id
@@ -516,4 +516,37 @@ export async function updateModules(sql, membership, actorUserId, payload) {
 
     return { configuration_version: nextVersion };
   });
+}
+
+
+/* Aggregated unread message counts for Farm Space Hub. Calculates group chat
+   and direct message unread counts in one call, scoped to the active space and
+   the caller's membership read cursors. */
+export async function getHubUnreadCounts(sql, membership, userId) {
+  const [chatRow] = await sql`
+    select count(*)::int as count
+      from farm_chat_messages m
+      join farm_space_memberships mem
+        on mem.space_id = m.space_id and mem.user_id = ${userId}
+     where m.space_id = ${membership.space_id}
+       and m.deleted_at is null
+       and m.sender_user_id <> ${userId}
+       and m.created_at > mem.last_read_chat_at`;
+
+  const [dmRow] = await sql`
+    select count(*)::int as count
+      from farm_dm_messages m
+      join farm_dm_conversations c on c.id = m.conversation_id
+     where c.space_id = ${membership.space_id}
+       and (c.member_a_id = ${userId} or c.member_b_id = ${userId})
+       and m.deleted_at is null
+       and m.sender_user_id <> ${userId}
+       and m.created_at > (case when c.member_a_id = ${userId}
+                                then coalesce(c.member_a_last_read_at, '-infinity'::timestamptz)
+                                else coalesce(c.member_b_last_read_at, '-infinity'::timestamptz) end)`;
+
+  return {
+    chatUnread: Number(chatRow?.count) || 0,
+    dmUnread: Number(dmRow?.count) || 0,
+  };
 }

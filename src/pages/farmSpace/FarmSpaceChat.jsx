@@ -104,6 +104,7 @@ export default function FarmSpaceChat() {
   const textareaRef = useRef(null);
   const bottomRef = useRef(null);
   const newestRef = useRef(null);                 // timestamp cursor for polling
+  const lastMarkedIdRef = useRef(null);           // message ID read cursor
 
   /* Only the INITIAL page is cached — polling below is untouched in spirit,
      still an incremental `since` fetch while the screen is open. */
@@ -174,6 +175,25 @@ export default function FarmSpaceChat() {
 
   /* Follow the conversation as it grows, the way a chat should. */
   useEffect(() => { bottomRef.current?.scrollIntoView({ block: "end" }); }, [messages.length, pending.length]);
+
+  /* Reset last marked message if active space changes */
+  useEffect(() => {
+    lastMarkedIdRef.current = null;
+  }, [space?.id]);
+
+  /* Mark read only after messages are successfully loaded/rendered.
+     Advances the read cursor through the latest authoritative rendered message. */
+  useEffect(() => {
+    if (state !== "ready" || !space?.id || !messages.length) return;
+    const latest = [...messages].reverse().find((m) => m && m.id && !m._cid);
+    if (!latest || latest.id === lastMarkedIdRef.current) return;
+
+    lastMarkedIdRef.current = latest.id;
+    farmSpaceApi.chatMarkRead(space.id, latest.id).catch(() => {
+      /* Allow retry on next message render/poll if request failed */
+      lastMarkedIdRef.current = null;
+    });
+  }, [state, space?.id, messages]);
 
   /* Debounced so typing "urea" does not fire four separate searches for
      "u", "ur", "ure", "urea" — the sheet stays open across keystrokes, only

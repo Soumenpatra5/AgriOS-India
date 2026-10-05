@@ -142,6 +142,7 @@ const ACTIONS = {
   "chat.unpin":           { permission: "farm.members.manage", run: ({ sql, membership, user, payload }) => chat.unpinMessage(sql, membership, user.id, payload) },
   "chat.pinned":          { permission: "farm.chat.view",  run: ({ sql, membership }) => chat.listPinnedMessages(sql, membership) },
   "chat.unread":          { permission: "farm.chat.view",  run: ({ sql, membership, payload }) => chat.unreadCount(sql, membership, payload) },
+  "chat.markRead":        { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => chat.markRead(sql, membership, user.id, payload) },
   "chat.search":          { permission: "farm.chat.view",  run: ({ sql, membership, payload }) => chat.searchMessages(sql, membership, payload) },
 
   /* 1:1 direct messages — a second, separate surface from the group channel
@@ -154,6 +155,10 @@ const ACTIONS = {
   "dm.edit":              { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => dm.editDm(sql, membership, user.id, payload) },
   "dm.remove":            { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.removeDm(sql, membership, user.id, payload) },
   "dm.hide":              { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.hideDmForSelf(sql, membership, user.id, payload) },
+  "dm.markRead":          { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.markRead(sql, membership, user.id, payload) },
+
+  /* Hub aggregate unread counters */
+  "farm.unreadCounts":    { permission: "farm.chat.view",  run: ({ sql, membership, user }) => ops.getHubUnreadCounts(sql, membership, user.id) },
 
   /* Poultry — Broiler Farm Management (P1: sheds + batches).
 
@@ -641,6 +646,23 @@ const ACTIONS = {
   "notifications.check":    { permission: "farm.view", run: ({ sql, membership, user })          => notifs.checkAndGenerateAlerts(sql, membership, user.id) },
 };
 
+/* Piggybacked presence touch — updates the member's durable last_seen_at
+   timestamp on active space requests. Throttled in SQL to at most once every
+   60 seconds per member to prevent high-frequency write overhead. */
+async function touchPresence(sql, membership, userId) {
+  if (!membership?.space_id || !userId) return;
+  try {
+    await sql`
+      update farm_space_memberships
+         set last_seen_at = now()
+       where space_id = ${membership.space_id}
+         and user_id = ${userId}
+         and (last_seen_at is null or last_seen_at < now() - interval '60 seconds')`;
+  } catch {
+    /* Silent: presence touch must never fail a user request */
+  }
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== "POST") {
@@ -662,6 +684,7 @@ export default async function handler(req, res) {
       user = await requireUserRow(req, sql);
     } else {
       ({ user, membership } = await authorize(req, sql, { spaceId, permission: route.permission }));
+      await touchPresence(sql, membership, user.id);
     }
 
     const data = await route.run({ sql, user, membership, payload });

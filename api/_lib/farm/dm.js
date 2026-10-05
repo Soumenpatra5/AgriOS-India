@@ -51,12 +51,16 @@ async function loadConversation(sql, membership, actorUserId, conversationId) {
 async function conversationRows(sql, membership, actorUserId, { conversationId = null } = {}) {
   const rows = await sql`
     select c.id, c.space_id, c.member_a_id, c.member_b_id, c.created_at, c.updated_at,
+           c.member_a_last_read_at, c.member_b_last_read_at,
            ou.name as other_name, ou.phone as other_phone, ou.agrios_user_id as other_agrios_id,
+           oum.last_seen_at as other_last_seen_at,
            lm.body as last_body, lm.attachments as last_attachments, lm.created_at as last_created_at,
            lm.sender_user_id as last_sender_user_id, (lm.deleted_at is not null) as last_deleted,
-           (lm.conversation_id is not null) as has_last
+           (lm.conversation_id is not null) as has_last,
+           coalesce(uc.unread_count, 0) as unread_count
       from farm_dm_conversations c
       join users ou on ou.id = (case when c.member_a_id = ${actorUserId} then c.member_b_id else c.member_a_id end)
+      left join farm_space_memberships oum on oum.space_id = c.space_id and oum.user_id = ou.id
       left join lateral (
         select conversation_id, body, attachments, created_at, sender_user_id, deleted_at
           from farm_dm_messages
@@ -64,6 +68,16 @@ async function conversationRows(sql, membership, actorUserId, { conversationId =
          order by created_at desc
          limit 1
       ) lm on true
+      left join lateral (
+        select count(*)::int as unread_count
+          from farm_dm_messages
+         where conversation_id = c.id
+           and deleted_at is null
+           and sender_user_id <> ${actorUserId}
+           and created_at > (case when c.member_a_id = ${actorUserId}
+                                  then coalesce(c.member_a_last_read_at, '-infinity'::timestamptz)
+                                  else coalesce(c.member_b_last_read_at, '-infinity'::timestamptz) end)
+      ) uc on true
      where c.space_id = ${membership.space_id}
        and (c.member_a_id = ${actorUserId} or c.member_b_id = ${actorUserId})
        and (${conversationId}::uuid is null or c.id = ${conversationId}::uuid)
@@ -77,6 +91,9 @@ async function conversationRows(sql, membership, actorUserId, { conversationId =
     other_phone: row.other_phone || null,
     other_agrios_id: row.other_agrios_id || null,
     other_display_name: row.other_name || row.other_phone || row.other_agrios_id || null,
+    other_last_seen_at: row.other_last_seen_at || null,
+    other_is_online: Boolean(row.other_last_seen_at && (Date.now() - new Date(row.other_last_seen_at).getTime() < 90000)),
+    unread_count: Number(row.unread_count) || 0,
     updated_at: row.updated_at,
     created_at: row.created_at,
     last_message: row.has_last ? {
@@ -238,4 +255,44 @@ export async function listDmMessages(sql, membership, actorUserId, { conversatio
 
   const shaped = rows.map((m) => (m.deleted ? { ...m, body: null, attachments: [] } : m));
   return shaped.reverse();
+}
+
+/* Advances the caller's read cursor in this conversation to the authoritative
+   created_at timestamp of throughMessageId. Verifies conversation membership,
+   message existence in this conversation, and prevents backward cursor movement. */
+export async function markRead(sql, membership, actorUserId, { conversationId = null, throughMessageId = null } = {}) {
+  if (!conversationId || typeof conversationId !== "string") {
+    throw new HttpError(400, "conversationId is required");
+  }
+  if (!throughMessageId || typeof throughMessageId !== "string") {
+    throw new HttpError(400, "throughMessageId is required");
+  }
+
+  const conversation = await loadConversation(sql, membership, actorUserId, conversationId);
+
+  const [msg] = await sql`
+    select id, created_at, deleted_at
+      from farm_dm_messages
+     where id = ${throughMessageId}
+       and conversation_id = ${conversation.id}
+     limit 1`;
+
+  if (!msg || msg.deleted_at) {
+    throw new HttpError(404, "Message not found");
+  }
+
+  const isMemberA = String(conversation.member_a_id) === String(actorUserId);
+  if (isMemberA) {
+    await sql`
+      update farm_dm_conversations
+         set member_a_last_read_at = greatest(coalesce(member_a_last_read_at, '-infinity'::timestamptz), ${msg.created_at}::timestamptz)
+       where id = ${conversation.id} and space_id = ${membership.space_id}`;
+  } else {
+    await sql`
+      update farm_dm_conversations
+         set member_b_last_read_at = greatest(coalesce(member_b_last_read_at, '-infinity'::timestamptz), ${msg.created_at}::timestamptz)
+       where id = ${conversation.id} and space_id = ${membership.space_id}`;
+  }
+
+  return { success: true };
 }

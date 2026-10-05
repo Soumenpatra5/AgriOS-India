@@ -14,7 +14,7 @@ import { requireMembership } from "../farm/gate.js";
 import { createSpace } from "../farm/spaces.js";
 import { generateAgriosUserId } from "../agriosId.js";
 import {
-  openConversation, listConversations, sendDm, editDm, removeDm, hideDmForSelf, listDmMessages,
+  openConversation, listConversations, sendDm, editDm, removeDm, hideDmForSelf, listDmMessages, markRead,
 } from "../farm/dm.js";
 
 let db, sql;
@@ -189,5 +189,40 @@ describe("deleting", () => {
 
     expect(await listDmMessages(sql, memA, A.id, { conversationId: conv.id })).toEqual([]);
     expect((await listDmMessages(sql, memM, M.id, { conversationId: conv.id })).map((m) => m.body)).toEqual(["hide from me"]);
+  });
+});
+
+describe("unread tracking and read state", () => {
+  it("calculates unread_count per conversation and marks read through message ID", async () => {
+    const conv = await openConversation(sql, memA, A.id, { otherUserId: M.id });
+
+    // Initial unread_count is 0
+    let convsM = await listConversations(sql, memM, M.id);
+    expect(convsM.find((c) => c.id === conv.id).unread_count).toBe(0);
+
+    // A sends DM 1
+    const d1 = await sendDm(sql, memA, A.id, { conversationId: conv.id, body: "DM 1" });
+    convsM = await listConversations(sql, memM, M.id);
+    expect(convsM.find((c) => c.id === conv.id).unread_count).toBe(1);
+
+    // A sends DM 2
+    const d2 = await sendDm(sql, memA, A.id, { conversationId: conv.id, body: "DM 2" });
+    convsM = await listConversations(sql, memM, M.id);
+    expect(convsM.find((c) => c.id === conv.id).unread_count).toBe(2);
+
+    // M marks read through d1 -> 1 remaining
+    await markRead(sql, memM, M.id, { conversationId: conv.id, throughMessageId: d1.id });
+    convsM = await listConversations(sql, memM, M.id);
+    expect(convsM.find((c) => c.id === conv.id).unread_count).toBe(1);
+
+    // M marks read through d2 -> 0 remaining
+    await markRead(sql, memM, M.id, { conversationId: conv.id, throughMessageId: d2.id });
+    convsM = await listConversations(sql, memM, M.id);
+    expect(convsM.find((c) => c.id === conv.id).unread_count).toBe(0);
+
+    // Monotonicity: earlier d1 does not move cursor backward
+    await markRead(sql, memM, M.id, { conversationId: conv.id, throughMessageId: d1.id });
+    convsM = await listConversations(sql, memM, M.id);
+    expect(convsM.find((c) => c.id === conv.id).unread_count).toBe(0);
   });
 });

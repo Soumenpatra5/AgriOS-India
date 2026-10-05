@@ -4,6 +4,8 @@ import Icon from "../../components/Icon.jsx";
 import { AppBar, Card, Button, EmptyState, ErrorState, Spinner, IconTile, BottomSheet } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, onFarmSpaceChanged, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
+import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
+import { useFarmPoll } from "../../hooks/useFarmPoll.js";
 import { MODULE_CATALOG } from "./moduleCatalog.js";
 
 /* My Farm Space — the hub.
@@ -164,6 +166,13 @@ export default function FarmSpaceHub({ asTab = false }) {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
+    const unsub = onFarmSpaceChanged(() => {
+      load();
+    });
+    return unsub;
+  }, [load]);
+
+  useEffect(() => {
     if (!space?.id) return;
     let alive = true;
     farmSpaceService.modules(space.id).then((mods) => {
@@ -180,6 +189,27 @@ export default function FarmSpaceHub({ asTab = false }) {
 
     return () => { alive = false; unsub(); };
   }, [space?.id]);
+
+  const [unreadCounts, setUnreadCounts] = useState({ chatUnread: 0, dmUnread: 0 });
+
+  const fetchUnreads = useCallback(async () => {
+    if (!space?.id) return;
+    try {
+      const counts = await farmSpaceApi.getHubUnreadCounts(space.id);
+      setUnreadCounts(counts || { chatUnread: 0, dmUnread: 0 });
+    } catch {
+      /* silent by design */
+    }
+  }, [space?.id]);
+
+  useEffect(() => {
+    setUnreadCounts({ chatUnread: 0, dmUnread: 0 });
+    if (space?.id) {
+      fetchUnreads();
+    }
+  }, [space?.id, fetchUnreads]);
+
+  useFarmPoll(fetchUnreads, { intervalMs: 15000, enabled: Boolean(space?.id && state === "ready") });
 
   const title = tc({ en: "My Farm Space", hi: "मेरा फ़ार्म स्पेस", bn: "আমার ফার্ম স্পেস" });
   /* As the tab root there is nothing beneath this screen to return to, so the
@@ -315,21 +345,43 @@ export default function FarmSpaceHub({ asTab = false }) {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {visible.map((m) => (
-            <Card key={m.kind} pad={0}>
-              <button
-                onClick={() => push({ kind: m.kind })}
-                style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "13px 12px",
-                  background: "none", border: "none", cursor: "pointer", fontFamily: T.body, textAlign: "left" }}>
-                <IconTile name={m.icon} accent={m.a} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>{tc(m.label)}</div>
-                  <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>{tc(m.desc)}</div>
-                </div>
-                <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
-              </button>
-            </Card>
-          ))}
+          {visible.map((m) => {
+            const unread = m.kind === "farmSpaceChat" ? unreadCounts.chatUnread
+              : (m.kind === "farmSpaceDmInbox" ? unreadCounts.dmUnread : 0);
+
+            return (
+              <Card key={m.kind} pad={0}>
+                <button
+                  onClick={() => push({ kind: m.kind })}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "13px 12px",
+                    background: "none", border: "none", cursor: "pointer", fontFamily: T.body, textAlign: "left" }}>
+                  <IconTile name={m.icon} accent={m.a} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>{tc(m.label)}</div>
+                    <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>{tc(m.desc)}</div>
+                  </div>
+                  {unread > 0 && (
+                    <span
+                      data-testid={`unread-badge-${m.kind}`}
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: 10,
+                        background: T.accentRed || "#ef4444",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        lineHeight: 1.2,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                  <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
+                </button>
+              </Card>
+            );
+          })}
         </div>
 
         <div style={{ fontSize: 11.5, color: T.inkFaint, textAlign: "center", lineHeight: 1.6 }}>
