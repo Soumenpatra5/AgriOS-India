@@ -143,6 +143,7 @@ export const farmSpaceApi = {
   listPinnedMessages: (spaceId) => call("chat.pinned", { spaceId }),
   unreadCount:   (spaceId, since) => call("chat.unread", { spaceId, payload: { since } }),
   chatMarkRead:  (spaceId, throughMessageId) => call("chat.markRead", { spaceId, payload: { throughMessageId } }),
+  chatTyping:    (spaceId) => call("chat.typing", { spaceId }),
   searchMessages: (spaceId, query) => call("chat.search", { spaceId, payload: { query } }),
   listAudit:     (spaceId, limit) => call("audit.list", { spaceId, payload: { limit } }),
 
@@ -157,6 +158,7 @@ export const farmSpaceApi = {
   removeDm:          (spaceId, conversationId, messageId) => call("dm.remove", { spaceId, payload: { conversationId, messageId } }),
   hideDm:            (spaceId, conversationId, messageId) => call("dm.hide", { spaceId, payload: { conversationId, messageId } }),
   dmMarkRead:        (spaceId, conversationId, throughMessageId) => call("dm.markRead", { spaceId, payload: { conversationId, throughMessageId } }),
+  dmTyping:          (spaceId, conversationId) => call("dm.typing", { spaceId, payload: { conversationId } }),
 
   /* Hub aggregate unread counters */
   getHubUnreadCounts: (spaceId) => call("farm.unreadCounts", { spaceId }),

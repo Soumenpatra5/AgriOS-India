@@ -178,7 +178,7 @@ function groupReactions(reactions, myUserId) {
   return order.map((e) => byEmoji.get(e));
 }
 
-export function Bubble({ m, own, myUserId, tc, footer, onOpen, onReact }) {
+export function Bubble({ m, own, myUserId, tc, footer, onOpen, onReact, onOpenTask }) {
   const time = m.created_at
     ? new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : "";
@@ -204,6 +204,13 @@ export function Bubble({ m, own, myUserId, tc, footer, onOpen, onReact }) {
         alignItems: own ? "flex-end" : "flex-start" }}>
         {!own && senderName(m) && (
           <div style={{ fontSize: 11, fontWeight: 600, color: T.inkSoft, padding: "0 4px" }}>{senderName(m)}</div>
+        )}
+        {mentionedMe && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 99,
+            background: T.primary, color: "#fff", fontSize: 10.5, fontWeight: 700, margin: "1px 0" }}>
+            <Icon name="AtSign" size={10} />
+            <span>{tc({ en: "Mentioned you", hi: "आपको उल्लेख किया", bn: "আপনাকে উল্লেখ করেছে" })}</span>
+          </div>
         )}
         <button onClick={onOpen} disabled={!onOpen}
           style={{ background: "none", border: "none", padding: 0, cursor: onOpen ? "pointer" : "default",
@@ -245,10 +252,53 @@ export function Bubble({ m, own, myUserId, tc, footer, onOpen, onReact }) {
           </div>
         )}
 
-        {m.task_title && (
-          <div style={{ fontSize: 11, color: T.inkSoft, padding: "0 4px", display: "flex", alignItems: "center", gap: 4 }}>
-            <Icon name="ClipboardList" size={11} /> {m.task_title}
-          </div>
+        {(m.task_id || m.task_title) && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenTask?.(m.task_id);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "7px 10px",
+              borderRadius: 10,
+              background: own ? "rgba(255,255,255,.15)" : T.surface,
+              border: own ? "1px solid rgba(255,255,255,.25)" : `1px solid ${T.line}`,
+              color: own ? "#fff" : T.ink,
+              cursor: onOpenTask ? "pointer" : "default",
+              textAlign: "left",
+              maxWidth: "100%",
+              marginTop: 3,
+              fontFamily: T.body,
+            }}
+          >
+            <div style={{
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              background: own ? "rgba(255,255,255,.2)" : T.primarySoft,
+              display: "grid",
+              placeItems: "center",
+              color: own ? "#fff" : T.primary,
+              flexShrink: 0,
+            }}>
+              <Icon name="ClipboardList" size={13} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: own ? "rgba(255,255,255,.8)" : T.inkSoft }}>
+                {tc({ en: "Linked Task", hi: "जुड़ा हुआ कार्य", bn: "সংযুক্ত কাজ" })}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {m.task_title || tc({ en: "Task", hi: "कार्य", bn: "কাজ" })}
+              </div>
+            </div>
+            {onOpenTask && (
+              <Icon name="ChevronRight" size={14} style={{ color: own ? "rgba(255,255,255,.7)" : T.inkFaint, flexShrink: 0 }} />
+            )}
+          </button>
         )}
         <div style={{ padding: "0 4px", display: "flex", alignItems: "center", gap: 5 }}>
           {footer ?? (

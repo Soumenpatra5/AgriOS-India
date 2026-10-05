@@ -269,9 +269,11 @@ export async function listPinnedMessages(sql, membership) {
 async function oneMessage(sql, membership, messageId) {
   const rows = await withReactionsAndReplies(sql, sql`
     select m.*, u.name as sender_name, u.phone as sender_phone, u.agrios_user_id as sender_agrios_id,
+           t.title as task_title,
            (m.deleted_at is not null) as deleted
       from farm_chat_messages m
       left join users u on u.id = m.sender_user_id
+      left join farm_tasks t on t.id = m.task_id
      where m.id = ${messageId} and m.space_id = ${membership.space_id}`);
   const row = rows[0];
   if (!row) return row;
@@ -348,27 +350,30 @@ async function withReactionsAndReplies(sql, rowsPromise) {
    not only a brand new row, or another member only sees it after reloading
    the whole chat. The client merges results by id rather than assuming
    everything returned is new. */
-export async function listMessages(sql, membership, { limit = 50, before = null, since = null } = {}) {
+export async function listMessages(sql, membership, { limit = 50, before = null, since = null, includeTyping = false } = {}) {
   const capped = Math.min(Math.max(Number(limit) || 50, 1), 100);
 
-  const rows = await withReactionsAndReplies(sql, sql`
-    select m.id, m.body, m.attachments, m.mentions, m.task_id, m.created_at, m.updated_at,
-           m.sender_user_id, u.name as sender_name, u.phone as sender_phone, u.agrios_user_id as sender_agrios_id,
-           m.parent_message_id, m.edited_at, m.pinned_at, m.pinned_by,
-           t.title as task_title,
-           (m.deleted_at is not null) as deleted
-      from farm_chat_messages m
-      left join users u on u.id = m.sender_user_id
-      left join farm_tasks t on t.id = m.task_id
-     where m.space_id = ${membership.space_id}
-       and not exists (
-         select 1 from farm_chat_message_hides h
-          where h.message_id = m.id and h.user_id = ${membership.user_id}
-       )
-       and (${before}::timestamptz is null or m.created_at < ${before}::timestamptz)
-       and (${since}::timestamptz  is null or m.updated_at > ${since}::timestamptz)
-     order by m.created_at desc
-     limit ${capped}`);
+  const [rows, typingMembers] = await Promise.all([
+    withReactionsAndReplies(sql, sql`
+      select m.id, m.body, m.attachments, m.mentions, m.task_id, m.created_at, m.updated_at,
+             m.sender_user_id, u.name as sender_name, u.phone as sender_phone, u.agrios_user_id as sender_agrios_id,
+             m.parent_message_id, m.edited_at, m.pinned_at, m.pinned_by,
+             t.title as task_title,
+             (m.deleted_at is not null) as deleted
+        from farm_chat_messages m
+        left join users u on u.id = m.sender_user_id
+        left join farm_tasks t on t.id = m.task_id
+       where m.space_id = ${membership.space_id}
+         and not exists (
+           select 1 from farm_chat_message_hides h
+            where h.message_id = m.id and h.user_id = ${membership.user_id}
+         )
+         and (${before}::timestamptz is null or m.created_at < ${before}::timestamptz)
+         and (${since}::timestamptz  is null or m.updated_at > ${since}::timestamptz)
+       order by m.created_at desc
+       limit ${capped}`),
+    includeTyping ? listTypingMembers(sql, membership, membership.user_id) : Promise.resolve([]),
+  ]);
 
   /* A tombstone, not a blank row: the client needs to know a message was
      here and removed, distinct from one that was never sent. */
@@ -378,7 +383,11 @@ export async function listMessages(sql, membership, { limit = 50, before = null,
 
   /* Returned oldest-first, which is the order a conversation is read in. The
      query stays newest-first so the limit takes the most recent messages. */
-  return shaped.reverse();
+  const messages = shaped.reverse();
+  if (includeTyping) {
+    return { messages, typing_members: typingMembers };
+  }
+  return messages;
 }
 
 /* Escapes ILIKE's own wildcard characters in a search term typed by a
@@ -473,4 +482,33 @@ export async function markRead(sql, membership, userId, { throughMessageId = nul
      returning last_read_chat_at`;
 
   return { success: true, last_read_chat_at: updated?.last_read_chat_at };
+}
+
+/* Updates the caller's ephemeral typing timestamp in this farm space. */
+export async function reportTyping(sql, membership, actorUserId) {
+  await sql`
+    update farm_space_memberships
+       set typing_chat_at = now()
+     where space_id = ${membership.space_id}
+       and user_id = ${actorUserId}
+       and status = 'active'`;
+  return { success: true };
+}
+
+/* Returns members currently typing in this farm space (excluding the caller,
+   and expired beyond the 6-second ephemeral window). */
+export async function listTypingMembers(sql, membership, actorUserId) {
+  const rows = await sql`
+    select u.id as user_id, u.name, u.phone, u.agrios_user_id
+      from farm_space_memberships m
+      join users u on u.id = m.user_id
+     where m.space_id = ${membership.space_id}
+       and m.status = 'active'
+       and m.user_id <> ${actorUserId}
+       and m.typing_chat_at > now() - interval '6 seconds'
+     order by m.typing_chat_at desc`;
+  return rows.map((r) => ({
+    user_id: r.user_id,
+    name: r.name || r.phone || r.agrios_user_id || "Member",
+  }));
 }

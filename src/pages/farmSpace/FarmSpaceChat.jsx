@@ -62,13 +62,21 @@ function mergeMessages(prev, incoming) {
 }
 
 export default function FarmSpaceChat() {
-  const { pop, tc, toast } = useApp();
+  const { pop, push, tc, toast } = useApp();
   const [space, setSpace] = useState(null);
   const [messages, setMessages] = useState([]);
   const [pending, setPending] = useState([]);     // optimistic, not yet acknowledged
   const [draft, setDraft] = useState("");
   const [state, setState] = useState("loading");
   const [reason, setReason] = useState(null);
+
+  const [typingMembers, setTypingMembers] = useState([]);
+  const lastTypingPingRef = useRef(0);
+
+  const [linkedTask, setLinkedTask] = useState(null);
+  const [taskPickerOpen, setTaskPickerOpen] = useState(false);
+  const [availableTasks, setAvailableTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
 
   const [replyTo, setReplyTo] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -143,6 +151,10 @@ export default function FarmSpaceChat() {
 
       farmSpaceApi.listPinnedMessages(active.id).then(setPinned).catch(() => {});
 
+      farmSpaceApi.listMessages(active.id, { limit: 50, includeTyping: true }).then((res) => {
+        if (res && res.typing_members) setTypingMembers(res.typing_members);
+      }).catch(() => {});
+
       /* For @mention autocomplete only — never load-bearing for the screen
          itself, so a stale cache or a failed background refresh is fine
          either way. */
@@ -159,13 +171,16 @@ export default function FarmSpaceChat() {
 
   const poll = useCallback(async () => {
     if (!space) return;
-    const fresh = await farmSpaceApi.listMessages(space.id, { since: newestRef.current, limit: 50 });
-    if (!fresh.length) return;
-    setMessages((prev) => mergeMessages(prev, fresh));
-    newestRef.current = cursorFrom(fresh, newestRef.current);
+    const fresh = await farmSpaceApi.listMessages(space.id, { since: newestRef.current, limit: 50, includeTyping: true });
+    const freshMessages = Array.isArray(fresh) ? fresh : (fresh?.messages || []);
+    const activeTyping = Array.isArray(fresh) ? [] : (fresh?.typing_members || []);
+    setTypingMembers(activeTyping);
+    if (!freshMessages.length) return;
+    setMessages((prev) => mergeMessages(prev, freshMessages));
+    newestRef.current = cursorFrom(freshMessages, newestRef.current);
     /* Keeps the cache in step with what polling just showed, so leaving and
        reopening chat does not show stale reactions/edits for a moment. */
-    farmSpaceService.appendChatMessages(space.id, fresh);
+    farmSpaceService.appendChatMessages(space.id, freshMessages);
   }, [space]);
 
   /* Faster than the 15s every other Farm Space screen polls at — chat is the
@@ -279,6 +294,29 @@ export default function FarmSpaceChat() {
     }
   }, []);
 
+  const triggerTypingPing = useCallback(() => {
+    if (!space?.id) return;
+    const now = Date.now();
+    if (now - lastTypingPingRef.current > 3500) {
+      lastTypingPingRef.current = now;
+      farmSpaceApi.chatTyping(space.id).catch(() => {});
+    }
+  }, [space?.id]);
+
+  const openTaskPicker = async () => {
+    if (!space?.id) return;
+    setTaskPickerOpen(true);
+    setLoadingTasks(true);
+    try {
+      const list = await farmSpaceApi.listTasks(space.id);
+      setAvailableTasks(Array.isArray(list) ? list : (list?.tasks || []));
+    } catch {
+      toast(tc({ en: "Couldn't load tasks", hi: "कार्य लोड नहीं हो सके", bn: "কাজ লোড করা যায়নি" }), "error");
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
   /* Typing "@" starts a mention; the picker stays open only while the text
      right before the caret is "@partialName" with no space in between —
      leaving that word (a space, or moving the caret elsewhere) closes it.
@@ -288,6 +326,7 @@ export default function FarmSpaceChat() {
     const val = e.target.value;
     const pos = e.target.selectionStart;
     setDraft(val);
+    if (val.trim()) triggerTypingPing();
     const before = val.slice(0, pos);
     const m = before.match(/(?:^|\s)@([^\s@]{0,30})$/);
     setMentionQuery(m ? m[1] : null);
@@ -380,15 +419,19 @@ export default function FarmSpaceChat() {
     const replyPreview = replyTo;
     setReplyTo(null);
 
+    const taskId = linkedTask?.id || null;
+    const taskTitle = linkedTask?.title || null;
+    setLinkedTask(null);
+
     const localId = `local-${Date.now()}`;
-    setPending((p) => [...p, { localId, body, attachments: attachmentsPayload, mentions, state: OUTBOX_SENDING, replyPreview }]);
+    setPending((p) => [...p, { localId, body, attachments: attachmentsPayload, mentions, taskId, task_title: taskTitle, state: OUTBOX_SENDING, replyPreview }]);
     setDraft("");
     attachments.clearDrafts();
     setMentionPicks([]);
     setMentionQuery(null);
 
     try {
-      const saved = await farmSpaceApi.sendMessage(space.id, { body, parentMessageId, attachments: attachmentsPayload, mentions });
+      const saved = await farmSpaceApi.sendMessage(space.id, { body, parentMessageId, attachments: attachmentsPayload, mentions, taskId });
       setPending((p) => p.filter((x) => x.localId !== localId));
       setMessages((prev) => (prev.some((m) => m.id === saved.id) ? prev : [...prev, saved]));
       newestRef.current = cursorFrom([saved], newestRef.current);
@@ -405,7 +448,7 @@ export default function FarmSpaceChat() {
   const retry = async (item) => {
     setPending((p) => p.map((x) => (x.localId === item.localId ? { ...x, state: OUTBOX_SENDING } : x)));
     try {
-      const saved = await farmSpaceApi.sendMessage(space.id, { body: item.body, parentMessageId: item.replyPreview?.id || null, attachments: item.attachments || [], mentions: item.mentions || [] });
+      const saved = await farmSpaceApi.sendMessage(space.id, { body: item.body, parentMessageId: item.replyPreview?.id || null, attachments: item.attachments || [], mentions: item.mentions || [], taskId: item.taskId || null });
       setPending((p) => p.filter((x) => x.localId !== item.localId));
       setMessages((prev) => [...prev, saved]);
       newestRef.current = cursorFrom([saved], newestRef.current);
@@ -428,8 +471,8 @@ export default function FarmSpaceChat() {
   /* Editing rewrites text only (editMessage never touches attachments), so
      any attachment mid-upload for a still-unsent message is dropped rather
      than left stranded in limbo while the composer is repurposed. */
-  const doStartEdit = (m) => { setEditing(m); setDraft(m.body || ""); setReplyTo(null); attachments.clearDrafts(); setMentionPicks([]); setMentionQuery(null); closeActions(); };
-  const doCancelCompose = () => { setEditing(null); setReplyTo(null); setDraft(""); attachments.clearDrafts(); setMentionPicks([]); setMentionQuery(null); };
+  const doStartEdit = (m) => { setEditing(m); setDraft(m.body || ""); setReplyTo(null); attachments.clearDrafts(); setMentionPicks([]); setMentionQuery(null); setLinkedTask(null); closeActions(); };
+  const doCancelCompose = () => { setEditing(null); setReplyTo(null); setDraft(""); attachments.clearDrafts(); setMentionPicks([]); setMentionQuery(null); setLinkedTask(null); };
 
   const doCopy = async (m) => {
     closeActions();
@@ -503,6 +546,7 @@ export default function FarmSpaceChat() {
     : (!!draft.trim() || attachments.hasReadyAttachment) && !attachments.attachmentsUploading && !attachments.hasErroredAttachment;
   const mentionDropdownOpen = mentionQuery != null && mentionMatches.length > 0;
   const composerHeight = 76 + (replyTo || editing ? 56 : 0) + (attachments.attachmentDrafts.length > 0 ? 72 : 0)
+    + (linkedTask ? 36 : 0) + (typingMembers.length > 0 ? 28 : 0)
     + (mentionDropdownOpen ? Math.min(mentionMatches.length * 42, 168) + 12 : 0);
 
   return (
@@ -548,13 +592,14 @@ export default function FarmSpaceChat() {
             style={{ borderRadius: 14, transition: "background-color .6s ease",
               backgroundColor: highlightId === m.id ? T.primarySoft : "transparent" }}>
             <Bubble m={m} own={mine(m)} myUserId={space?.user_id} tc={tc}
-              onOpen={() => openActions(m)} onReact={(emoji) => doReact(m, emoji)} />
+              onOpen={() => openActions(m)} onReact={(emoji) => doReact(m, emoji)}
+              onOpenTask={(taskId) => push({ kind: "farmSpaceTasks", taskId })} />
           </div>
         ))}
 
         {pending.map((p) => (
           <Bubble key={p.localId} own
-            m={{ body: p.body, attachments: p.attachments, mentions: p.mentions, sender_name: null, created_at: null, reply_to: p.replyPreview
+            m={{ body: p.body, attachments: p.attachments, mentions: p.mentions, task_id: p.taskId, task_title: p.task_title, sender_name: null, created_at: null, reply_to: p.replyPreview
               ? { sender_name: senderName(p.replyPreview), body: p.replyPreview.body, deleted: p.replyPreview.deleted }
               : null }}
             tc={tc}
@@ -566,7 +611,8 @@ export default function FarmSpaceChat() {
                 </button>
               : <span style={{ fontSize: 11, color: T.inkFaint }}>
                   {tc({ en: "Sending…", hi: "भेजा जा रहा है…", bn: "পাঠানো হচ্ছে…" })}
-                </span>} />
+                </span>}
+            onOpenTask={(taskId) => push({ kind: "farmSpaceTasks", taskId })} />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -577,6 +623,26 @@ export default function FarmSpaceChat() {
          uses for that (UpdateBanner.jsx positions the same way). */}
       <div style={{ position: "fixed", left: 0, right: 0, bottom: "calc(76px + env(safe-area-inset-bottom))",
         zIndex: 20, background: T.surface, borderTop: `1px solid ${T.line}` }}>
+        {typingMembers.length > 0 && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "5px 14px",
+            background: T.surface, borderBottom: `1px solid ${T.lineSoft}`, fontSize: 12,
+            color: T.primary, fontWeight: 500
+          }}>
+            <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+              <span style={{ width: 4, height: 4, borderRadius: 99, background: T.primary, animation: "ag-pulse 1s infinite" }} />
+              <span style={{ width: 4, height: 4, borderRadius: 99, background: T.primary, animation: "ag-pulse 1s infinite .2s" }} />
+              <span style={{ width: 4, height: 4, borderRadius: 99, background: T.primary, animation: "ag-pulse 1s infinite .4s" }} />
+            </div>
+            <span>
+              {typingMembers.length === 1
+                ? tc({ en: `${typingMembers[0].name} is typing…`, hi: `${typingMembers[0].name} टाइप कर रहे हैं…`, bn: `${typingMembers[0].name} টাইপ করছেন…` })
+                : typingMembers.length === 2
+                ? tc({ en: `${typingMembers[0].name} and ${typingMembers[1].name} are typing…`, hi: `${typingMembers[0].name} और ${typingMembers[1].name} टाइप कर रहे हैं…`, bn: `${typingMembers[0].name} ও ${typingMembers[1].name} টাইপ করছেন…` })
+                : tc({ en: `${typingMembers[0].name} and ${typingMembers.length - 1} others are typing…`, hi: `${typingMembers[0].name} और ${typingMembers.length - 1} अन्य टाइप कर रहे हैं…`, bn: `${typingMembers[0].name} ও আরও ${typingMembers.length - 1} জন টাইপ করছেন…` })}
+            </span>
+          </div>
+        )}
         {(replyTo || editing) && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
             borderBottom: `1px solid ${T.lineSoft}`, background: T.surface2 }}>
@@ -595,6 +661,26 @@ export default function FarmSpaceChat() {
               style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, display: "flex" }}>
               <Icon name="X" size={16} />
             </button>
+          </div>
+        )}
+
+        {linkedTask && (
+          <div style={{ padding: "6px 12px 0", display: "flex" }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px",
+              borderRadius: 10, background: T.primarySoft, border: `1px solid ${T.primary}`,
+              color: T.primary, fontSize: 12, fontWeight: 600
+            }}>
+              <Icon name="ClipboardList" size={13} />
+              <span style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {linkedTask.title}
+              </span>
+              <button onClick={() => setLinkedTask(null)}
+                aria-label={tc({ en: "Remove linked task", hi: "लिंक किया कार्य हटाएँ", bn: "সংযুক্ত কাজ সরান" })}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", color: T.primary }}>
+                <Icon name="X" size={13} />
+              </button>
+            </div>
           </div>
         )}
 
@@ -699,6 +785,48 @@ export default function FarmSpaceChat() {
             onClick={() => { setAttachSheetOpen(false); docInputRef.current?.click(); }} />
           <ActionRow icon="MapPin" label={tc({ en: "Location", hi: "स्थान", bn: "অবস্থান" })}
             onClick={() => { setAttachSheetOpen(false); attachments.addLocationDraft(); }} />
+          <ActionRow icon="ClipboardList" label={tc({ en: "Link a task", hi: "कार्य लिंक करें", bn: "কাজ লিঙ্ক করুন" })}
+            onClick={() => { setAttachSheetOpen(false); openTaskPicker(); }} />
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={taskPickerOpen} onClose={() => setTaskPickerOpen(false)}
+        title={tc({ en: "Link a task", hi: "कार्य लिंक करें", bn: "কাজ লিঙ্ক করুন" })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "56vh", overflowY: "auto" }}>
+          {loadingTasks && (
+            <div style={{ padding: "24px 0", display: "grid", placeItems: "center" }}>
+              <Spinner size={20} />
+            </div>
+          )}
+          {!loadingTasks && availableTasks.length === 0 && (
+            <div style={{ padding: "24px 16px", textAlign: "center", color: T.inkSoft, fontSize: 13.5 }}>
+              {tc({ en: "No tasks available to link.", hi: "लिंक करने के लिए कोई कार्य उपलब्ध नहीं है।", bn: "লিঙ্ক করার মতো কোনও কাজ উপলব্ধ নেই।" })}
+            </div>
+          )}
+          {!loadingTasks && availableTasks.filter((t) => !t.deleted_at).map((t) => (
+            <button key={t.id}
+              onClick={() => { setLinkedTask({ id: t.id, title: t.title }); setTaskPickerOpen(false); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+                borderRadius: 12, border: `1px solid ${T.line}`, background: T.surface,
+                cursor: "pointer", textAlign: "left", fontFamily: T.body, width: "100%"
+              }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: T.primarySoft,
+                display: "grid", placeItems: "center", color: T.primary, flexShrink: 0 }}>
+                <Icon name="ClipboardList" size={15} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {t.title}
+                </div>
+                {t.status && (
+                  <div style={{ fontSize: 11, color: T.inkSoft, textTransform: "capitalize" }}>
+                    {t.status}
+                  </div>
+                )}
+              </div>
+            </button>
+          ))}
         </div>
       </BottomSheet>
 

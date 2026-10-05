@@ -134,6 +134,7 @@ const MIGRATIONS = [
   "0027_enable_rls_remaining.sql",
   "0028_farm_space_modules.sql",
   "0029_farm_collaboration_state.sql",
+  "0030_farm_collaboration_phase2.sql",
 ];
 
 export async function freshDb() {

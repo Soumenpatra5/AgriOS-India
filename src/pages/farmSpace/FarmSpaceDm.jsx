@@ -52,6 +52,9 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
   const [state, setState] = useState("loading");
   const [reason, setReason] = useState(null);
 
+  const [otherIsTyping, setOtherIsTyping] = useState(false);
+  const lastTypingPingRef = useRef(0);
+
   const [editing, setEditing] = useState(null);
   const [actionsFor, setActionsFor] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -65,6 +68,15 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
   const newestRef = useRef(null);
   const lastMarkedIdRef = useRef(null);
 
+  const triggerTypingPing = useCallback(() => {
+    if (!space?.id || !conversation?.id) return;
+    const now = Date.now();
+    if (now - lastTypingPingRef.current > 3500) {
+      lastTypingPingRef.current = now;
+      farmSpaceApi.dmTyping(space.id, conversation.id).catch(() => {});
+    }
+  }, [space?.id, conversation?.id]);
+
   const load = useCallback(async () => {
     try {
       const active = await farmSpaceService.active();
@@ -73,8 +85,13 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
 
       const conv = await farmSpaceApi.openConversation(active.id, otherUserId);
       setConversation(conv);
+      setOtherIsTyping(Boolean(conv?.other_is_typing));
 
-      const list = await farmSpaceApi.listDmMessages(active.id, conv.id);
+      const res = await farmSpaceApi.listDmMessages(active.id, conv.id, { includeTyping: true });
+      const list = Array.isArray(res) ? res : (res?.messages || []);
+      if (res && typeof res.other_is_typing === "boolean") {
+        setOtherIsTyping(res.other_is_typing);
+      }
       setMessages(list);
       newestRef.current = cursorFrom(list, null) || null;
       setState("ready");
@@ -88,7 +105,11 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
 
   const poll = useCallback(async () => {
     if (!space || !conversation) return;
-    const fresh = await farmSpaceApi.listDmMessages(space.id, conversation.id, { since: newestRef.current, limit: 50 });
+    const res = await farmSpaceApi.listDmMessages(space.id, conversation.id, { since: newestRef.current, limit: 50, includeTyping: true });
+    const fresh = Array.isArray(res) ? res : (res?.messages || []);
+    if (res && typeof res.other_is_typing === "boolean") {
+      setOtherIsTyping(res.other_is_typing);
+    }
     if (!fresh.length) return;
     setMessages((prev) => mergeMessages(prev, fresh));
     newestRef.current = cursorFrom(fresh, newestRef.current);
@@ -219,9 +240,22 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
     <div>
       <div style={{ lineHeight: 1.2 }}>{displayName}</div>
       {conversation && (
-        <div style={{ fontSize: 11.5, fontWeight: 500, color: isOnline ? (T.primary || "#16a34a") : (T.inkFaint || "#94a3b8"), display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOnline ? (T.primary || "#16a34a") : (T.line || "#cbd5e1"), display: "inline-block" }} />
-          <span>{isOnline ? tc({ en: "Online", hi: "ऑनलाइन", bn: "অনলাইন" }) : tc({ en: "Offline", hi: "ऑफ़लाइन", bn: "অফলাইন" })}</span>
+        <div style={{ fontSize: 11.5, fontWeight: 500, color: otherIsTyping ? (T.primary || "#16a34a") : (isOnline ? (T.primary || "#16a34a") : (T.inkFaint || "#94a3b8")), display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+          {otherIsTyping ? (
+            <>
+              <span style={{ display: "inline-flex", gap: 2, alignItems: "center" }}>
+                <span style={{ width: 3, height: 3, borderRadius: "50%", background: T.primary || "#16a34a", animation: "ag-pulse 1s infinite" }} />
+                <span style={{ width: 3, height: 3, borderRadius: "50%", background: T.primary || "#16a34a", animation: "ag-pulse 1s infinite .2s" }} />
+                <span style={{ width: 3, height: 3, borderRadius: "50%", background: T.primary || "#16a34a", animation: "ag-pulse 1s infinite .4s" }} />
+              </span>
+              <span style={{ fontWeight: 600 }}>{tc({ en: "typing…", hi: "टाइप कर रहे हैं…", bn: "টাইপ করছেন…" })}</span>
+            </>
+          ) : (
+            <>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOnline ? (T.primary || "#16a34a") : (T.line || "#cbd5e1"), display: "inline-block" }} />
+              <span>{isOnline ? tc({ en: "Online", hi: "ऑनलाइन", bn: "অনলাইন" }) : tc({ en: "Offline", hi: "ऑफ़लाइन", bn: "অফলাইন" })}</span>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -255,7 +289,7 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
         )}
 
         {messages.map((m) => (
-          <Bubble key={m.id} m={m} own={mine(m)} tc={tc} onOpen={() => openActions(m)} />
+          <Bubble key={m.id} m={m} own={mine(m)} myUserId={space?.user_id} tc={tc} onOpen={() => openActions(m)} />
         ))}
 
         {pending.map((p) => (
@@ -320,7 +354,10 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
           </button>
           <textarea
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              if (e.target.value.trim()) triggerTypingPing();
+            }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
             rows={1}
             placeholder={tc({ en: "Message…", hi: "संदेश…", bn: "বার্তা…" })}

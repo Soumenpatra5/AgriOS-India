@@ -143,6 +143,7 @@ const ACTIONS = {
   "chat.pinned":          { permission: "farm.chat.view",  run: ({ sql, membership }) => chat.listPinnedMessages(sql, membership) },
   "chat.unread":          { permission: "farm.chat.view",  run: ({ sql, membership, payload }) => chat.unreadCount(sql, membership, payload) },
   "chat.markRead":        { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => chat.markRead(sql, membership, user.id, payload) },
+  "chat.typing":          { permission: "farm.chat.send",  run: ({ sql, membership, user }) => chat.reportTyping(sql, membership, user.id) },
   "chat.search":          { permission: "farm.chat.view",  run: ({ sql, membership, payload }) => chat.searchMessages(sql, membership, payload) },
 
   /* 1:1 direct messages — a second, separate surface from the group channel
@@ -156,6 +157,7 @@ const ACTIONS = {
   "dm.remove":            { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.removeDm(sql, membership, user.id, payload) },
   "dm.hide":              { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.hideDmForSelf(sql, membership, user.id, payload) },
   "dm.markRead":          { permission: "farm.chat.view",  run: ({ sql, membership, user, payload }) => dm.markRead(sql, membership, user.id, payload) },
+  "dm.typing":            { permission: "farm.chat.send",  run: ({ sql, membership, user, payload }) => dm.reportTyping(sql, membership, user.id, payload) },
 
   /* Hub aggregate unread counters */
   "farm.unreadCounts":    { permission: "farm.chat.view",  run: ({ sql, membership, user }) => ops.getHubUnreadCounts(sql, membership, user.id) },

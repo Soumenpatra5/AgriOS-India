@@ -52,6 +52,7 @@ async function conversationRows(sql, membership, actorUserId, { conversationId =
   const rows = await sql`
     select c.id, c.space_id, c.member_a_id, c.member_b_id, c.created_at, c.updated_at,
            c.member_a_last_read_at, c.member_b_last_read_at,
+           c.member_a_typing_at, c.member_b_typing_at,
            ou.name as other_name, ou.phone as other_phone, ou.agrios_user_id as other_agrios_id,
            oum.last_seen_at as other_last_seen_at,
            lm.body as last_body, lm.attachments as last_attachments, lm.created_at as last_created_at,
@@ -83,27 +84,33 @@ async function conversationRows(sql, membership, actorUserId, { conversationId =
        and (${conversationId}::uuid is null or c.id = ${conversationId}::uuid)
      order by c.updated_at desc`;
 
-  return rows.map((row) => ({
-    id: row.id,
-    space_id: row.space_id,
-    other_user_id: String(row.member_a_id) === String(actorUserId) ? row.member_b_id : row.member_a_id,
-    other_name: row.other_name || null,
-    other_phone: row.other_phone || null,
-    other_agrios_id: row.other_agrios_id || null,
-    other_display_name: row.other_name || row.other_phone || row.other_agrios_id || null,
-    other_last_seen_at: row.other_last_seen_at || null,
-    other_is_online: Boolean(row.other_last_seen_at && (Date.now() - new Date(row.other_last_seen_at).getTime() < 90000)),
-    unread_count: Number(row.unread_count) || 0,
-    updated_at: row.updated_at,
-    created_at: row.created_at,
-    last_message: row.has_last ? {
-      body: row.last_deleted ? null : row.last_body,
-      attachments: row.last_deleted ? [] : row.last_attachments,
-      created_at: row.last_created_at,
-      mine: String(row.last_sender_user_id) === String(actorUserId),
-      deleted: row.last_deleted,
-    } : null,
-  }));
+  return rows.map((row) => {
+    const otherTypingAt = String(row.member_a_id) === String(actorUserId) ? row.member_b_typing_at : row.member_a_typing_at;
+    const other_is_typing = Boolean(otherTypingAt && (Date.now() - new Date(otherTypingAt).getTime() < 6000));
+    return {
+      id: row.id,
+      space_id: row.space_id,
+      other_user_id: String(row.member_a_id) === String(actorUserId) ? row.member_b_id : row.member_a_id,
+      other_name: row.other_name || null,
+      other_phone: row.other_phone || null,
+      other_agrios_id: row.other_agrios_id || null,
+      other_display_name: row.other_name || row.other_phone || row.other_agrios_id || null,
+      other_last_seen_at: row.other_last_seen_at || null,
+      other_is_online: Boolean(row.other_last_seen_at && (Date.now() - new Date(row.other_last_seen_at).getTime() < 90000)),
+      other_typing_at: otherTypingAt || null,
+      other_is_typing,
+      unread_count: Number(row.unread_count) || 0,
+      updated_at: row.updated_at,
+      created_at: row.created_at,
+      last_message: row.has_last ? {
+        body: row.last_deleted ? null : row.last_body,
+        attachments: row.last_deleted ? [] : row.last_attachments,
+        created_at: row.last_created_at,
+        mine: String(row.last_sender_user_id) === String(actorUserId),
+        deleted: row.last_deleted,
+      } : null,
+    };
+  });
 }
 
 async function oneConversation(sql, membership, actorUserId, conversationId) {
@@ -236,7 +243,7 @@ export async function hideDmForSelf(sql, membership, actorUserId, { conversation
 /* Newest first, paged by `before`; `since` filters on updated_at so a poll
    catches an edit or a delete to an existing message, not only a new row —
    the same reasoning as chat.js's listMessages. */
-export async function listDmMessages(sql, membership, actorUserId, { conversationId, limit = 50, before = null, since = null } = {}) {
+export async function listDmMessages(sql, membership, actorUserId, { conversationId, limit = 50, before = null, since = null, includeTyping = false } = {}) {
   const conversation = await loadConversation(sql, membership, actorUserId, conversationId);
   const capped = Math.min(Math.max(Number(limit) || 50, 1), 100);
 
@@ -254,7 +261,19 @@ export async function listDmMessages(sql, membership, actorUserId, { conversatio
      limit ${capped}`;
 
   const shaped = rows.map((m) => (m.deleted ? { ...m, body: null, attachments: [] } : m));
-  return shaped.reverse();
+  const messages = shaped.reverse();
+
+  if (includeTyping) {
+    const isMemberA = String(conversation.member_a_id) === String(actorUserId);
+    const otherTypingAt = isMemberA ? conversation.member_b_typing_at : conversation.member_a_typing_at;
+    const other_is_typing = Boolean(otherTypingAt && (Date.now() - new Date(otherTypingAt).getTime() < 6000));
+    return {
+      messages,
+      other_is_typing,
+    };
+  }
+
+  return messages;
 }
 
 /* Advances the caller's read cursor in this conversation to the authoritative
@@ -291,6 +310,27 @@ export async function markRead(sql, membership, actorUserId, { conversationId = 
     await sql`
       update farm_dm_conversations
          set member_b_last_read_at = greatest(coalesce(member_b_last_read_at, '-infinity'::timestamptz), ${msg.created_at}::timestamptz)
+       where id = ${conversation.id} and space_id = ${membership.space_id}`;
+  }
+
+  return { success: true };
+}
+
+/* Updates the caller's ephemeral typing timestamp in this DM conversation.
+   Verifies conversation membership, space scoping, and updates only the caller's side. */
+export async function reportTyping(sql, membership, actorUserId, { conversationId } = {}) {
+  const conversation = await loadConversation(sql, membership, actorUserId, conversationId);
+
+  const isMemberA = String(conversation.member_a_id) === String(actorUserId);
+  if (isMemberA) {
+    await sql`
+      update farm_dm_conversations
+         set member_a_typing_at = now()
+       where id = ${conversation.id} and space_id = ${membership.space_id}`;
+  } else {
+    await sql`
+      update farm_dm_conversations
+         set member_b_typing_at = now()
        where id = ${conversation.id} and space_id = ${membership.space_id}`;
   }
 
