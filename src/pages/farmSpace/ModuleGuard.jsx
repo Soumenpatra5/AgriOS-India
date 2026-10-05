@@ -18,16 +18,20 @@ export default function ModuleGuard({ moduleId, children }) {
 
   useEffect(() => {
     let alive = true;
-    const s = farmSpaceService.active();
-    if (!s) { pop(); return; }
-    setSpace(s);
+    (async () => {
+      try {
+        const s = await farmSpaceService.active();
+        if (!alive) return;
+        if (!s) { pop(); return; }
+        setSpace(s);
 
-    farmSpaceService.modules(s.id).then(mods => {
-      if (!alive) return;
-      setEnabled(isModuleEnabled(mods, moduleId));
-    }).catch(() => {
-      if (alive) setEnabled(false);
-    });
+        const mods = await farmSpaceService.modules(s.id);
+        if (!alive) return;
+        setEnabled(isModuleEnabled(mods, moduleId));
+      } catch {
+        if (alive) setEnabled(false);
+      }
+    })();
     return () => { alive = false; };
   }, [moduleId, pop]);
 
