@@ -1,97 +1,190 @@
-# AgriOS India — Roadmap
+# AgriOS India — Canonical Product Roadmap
 
-Built from the Core Concept Document v1.0. Guiding rule: **ship the daily loop deep before going wide.**
-The daily loop = morning (weather + tasks + advice) → evening (record activities, income, expenses).
+> **Review Date:** October 1, 2026<br/>
+> **Baseline Commit:** `aa3bf02`<br/>
+> **Status:** Active & Re-Baselined<br/>
+> **Source of Truth:** Canonical product roadmap<br/>
+> **Guiding Philosophy:** Ship the daily loop deep before going wide.<br/>
+> *The daily loop = morning (weather + tasks + advice) → evening (record activities, income, expenses).*
 
-**Status legend:** ✅ shipped · 🟡 partial · ⬜ planned · 🚫 deprioritised. Last reviewed: Sep 2026.
+## Status Legend
 
----
-
-## Active priority order (Sep 2026)
-
-**Now / In progress**
-1. Feed-reminder scheduling → wired to notification service
-2. Language dictionary completion (ta, te, mr, pa, or)
-
-**Next**
-3. IMD real-time weather alerts
-4. Season-over-season P&L comparison
-5. B2B / FPO / dealer dashboards
-
-**Later / Deferred**
-6. Image search (vector/backend phase)
-7. Demand forecasting + supply-chain risk (Logistics Analytics)
-
-**Removed from active roadmap**
-- Live market prices (data.gov.in / Agmarknet / eNAM) — scaffold untouched, no active effort
+- ✅ **Shipped / Verified** — implemented and supported by repository evidence.
+- 🟡 **In Progress** — actively being implemented or completed.
+- 🔵 **Planned** — intentionally planned, but not yet implemented as a completed capability.
+- ⏸️ **Deferred / Re-scoped** — intentionally postponed, narrowed, or waiting on an external dependency.
 
 ---
 
-## Phase 0 — Prototype foundation · ✅ shipped
+## 1. Product Evolution: From Daily Loop to Farm Operating System
 
-- ✅ Onboarding: name, state, land size, enterprises, **language (English / Hindi / Bengali)**
-- ✅ Home dashboard: live weather (Open-Meteo, per-state) + spray/field-work advisory, monthly money snapshot, task list
-- ✅ **Farm Diary**: daily activity log (sowing, irrigation, spraying, vaccination, sale, …) tagged by enterprise
-- ✅ **Business ledger**: income/expense entries, monthly P&L, per-enterprise P&L, category breakdown, ₹ formatting, delete confirmation
-- ✅ **AI Farm Advisor**: chat grounded in the farmer's profile, ledger, diary, tasks and weather; answers in the app language; KVK/vet safety disclaimers. Runs on Claude (`claude-opus-4-8`) **via a keyless serverless proxy — farmers never handle an API key** (auth by Firebase ID token, verified server-side).
-- ✅ All data offline-first in local storage
+AgriOS India began as a farmer-first mobile web application focused on the core daily loop. Through iterative engineering, it has expanded into a broader Farm Operating System spanning collaborative Farm Spaces, operational ERP, multi-provider AI, and agricultural commerce.
 
-## Phase 1 — MVP hardening · ✅ shipped
+```text
+Original Concept (Single-Farmer Daily Loop)
+       ↓
+Phase 0 / Phase 1: MVP Hardening (Cloud Sync, Offline Resilience, Phone Auth)
+       ↓
+Phase 2: Intelligence & Diagnostics (Assistive Disease Detection, Schemes, Weather)
+       ↓
+Phase 3: Financial & Enterprise Anchors (Bank-Format DPR Generator, Livestock Managers)
+       ↓
+Farm Space & Multi-Tenancy (Isolated Farm Workspaces, Configurable Modules, ModuleGuard)
+       ↓
+Team & Collaboration (4-Tier Role Hierarchy, Member Management, Permission Gating)
+       ↓
+Farm ERP & Operations (Parcels, Equipment, Storage, Local Employee Workforce)
+       ↓
+Connected Commerce & Logistics (Agri-Marketplace, Service Booking, Trade & Logistics)
+       ↓
+AI-Native Farm Operating System (Collaborative, Multi-Tenant Agricultural Platform)
+```
 
-- ✅ **Backend + sync**: local-first writes mirrored to **Firebase/Firestore**; offline writes queued in IndexedDB and flushed on reconnect; fresh-device login pulls cloud → local. Data survives device loss.
-- ✅ **Auth**: phone-number **OTP** + email/password (with reset) + Google / Apple / Facebook / X. Keyless server-side token verification.
-- ✅ **Advisor via server**: Claude call behind the serverless proxy with multi-key failover; no client keys.
-- ✅ **Voice input** for advisor questions (Web Speech API STT).
-- 🟡 **Vaccination & reminders**: vaccination calendar shipped; local-notification service in place. Feed-reminder scheduling still to wire.
-- 🟡 **More languages**: 8 selectable (en, hi, bn, ta, te, mr, pa, or). English/Hindi/Bengali fully translated; others need dictionary completion.
+### Historical Delivery Milestones
 
-## Phase 2 — Intelligence & market
-
-- ✅ **AI disease detection (assistive)**: 7 domains (crop, poultry, dairy, goat, pig, fish, bee) — symptom checklist + photo → **structured diagnosis** with confidence, severity, risk, and escalation; framed as "possible causes — confirm with KVK". Offline captures are queued and analyzed on reconnect.
-  - _On-device (optional):_ a runtime-agnostic **inference harness** is built and verified (`localProvider` + `localInference`, `registerModel` seam). Ships **no ML dependency and no model** — dormant until a trained crop-disease model + labels are registered. See [`AUDIT-cloud-vision.md`](AUDIT-cloud-vision.md) (F6). Training/commissioning a model is a product call.
-- ✅ **Government schemes**: curated scheme explorer per enterprise/eligibility.
-- ✅ **Weather upgrade**: location-based dashboard (GPS pin) with ECMWF model + advisories.
-- ⬜ **IMD real-time weather alerts** — next in queue after feed-reminder notifications.
-- 🚫 **Live market prices** (Agmarknet / eNAM / data.gov.in) — deprioritised. Existing `priceProxy` → `/api/prices` scaffold and Market tab MSP/seasonal bands are untouched; no active development effort. Revisit only if a reliable, low-maintenance data source becomes available.
-
-## Phase 3 — Premium anchors
-
-- ✅ **Business/advisory AI**: business-advisor agent shipped (project reports, scaling).
-- ✅ **Bank-format DPR generator** (strongest willingness-to-pay): Detailed Project Reports for a term loan — promoter profile, cost of project, means of finance, repayment ladder, year-wise profitability, and the viability ratios a lending officer reads (NPV, IRR, BCR, DSCR, payback, break-even). Six starting templates (dairy, broiler, goat, fishery, mango orchard, custom) with **indicative** unit economics that are fully editable; exports to a printable A4 document (browser Save-as-PDF) or CSV. Every report carries a disclaimer that it is a planning aid, not a bank appraisal — figures must be checked against the financing bank's current unit-cost norms.
-- ✅ **Livestock modules**: managers for poultry, dairy, goat, pig, sheep, fish, bee — profiles, production, events.
-- 🟡 Cash-flow view ✅, loan EMI calculator ✅; season-over-season comparison ⬜ — next after IMD alerts.
-- ⬜ B2B channel: FPO/dealer dashboards sponsoring premium for member farmers — follows season-over-season.
+- **Phase 0 — Prototype Foundation · ✅ Shipped:** onboarding, daily dashboard, Farm Diary / Business Ledger, AI Farm Advisor, and offline-first foundations.
+- **Phase 1 — MVP Hardening · ✅ Shipped:** backend/sync foundations, authentication methods, AI proxy/failover, voice input, and vaccination calendar.
+- **Phase 2 — Intelligence & Market · ✅ Shipped:** assistive disease detection, government scheme discovery, and location-aware weather capabilities.
+- **Phase 3 — Financial & Enterprise Anchors · ✅ Shipped:** business/advisory AI, Bank-format DPR generation, livestock managers, cash-flow/loan tools, and related enterprise foundations.
 
 ---
 
-## Delivered beyond the original MVP scope · ✅ shipped
+## 2. Active Priority Order (October 1, 2026)
 
-The app has grown well past the initial daily-loop MVP. Also live:
+### Now / In Progress
 
-- **Farm ERP**: farms, land/parcels, tasks, inventory, assets, employees, CRM, production, reports, analytics, IoT devices.
-- **Marketplace**: buy/sell seeds, feed, medicine, equipment; cart, checkout, orders, wishlist, seller dashboard.
-- **Service Marketplace**: vet, drone, machinery, soil-test, farm-worker booking; provider profiles + dashboards.
-- **Logistics & Trade**: shipments, cold chain, fleet, warehouses, contracts, auctions, procurement, export.
-- **AI Commerce**: recommendations, price forecasts, buyer matchmaking, fraud/risk, insights.
-- **MLOps Platform**: dataset/annotation, model registry, deployment pipeline, monitoring.
-- **Enterprise Admin Panel**: audit logs, tickets, articles, announcements (local-first, desktop-first).
-- **13 specialised AI agents** with intent routing, tool-calling (calculator, weather, market, schemes), and per-farmer context.
+1. **Farm Space Collaboration & Real-Time Presence:** deepen collaborative workflows in Farm Space Chat and DMs, including presence, unread-state handling, and event synchronization.
+2. **Local ERP ↔ Cloud Farm Space Bridge:** provide an optional, explicit migration/synchronization path between device-local ERP records and collaborative multi-tenant Farm Spaces without collapsing the two data models.
+3. **Feed & Task Reminder Scheduling:** complete background local notification wiring for livestock feeding intervals and custom task schedules.
+4. **Regional Language Dictionary Completion:** expand localization coverage beyond English, Hindi, and Bengali toward Tamil (`ta`), Telugu (`te`), Marathi (`mr`), Punjabi (`pa`), and Odia (`or`).
+
+### Next Priorities
+
+5. **IMD Real-Time Weather Alerts:** direct ingestion of India Meteorological Department severe-weather bulletins into the location advisory flow.
+6. **Season-Over-Season Analytics:** comparative yield, cost, and P&L analytics across multi-year crop cycles and livestock batches.
+7. **B2B / FPO / Dealer Dashboards:** dedicated multi-farm aggregate views for Farmer Producer Organisations and agricultural input dealers.
+8. **Logistics Demand Forecasting:** predictive capacity planning for cold storage and harvest transport routes.
+
+### Deferred / Re-scoped
+
+- ⏸️ **Real-Time Agmarknet / eNAM Live Feed:** live external scraping remains deferred because of upstream/API stability constraints. Existing MSP benchmarks and curated seasonal market bands remain the current approach; live integration will be revisited when stable official access is available.
+- ⏸️ **On-Device Edge ML Weights:** the pluggable local inference harness exists, while trained/shipped on-device model weights remain a future product decision.
 
 ---
 
-## Data sources
+## 3. Shipped & Verified Architecture
 
-| Need | Source | Status |
-|---|---|---|
-| Weather | Open-Meteo / ECMWF (now), IMD (later) | ✅ live; IMD alerts ⬜ |
-| Market prices | Agmarknet / eNAM via data.gov.in | 🚫 deprioritised — MSP/seasonal bands shown; no active feed integration |
-| Schemes | PM-KISAN, state portals | ✅ curated (manual quarterly refresh) |
-| AI | Claude (`claude-opus-4-8`) | ✅ behind keyless serverless proxy with failover |
+### A. Farm Space & Multi-Tenancy Foundation · ✅ Shipped
+*Verified in commit checkpoints `5de2c6a` and `47ec388`.*
 
-## Risks to keep in view
+- **Multi-Tenant Workspaces (`farm_spaces`):** users can create, configure, and switch between separate operational Farm Spaces.
+- **Configurable Module Management (`5de2c6a`):**
+  - Per-space enable/disable controls for optional farm modules.
+  - Active and available module states with drag-and-drop and accessible up/down reordering.
+  - Core module protection for required collaboration functionality.
+  - Route/navigation enforcement through `ModuleGuard`.
+  - Configuration persistence isolated by Farm Space.
+- **Team & Member Management (`47ec388`):**
+  - **4-Tier Role Hierarchy:** `owner` → `manager` → `supervisor` → `worker`.
+  - **Member Details BottomSheet:** member profile, AgriOS user ID, role, contact information, joined date, and membership status.
+  - **Search & Role Filtering:** client-side search by name, phone, or AgriOS user ID with role tabs for **All, Managers, Supervisors, and Workers**.
+  - **Supervisor UX:** read-only roster experience; management-only actions are hidden when the viewer lacks `farm.members.manage`.
+  - **Invitation System (`farm_space_invitations`):** AgriOS User ID-based invite/lookup flow with expiration and acceptance lifecycle.
+  - **Permission Enforcement:** server-side and client-side permission gating for member management and owner-protected ownership operations.
+- **Farm Space Collaboration:** Team, task/workflow, announcements, activity/audit surfaces, Team Chat, and 1-on-1 Direct Messaging are implemented where supported by the current Farm Space modules.
+- **Architectural Separation:** the collaborative multi-tenant Farm Space member directory (`farm_space_memberships`) remains distinct from the single-device offline ERP employee directory (`employeeService.js` / IndexedDB). They represent different identities and purposes.
 
-1. **Trust** — one bad pesticide/vet dose kills the brand; keep KVK disclaimers everywhere and never let the AI invent numbers. (Enforced in the diagnosis safety layer + prompt safety preamble.)
-2. **Connectivity** — every feature degrades gracefully offline; the AI advisor fails honestly (can't fabricate an answer offline).
-3. **Data honesty** — don't present static/seed data as live (e.g. market prices are labelled; the misleading Home price block was removed).
-4. **Farmer price sensitivity** — validate the premium tier with FPOs before betting on individual subscriptions.
-5. **Scope** — the app is now very wide; prioritise depth/polish on the daily loop and the live market feed over new modules.
+### B. Platform, Data & Runtime Architecture · ✅ Shipped
+*Verified against the repository and runtime checkpoint `aa3bf02`.*
+
+- **Cloud Relational Data Layer:** PostgreSQL-backed multi-tenant data model managed through the repository migration layer (`supabase/migrations/` and `scripts/migrate.mjs`).
+- **Deterministic Testing Harness:** embedded `@electric-sql/pglite` used for hermetic migration-backed isolation testing without requiring an external database for those tests.
+- **Device-Local Offline Store:** IndexedDB / LocalStorage accessed through repository-style services (`syncRepo.js`, `erpDb.js`) with queued synchronization where implemented.
+- **Row Level Security (RLS):** enabled on protected Postgres tables, with backend authorization providing the application-level tenancy boundary.
+- **Structured Audit Logging:** `farm_audit_logs` records space-scoped administrative and membership events.
+- **Authentication & Identity:** Firebase Authentication with Phone OTP, Email/Password, and federated/OAuth flows as implemented; server-side JWT verification through `verifyAuth.js` / `ensureUser.js`; stable AgriOS User IDs.
+- **Authorization:** strict Farm Space role/permission enforcement through `api/_lib/permissions.js` and `api/_lib/gate.js`.
+- **Runtime:** Node.js 24 (`"engines": { "node": "24.x" }`) synchronized between `package.json` and `package-lock.json`.
+- **CI Automation:** GitHub Actions validation covering lint/build/tests and emulator-leak checks; the verified repository test baseline is **158 test files, 2,135 passing tests, 7 skipped** at the October 1, 2026 checkpoint.
+- **Deployment Pipeline:** Vercel production deployment is automated through GitHub Actions and gated by CI success.
+
+### C. AI & Assistive Intelligence · ✅ Shipped
+
+- **Multi-Provider AI Gateway (`api/ai/chat.js`):** authenticated server-side gateway architecture with Google Gemini as the current default path and OpenAI / Anthropic fallback paths.
+- **AI Provider Abstraction:** provider and model selection are centralized in the AI configuration/gateway rather than being treated as permanent roadmap commitments.
+- **14 Registered AI Agents (`src/ai/agents/registry.js`):**
+  - `generalAssistant`, `farmDoctor`, `cropExpert`, `livestockExpert`, `businessAdvisor`, `loanAdvisor`, `governmentAdvisor`, `weatherExpert`, `marketExpert`, `financeExpert`, `veterinaryExpert`, `educationExpert`, `commerceAdvisor`, `dprGenerator`.
+  - Tool/context integration is used where implemented, including calculators and relevant agricultural data sources.
+- **Assistive Disease Detection:**
+  - 7 agricultural domains: Crop, Poultry, Dairy, Goat, Pig, Fish, and Bee.
+  - Multimodal photo inspection and symptom-based structured output, with safety/verification guidance.
+  - Pluggable local inference harness; trained on-device weights remain future work.
+- **Financial & Viability Engines:**
+  - Bank-format DPR generator with structured financial analysis including NPV, IRR, BCR, DSCR, payback, break-even analysis, and A4 PDF/CSV export across the implemented templates.
+  - Loan EMI, cash-flow, and enterprise P&L capabilities.
+
+### D. Farm Operations & Livestock Modules · ✅ Shipped
+
+- **Livestock Management Engines:**
+  - **Poultry:** shed/batch lifecycle, mortality, feed/FCR, vaccination, egg collection, and batch finance.
+  - **Dairy:** herd registry, milk logs with fat/SNF, breeding cycles, sales, feed, and herd finance.
+  - **Goat & Sheep:** individual tags, weight monitoring, kidding history, milk/sales, and health scheduling.
+  - **Pig:** herd records, weight gain, feed, breeding, and sales.
+  - **Fish:** pond management, stocking, water-quality records, feeding, and harvest.
+  - **Bee:** hive registry, inspections, queen status, harvests, and disease checks.
+- **Deterministic Isolation Test Suite (`ddbe47f`):** date-bounded fixtures keep livestock financial-summary and monthly-metric tests deterministic across calendar-month turnovers. This is a **test-suite reliability improvement**, not a claim about changing production aggregation behavior.
+- **Crop Planning & Field Operations:** crop planning/calculation engine, multi-stage crop schedules, crop financial tracking, and parcel/field allocation.
+- **Farm ERP Foundation:** local-first asset, equipment maintenance, storage/inventory, CRM, and offline employee/workforce records.
+
+### E. Commerce, Logistics & Trade · ✅ Shipped
+
+- **Agri-Marketplace:** product catalog, cart, checkout, order tracking, wishlist, and seller dashboard capabilities present in the repository.
+- **Service Marketplace:** agricultural service listings, provider profiles, booking, and scheduling capabilities.
+- **Logistics & Trade:** shipment, fleet/driver, warehouse, contract, procurement/auction capabilities present in the repository.
+- **Payment Lifecycle:** Razorpay integration with server-side payment/settlement validation.
+
+### F. Administration & MLOps Platform · ✅ Shipped
+
+- **Enterprise Admin Panel:** audit-log views, support tickets, CMS/content, announcements, and administrative dashboards.
+- **MLOps Platform:** dataset annotation workspace, model registry, training/experiment workflow views, and monitoring/drift surfaces present in the repository.
+
+---
+
+## 4. Planned & Future Capabilities
+
+### Near-Term Enhancements (Q4 2026)
+
+- 🔵 **Live Event Push Architecture:** move Farm Space chat/task updates from polling-style refreshes toward WebSocket or equivalent real-time subscriptions.
+- 🔵 **Cross-Enterprise Inventory Linking:** connect operational feed/fertilizer records to inventory depletion where the relevant Farm Space modules are active.
+- 🔵 **Multi-Language Expansion:** complete localization and audio prompts for the five secondary Indian languages.
+
+### Medium-Term Vision (2027)
+
+- 🔵 **FPO Aggregation Portal:** bulk purchasing, shared logistics, and consolidated crop/livestock reporting for farmer-producer collectives.
+- 🔵 **Edge Vision Deployment:** integrate optimized TensorFlow Lite / ONNX models into the existing local inference harness for stronger field diagnostics under poor connectivity.
+- 🔵 **Predictive Micro-Climate Advisory:** use on-farm IoT telemetry for hyper-local weather, pest, and disease early-warning workflows.
+
+---
+
+## 5. Architectural Data Sources & Boundaries
+
+| Need | Source | Implementation Mechanism | Status |
+|---|---|---|---|
+| **Weather** | Open-Meteo / ECMWF-backed weather data | Coordinates-based REST client with cached advisory state | ✅ Live |
+| **Severe Alerts** | IMD | Direct ingestion of regional warning bulletins | 🔵 In Pipeline |
+| **Market Prices** | Data.gov.in / Agmarknet-derived benchmark data | MSP references and curated seasonal bands; no real-time scraper dependency | ✅ Curated |
+| **Schemes** | Central & State agricultural portals | Curated eligibility/content data | ✅ Live |
+| **AI Advisory** | Google Gemini, OpenAI, Anthropic | Authenticated server-side multi-provider gateway | ✅ Live |
+| **Multi-Tenancy** | PostgreSQL-backed Farm Space data model | Tenant-scoped schema, backend authorization, RLS, and deterministic PGlite test harness | ✅ Live |
+| **Identity** | Firebase Auth + AgriOS User IDs | Client authentication with server-side JWT verification | ✅ Live |
+
+---
+
+## 6. Operating Principles & Risk Controls
+
+1. **Farmer Safety & Clinical Guidance:** AI diagnostics, dosage-related guidance, and financial guidance must carry clear safety/verification language and direct users toward qualified local professionals or relevant official sources where appropriate.
+2. **Offline-First Resilience:** the app should keep core field workflows usable without network access, with queued synchronization and cached data where implemented.
+3. **Data Integrity & Tenant Isolation:** Farm Space operations must remain isolated by authenticated identity, tenant space IDs, backend authorization, and database controls. Farm data, communications, and financial records must not cross Farm Space boundaries.
+4. **Transparent Economics:** DPR and enterprise financial outputs are planning models with editable assumptions; they should not be presented as guaranteed lender decisions, returns, or approvals.
+5. **Architectural Clarity:** the collaborative cloud-backed Farm Space platform and the single-device offline ERP remain separate data domains unless an explicit, tested bridge is introduced.
+6. **Roadmap Discipline:** this document records product direction and delivery status; detailed implementation contracts, schemas, and technical procedures belong in the appropriate architecture/specification documents.
