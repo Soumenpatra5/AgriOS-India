@@ -43,6 +43,7 @@ import * as bee from "./_lib/farm/bee.js";
 import * as beeOps from "./_lib/farm/beeOps.js";
 import * as crop from "./_lib/farm/crop.js";
 import * as cropOps from "./_lib/farm/cropOps.js";
+import * as bridge from "./_lib/farm/bridge.js";
 import * as analytics from "./_lib/farm/analytics.js";
 import * as notifs from "./_lib/farm/notifications.js";
 
@@ -595,6 +596,10 @@ const ACTIONS = {
 
   /* Field metrics */
   "crop.metrics":             { permission: "farm.crop.view",    run: ({ sql, membership })                  => crop.fieldMetrics(sql, membership) },
+
+  /* Local ERP ↔ Cloud Farm Space Bridge */
+  "bridge.preview":           { permission: "farm.crop.manage",  run: ({ sql, membership, payload })          => bridge.preview(sql, membership, payload) },
+  "bridge.publishFields":     { permission: "farm.crop.manage",  run: ({ sql, membership, user, payload })    => bridge.publishFields(sql, membership, user.id, payload) },
 
   /* Fields */
   "crop.fields.list":         { permission: "farm.crop.view",    run: ({ sql, membership, payload })          => crop.listFields(sql, membership, payload) },

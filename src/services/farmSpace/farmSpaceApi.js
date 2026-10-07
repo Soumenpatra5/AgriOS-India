@@ -162,4 +162,8 @@ export const farmSpaceApi = {
 
   /* Hub aggregate unread counters */
   getHubUnreadCounts: (spaceId) => call("farm.unreadCounts", { spaceId }),
+
+  /* Local ERP ↔ Cloud Farm Space Bridge */
+  bridgePreview:       (spaceId, parcels) => call("bridge.preview", { spaceId, payload: { spaceId, parcels } }),
+  bridgePublishFields: (spaceId, parcels, overwrite = false) => call("bridge.publishFields", { spaceId, payload: { spaceId, parcels, overwrite } }),
 };

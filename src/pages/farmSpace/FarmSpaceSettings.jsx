@@ -8,6 +8,7 @@ import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
+import FarmSpaceBridgeModal from "./FarmSpaceBridgeModal.jsx";
 
 /* Farm Space settings — owner only.
 
@@ -31,6 +32,7 @@ export default function FarmSpaceSettings() {
   const [confirm, setConfirm] = useState(null);   // "archive" | "transfer"
   const [deleteText, setDeleteText] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [bridgeOpen, setBridgeOpen] = useState(false);
 
   const load = useCallback(async () => {
     setState("loading");
@@ -206,6 +208,30 @@ export default function FarmSpaceSettings() {
           </button>
         </Card>
 
+        {/* ── local ERP bridge shortcut ── */}
+        <Card pad={0}>
+          <button onClick={() => setBridgeOpen(true)}
+            data-testid="bridge-erp-btn"
+            style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 12px",
+              background: "none", border: "none", cursor: "pointer", fontFamily: T.body, textAlign: "left" }}>
+            <div style={{ width: 36, height: 36, borderRadius: 11, flexShrink: 0, display: "grid",
+              placeItems: "center", background: T.primarySoft, color: T.primary }}>
+              <Icon name="Database" size={17} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>
+                {tc({ en: "Bridge Local Data", hi: "स्थानीय डेटा ब्रिज करें", bn: "স্থানীয় ডেটা ব্রিজ করুন" })}
+              </div>
+              <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
+                {tc({ en: "Publish offline ERP land parcels to this Farm Space",
+                      hi: "ऑफ़लाइन ईआरपी भूमि खंड इस फ़ार्म स्पेस में प्रकाशित करें",
+                      bn: "অফলাইন ইআরপি জমির প্লট এই ফার্ম স্পেসে প্রকাশ করুন" })}
+              </div>
+            </div>
+            <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint }} />
+          </button>
+        </Card>
+
         {/* ── the irreversible half ── */}
         {isOwner && (
           <>
@@ -339,6 +365,12 @@ export default function FarmSpaceSettings() {
             </div>
           </div>
         } />
+
+      <FarmSpaceBridgeModal
+        open={bridgeOpen}
+        onClose={() => setBridgeOpen(false)}
+        space={space}
+      />
     </>
   );
 }
