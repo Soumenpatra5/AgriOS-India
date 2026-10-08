@@ -166,4 +166,6 @@ export const farmSpaceApi = {
   /* Local ERP ↔ Cloud Farm Space Bridge */
   bridgePreview:       (spaceId, parcels) => call("bridge.preview", { spaceId, payload: { spaceId, parcels } }),
   bridgePublishFields: (spaceId, parcels, overwrite = false) => call("bridge.publishFields", { spaceId, payload: { spaceId, parcels, overwrite } }),
+  bridgePreviewLivestock: (spaceId, enterprise, animals) => call("bridge.previewLivestock", { spaceId, payload: { spaceId, enterprise, animals } }),
+  bridgePublishLivestock: (spaceId, enterprise, animals, overwrite = false) => call("bridge.publishLivestock", { spaceId, payload: { spaceId, enterprise, animals, overwrite } }),
 };

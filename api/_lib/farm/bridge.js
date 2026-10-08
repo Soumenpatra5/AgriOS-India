@@ -470,3 +470,611 @@ export async function publishFields(sql, membership, actorUserId, payload = {}) 
     total: normalized.length,
   };
 }
+
+export { preview as previewParcels };
+
+/* ═════════════════════════════════════════════════════════════════════════════
+ * Local ERP ↔ Cloud Farm Space Bridge — Phase 2: Livestock Herd Publishing
+ * ═════════════════════════════════════════════════════════════════════════════
+ * Bridges device-local offline ERP animals (dairy, goat, sheep, pig) into cloud
+ * Farm Space livestock registers (dairy_animals, goat_animals, pig_animals).
+ * Keeps local and cloud data models strictly decoupled:
+ *   - Local animal.id maps to cloud client_uuid
+ *   - space_id is enforced on every operation
+ *   - Requires enterprise dashboard module to be enabled in target space
+ *   - Enforces farm.<enterprise>.manage permission
+ *   - Strict cross-space isolation prevents asset duplication or collision
+ *   - Idempotent and auditable via farm_audit_logs (action: bridge.publish_livestock)
+ */
+
+export const ENTERPRISE_MODULE_MAP = {
+  dairy: "dairyDashboard",
+  goat: "goatDashboard",
+  sheep: "goatDashboard",
+  pig: "pigDashboard",
+};
+
+export const ENTERPRISE_TABLE_MAP = {
+  dairy: "dairy_animals",
+  goat: "goat_animals",
+  sheep: "goat_animals",
+  pig: "pig_animals",
+};
+
+export function getLivestockPermission(enterprise) {
+  const e = String(enterprise || "").toLowerCase().trim();
+  if (e === "dairy") return "farm.dairy.manage";
+  if (e === "goat" || e === "sheep") return "farm.goat.manage";
+  if (e === "pig") return "farm.pig.manage";
+  throw new HttpError(400, `Unsupported livestock enterprise "${enterprise}". Supported: dairy, goat, sheep, pig`);
+}
+
+export async function assertLivestockModuleEnabled(sql, spaceId, enterprise) {
+  const moduleId = ENTERPRISE_MODULE_MAP[enterprise];
+  if (!moduleId) {
+    throw new HttpError(400, `Unsupported livestock enterprise "${enterprise}". Supported: dairy, goat, sheep, pig`);
+  }
+  const rows = await sql`
+    select enabled
+    from farm_space_modules
+    where space_id = ${spaceId} and module_id = ${moduleId}
+  `;
+  if (rows.length > 0 && !rows[0].enabled) {
+    throw new HttpError(400, `Module "${moduleId}" is disabled in target Farm Space`);
+  }
+}
+
+export function normalizeDairyAnimal(record) {
+  if (!record || typeof record !== "object") {
+    throw new HttpError(400, "Invalid dairy animal data");
+  }
+  const clientUuid = record.id != null ? String(record.id).trim() : "";
+  if (!clientUuid) {
+    throw new HttpError(400, "Animal id is required");
+  }
+  const name = record.name != null ? String(record.name).trim() : "";
+  if (!name) {
+    throw new HttpError(400, `Animal name is required for id "${clientUuid}"`);
+  }
+
+  const rawType = String(record.type || "cow").trim().toLowerCase();
+  const species = rawType === "buffalo" ? "buffalo" : "cow";
+  const breed = record.breed && String(record.breed).trim() ? String(record.breed).trim() : null;
+  const tagId = record.tagNo && String(record.tagNo).trim() ? String(record.tagNo).trim() : null;
+
+  /* Lactation mapping:
+   *   lactating -> milking
+   *   dry -> dry
+   *   pregnant -> dry
+   * Note: The cloud schema has no pregnancy status. pregnant -> dry is a schema-compatible
+   * fallback because the existing local and cloud status models do not represent pregnancy equivalently.
+   * Unknown/missing -> fallback 'heifer' (cloud check constraint requires one of heifer|milking|dry)
+   */
+  const rawLact = String(record.lactationStatus || "").trim().toLowerCase();
+  let currentStatus = "heifer";
+  if (rawLact === "lactating") {
+    currentStatus = "milking";
+  } else if (rawLact === "dry" || rawLact === "pregnant") {
+    currentStatus = "dry";
+  } else if (rawLact === "heifer") {
+    currentStatus = "heifer";
+  }
+
+  return {
+    clientUuid,
+    name,
+    species,
+    breed,
+    tagId,
+    currentStatus,
+    dob: null,
+    acquisitionDate: null,
+    acquisitionSource: null,
+    notes: null,
+  };
+}
+
+export function normalizeGoatAnimal(record) {
+  if (!record || typeof record !== "object") {
+    throw new HttpError(400, "Invalid goat/sheep animal data");
+  }
+  const clientUuid = record.id != null ? String(record.id).trim() : "";
+  if (!clientUuid) {
+    throw new HttpError(400, "Animal id is required");
+  }
+  const name = record.name != null ? String(record.name).trim() : "";
+  if (!name) {
+    throw new HttpError(400, `Animal name is required for id "${clientUuid}"`);
+  }
+
+  const enterprise = String(record.enterprise || "goat").trim().toLowerCase();
+  const species = enterprise === "sheep" ? "sheep" : "goat";
+
+  const rawGender = String(record.gender || "").trim().toLowerCase();
+  let sex = "unknown";
+  if (rawGender === "female") {
+    sex = "female";
+  } else if (rawGender === "male") {
+    sex = "male";
+  }
+
+  const breed = record.breed && String(record.breed).trim() ? String(record.breed).trim() : null;
+  const tagId = record.tagNo && String(record.tagNo).trim() ? String(record.tagNo).trim() : null;
+
+  /* Approved age mapping:
+   *   age <= 6 months -> kid
+   *   6 < age <= 12 -> grower
+   *   age > 12 and male -> breeding
+   *   age > 12 and female -> milking
+   * Invalid/missing age -> approved fallback 'kid' (cloud table default)
+   */
+  const age = Number(record.ageMonths);
+  let currentStatus = "kid";
+  if (!Number.isNaN(age) && age > 0) {
+    if (age <= 6) {
+      currentStatus = "kid";
+    } else if (age <= 12) {
+      currentStatus = "grower";
+    } else {
+      currentStatus = sex === "male" ? "breeding" : "milking";
+    }
+  }
+
+  return {
+    clientUuid,
+    name,
+    species,
+    sex,
+    breed,
+    tagId,
+    currentStatus,
+    dob: null,
+    acquisitionDate: null,
+    acquisitionSource: null,
+    notes: null,
+  };
+}
+
+export function normalizePigAnimal(record) {
+  if (!record || typeof record !== "object") {
+    throw new HttpError(400, "Invalid pig animal data");
+  }
+  const clientUuid = record.id != null ? String(record.id).trim() : "";
+  if (!clientUuid) {
+    throw new HttpError(400, "Animal id is required");
+  }
+  const name = record.name != null ? String(record.name).trim() : "";
+  if (!name) {
+    throw new HttpError(400, `Animal name is required for id "${clientUuid}"`);
+  }
+
+  const rawGender = String(record.gender || "").trim().toLowerCase();
+  const age = Number(record.ageMonths);
+
+  /* Sex mapping:
+   *   male -> boar
+   *   female and age > 7 -> sow
+   *   female and age <= 7 -> gilt
+   *   missing/invalid -> unknown
+   */
+  let sex = "unknown";
+  if (rawGender === "male") {
+    sex = "boar";
+  } else if (rawGender === "female") {
+    sex = (!Number.isNaN(age) && age > 7) ? "sow" : "gilt";
+  }
+
+  const breed = record.breed && String(record.breed).trim() ? String(record.breed).trim() : null;
+  const tagId = record.tagNo && String(record.tagNo).trim() ? String(record.tagNo).trim() : null;
+
+  /* Approved current_status mapping:
+   *   age <= 2 -> piglet
+   *   2 < age <= 5 -> grower
+   *   5 < age <= 8 -> finisher
+   *   age > 8 -> breeder
+   * Invalid/missing age -> approved fallback 'piglet' (cloud table default)
+   */
+  let currentStatus = "piglet";
+  if (!Number.isNaN(age) && age > 0) {
+    if (age <= 2) {
+      currentStatus = "piglet";
+    } else if (age <= 5) {
+      currentStatus = "grower";
+    } else if (age <= 8) {
+      currentStatus = "finisher";
+    } else {
+      currentStatus = "breeder";
+    }
+  }
+
+  return {
+    clientUuid,
+    name,
+    sex,
+    breed,
+    tagId,
+    currentStatus,
+    dob: null,
+    acquisitionDate: null,
+    acquisitionSource: null,
+    notes: null,
+  };
+}
+
+export function getNormalizerForEnterprise(enterprise) {
+  const e = String(enterprise || "").toLowerCase().trim();
+  if (e === "dairy") return normalizeDairyAnimal;
+  if (e === "goat" || e === "sheep") return normalizeGoatAnimal;
+  if (e === "pig") return normalizePigAnimal;
+  throw new HttpError(400, `Unsupported livestock enterprise "${enterprise}". Supported: dairy, goat, sheep, pig`);
+}
+
+export function diffAnimal(enterprise, local, cloud) {
+  const diffs = [];
+  const check = (field, localVal, cloudVal) => {
+    const l = localVal == null ? null : String(localVal).trim();
+    const c = cloudVal == null ? null : String(cloudVal).trim();
+    if (l !== c) {
+      diffs.push({ field, local: localVal, cloud: cloudVal });
+    }
+  };
+
+  check("name", local.name, cloud.name);
+  if (enterprise === "dairy" || enterprise === "goat" || enterprise === "sheep") {
+    check("species", local.species, cloud.species);
+  }
+  if (enterprise === "goat" || enterprise === "sheep" || enterprise === "pig") {
+    check("sex", local.sex, cloud.sex);
+  }
+  check("breed", local.breed, cloud.breed);
+  check("tag_id", local.tagId, cloud.tag_id);
+  check("current_status", local.currentStatus, cloud.current_status);
+
+  return diffs;
+}
+
+export async function previewLivestock(sql, membership, payload = {}) {
+  const { spaceId, enterprise, animals } = payload;
+
+  if (spaceId && String(spaceId) !== String(membership.space_id)) {
+    throw new HttpError(400, "Target Farm Space mismatch");
+  }
+
+  const e = String(enterprise || "").toLowerCase().trim();
+  const normalizer = getNormalizerForEnterprise(e);
+  await assertLivestockModuleEnabled(sql, membership.space_id, e);
+
+  if (!Array.isArray(animals)) {
+    throw new HttpError(400, "animals must be an array");
+  }
+
+  const targetTable = ENTERPRISE_TABLE_MAP[e];
+
+  if (animals.length === 0) {
+    return {
+      spaceId: membership.space_id,
+      enterprise: e,
+      targetTable,
+      summary: { total: 0, newCount: 0, sameCount: 0, diffCount: 0, conflictCount: 0 },
+      items: [],
+    };
+  }
+
+  const normalized = animals.map(normalizer);
+  const clientUuids = normalized.map((a) => a.clientUuid);
+
+  let existingRows = [];
+  if (e === "dairy") {
+    existingRows = await sql`
+      select id, space_id, name, species, breed, tag_id, current_status, client_uuid
+      from dairy_animals
+      where client_uuid = any(${clientUuids}) and deleted_at is null
+    `;
+  } else if (e === "goat" || e === "sheep") {
+    existingRows = await sql`
+      select id, space_id, name, species, sex, breed, tag_id, current_status, client_uuid
+      from goat_animals
+      where client_uuid = any(${clientUuids}) and deleted_at is null
+    `;
+  } else if (e === "pig") {
+    existingRows = await sql`
+      select id, space_id, name, breed, sex, tag_id, current_status, client_uuid
+      from pig_animals
+      where client_uuid = any(${clientUuids}) and deleted_at is null
+    `;
+  }
+
+  const existingMap = new Map();
+  for (const row of existingRows) {
+    existingMap.set(row.client_uuid, row);
+  }
+
+  const items = [];
+  let newCount = 0;
+  let sameCount = 0;
+  let diffCount = 0;
+  let conflictCount = 0;
+
+  for (const local of normalized) {
+    const cloud = existingMap.get(local.clientUuid);
+
+    if (!cloud) {
+      newCount++;
+      items.push({
+        clientUuid: local.clientUuid,
+        name: local.name,
+        status: "NEW",
+        local,
+        cloud: null,
+        diffs: [],
+      });
+    } else if (String(cloud.space_id) !== String(membership.space_id)) {
+      conflictCount++;
+      items.push({
+        clientUuid: local.clientUuid,
+        name: local.name,
+        status: "CONFLICT_OTHER_SPACE",
+        error: "Animal is already linked to another Farm Space",
+        local,
+        cloud: { id: cloud.id, space_id: cloud.space_id, name: cloud.name },
+        diffs: [],
+      });
+    } else {
+      const diffs = diffAnimal(e, local, cloud);
+      if (diffs.length === 0) {
+        sameCount++;
+        items.push({
+          clientUuid: local.clientUuid,
+          name: local.name,
+          status: "EXISTS_SAME",
+          local,
+          cloud,
+          diffs: [],
+        });
+      } else {
+        diffCount++;
+        items.push({
+          clientUuid: local.clientUuid,
+          name: local.name,
+          status: "EXISTS_DIFF",
+          local,
+          cloud,
+          diffs,
+        });
+      }
+    }
+  }
+
+  return {
+    spaceId: membership.space_id,
+    enterprise: e,
+    targetTable,
+    summary: {
+      total: normalized.length,
+      newCount,
+      sameCount,
+      diffCount,
+      conflictCount,
+    },
+    items,
+  };
+}
+
+export async function publishLivestock(sql, membership, actorUserId, payload = {}) {
+  const { spaceId, enterprise, animals, overwrite = false } = payload;
+
+  if (spaceId && String(spaceId) !== String(membership.space_id)) {
+    throw new HttpError(400, "Target Farm Space mismatch");
+  }
+
+  const e = String(enterprise || "").toLowerCase().trim();
+  const normalizer = getNormalizerForEnterprise(e);
+  await assertLivestockModuleEnabled(sql, membership.space_id, e);
+
+  if (!Array.isArray(animals)) {
+    throw new HttpError(400, "animals must be an array");
+  }
+
+  const targetTable = ENTERPRISE_TABLE_MAP[e];
+
+  if (animals.length === 0) {
+    return {
+      success: true,
+      spaceId: membership.space_id,
+      enterprise: e,
+      targetTable,
+      created: [],
+      updated: [],
+      skipped: [],
+      total: 0,
+    };
+  }
+
+  const normalized = animals.map(normalizer);
+  const clientUuids = normalized.map((a) => a.clientUuid);
+
+  const runInTx = typeof sql.begin === "function" ? (fn) => sql.begin(fn) : (fn) => fn(sql);
+
+  const results = await runInTx(async (tx) => {
+    let existingRows = [];
+    if (e === "dairy") {
+      existingRows = await tx`
+        select id, space_id, name, species, breed, tag_id, current_status, client_uuid
+        from dairy_animals
+        where client_uuid = any(${clientUuids}) and deleted_at is null
+      `;
+    } else if (e === "goat" || e === "sheep") {
+      existingRows = await tx`
+        select id, space_id, name, species, sex, breed, tag_id, current_status, client_uuid
+        from goat_animals
+        where client_uuid = any(${clientUuids}) and deleted_at is null
+      `;
+    } else if (e === "pig") {
+      existingRows = await tx`
+        select id, space_id, name, breed, sex, tag_id, current_status, client_uuid
+        from pig_animals
+        where client_uuid = any(${clientUuids}) and deleted_at is null
+      `;
+    }
+
+    const existingMap = new Map();
+    for (const row of existingRows) {
+      existingMap.set(row.client_uuid, row);
+    }
+
+    // Strict cross-space isolation check: rollback entire transaction if any animal belongs elsewhere
+    for (const item of normalized) {
+      const existing = existingMap.get(item.clientUuid);
+      if (existing && String(existing.space_id) !== String(membership.space_id)) {
+        throw new HttpError(409, `Cross-space publish rejected: animal "${item.name}" already belongs to another Farm Space`);
+      }
+    }
+
+    const created = [];
+    const updated = [];
+    const skipped = [];
+
+    for (const local of normalized) {
+      const cloud = existingMap.get(local.clientUuid);
+
+      if (!cloud) {
+        let inserted = null;
+        if (e === "dairy") {
+          const rows = await tx`
+            insert into dairy_animals
+              (space_id, name, species, breed, tag_id, current_status, client_uuid, created_by)
+            values (
+              ${membership.space_id}, ${local.name}, ${local.species}, ${local.breed},
+              ${local.tagId}, ${local.currentStatus}, ${local.clientUuid}, ${actorUserId}
+            )
+            returning id, space_id, name, client_uuid
+          `;
+          inserted = rows[0];
+        } else if (e === "goat" || e === "sheep") {
+          const rows = await tx`
+            insert into goat_animals
+              (space_id, name, species, sex, breed, tag_id, current_status, client_uuid, created_by)
+            values (
+              ${membership.space_id}, ${local.name}, ${local.species}, ${local.sex}, ${local.breed},
+              ${local.tagId}, ${local.currentStatus}, ${local.clientUuid}, ${actorUserId}
+            )
+            returning id, space_id, name, client_uuid
+          `;
+          inserted = rows[0];
+        } else if (e === "pig") {
+          const rows = await tx`
+            insert into pig_animals
+              (space_id, name, sex, breed, tag_id, current_status, client_uuid, created_by)
+            values (
+              ${membership.space_id}, ${local.name}, ${local.sex}, ${local.breed},
+              ${local.tagId}, ${local.currentStatus}, ${local.clientUuid}, ${actorUserId}
+            )
+            returning id, space_id, name, client_uuid
+          `;
+          inserted = rows[0];
+        }
+
+        created.push({
+          id: inserted.id,
+          clientUuid: inserted.client_uuid,
+          name: inserted.name,
+        });
+      } else {
+        const diffs = diffAnimal(e, local, cloud);
+
+        if (diffs.length === 0) {
+          skipped.push({
+            id: cloud.id,
+            clientUuid: cloud.client_uuid,
+            name: cloud.name,
+            reason: "already_synced",
+          });
+        } else if (overwrite) {
+          let updatedRow = null;
+          if (e === "dairy") {
+            const rows = await tx`
+              update dairy_animals set
+                name = ${local.name},
+                species = ${local.species},
+                breed = ${local.breed},
+                tag_id = ${local.tagId},
+                current_status = ${local.currentStatus},
+                updated_at = now()
+              where id = ${cloud.id} and space_id = ${membership.space_id}
+              returning id, space_id, name, client_uuid
+            `;
+            updatedRow = rows[0];
+          } else if (e === "goat" || e === "sheep") {
+            const rows = await tx`
+              update goat_animals set
+                name = ${local.name},
+                species = ${local.species},
+                sex = ${local.sex},
+                breed = ${local.breed},
+                tag_id = ${local.tagId},
+                current_status = ${local.currentStatus},
+                updated_at = now()
+              where id = ${cloud.id} and space_id = ${membership.space_id}
+              returning id, space_id, name, client_uuid
+            `;
+            updatedRow = rows[0];
+          } else if (e === "pig") {
+            const rows = await tx`
+              update pig_animals set
+                name = ${local.name},
+                sex = ${local.sex},
+                breed = ${local.breed},
+                tag_id = ${local.tagId},
+                current_status = ${local.currentStatus},
+                updated_at = now()
+              where id = ${cloud.id} and space_id = ${membership.space_id}
+              returning id, space_id, name, client_uuid
+            `;
+            updatedRow = rows[0];
+          }
+
+          updated.push({
+            id: updatedRow.id,
+            clientUuid: updatedRow.client_uuid,
+            name: updatedRow.name,
+          });
+        } else {
+          skipped.push({
+            id: cloud.id,
+            clientUuid: cloud.client_uuid,
+            name: cloud.name,
+            reason: "exists_diff_no_overwrite",
+          });
+        }
+      }
+    }
+
+    return { created, updated, skipped };
+  });
+
+  await audit(sql, {
+    spaceId: membership.space_id,
+    actorUserId,
+    action: "bridge.publish_livestock",
+    targetType: targetTable,
+    meta: {
+      enterprise: e,
+      total: normalized.length,
+      createdCount: results.created.length,
+      updatedCount: results.updated.length,
+      skippedCount: results.skipped.length,
+      clientUuids,
+    },
+  });
+
+  return {
+    success: true,
+    spaceId: membership.space_id,
+    enterprise: e,
+    targetTable,
+    created: results.created,
+    updated: results.updated,
+    skipped: results.skipped,
+    total: normalized.length,
+  };
+}

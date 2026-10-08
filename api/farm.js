@@ -597,9 +597,13 @@ const ACTIONS = {
   /* Field metrics */
   "crop.metrics":             { permission: "farm.crop.view",    run: ({ sql, membership })                  => crop.fieldMetrics(sql, membership) },
 
-  /* Local ERP ↔ Cloud Farm Space Bridge */
+  /* Local ERP ↔ Cloud Farm Space Bridge — Parcels */
   "bridge.preview":           { permission: "farm.crop.manage",  run: ({ sql, membership, payload })          => bridge.preview(sql, membership, payload) },
   "bridge.publishFields":     { permission: "farm.crop.manage",  run: ({ sql, membership, user, payload })    => bridge.publishFields(sql, membership, user.id, payload) },
+
+  /* Local ERP ↔ Cloud Farm Space Bridge — Livestock */
+  "bridge.previewLivestock":   { permission: (payload) => bridge.getLivestockPermission(payload?.enterprise), run: ({ sql, membership, payload })       => bridge.previewLivestock(sql, membership, payload) },
+  "bridge.publishLivestock":   { permission: (payload) => bridge.getLivestockPermission(payload?.enterprise), run: ({ sql, membership, user, payload }) => bridge.publishLivestock(sql, membership, user.id, payload) },
 
   /* Fields */
   "crop.fields.list":         { permission: "farm.crop.view",    run: ({ sql, membership, payload })          => crop.listFields(sql, membership, payload) },
@@ -690,7 +694,8 @@ export default async function handler(req, res) {
     if (route.space === false) {
       user = await requireUserRow(req, sql);
     } else {
-      ({ user, membership } = await authorize(req, sql, { spaceId, permission: route.permission }));
+      const requiredPerm = typeof route.permission === "function" ? route.permission(payload) : route.permission;
+      ({ user, membership } = await authorize(req, sql, { spaceId, permission: requiredPerm }));
       await touchPresence(sql, membership, user.id);
     }
 

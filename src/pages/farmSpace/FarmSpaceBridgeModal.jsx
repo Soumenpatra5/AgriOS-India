@@ -5,16 +5,42 @@ import { Button, Spinner } from "../../components/index.js";
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceBridgeService } from "../../services/farmSpace/farmSpaceBridgeService.js";
 
+const DOMAINS = [
+  { id: "parcels", label: { en: "Land Parcels", hi: "भूमि खंड", bn: "জমির প্লট" }, icon: "Layers", module: "cropDashboard" },
+  { id: "dairy", label: { en: "Dairy Herd", hi: "डेयरी झुंड", bn: "ডেয়ারি পাল" }, icon: "Milk", module: "dairyDashboard" },
+  { id: "goat", label: { en: "Goats & Sheep", hi: "बकरी और भेड़", bn: "ছাগল ও ভেড়া" }, icon: "Rabbit", module: "goatDashboard" },
+  { id: "pig", label: { en: "Swine / Pigs", hi: "सूअर", bn: "শূকর" }, icon: "PiggyBank", module: "pigDashboard" },
+];
+
+function renderItemSubtitle(domain, local) {
+  if (!local) return "—";
+  if (domain === "parcels") {
+    const parts = [];
+    if (local.area != null) parts.push(`${local.area} ${local.areaUnit || ""}`.trim());
+    if (local.currentCrop) parts.push(local.currentCrop);
+    if (local.soilType) parts.push(local.soilType);
+    return parts.length ? parts.join(" · ") : "—";
+  }
+  const parts = [];
+  if (local.species) parts.push(local.species);
+  if (local.sex && local.sex !== "unknown") parts.push(local.sex);
+  if (local.breed) parts.push(local.breed);
+  if (local.tagId) parts.push(`#${local.tagId}`);
+  if (local.currentStatus) parts.push(local.currentStatus);
+  return parts.length ? parts.join(" · ") : "—";
+}
+
 /**
  * FarmSpaceBridgeModal
  *
- * Explicit, user-initiated bridge to publish device-local ERP land parcels into the
- * active Farm Space without merging identities, touching employee data, or deleting
+ * Explicit, user-initiated bridge to publish device-local ERP data (parcels & livestock)
+ * into the active Farm Space without merging identities, touching employee data, or deleting
  * local records.
  */
 export default function FarmSpaceBridgeModal({ open, onClose, space }) {
   const { tc, toast } = useApp();
 
+  const [domain, setDomain] = useState("parcels");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [parcels, setParcels] = useState([]);
@@ -25,7 +51,21 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState(null);
 
-  // Reset and reload when modal opens or target space changes
+  const activeDomainDef = DOMAINS.find((d) => d.id === domain) || DOMAINS[0];
+
+  const isModuleDisabled = useMemo(() => {
+    if (!space?.modules || !activeDomainDef.module) return false;
+    if (Array.isArray(space.modules)) {
+      if (typeof space.modules[0] === "string") {
+        return !space.modules.includes(activeDomainDef.module);
+      }
+      const m = space.modules.find((mod) => (mod.module_id || mod.id) === activeDomainDef.module);
+      return m ? m.enabled === false : false;
+    }
+    return false;
+  }, [space?.modules, activeDomainDef]);
+
+  // Reset and reload when modal opens, target space changes, or domain changes
   const runPreview = useCallback(async () => {
     if (!space?.id) return;
     setLoading(true);
@@ -36,18 +76,37 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
     setResult(null);
 
     try {
-      const localParcels = await farmSpaceBridgeService.getLocalParcels();
-      setParcels(localParcels);
+      let localItems = [];
+      let previewRes = null;
 
-      if (localParcels.length === 0) {
-        setLoading(false);
-        return;
+      if (domain === "parcels") {
+        localItems = await farmSpaceBridgeService.getLocalParcels();
+        setParcels(localItems);
+
+        if (localItems.length === 0) {
+          setLoading(false);
+          return;
+        }
+
+        previewRes = await farmSpaceBridgeService.preview({
+          spaceId: space.id,
+          parcels: localItems,
+        });
+      } else {
+        localItems = await farmSpaceBridgeService.getLocalAnimals(domain);
+        setParcels(localItems);
+
+        if (localItems.length === 0) {
+          setLoading(false);
+          return;
+        }
+
+        previewRes = await farmSpaceBridgeService.previewLivestock({
+          spaceId: space.id,
+          enterprise: domain,
+          animals: localItems,
+        });
       }
-
-      const previewRes = await farmSpaceBridgeService.preview({
-        spaceId: space.id,
-        parcels: localParcels,
-      });
 
       setPreview(previewRes);
 
@@ -64,7 +123,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
     } finally {
       setLoading(false);
     }
-  }, [space?.id]);
+  }, [space?.id, domain]);
 
   useEffect(() => {
     if (open) {
@@ -81,7 +140,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
   }, [open, runPreview]);
 
   const toggleSelect = (id) => {
-    // Prevent selecting parcels already belonging to another Farm Space
+    // Prevent selecting items already belonging to another Farm Space
     const isConflict = (preview?.items || []).some(
       (item) => item.clientUuid === id && item.status === "CONFLICT_OTHER_SPACE"
     );
@@ -121,18 +180,29 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
     setError(null);
 
     try {
-      const res = await farmSpaceBridgeService.publish({
-        spaceId: space.id,
-        parcels: selectedParcels,
-        overwrite: overwriteDiffs,
-      });
+      let res = null;
+      if (domain === "parcels") {
+        res = await farmSpaceBridgeService.publish({
+          spaceId: space.id,
+          parcels: selectedParcels,
+          overwrite: overwriteDiffs,
+        });
+      } else {
+        res = await farmSpaceBridgeService.publishLivestock({
+          spaceId: space.id,
+          enterprise: domain,
+          animals: selectedParcels,
+          overwrite: overwriteDiffs,
+        });
+      }
       setResult(res);
       setConfirming(false);
+      const entityLabel = domain === "parcels" ? "parcel(s)" : "animal(s)";
       toast(
         tc({
-          en: `Published ${res.created.length} parcel(s) to ${space.name}`,
-          hi: `${space.name} में ${res.created.length} खंड प्रकाशित किए गए`,
-          bn: `${space.name}-এ ${res.created.length}টি প্লট প্রকাশ করা হয়েছে`,
+          en: `Published ${res.created.length} ${entityLabel} to ${space.name}`,
+          hi: `${space.name} में ${res.created.length} प्रकाशित किए गए`,
+          bn: `${space.name}-এ ${res.created.length}টি প্রকাশ করা হয়েছে`,
         }),
         "success"
       );
@@ -197,7 +267,9 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
               {tc({ en: "Bridge Local ERP Data", hi: "स्थानीय ईआरपी डेटा ब्रिज करें", bn: "স্থানীয় ইআরপি ডেটা ব্রিজ করুন" })}
             </div>
             <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 2 }}>
-              {tc({ en: "Phase 1: Land Parcels → Farm Fields", hi: "चरण 1: भूमि खंड → फ़ार्म फ़ील्ड्स", bn: "পর্যায় ১: জমির প্লট → ফার্ম ফিল্ড" })}
+              {domain === "parcels"
+                ? tc({ en: "Phase 1: Land Parcels → Farm Fields", hi: "चरण 1: भूमि खंड → फ़ार्म फ़ील्ड्स", bn: "পর্যায় ১: জমির প্লট → ফার্ম ফিল্ড" })
+                : tc({ en: `Phase 2: ${activeDomainDef.label.en} → Cloud Livestock`, hi: `चरण 2: ${tc(activeDomainDef.label)} → क्लाउड पशुधन`, bn: `পর্যায় ২: ${tc(activeDomainDef.label)} → ক্লাউড পশুসম্পদ` })}
             </div>
           </div>
           <button
@@ -216,6 +288,51 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
           >
             <Icon name="X" size={18} />
           </button>
+        </div>
+
+        {/* ── Enterprise / Domain Tabs ── */}
+        <div
+          data-testid="bridge-domain-tabs"
+          style={{
+            display: "flex",
+            gap: 4,
+            padding: "8px 16px 0",
+            background: T.surface2,
+            borderBottom: `1px solid ${T.line}`,
+            overflowX: "auto",
+          }}
+        >
+          {DOMAINS.map((d) => {
+            const active = domain === d.id;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                data-testid={`bridge-tab-${d.id}`}
+                onClick={() => {
+                  if (loading || publishing) return;
+                  setDomain(d.id);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 12px",
+                  border: "none",
+                  borderBottom: active ? `2px solid ${T.primary}` : "2px solid transparent",
+                  background: "none",
+                  cursor: (loading || publishing) ? "not-allowed" : "pointer",
+                  fontWeight: active ? 700 : 500,
+                  fontSize: 12.5,
+                  color: active ? T.primary : T.inkSoft,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Icon name={d.icon} size={14} color={active ? T.primary : T.inkFaint} />
+                {tc(d.label)}
+              </button>
+            );
+          })}
         </div>
 
         {/* ── Target Space & Warning Banner ── */}
@@ -240,13 +357,44 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
           </div>
           <div style={{ fontSize: 12, color: T.inkSoft, lineHeight: 1.45 }}>
             <Icon name="AlertTriangle" size={13} style={{ display: "inline", verticalAlign: "-2px", marginRight: 4, color: T.amber }} />
-            {tc({
-              en: "Publishing copies your device-local land parcels into this shared Farm Space. Local ERP records are never modified or deleted.",
-              hi: "प्रकाशन से आपके स्थानीय भूमि खंड इस साझा फ़ार्म स्पेस में कॉपी होते हैं। स्थानीय रिकॉर्ड कभी नहीं बदले जाते।",
-              bn: "প্রকাশ করার মাধ্যমে আপনার স্থানীয় জমির প্লট এই শেয়ার্ড ফার্ম স্পেসে কপি হবে। স্থানীয় রেকর্ড পরিবর্তিত বা মোছা হবে না।",
-            })}
+            {domain === "parcels"
+              ? tc({
+                  en: "Publishing copies your device-local land parcels into this shared Farm Space. Local ERP records are never modified or deleted.",
+                  hi: "प्रकाशन से आपके स्थानीय भूमि खंड इस साझा फ़ार्म स्पेस में कॉपी होते हैं। स्थानीय रिकॉर्ड कभी नहीं बदले जाते।",
+                  bn: "প্রকাশ করার মাধ্যমে আপনার স্থানীয় জমির প্লট এই শেয়ার্ড ফার্ম স্পেসে কপি হবে। স্থানীয় রেকর্ড পরিবর্তিত বা মোছা হবে না।",
+                })
+              : tc({
+                  en: "Publishing copies your device-local animals into this shared Farm Space. Local ERP records are never modified or deleted.",
+                  hi: "प्रकाशन से आपके स्थानीय पशु इस साझा फ़ार्म स्पेस में कॉपी होते हैं। स्थानीय रिकॉर्ड कभी नहीं बदले जाते।",
+                  bn: "প্রকাশ করার মাধ্যমে আপনার স্থানীয় পশু এই শেয়ার্ড ফার্ম স্পেসে কপি হবে। স্থানীয় রেকর্ড পরিবর্তিত বা মোছা হবে না।",
+                })}
           </div>
         </div>
+
+        {isModuleDisabled && (
+          <div
+            data-testid="bridge-module-disabled-banner"
+            style={{
+              padding: "10px 16px",
+              background: T.amberSoft,
+              borderBottom: `1px solid ${T.amber}`,
+              color: T.ink,
+              fontSize: 12.5,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <Icon name="AlertTriangle" size={15} color={T.amber} />
+            <span>
+              {tc({
+                en: `The ${tc(activeDomainDef.label)} module is disabled in this Farm Space. Bridge operations will be rejected until enabled in Settings.`,
+                hi: `इस फ़ार्म स्पेस में ${tc(activeDomainDef.label)} मॉड्यूल अक्षम है। सेटिंग्स में सक्षम किए बिना ब्रिज संचालन अस्वीकार कर दिया जाएगा।`,
+                bn: `এই ফার্ম স্পেসে ${tc(activeDomainDef.label)} মডিউল নিষ্ক্রিয়। সেটিংসে সক্রিয় না করা পর্যন্ত ব্রিজ পরিচালনা প্রত্যাখ্যান করা হবে।`,
+              })}
+            </span>
+          </div>
+        )}
 
         {/* ── Modal Content Area ── */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
@@ -254,7 +402,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
             <div style={{ padding: 40, display: "grid", placeItems: "center", gap: 12 }}>
               <Spinner />
               <div style={{ fontSize: 13, color: T.inkSoft }}>
-                {tc({ en: "Evaluating parcels against Farm Space...", hi: "फ़ार्म स्पेस के विरुद्ध खंडों की जाँच हो रही है...", bn: "ফার্ম স্পেসের সাথে প্লট যাচাই করা হচ্ছে..." })}
+                {tc({ en: `Evaluating ${domain === "parcels" ? "parcels" : "animals"} against Farm Space...`, hi: `फ़ार्म स्पेस के विरुद्ध जाँच हो रही है...`, bn: `ফার্ম স্পেসের সাথে যাচাই করা হচ্ছে...` })}
               </div>
             </div>
           )}
@@ -285,10 +433,14 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
             <div style={{ padding: 30, textAlign: "center" }}>
               <Icon name="Folder" size={36} style={{ color: T.inkFaint, margin: "0 auto 10px" }} />
               <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>
-                {tc({ en: "No local land parcels found", hi: "कोई स्थानीय भूमि खंड नहीं मिला", bn: "কোনো স্থানীয় জমির প্লট পাওয়া যায়নি" })}
+                {domain === "parcels"
+                  ? tc({ en: "No local land parcels found", hi: "कोई स्थानीय भूमि खंड नहीं मिला", bn: "কোনো स्थानीय জমির প্লট পাওয়া যায়নি" })
+                  : tc({ en: "No local animals found for this enterprise", hi: "इस उद्यम के लिए कोई स्थानीय पशु नहीं मिले", bn: "এই এন্টারপ্রাইজের জন্য কোনো প্রাণী পাওয়া যায়নি" })}
               </div>
               <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 4 }}>
-                {tc({ en: "Add land parcels in the ERP Land Manager first.", hi: "पहले ईआरपी लैंड मैनेजर में खंड जोड़ें।", bn: "প্রথমে ইআরপি ল্যান্ড ম্যানেজারে প্লট যোগ করুন।" })}
+                {domain === "parcels"
+                  ? tc({ en: "Add land parcels in the ERP Land Manager first.", hi: "पहले ईआरपी लैंड मैनेजर में खंड जोड़ें।", bn: "প্রথমে ইআরপি ল্যান্ড ম্যানেজারে প্লট যোগ করুন।" })
+                  : tc({ en: "Add animals in the local Livestock register first.", hi: "पहले स्थानीय पशुधन रजिस्टर में जोड़ें।", bn: "প্রথমে স্থানীয় পশুসম্পদ রেজিস্ট্রারে যোগ করুন।" })}
               </div>
             </div>
           )}
@@ -315,9 +467,9 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
               </div>
               <div style={{ fontSize: 13, color: T.inkSoft, marginTop: 4, marginBottom: 20 }}>
                 {tc({
-                  en: `Processed ${result.total} parcel(s) for ${space?.name}`,
-                  hi: `${space?.name} के लिए ${result.total} खंड संसाधित किए गए`,
-                  bn: `${space?.name}-এর জন্য ${result.total}টি প্লট প্রক্রিয়া সম্পন্ন`,
+                  en: `Processed ${result.total} ${domain === "parcels" ? "parcel(s)" : "animal(s)"} for ${space?.name}`,
+                  hi: `${space?.name} के लिए ${result.total} रिकॉर्ड संसाधित किए गए`,
+                  bn: `${space?.name}-এর জন্য ${result.total}টি রেকর্ড প্রক্রিয়া সম্পন্ন`,
                 })}
               </div>
 
@@ -351,7 +503,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
               {result.created.length > 0 && (
                 <div style={{ textAlign: "left", marginBottom: 16 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: T.inkFaint, marginBottom: 6 }}>
-                    {tc({ en: "Newly Created Fields:", hi: "नए बनाए गए फ़ील्ड्स:", bn: "নতুন তৈরি ফিল্ড:" })}
+                    {tc({ en: `Newly Created ${domain === "parcels" ? "Fields" : "Animals"}:`, hi: "नए बनाए गए रिकॉर्ड्स:", bn: "নতুন তৈরি রেকর্ড:" })}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {result.created.map((c) => (
@@ -383,9 +535,9 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
               </div>
               <div style={{ fontSize: 13.5, color: T.inkSoft, lineHeight: 1.5, marginBottom: 16 }}>
                 {tc({
-                  en: `You are about to publish ${selectedCount} selected local land parcel(s) into "${space?.name}".`,
-                  hi: `आप ${selectedCount} चयनित स्थानीय भूमि खंड "${space?.name}" में प्रकाशित करने वाले हैं।`,
-                  bn: `আপনি ${selectedCount}টি নির্বাচিত স্থানীয় জমির প্লট "${space?.name}"-এ প্রকাশ করতে যাচ্ছেন।`,
+                  en: `You are about to publish ${selectedCount} selected local ${domain === "parcels" ? "land parcel(s)" : "animal(s)"} into "${space?.name}".`,
+                  hi: `आप ${selectedCount} चयनित स्थानीय ${domain === "parcels" ? "भूमि खंड" : "पशु"} "${space?.name}" में प्रकाशित करने वाले हैं।`,
+                  bn: `আপনি ${selectedCount}টি নির্বাচিত স্থানীয় ${domain === "parcels" ? "জমির প্লট" : "পশু"} "${space?.name}"-এ প্রকাশ করতে যাচ্ছেন।`,
                 })}
               </div>
 
@@ -404,9 +556,9 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
                   </div>
                   <div style={{ fontSize: 12, color: T.inkSoft, marginBottom: 10 }}>
                     {tc({
-                      en: "Some selected parcels exist in the cloud with different attributes.",
-                      hi: "कुछ चयनित खंड क्लाउड में भिन्न विशेषताओं के साथ मौजूद हैं।",
-                      bn: "কিছু নির্বাচিত প্লট ক্লাউডে ভিন্ন বৈশিষ্ট্যে বিদ্যমান।",
+                      en: `Some selected ${domain === "parcels" ? "parcels" : "animals"} exist in the cloud with different attributes.`,
+                      hi: `कुछ चयनित ${domain === "parcels" ? "खंड" : "पशु"} क्लाउड में भिन्न विशेषताओं के साथ मौजूद हैं।`,
+                      bn: `কিছু নির্বাচিত ${domain === "parcels" ? "প্লট" : "পশু"} ক্লাউডে ভিন্ন বৈশিষ্ট্যে বিদ্যমান।`,
                     })}
                   </div>
                   <label
@@ -469,7 +621,11 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
                 <div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: T.green, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                      {tc({ en: `New Parcels (${newItems.length})`, hi: `नए खंड (${newItems.length})`, bn: `নতুন প্লট (${newItems.length})` })}
+                      {tc({
+                        en: `New ${domain === "parcels" ? "Parcels" : "Animals"} (${newItems.length})`,
+                        hi: `नए ${domain === "parcels" ? "खंड" : "पशु"} (${newItems.length})`,
+                        bn: `নতুন ${domain === "parcels" ? "প্লট" : "পশু"} (${newItems.length})`,
+                      })}
                     </div>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -504,9 +660,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
                               {item.name}
                             </div>
                             <div style={{ fontSize: 12, color: T.inkSoft }}>
-                              {item.local.area != null ? `${item.local.area} ${item.local.areaUnit}` : "—"}
-                              {item.local.currentCrop ? ` · ${item.local.currentCrop}` : ""}
-                              {item.local.soilType ? ` · ${item.local.soilType}` : ""}
+                              {renderItemSubtitle(domain, item.local)}
                             </div>
                           </div>
                           <span
@@ -616,7 +770,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
                             {item.name}
                           </div>
                           <div style={{ fontSize: 12, color: T.inkSoft }}>
-                            {item.local.area != null ? `${item.local.area} ${item.local.areaUnit}` : "—"} · Identical
+                            {renderItemSubtitle(domain, item.local)} · Identical
                           </div>
                         </div>
                         <span
