@@ -10,6 +10,9 @@ const DOMAINS = [
   { id: "dairy", label: { en: "Dairy Herd", hi: "डेयरी झुंड", bn: "ডেয়ারি পাল" }, icon: "Milk", module: "dairyDashboard" },
   { id: "goat", label: { en: "Goats & Sheep", hi: "बकरी और भेड़", bn: "ছাগল ও ভেড়া" }, icon: "Rabbit", module: "goatDashboard" },
   { id: "pig", label: { en: "Swine / Pigs", hi: "सूअर", bn: "শূকর" }, icon: "PiggyBank", module: "pigDashboard" },
+  { id: "poultry", label: { en: "Poultry Flocks", hi: "पोल्ट्री झुंड", bn: "হাঁস-মুরগির ঝাঁক" }, icon: "Bird", module: "poultryDashboard" },
+  { id: "fish", label: { en: "Aquaculture Ponds", hi: "मछली तालाब", bn: "মাছের পুকুর" }, icon: "Fish", module: "fishDashboard" },
+  { id: "bee", label: { en: "Apiary Hives", hi: "मधुमक्खी छत्ते", bn: "মৌমাছির বাক্স" }, icon: "Hexagon", module: "beeDashboard" },
 ];
 
 function renderItemSubtitle(domain, local) {
@@ -21,6 +24,32 @@ function renderItemSubtitle(domain, local) {
     if (local.soilType) parts.push(local.soilType);
     return parts.length ? parts.join(" · ") : "—";
   }
+  if (domain === "poultry") {
+    const parts = [];
+    const count = local.placedQty ?? local.count;
+    if (count != null) parts.push(`${count} birds`);
+    if (local.poultryType) parts.push(local.poultryType);
+    if (local.purpose) parts.push(local.purpose);
+    if (local.breed) parts.push(local.breed);
+    return parts.length ? parts.join(" · ") : "—";
+  }
+  if (domain === "fish") {
+    const parts = [];
+    if (local.species) parts.push(local.species);
+    if (local.areaSqm != null) parts.push(`${local.areaSqm} m²`);
+    else if (local.sizeAcres != null) parts.push(`${local.sizeAcres} acres`);
+    if (local.stockingCount != null) parts.push(`${local.stockingCount} stocked`);
+    return parts.length ? parts.join(" · ") : "—";
+  }
+  if (domain === "bee") {
+    const parts = [];
+    if (local.hiveType) parts.push(local.hiveType);
+    if (local.currentStatus) parts.push(local.currentStatus);
+    else if (local.colonyStrength) parts.push(local.colonyStrength);
+    if (local.installationDate) parts.push(local.installationDate);
+    else if (local.installedDate) parts.push(local.installedDate);
+    return parts.length ? parts.join(" · ") : "—";
+  }
   const parts = [];
   if (local.species) parts.push(local.species);
   if (local.sex && local.sex !== "unknown") parts.push(local.sex);
@@ -28,6 +57,22 @@ function renderItemSubtitle(domain, local) {
   if (local.tagId) parts.push(`#${local.tagId}`);
   if (local.currentStatus) parts.push(local.currentStatus);
   return parts.length ? parts.join(" · ") : "—";
+}
+
+function getDomainNoun(domain) {
+  if (domain === "parcels") return "parcel(s)";
+  if (domain === "poultry") return "batch(es)";
+  if (domain === "fish") return "pond(s)";
+  if (domain === "bee") return "hive(s)";
+  return "animal(s)";
+}
+
+function getDomainNounPlural(domain) {
+  if (domain === "parcels") return "Fields";
+  if (domain === "poultry") return "Batches";
+  if (domain === "fish") return "Ponds";
+  if (domain === "bee") return "Hives";
+  return "Animals";
 }
 
 /**
@@ -197,7 +242,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
       }
       setResult(res);
       setConfirming(false);
-      const entityLabel = domain === "parcels" ? "parcel(s)" : "animal(s)";
+      const entityLabel = getDomainNoun(domain);
       toast(
         tc({
           en: `Published ${res.created.length} ${entityLabel} to ${space.name}`,
@@ -269,7 +314,9 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
             <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 2 }}>
               {domain === "parcels"
                 ? tc({ en: "Phase 1: Land Parcels → Farm Fields", hi: "चरण 1: भूमि खंड → फ़ार्म फ़ील्ड्स", bn: "পর্যায় ১: জমির প্লট → ফার্ম ফিল্ড" })
-                : tc({ en: `Phase 2: ${activeDomainDef.label.en} → Cloud Livestock`, hi: `चरण 2: ${tc(activeDomainDef.label)} → क्लाउड पशुधन`, bn: `পর্যায় ২: ${tc(activeDomainDef.label)} → ক্লাউড পশুসম্পদ` })}
+                : ["dairy", "goat", "pig"].includes(domain)
+                ? tc({ en: `Phase 2: ${activeDomainDef.label.en} → Cloud Livestock`, hi: `चरण 2: ${tc(activeDomainDef.label)} → क्लाउड पशुधन`, bn: `পর্যায় ২: ${tc(activeDomainDef.label)} → ক্লাউড পশুসম্পদ` })
+                : tc({ en: `Phase 3: ${activeDomainDef.label.en} → Cloud Register`, hi: `चरण 3: ${tc(activeDomainDef.label)} → क्लाउड रजिस्टर`, bn: `পর্যায় ৩: ${tc(activeDomainDef.label)} → ক্লাউড রেজিস্টার` })}
             </div>
           </div>
           <button
@@ -467,7 +514,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
               </div>
               <div style={{ fontSize: 13, color: T.inkSoft, marginTop: 4, marginBottom: 20 }}>
                 {tc({
-                  en: `Processed ${result.total} ${domain === "parcels" ? "parcel(s)" : "animal(s)"} for ${space?.name}`,
+                  en: `Processed ${result.total} ${getDomainNoun(domain)} for ${space?.name}`,
                   hi: `${space?.name} के लिए ${result.total} रिकॉर्ड संसाधित किए गए`,
                   bn: `${space?.name}-এর জন্য ${result.total}টি রেকর্ড প্রক্রিয়া সম্পন্ন`,
                 })}
@@ -503,7 +550,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
               {result.created.length > 0 && (
                 <div style={{ textAlign: "left", marginBottom: 16 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: T.inkFaint, marginBottom: 6 }}>
-                    {tc({ en: `Newly Created ${domain === "parcels" ? "Fields" : "Animals"}:`, hi: "नए बनाए गए रिकॉर्ड्स:", bn: "নতুন তৈরি রেকর্ড:" })}
+                    {tc({ en: `Newly Created ${getDomainNounPlural(domain)}:`, hi: "नए बनाए गए रिकॉर्ड्स:", bn: "নতুন তৈরি রেকর্ড:" })}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {result.created.map((c) => (
@@ -535,7 +582,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
               </div>
               <div style={{ fontSize: 13.5, color: T.inkSoft, lineHeight: 1.5, marginBottom: 16 }}>
                 {tc({
-                  en: `You are about to publish ${selectedCount} selected local ${domain === "parcels" ? "land parcel(s)" : "animal(s)"} into "${space?.name}".`,
+                  en: `You are about to publish ${selectedCount} selected local ${getDomainNoun(domain)} into "${space?.name}".`,
                   hi: `आप ${selectedCount} चयनित स्थानीय ${domain === "parcels" ? "भूमि खंड" : "पशु"} "${space?.name}" में प्रकाशित करने वाले हैं।`,
                   bn: `আপনি ${selectedCount}টি নির্বাচিত স্থানীয় ${domain === "parcels" ? "জমির প্লট" : "পশু"} "${space?.name}"-এ প্রকাশ করতে যাচ্ছেন।`,
                 })}
@@ -622,7 +669,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: T.green, textTransform: "uppercase", letterSpacing: 0.5 }}>
                       {tc({
-                        en: `New ${domain === "parcels" ? "Parcels" : "Animals"} (${newItems.length})`,
+                        en: `New ${getDomainNounPlural(domain)} (${newItems.length})`,
                         hi: `नए ${domain === "parcels" ? "खंड" : "पशु"} (${newItems.length})`,
                         bn: `নতুন ${domain === "parcels" ? "প্লট" : "পশু"} (${newItems.length})`,
                       })}

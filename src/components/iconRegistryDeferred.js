@@ -30,5 +30,5 @@ export {
   PanelLeftOpen, PanelLeftClose, ToggleLeft, CalendarCheck, GripVertical, GitCompare, Award,
   Fingerprint, MailOpen, UserPlus, UserX,
   Pin, PinOff, CornerUpLeft, SmilePlus,
-  Paperclip, Video,
+  Paperclip, Video, Hexagon,
 } from "lucide-react";

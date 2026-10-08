@@ -47,7 +47,7 @@ export const farmSpaceBridgeService = {
    * Fetches local ERP animals safely without modifying them.
    * For goat/sheep, fetches both species since they share the small-ruminant cloud register.
    * NEVER mutates IndexedDB.
-   * @param {string} enterprise 'dairy' | 'goat' | 'sheep' | 'pig'
+   * @param {string} enterprise 'dairy' | 'goat' | 'sheep' | 'pig' | 'poultry' | 'fish' | 'bee'
    * @returns {Promise<Array>} List of local animal records
    */
   async getLocalAnimals(enterprise) {
@@ -81,7 +81,7 @@ export const farmSpaceBridgeService = {
    * NEVER mutates local animal records.
    * @param {Object} params
    * @param {string} params.spaceId Target Farm Space ID
-   * @param {string} params.enterprise 'dairy' | 'goat' | 'pig'
+   * @param {string} params.enterprise 'dairy' | 'goat' | 'pig' | 'poultry' | 'fish' | 'bee'
    * @param {Array} params.animals Local animal records to evaluate
    * @returns {Promise<Object>} { spaceId, enterprise, summary, items }
    */
@@ -149,7 +149,7 @@ export const farmSpaceBridgeService = {
    * Publishes selected livestock to the target Farm Space.
    * @param {Object} params
    * @param {string} params.spaceId Target Farm Space ID
-   * @param {string} params.enterprise 'dairy' | 'goat' | 'pig'
+   * @param {string} params.enterprise 'dairy' | 'goat' | 'pig' | 'poultry' | 'fish' | 'bee'
    * @param {Array} params.animals Local animal records to publish
    * @param {boolean} params.overwrite Whether to overwrite fields that exist with differences
    * @returns {Promise<Object>} { success, spaceId, enterprise, created, updated, skipped, total }

@@ -492,6 +492,9 @@ export const ENTERPRISE_MODULE_MAP = {
   goat: "goatDashboard",
   sheep: "goatDashboard",
   pig: "pigDashboard",
+  poultry: "poultryDashboard",
+  fish: "fishDashboard",
+  bee: "beeDashboard",
 };
 
 export const ENTERPRISE_TABLE_MAP = {
@@ -499,6 +502,9 @@ export const ENTERPRISE_TABLE_MAP = {
   goat: "goat_animals",
   sheep: "goat_animals",
   pig: "pig_animals",
+  poultry: "poultry_batches",
+  fish: "fish_ponds",
+  bee: "bee_hives",
 };
 
 export function getLivestockPermission(enterprise) {
@@ -506,13 +512,16 @@ export function getLivestockPermission(enterprise) {
   if (e === "dairy") return "farm.dairy.manage";
   if (e === "goat" || e === "sheep") return "farm.goat.manage";
   if (e === "pig") return "farm.pig.manage";
-  throw new HttpError(400, `Unsupported livestock enterprise "${enterprise}". Supported: dairy, goat, sheep, pig`);
+  if (e === "poultry") return "farm.poultry.manage";
+  if (e === "fish") return "farm.fish.manage";
+  if (e === "bee") return "farm.bee.manage";
+  throw new HttpError(400, `Unsupported livestock enterprise "${enterprise}". Supported: dairy, goat, sheep, pig, poultry, fish, bee`);
 }
 
 export async function assertLivestockModuleEnabled(sql, spaceId, enterprise) {
   const moduleId = ENTERPRISE_MODULE_MAP[enterprise];
   if (!moduleId) {
-    throw new HttpError(400, `Unsupported livestock enterprise "${enterprise}". Supported: dairy, goat, sheep, pig`);
+    throw new HttpError(400, `Unsupported livestock enterprise "${enterprise}". Supported: dairy, goat, sheep, pig, poultry, fish, bee`);
   }
   const rows = await sql`
     select enabled
@@ -701,15 +710,260 @@ export function normalizePigAnimal(record) {
   };
 }
 
+export function normalizePoultryFlock(record) {
+  if (!record || typeof record !== "object") {
+    throw new HttpError(400, "Invalid poultry flock data");
+  }
+  const clientUuid = record.id != null ? String(record.id).trim() : "";
+  if (!clientUuid) {
+    throw new HttpError(400, "Animal id is required");
+  }
+  const name = record.name != null ? String(record.name).trim() : "";
+  if (!name) {
+    throw new HttpError(400, `Animal name is required for id "${clientUuid}"`);
+  }
+
+  const rawCount = record.count;
+  if (rawCount === undefined || rawCount === null || rawCount === "") {
+    throw new HttpError(400, `Bird count is required for batch "${name}"`);
+  }
+  const placedQty = Number(rawCount);
+  if (Number.isNaN(placedQty) || placedQty <= 0 || !Number.isInteger(placedQty)) {
+    throw new HttpError(400, `Invalid bird count for batch "${name}". Count must be a positive integer.`);
+  }
+
+  const rawBreed = record.breed && String(record.breed).trim() ? String(record.breed).trim() : null;
+  const rawPurpose = String(record.purpose || "").trim().toLowerCase();
+
+  const poultryType = (rawBreed && rawBreed.toLowerCase() === "desi/country")
+    ? "country"
+    : (rawPurpose === "layer" ? "layer" : "broiler");
+
+  const purpose = rawPurpose === "layer" ? "eggs" : "meat";
+
+  const age = Number(record.ageWeeks);
+  let placementDateObj = new Date(record.createdAt || Date.now());
+  if (Number.isNaN(placementDateObj.getTime())) {
+    placementDateObj = new Date();
+  }
+  if (!Number.isNaN(age) && age > 0) {
+    placementDateObj.setDate(placementDateObj.getDate() - Math.round(age * 7));
+  }
+  const placementDate = placementDateObj.toISOString().slice(0, 10);
+
+  return {
+    clientUuid,
+    name,
+    batchCode: null,
+    poultryType,
+    purpose,
+    breed: rawBreed,
+    placementDate,
+    placedQty,
+    status: "draft",
+    shedId: null,
+    notes: null,
+  };
+}
+
+export function normalizeFishPond(record) {
+  if (!record || typeof record !== "object") {
+    throw new HttpError(400, "Invalid fish pond data");
+  }
+  const clientUuid = record.id != null ? String(record.id).trim() : "";
+  if (!clientUuid) {
+    throw new HttpError(400, "Animal id is required");
+  }
+  const name = record.name != null ? String(record.name).trim() : "";
+  if (!name) {
+    throw new HttpError(400, `Animal name is required for id "${clientUuid}"`);
+  }
+
+  const species = record.species && String(record.species).trim() ? String(record.species).trim() : null;
+
+  let areaSqm = null;
+  if (record.sizeAcres !== undefined && record.sizeAcres !== null && record.sizeAcres !== "") {
+    const rawAcres = Number(record.sizeAcres);
+    if (Number.isNaN(rawAcres) || rawAcres < 0) {
+      throw new HttpError(400, `Invalid pond size for "${name}"`);
+    }
+    if (rawAcres > 0) {
+      areaSqm = Math.round(rawAcres * 4046.86 * 100) / 100;
+    }
+  }
+
+  let stockingCount = null;
+  if (record.stockingCount !== undefined && record.stockingCount !== null && record.stockingCount !== "") {
+    const sc = Number(record.stockingCount);
+    if (!Number.isNaN(sc) && sc >= 0 && Number.isInteger(sc)) {
+      stockingCount = sc;
+    }
+  }
+
+  let stockingDate = null;
+  if (record.stockingDate) {
+    const sStr = String(record.stockingDate).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(sStr)) {
+      stockingDate = sStr.slice(0, 10);
+    }
+  }
+
+  return {
+    clientUuid,
+    name,
+    pondType: "earthen",
+    cultureType: "polyculture",
+    species,
+    areaSqm,
+    depthM: null,
+    stockingDate,
+    stockingCount,
+    stockingSizeCm: null,
+    currentStatus: "active",
+    notes: null,
+  };
+}
+
+export function normalizeBeeHive(record) {
+  if (!record || typeof record !== "object") {
+    throw new HttpError(400, "Invalid bee hive data");
+  }
+  const clientUuid = record.id != null ? String(record.id).trim() : "";
+  if (!clientUuid) {
+    throw new HttpError(400, "Animal id is required");
+  }
+  const name = record.name != null ? String(record.name).trim() : "";
+  if (!name) {
+    throw new HttpError(400, `Animal name is required for id "${clientUuid}"`);
+  }
+
+  let installationDate = null;
+  if (record.installedDate) {
+    const iStr = String(record.installedDate).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(iStr)) {
+      installationDate = iStr.slice(0, 10);
+    }
+  }
+
+  const rawStrength = String(record.colonyStrength || "").trim().toLowerCase();
+  const currentStatus = rawStrength === "weak" ? "weak" : "active";
+
+  return {
+    clientUuid,
+    name,
+    apiaryId: null,
+    hiveType: "langstroth",
+    installationDate,
+    source: null,
+    queenYear: null,
+    currentStatus,
+    notes: null,
+  };
+}
+
 export function getNormalizerForEnterprise(enterprise) {
   const e = String(enterprise || "").toLowerCase().trim();
   if (e === "dairy") return normalizeDairyAnimal;
   if (e === "goat" || e === "sheep") return normalizeGoatAnimal;
   if (e === "pig") return normalizePigAnimal;
-  throw new HttpError(400, `Unsupported livestock enterprise "${enterprise}". Supported: dairy, goat, sheep, pig`);
+  if (e === "poultry") return normalizePoultryFlock;
+  if (e === "fish") return normalizeFishPond;
+  if (e === "bee") return normalizeBeeHive;
+  throw new HttpError(400, `Unsupported livestock enterprise "${enterprise}". Supported: dairy, goat, sheep, pig, poultry, fish, bee`);
+}
+
+function normalizeDateStr(val) {
+  if (!val) return null;
+  if (typeof val === "string") return val.slice(0, 10);
+  if (val instanceof Date) return val.toISOString().slice(0, 10);
+  return String(val).slice(0, 10);
+}
+
+export function diffPoultryBatch(local, cloud) {
+  const diffs = [];
+  const check = (field, localVal, cloudVal) => {
+    const l = localVal == null ? null : String(localVal).trim();
+    const c = cloudVal == null ? null : String(cloudVal).trim();
+    if (l !== c) {
+      diffs.push({ field, local: localVal, cloud: cloudVal });
+    }
+  };
+
+  check("name", local.name, cloud.name);
+  check("poultry_type", local.poultryType, cloud.poultry_type);
+  check("purpose", local.purpose, cloud.purpose);
+  check("breed", local.breed, cloud.breed);
+  if (Number(local.placedQty) !== Number(cloud.placed_qty)) {
+    diffs.push({ field: "placed_qty", local: local.placedQty, cloud: cloud.placed_qty != null ? Number(cloud.placed_qty) : null });
+  }
+  const lDate = normalizeDateStr(local.placementDate);
+  const cDate = normalizeDateStr(cloud.placement_date);
+  if (lDate !== cDate) {
+    diffs.push({ field: "placement_date", local: lDate, cloud: cDate });
+  }
+  check("status", local.status, cloud.status);
+
+  return diffs;
+}
+
+export function diffFishPond(local, cloud) {
+  const diffs = [];
+  const check = (field, localVal, cloudVal) => {
+    const l = localVal == null ? null : String(localVal).trim();
+    const c = cloudVal == null ? null : String(cloudVal).trim();
+    if (l !== c) {
+      diffs.push({ field, local: localVal, cloud: cloudVal });
+    }
+  };
+
+  check("name", local.name, cloud.name);
+  check("species", local.species, cloud.species);
+  const lArea = local.areaSqm != null ? Number(local.areaSqm) : null;
+  const cArea = cloud.area_sqm != null ? Number(cloud.area_sqm) : null;
+  if (lArea !== cArea) {
+    diffs.push({ field: "area_sqm", local: lArea, cloud: cArea });
+  }
+  const lCount = local.stockingCount != null ? Number(local.stockingCount) : null;
+  const cCount = cloud.stocking_count != null ? Number(cloud.stocking_count) : null;
+  if (lCount !== cCount) {
+    diffs.push({ field: "stocking_count", local: lCount, cloud: cCount });
+  }
+  const lDate = normalizeDateStr(local.stockingDate);
+  const cDate = normalizeDateStr(cloud.stocking_date);
+  if (lDate !== cDate) {
+    diffs.push({ field: "stocking_date", local: lDate, cloud: cDate });
+  }
+  check("current_status", local.currentStatus, cloud.current_status);
+
+  return diffs;
+}
+
+export function diffBeeHive(local, cloud) {
+  const diffs = [];
+  const check = (field, localVal, cloudVal) => {
+    const l = localVal == null ? null : String(localVal).trim();
+    const c = cloudVal == null ? null : String(cloudVal).trim();
+    if (l !== c) {
+      diffs.push({ field, local: localVal, cloud: cloudVal });
+    }
+  };
+
+  check("name", local.name, cloud.name);
+  check("hive_type", local.hiveType, cloud.hive_type);
+  const lDate = normalizeDateStr(local.installationDate);
+  const cDate = normalizeDateStr(cloud.installation_date);
+  if (lDate !== cDate) {
+    diffs.push({ field: "installation_date", local: lDate, cloud: cDate });
+  }
+  check("current_status", local.currentStatus, cloud.current_status);
+
+  return diffs;
 }
 
 export function diffAnimal(enterprise, local, cloud) {
+  if (enterprise === "poultry") return diffPoultryBatch(local, cloud);
+  if (enterprise === "fish") return diffFishPond(local, cloud);
+  if (enterprise === "bee") return diffBeeHive(local, cloud);
   const diffs = [];
   const check = (field, localVal, cloudVal) => {
     const l = localVal == null ? null : String(localVal).trim();
@@ -780,6 +1034,24 @@ export async function previewLivestock(sql, membership, payload = {}) {
     existingRows = await sql`
       select id, space_id, name, breed, sex, tag_id, current_status, client_uuid
       from pig_animals
+      where client_uuid = any(${clientUuids}) and deleted_at is null
+    `;
+  } else if (e === "poultry") {
+    existingRows = await sql`
+      select id, space_id, name, poultry_type, purpose, breed, placement_date, placed_qty, status, client_uuid
+      from poultry_batches
+      where client_uuid = any(${clientUuids}) and deleted_at is null
+    `;
+  } else if (e === "fish") {
+    existingRows = await sql`
+      select id, space_id, name, pond_type, culture_type, species, area_sqm, stocking_date, stocking_count, current_status, client_uuid
+      from fish_ponds
+      where client_uuid = any(${clientUuids}) and deleted_at is null
+    `;
+  } else if (e === "bee") {
+    existingRows = await sql`
+      select id, space_id, name, hive_type, installation_date, current_status, client_uuid
+      from bee_hives
       where client_uuid = any(${clientUuids}) and deleted_at is null
     `;
   }
@@ -915,6 +1187,24 @@ export async function publishLivestock(sql, membership, actorUserId, payload = {
         from pig_animals
         where client_uuid = any(${clientUuids}) and deleted_at is null
       `;
+    } else if (e === "poultry") {
+      existingRows = await tx`
+        select id, space_id, name, poultry_type, purpose, breed, placement_date, placed_qty, status, client_uuid
+        from poultry_batches
+        where client_uuid = any(${clientUuids}) and deleted_at is null
+      `;
+    } else if (e === "fish") {
+      existingRows = await tx`
+        select id, space_id, name, pond_type, culture_type, species, area_sqm, stocking_date, stocking_count, current_status, client_uuid
+        from fish_ponds
+        where client_uuid = any(${clientUuids}) and deleted_at is null
+      `;
+    } else if (e === "bee") {
+      existingRows = await tx`
+        select id, space_id, name, hive_type, installation_date, current_status, client_uuid
+        from bee_hives
+        where client_uuid = any(${clientUuids}) and deleted_at is null
+      `;
     }
 
     const existingMap = new Map();
@@ -972,6 +1262,45 @@ export async function publishLivestock(sql, membership, actorUserId, payload = {
             returning id, space_id, name, client_uuid
           `;
           inserted = rows[0];
+        } else if (e === "poultry") {
+          const rows = await tx`
+            insert into poultry_batches
+              (space_id, name, poultry_type, purpose, breed, placement_date,
+               placed_qty, status, shed_id, notes, client_uuid, created_by)
+            values (
+              ${membership.space_id}, ${local.name}, ${local.poultryType}, ${local.purpose},
+              ${local.breed}, ${local.placementDate}, ${local.placedQty}, ${local.status},
+              ${local.shedId}, ${local.notes}, ${local.clientUuid}, ${actorUserId}
+            )
+            returning id, space_id, name, client_uuid
+          `;
+          inserted = rows[0];
+        } else if (e === "fish") {
+          const rows = await tx`
+            insert into fish_ponds
+              (space_id, name, pond_type, culture_type, species, area_sqm,
+               stocking_date, stocking_count, current_status, notes, client_uuid, created_by)
+            values (
+              ${membership.space_id}, ${local.name}, ${local.pondType}, ${local.cultureType},
+              ${local.species}, ${local.areaSqm}, ${local.stockingDate}, ${local.stockingCount},
+              ${local.currentStatus}, ${local.notes}, ${local.clientUuid}, ${actorUserId}
+            )
+            returning id, space_id, name, client_uuid
+          `;
+          inserted = rows[0];
+        } else if (e === "bee") {
+          const rows = await tx`
+            insert into bee_hives
+              (space_id, name, apiary_id, hive_type, installation_date,
+               current_status, notes, client_uuid, created_by)
+            values (
+              ${membership.space_id}, ${local.name}, ${local.apiaryId}, ${local.hiveType},
+              ${local.installationDate}, ${local.currentStatus}, ${local.notes},
+              ${local.clientUuid}, ${actorUserId}
+            )
+            returning id, space_id, name, client_uuid
+          `;
+          inserted = rows[0];
         }
 
         created.push({
@@ -1025,6 +1354,47 @@ export async function publishLivestock(sql, membership, actorUserId, payload = {
                 sex = ${local.sex},
                 breed = ${local.breed},
                 tag_id = ${local.tagId},
+                current_status = ${local.currentStatus},
+                updated_at = now()
+              where id = ${cloud.id} and space_id = ${membership.space_id}
+              returning id, space_id, name, client_uuid
+            `;
+            updatedRow = rows[0];
+          } else if (e === "poultry") {
+            const rows = await tx`
+              update poultry_batches set
+                name = ${local.name},
+                poultry_type = ${local.poultryType},
+                purpose = ${local.purpose},
+                breed = ${local.breed},
+                placement_date = ${local.placementDate},
+                placed_qty = ${local.placedQty},
+                status = ${local.status},
+                updated_at = now()
+              where id = ${cloud.id} and space_id = ${membership.space_id}
+              returning id, space_id, name, client_uuid
+            `;
+            updatedRow = rows[0];
+          } else if (e === "fish") {
+            const rows = await tx`
+              update fish_ponds set
+                name = ${local.name},
+                species = ${local.species},
+                area_sqm = ${local.areaSqm},
+                stocking_date = ${local.stockingDate},
+                stocking_count = ${local.stockingCount},
+                current_status = ${local.currentStatus},
+                updated_at = now()
+              where id = ${cloud.id} and space_id = ${membership.space_id}
+              returning id, space_id, name, client_uuid
+            `;
+            updatedRow = rows[0];
+          } else if (e === "bee") {
+            const rows = await tx`
+              update bee_hives set
+                name = ${local.name},
+                hive_type = ${local.hiveType},
+                installation_date = ${local.installationDate},
                 current_status = ${local.currentStatus},
                 updated_at = now()
               where id = ${cloud.id} and space_id = ${membership.space_id}
