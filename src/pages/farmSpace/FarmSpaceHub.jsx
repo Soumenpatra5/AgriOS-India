@@ -6,6 +6,7 @@ import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, onFarmSpaceChanged, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
 import { useFarmPoll } from "../../hooks/useFarmPoll.js";
+import { ACTIVITY_EVENTS, ACTIVITY_TONES, formatActivityAgo } from "../../services/farmSpace/presenceUtils.js";
 import { MODULE_CATALOG } from "./moduleCatalog.js";
 
 /* My Farm Space — the hub.
@@ -211,6 +212,35 @@ export default function FarmSpaceHub({ asTab = false }) {
 
   useFarmPoll(fetchUnreads, { intervalMs: 15000, enabled: Boolean(space?.id && state === "ready") });
 
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [activityState, setActivityState] = useState("loading");
+
+  const fetchActivity = useCallback(async () => {
+    if (!space?.id) return;
+    try {
+      const list = await farmSpaceService.activity(space.id, { fresh: true });
+      const items = Array.isArray(list) ? list : [];
+      setRecentActivity(items);
+      setActivityState(items.length ? "ready" : "empty");
+    } catch {
+      setActivityState((prev) => (prev === "ready" ? "ready" : "error"));
+    }
+  }, [space?.id]);
+
+  useEffect(() => {
+    if (!space?.id) return;
+    const cached = farmSpaceService.peekActivity(space.id);
+    if (cached && cached.length) {
+      setRecentActivity(cached);
+      setActivityState("ready");
+    } else {
+      setActivityState("loading");
+    }
+    fetchActivity();
+  }, [space?.id, fetchActivity]);
+
+  useFarmPoll(fetchActivity, { intervalMs: 30000, enabled: Boolean(space?.id && state === "ready") });
+
   const title = tc({ en: "My Farm Space", hi: "मेरा फ़ार्म स्पेस", bn: "আমার ফার্ম স্পেস" });
   /* As the tab root there is nothing beneath this screen to return to, so the
      back arrow is omitted and the heading takes the larger tab-root style the
@@ -343,6 +373,110 @@ export default function FarmSpaceHub({ asTab = false }) {
             </button>
           </Card>
         )}
+
+        {/* ── Recent Team Activity Card ── */}
+        <Card pad={0}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "13px 14px",
+            borderBottom: recentActivity.length ? `1px solid ${T.lineSoft}` : "none",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Icon name="Activity" size={17} style={{ color: T.primary }} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>
+                {tc({ en: "Recent Team Activity", hi: "हाल की टीम गतिविधि", bn: "সাম্প্রতিক দলের কার্যকলাপ" })}
+              </span>
+            </div>
+            {recentActivity.length > 0 && (
+              <button
+                type="button"
+                data-testid="view-all-activity-btn"
+                onClick={() => push({ kind: "farmSpaceActivity" })}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: T.primary,
+                  padding: "2px 4px",
+                  fontFamily: T.body,
+                }}
+              >
+                {tc({ en: "View all", hi: "सभी देखें", bn: "সব দেখুন" })}
+              </button>
+            )}
+          </div>
+
+          {activityState === "loading" && !recentActivity.length && (
+            <div style={{ padding: "20px 14px", display: "grid", placeItems: "center" }}>
+              <Spinner size="sm" />
+            </div>
+          )}
+
+          {activityState === "error" && !recentActivity.length && (
+            <div style={{ padding: "16px 14px", fontSize: 12.5, color: T.inkFaint, textAlign: "center" }}>
+              {tc({ en: "Unable to load activity right now.", hi: "गतिविधि अभी लोड नहीं हो सकी।", bn: "কার্যকলাপ এখন লোড করা যায়নি।" })}
+            </div>
+          )}
+
+          {activityState === "empty" && !recentActivity.length && (
+            <div style={{ padding: "20px 14px", textAlign: "center", color: T.inkSoft, fontSize: 13 }}>
+              {tc({ en: "No recent team activity yet.", hi: "अभी कोई हालिया टीम गतिविधि नहीं।", bn: "এখনও কোনও সাম্প্রতিক দলের কার্যকলাপ নেই।" })}
+            </div>
+          )}
+
+          {recentActivity.length > 0 && (
+            <div data-testid="recent-team-activity-list">
+              {recentActivity.slice(0, 5).map((e, idx) => {
+                const meta = ACTIVITY_EVENTS[e.action] || { icon: "Circle", a: "faint", text: { en: e.action, hi: e.action, bn: e.action } };
+                const [fg, bg] = ACTIVITY_TONES[meta.a] || ACTIVITY_TONES.faint;
+                return (
+                  <div
+                    key={`${e.created_at}-${idx}`}
+                    data-testid={`activity-item-${idx}`}
+                    onClick={() => push({ kind: "farmSpaceActivity" })}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 11,
+                      padding: "10px 14px",
+                      borderTop: idx ? `1px solid ${T.lineSoft}` : "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 9,
+                      flexShrink: 0,
+                      display: "grid",
+                      placeItems: "center",
+                      background: bg,
+                      color: fg,
+                    }}>
+                      <Icon name={meta.icon} size={14} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: T.ink, lineHeight: 1.4 }}>
+                        <strong style={{ fontWeight: 600 }}>
+                          {e.actor_name || tc({ en: "Someone", hi: "किसी ने", bn: "কেউ" })}
+                        </strong>{" "}
+                        {tc(meta.text)}
+                        {e.meta?.title ? ` — ${e.meta.title}` : ""}
+                      </div>
+                      <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 1 }}>
+                        {formatActivityAgo(e.created_at, tc)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {visible.map((m) => {

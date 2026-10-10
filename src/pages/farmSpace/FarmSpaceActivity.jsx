@@ -13,7 +13,7 @@ import { farmErrorText } from "./FarmSpaceHub.jsx";
    meant to see. A worker gets farm news plus their own doings; the whole
    commentary on everyone else's day belongs to the people managing it. */
 
-const EVENT = {
+export const EVENT = {
   "space.created":        { icon: "Sprout",       a: "primary", text: { en: "created the Farm Space", hi: "ने फ़ार्म स्पेस बनाया", bn: "ফার্ম স্পেস তৈরি করেছেন" } },
   "member.joined":        { icon: "UserPlus",     a: "primary", text: { en: "joined",                 hi: "शामिल हुए",            bn: "যোগ দিয়েছেন" } },
   "member.invited":       { icon: "Mail",         a: "blue",    text: { en: "invited someone",        hi: "ने किसी को बुलाया",     bn: "কাউকে ডেকেছেন" } },
@@ -29,14 +29,14 @@ const EVENT = {
   "announcement.created": { icon: "Megaphone",    a: "orange",  text: { en: "posted an announcement", hi: "ने घोषणा की",           bn: "একটি ঘোষণা দিয়েছেন" } },
   "attendance.marked":    { icon: "CalendarCheck",a: "primary", text: { en: "marked attendance",      hi: "ने उपस्थिति दर्ज की",   bn: "উপস্থিতি নথিভুক্ত করেছেন" } },
 };
-const TONE = {
+export const TONE = {
   primary: [T.primary, T.primarySoft], blue: [T.blue, T.blueSoft],
   orange: [T.orange, T.orangeSoft], red: [T.red, T.redSoft], faint: [T.inkSoft, T.surface2],
 };
 
 /* Relative time, because "2 hours ago" is what a person wants from a feed and
    a timestamp is what they have to decode. */
-function ago(iso, tc) {
+export function ago(iso, tc) {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
   if (mins < 1)  return tc({ en: "just now", hi: "अभी", bn: "এইমাত্র" });
   if (mins < 60) return tc({ en: `${mins}m ago`, hi: `${mins} मिनट पहले`, bn: `${mins} মিনিট আগে` });

@@ -77,8 +77,21 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
     }
   }, [space?.id, conversation?.id]);
 
+  /* Cleanly reset state when recipient switches so presence and messages do not leak */
+  useEffect(() => {
+    setConversation(null);
+    setMessages([]);
+    setOtherIsTyping(false);
+    newestRef.current = null;
+    lastMarkedIdRef.current = null;
+  }, [otherUserId]);
+
   const load = useCallback(async () => {
     try {
+      setConversation(null);
+      setMessages([]);
+      setOtherIsTyping(false);
+      setState("loading");
       const active = await farmSpaceService.active();
       if (!active) { setReason(FARM_ERROR.NOT_FOUND); setState("error"); return; }
       setSpace(active);
@@ -103,6 +116,7 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
 
   useEffect(() => { load(); }, [load]);
 
+  const dmPollCountRef = useRef(0);
   const poll = useCallback(async () => {
     if (!space || !conversation) return;
     const res = await farmSpaceApi.listDmMessages(space.id, conversation.id, { since: newestRef.current, limit: 50, includeTyping: true });
@@ -110,10 +124,19 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
     if (res && typeof res.other_is_typing === "boolean") {
       setOtherIsTyping(res.other_is_typing);
     }
-    if (!fresh.length) return;
-    setMessages((prev) => mergeMessages(prev, fresh));
-    newestRef.current = cursorFrom(fresh, newestRef.current);
-  }, [space, conversation]);
+    if (fresh.length) {
+      setMessages((prev) => mergeMessages(prev, fresh));
+      newestRef.current = cursorFrom(fresh, newestRef.current);
+    }
+
+    /* Refresh conversation presence periodically (~16s) */
+    dmPollCountRef.current += 1;
+    if (dmPollCountRef.current % 4 === 0) {
+      farmSpaceApi.openConversation(space.id, otherUserId).then((updatedConv) => {
+        setConversation((prev) => (prev ? { ...prev, other_is_online: updatedConv.other_is_online, other_last_seen_at: updatedConv.other_last_seen_at } : updatedConv));
+      }).catch(() => {});
+    }
+  }, [space, conversation, otherUserId]);
 
   useFarmPoll(poll, { intervalMs: 4000, enabled: state === "ready" && !!conversation });
 
@@ -238,7 +261,28 @@ export default function FarmSpaceDm({ otherUserId, otherName }) {
   const isOnline = Boolean(conversation?.other_is_online);
   const title = (
     <div>
-      <div style={{ lineHeight: 1.2 }}>{displayName}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, lineHeight: 1.2 }}>
+        <span>{displayName}</span>
+        {conversation && isOnline && (
+          <span
+            data-testid="dm-online-pill"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11,
+              fontWeight: 600,
+              padding: "2px 7px",
+              borderRadius: 10,
+              background: "#dcfce7",
+              color: "#15803d",
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a" }} />
+            {tc({ en: "Online", hi: "ऑनलाइन", bn: "অনলাইন" })}
+          </span>
+        )}
+      </div>
       {conversation && (
         <div style={{ fontSize: 11.5, fontWeight: 500, color: otherIsTyping ? (T.primary || "#16a34a") : (isOnline ? (T.primary || "#16a34a") : (T.inkFaint || "#94a3b8")), display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
           {otherIsTyping ? (

@@ -17,6 +17,8 @@ import {
 import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
+import { useFarmPoll } from "../../hooks/useFarmPoll.js";
+import { formatPresence } from "../../services/farmSpace/presenceUtils.js";
 import { shareText } from "../../utils/share.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 
@@ -98,6 +100,29 @@ export default function FarmSpaceTeam() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  /* Re-render every 30s to advance relative presence labels like "Active 5m ago" */
+  const [, setPresenceTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setPresenceTick((t) => t + 1), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const poll = useCallback(async () => {
+    if (!space?.id) return;
+    try {
+      const fresh = await farmSpaceService.members(space.id, { fresh: true });
+      setMembers(fresh);
+      if (memberDetails) {
+        const updated = fresh.find((m) => m.user_id === memberDetails.user_id);
+        if (updated) setMemberDetails(updated);
+      }
+    } catch {
+      /* Silent: polling failure must not crash or flicker active screen */
+    }
+  }, [space?.id, memberDetails]);
+
+  useFarmPoll(poll, { intervalMs: 15000, enabled: state === "ready" && !!space?.id });
 
   const canManage = farmSpaceService.can(space, "farm.members.manage");
 
@@ -326,8 +351,40 @@ export default function FarmSpaceTeam() {
                     {name.trim().charAt(0).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>
-                      {name}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>
+                        {name}
+                      </span>
+                      {(() => {
+                        const presence = formatPresence(m.last_seen_at, tc);
+                        return (
+                          <span
+                            data-testid={`presence-badge-${m.user_id}`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: "1px 6px",
+                              borderRadius: 10,
+                              background: presence.badgeBg,
+                              color: presence.badgeFg,
+                            }}
+                          >
+                            <span
+                              data-testid={`presence-dot-${m.user_id}`}
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: presence.dotColor,
+                              }}
+                            />
+                            {presence.label}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
                       {tc(farmSpaceService.roleLabel(m.role))}
@@ -453,20 +510,35 @@ export default function FarmSpaceTeam() {
                     }}>
                       {roleLabel}
                     </span>
-                    <span style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      fontSize: 11.5,
-                      fontWeight: 600,
-                      padding: "2px 8px",
-                      borderRadius: 6,
-                      background: "#dcfce7",
-                      color: "#15803d",
-                    }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a" }} />
-                      {tc({ en: "Active", hi: "सक्रिय", bn: "সক্রিয়" })}
-                    </span>
+                    {(() => {
+                      const presence = formatPresence(memberDetails.last_seen_at, tc);
+                      return (
+                        <span
+                          data-testid="member-details-presence-badge"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            padding: "2px 8px",
+                            borderRadius: 6,
+                            background: presence.badgeBg,
+                            color: presence.badgeFg,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: "50%",
+                              background: presence.dotColor,
+                            }}
+                          />
+                          {presence.label}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -526,6 +598,25 @@ export default function FarmSpaceTeam() {
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>
                       {joinedDateStr}
                     </div>
+                  </div>
+
+                  {/* Last active / Presence */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderBottom: `1px solid ${T.lineSoft}` }}>
+                    <div style={{ fontSize: 12.5, color: T.inkSoft }}>
+                      {tc({ en: "Last active", hi: "पिछली सक्रियता", bn: "শেষ সক্রিয়" })}
+                    </div>
+                    {(() => {
+                      const presence = formatPresence(memberDetails.last_seen_at, tc);
+                      return (
+                        <div
+                          data-testid="member-details-last-seen"
+                          style={{ fontSize: 13.5, fontWeight: 600, color: presence.badgeFg, display: "flex", alignItems: "center", gap: 6 }}
+                        >
+                          <span style={{ width: 7, height: 7, borderRadius: "50%", background: presence.dotColor }} />
+                          {presence.label}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Membership Status */}

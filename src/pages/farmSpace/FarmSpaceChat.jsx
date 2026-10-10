@@ -6,6 +6,7 @@ import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
 import { useFarmPoll } from "../../hooks/useFarmPoll.js";
+import { countOnlineMembers } from "../../services/farmSpace/presenceUtils.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 import { REACTION_EMOJI, OWN_DELETE_WINDOW_MS } from "../../../api/_lib/farm/chat.js";
 import { senderName, formatDuration, AttachmentDraftChip, ActionRow, Bubble } from "./chatBubble.jsx";
@@ -169,18 +170,25 @@ export default function FarmSpaceChat() {
 
   useEffect(() => { load(); }, [load]);
 
+  const memberPollCountRef = useRef(0);
   const poll = useCallback(async () => {
     if (!space) return;
     const fresh = await farmSpaceApi.listMessages(space.id, { since: newestRef.current, limit: 50, includeTyping: true });
     const freshMessages = Array.isArray(fresh) ? fresh : (fresh?.messages || []);
     const activeTyping = Array.isArray(fresh) ? [] : (fresh?.typing_members || []);
     setTypingMembers(activeTyping);
-    if (!freshMessages.length) return;
-    setMessages((prev) => mergeMessages(prev, freshMessages));
-    newestRef.current = cursorFrom(freshMessages, newestRef.current);
-    /* Keeps the cache in step with what polling just showed, so leaving and
-       reopening chat does not show stale reactions/edits for a moment. */
-    farmSpaceService.appendChatMessages(space.id, freshMessages);
+    if (freshMessages.length) {
+      setMessages((prev) => mergeMessages(prev, freshMessages));
+      newestRef.current = cursorFrom(freshMessages, newestRef.current);
+      /* Keeps the cache in step with what polling just showed, so leaving and
+         reopening chat does not show stale reactions/edits for a moment. */
+      farmSpaceService.appendChatMessages(space.id, freshMessages);
+    }
+
+    memberPollCountRef.current += 1;
+    if (memberPollCountRef.current % 4 === 0) {
+      farmSpaceService.members(space.id, { fresh: true }).then(setMembers).catch(() => {});
+    }
   }, [space]);
 
   /* Faster than the 15s every other Farm Space screen polls at — chat is the
@@ -531,7 +539,43 @@ export default function FarmSpaceChat() {
     }
   };
 
-  const title = tc({ en: "Farm chat", hi: "फ़ार्म चैट", bn: "খামার চ্যাট" });
+  const onlineCount = countOnlineMembers(members);
+  const title = (
+    <div>
+      <div style={{ lineHeight: 1.2 }}>{tc({ en: "Farm chat", hi: "फ़ार्म चैट", bn: "খামার চ্যাট" })}</div>
+      <div
+        data-testid="chat-presence-indicator"
+        style={{
+          fontSize: 11.5,
+          fontWeight: 500,
+          color: onlineCount > 0 ? (T.primary || "#16a34a") : (T.inkFaint || "#94a3b8"),
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          marginTop: 2,
+        }}
+      >
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: onlineCount > 0 ? "#16a34a" : "#9ca3af",
+            display: "inline-block",
+          }}
+        />
+        <span data-testid="chat-online-count">
+          {onlineCount > 0
+            ? tc({
+                en: `${onlineCount} active now`,
+                hi: `${onlineCount} अभी सक्रिय`,
+                bn: `${onlineCount} জন এখন সক্রিয়`,
+              })
+            : tc({ en: "Offline", hi: "ऑफ़लाइन", bn: "অফলাইন" })}
+        </span>
+      </div>
+    </div>
+  );
 
   if (state === "loading") {
     return <><AppBar title={title} onBack={pop} />
