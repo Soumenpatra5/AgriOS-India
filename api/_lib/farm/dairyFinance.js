@@ -195,7 +195,9 @@ export async function financeSummary(sql, membership, payload = {}) {
         order by total desc
       `,
       tx`
-        select coalesce(sum(total_yield_kg), 0) as kg
+        select
+          coalesce(sum(case when unit = 'kg' then total_yield_kg else 0 end), 0) as kg,
+          coalesce(sum(case when unit = 'L' then total_yield_litres else 0 end), 0) as litres
         from dairy_milk_records
         where space_id = ${spaceId} and deleted_at is null
           and record_date >= ${monthStart} and record_date <= ${today}
@@ -217,6 +219,7 @@ export async function financeSummary(sql, membership, payload = {}) {
       net_profit: totalRevenue - totalCosts,
       cost_breakdown: costBreakdown,
       month_milk_produced_kg: parseFloat(milkRows[0].kg),
+      month_milk_produced_litres: parseFloat(milkRows[0].litres),
     };
   });
 }

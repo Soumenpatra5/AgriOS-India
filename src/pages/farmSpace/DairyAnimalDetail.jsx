@@ -1369,11 +1369,17 @@ function OverviewTab({ animal, lactations, history = [], tc, locale, fmtDate, ca
           </div>
           <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
             <StatPill label={tc({ en: "Total", hi: "कुल", bn: "মোট" })}
-              value={`${Number(lastMilk.total_yield_kg || 0).toFixed(1)} kg`} accent="blue" />
+              value={lastMilk.unit === "L"
+                ? `${Number(lastMilk.total_yield_litres ?? ((lastMilk.am_yield_litres || 0) + (lastMilk.pm_yield_litres || 0))).toFixed(1)} L`
+                : `${Number(lastMilk.total_yield_kg || 0).toFixed(1)} kg`} accent="blue" />
             <StatPill label={tc({ en: "AM", hi: "सुबह", bn: "সকাল" })}
-              value={`${Number(lastMilk.am_yield_kg || 0).toFixed(1)} kg`} accent="primary" />
+              value={lastMilk.unit === "L"
+                ? `${Number(lastMilk.am_yield_litres || 0).toFixed(1)} L`
+                : `${Number(lastMilk.am_yield_kg || 0).toFixed(1)} kg`} accent="primary" />
             <StatPill label={tc({ en: "PM", hi: "शाम", bn: "সন্ধ্যা" })}
-              value={`${Number(lastMilk.pm_yield_kg || 0).toFixed(1)} kg`} accent="primary" />
+              value={lastMilk.unit === "L"
+                ? `${Number(lastMilk.pm_yield_litres || 0).toFixed(1)} L`
+                : `${Number(lastMilk.pm_yield_kg || 0).toFixed(1)} kg`} accent="primary" />
           </div>
           {(lastMilk.fat_pct || lastMilk.snf_pct) && (
             <div style={{ marginTop: 8, fontSize: 12.5, color: T.inkSoft, fontFamily: T.body }}>
@@ -1422,10 +1428,16 @@ function MilkTrendChart({ milkList, tc }) {
     days.push(d.toISOString().slice(0, 10));
   }
 
+  const isAllL = milkList.length > 0 && milkList.every(r => r.unit === "L");
+  const hasL = milkList.some(r => r.unit === "L");
+  const unitSuffix = isAllL ? "L" : hasL ? "L/kg" : "kg";
+
   const byDate = {};
   for (const r of milkList) {
     const key = (r.record_date || "").slice(0, 10);
-    const total = Number(r.total_yield_kg) || (Number(r.am_yield_kg) + Number(r.pm_yield_kg));
+    const total = r.unit === "L"
+      ? (Number(r.total_yield_litres) || ((Number(r.am_yield_litres) || 0) + (Number(r.pm_yield_litres) || 0)))
+      : (Number(r.total_yield_kg) || ((Number(r.am_yield_kg) || 0) + (Number(r.pm_yield_kg) || 0)));
     byDate[key] = (byDate[key] || 0) + total;
   }
 
@@ -1440,9 +1452,7 @@ function MilkTrendChart({ milkList, tc }) {
   const peakKg = Math.max(...values);
   const peakIdx = values.lastIndexOf(peakKg);
   const proj305 = avgKg * 305;
-  const proj305Str = proj305 < 1000
-    ? `${proj305.toFixed(0)} kg`
-    : `${(proj305 / 1000).toFixed(1)} t`;
+  const proj305Str = `${proj305.toFixed(0)} ${unitSuffix}`;
 
   const VW = 300; const VH = 60;
   const slotW = VW / 30;
@@ -1508,11 +1518,11 @@ function MilkTrendChart({ milkList, tc }) {
       <div style={{ borderTop: `1px solid ${T.line}`, display: "flex" }}>
         <StatTile
           label={tc({ en: "Avg / day", hi: "औसत/दिन", bn: "গড়/দিন" })}
-          value={`${avgKg.toFixed(1)} kg`} />
+          value={`${avgKg.toFixed(1)} ${unitSuffix}`} />
         <div style={{ width: 1, background: T.line }} />
         <StatTile
           label={tc({ en: "Peak day", hi: "सर्वाधिक", bn: "সর্বোচ্চ" })}
-          value={`${peakKg.toFixed(1)} kg`}
+          value={`${peakKg.toFixed(1)} ${unitSuffix}`}
           highlight />
         <div style={{ width: 1, background: T.line }} />
         <StatTile
@@ -1549,12 +1559,14 @@ function MilkTab({ milkList, canRecord, isTerminal, tc, locale, fmtDateShort, on
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: T.ink, fontFamily: T.display }}>
-                  {Number(rec.total_yield_kg || 0).toFixed(1)} kg
+                  {rec.unit === "L"
+                    ? `${Number(rec.total_yield_litres ?? ((rec.am_yield_litres || 0) + (rec.pm_yield_litres || 0))).toFixed(1)} L`
+                    : `${Number(rec.total_yield_kg || 0).toFixed(1)} kg`}
                 </div>
                 <div style={{ fontSize: 12, color: T.inkSoft, fontFamily: T.body, marginTop: 2 }}>
                   {fmtDateShort(rec.record_date, locale)}
-                  {" · "}{tc({ en: "AM", hi: "सु", bn: "স" })} {Number(rec.am_yield_kg || 0).toFixed(1)}
-                  {" · "}{tc({ en: "PM", hi: "श", bn: "স" })} {Number(rec.pm_yield_kg || 0).toFixed(1)}
+                  {" · "}{tc({ en: "AM", hi: "सु", bn: "স" })} {Number((rec.unit === "L" ? rec.am_yield_litres : rec.am_yield_kg) || 0).toFixed(1)}
+                  {" · "}{tc({ en: "PM", hi: "श", bn: "স" })} {Number((rec.unit === "L" ? rec.pm_yield_litres : rec.pm_yield_kg) || 0).toFixed(1)}
                   {rec.fat_pct ? ` · Fat ${rec.fat_pct}%` : ""}
                   {rec.snf_pct ? ` · SNF ${rec.snf_pct}%` : ""}
                 </div>
@@ -1686,11 +1698,17 @@ function HistoryTab({ history, tc, fmtDate, canRecord, isTerminal, onAddRepro, o
 
 function HistoryEventBody({ ev, tc }) {
   if (ev.kind === "milk_record") {
+    const isL = ev.unit === "L";
+    const totStr = isL
+      ? `${Number(ev.total_yield_litres ?? ((ev.am_yield_litres || 0) + (ev.pm_yield_litres || 0))).toFixed(1)} L`
+      : `${Number(ev.total_yield_kg || 0).toFixed(1)} kg`;
+    const amVal = isL ? Number(ev.am_yield_litres || 0).toFixed(1) : Number(ev.am_yield_kg || 0).toFixed(1);
+    const pmVal = isL ? Number(ev.pm_yield_litres || 0).toFixed(1) : Number(ev.pm_yield_kg || 0).toFixed(1);
     return (
       <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, fontFamily: T.body, marginTop: 2 }}>
-        {Number(ev.total_yield_kg || 0).toFixed(1)} kg
+        {totStr}
         <span style={{ fontSize: 12, fontWeight: 400, color: T.inkSoft }}>
-          {" "}· AM {Number(ev.am_yield_kg || 0).toFixed(1)} · PM {Number(ev.pm_yield_kg || 0).toFixed(1)}
+          {" "}· AM {amVal} · PM {pmVal}
           {ev.fat_pct ? ` · Fat ${ev.fat_pct}%` : ""}
         </span>
       </div>

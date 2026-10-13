@@ -198,11 +198,27 @@ export default function DairyDashboard() {
             label={tc({ en: "Animals", hi: "पशु", bn: "প্রাণী" })}
             icon="Milk" accent="primary" />
           <MetricTile
-            value={metrics.today_milk_kg != null ? `${Number(metrics.today_milk_kg).toFixed(1)} kg` : "—"}
+            value={
+              metrics.today_milk_litres > 0 && metrics.today_milk_kg > 0
+                ? `${Number(metrics.today_milk_kg).toFixed(1)} kg · ${Number(metrics.today_milk_litres).toFixed(1)} L`
+                : metrics.today_milk_litres > 0
+                ? `${Number(metrics.today_milk_litres).toFixed(1)} L`
+                : metrics.today_milk_kg != null
+                ? `${Number(metrics.today_milk_kg).toFixed(1)} kg`
+                : "—"
+            }
             label={tc({ en: "Today milk", hi: "आज दूध", bn: "আজ দুধ" })}
             icon="Droplets" accent="blue" />
           <MetricTile
-            value={metrics.month_milk_kg != null ? `${Number(metrics.month_milk_kg).toFixed(0)} kg` : "—"}
+            value={
+              metrics.month_milk_litres > 0 && metrics.month_milk_kg > 0
+                ? `${Number(metrics.month_milk_kg).toFixed(0)} kg · ${Number(metrics.month_milk_litres).toFixed(0)} L`
+                : metrics.month_milk_litres > 0
+                ? `${Number(metrics.month_milk_litres).toFixed(0)} L`
+                : metrics.month_milk_kg != null
+                ? `${Number(metrics.month_milk_kg).toFixed(0)} kg`
+                : "—"
+            }
             label={tc({ en: "This month", hi: "इस माह", bn: "এ মাসে" })}
             icon="TrendingUp" accent="orange" />
         </div>
@@ -415,6 +431,18 @@ export default function DairyDashboard() {
 function MilkProductionCard({ milkHistory, canRecord, tc, onRecord }) {
   const todayISO = new Date().toISOString().slice(0, 10);
 
+  const hasL = milkHistory.some(r => r.unit === "L");
+  const hasKg = milkHistory.some(r => r.unit !== "L" && ((Number(r.am_yield_kg) || 0) + (Number(r.pm_yield_kg) || 0) > 0));
+  const hasBoth = hasL && hasKg;
+
+  const [activeUnit, setActiveUnit] = useState(() => (hasKg || !hasL ? "kg" : "L"));
+
+  useEffect(() => {
+    if (!hasBoth) {
+      setActiveUnit(hasL && !hasKg ? "L" : "kg");
+    }
+  }, [hasL, hasKg, hasBoth]);
+
   /* Build ordered 30-day array (oldest → newest). */
   const days = [];
   for (let i = 29; i >= 0; i--) {
@@ -423,17 +451,22 @@ function MilkProductionCard({ milkHistory, canRecord, tc, onRecord }) {
     days.push(d.toISOString().slice(0, 10));
   }
 
-  /* Aggregate: sum am + pm per record_date. */
+  /* Aggregate: sum am + pm per record_date for selected unit. */
   const byDate = {};
   for (const r of milkHistory) {
     const key = (r.record_date || "").slice(0, 10);
-    byDate[key] = (byDate[key] || 0) + (Number(r.am_yield_kg) || 0) + (Number(r.pm_yield_kg) || 0);
+    const isRowL = r.unit === "L";
+    if (activeUnit === "L" && isRowL) {
+      byDate[key] = (byDate[key] || 0) + (Number(r.am_yield_litres) || 0) + (Number(r.pm_yield_litres) || 0);
+    } else if (activeUnit === "kg" && !isRowL) {
+      byDate[key] = (byDate[key] || 0) + (Number(r.am_yield_kg) || 0) + (Number(r.pm_yield_kg) || 0);
+    }
   }
 
   const values  = days.map(d => byDate[d] || 0);
   const maxVal  = Math.max(...values, 1);
   const hasData = values.some(v => v > 0);
-  const todayKg = byDate[todayISO] || 0;
+  const todayVal = byDate[todayISO] || 0;
 
   /* SVG bar chart constants. */
   const VW = 300; const VH = 56;
@@ -447,14 +480,40 @@ function MilkProductionCard({ milkHistory, canRecord, tc, onRecord }) {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between",
         alignItems: "center", marginBottom: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: T.inkFaint,
             fontFamily: T.body, textTransform: "uppercase", letterSpacing: 0.8 }}>
             {tc({ en: "Production · 30 days", hi: "उत्पादन · 30 दिन", bn: "উৎপাদন · ৩০ দিন" })}
           </span>
-          {todayKg > 0 && (
-            <span style={{ fontSize: 11, fontWeight: 700, color: T.primary, fontFamily: T.body }}>
-              {todayKg.toFixed(1)} kg {tc({ en: "today", hi: "आज", bn: "আজ" })}
+          {hasBoth && (
+            <div style={{ display: "flex", gap: 3, background: T.surface2, borderRadius: T.rSm, padding: 2 }}>
+              <button
+                type="button"
+                onClick={() => setActiveUnit("kg")}
+                style={{
+                  border: "none", borderRadius: 4, padding: "2px 7px", fontSize: 10.5, fontWeight: 700,
+                  cursor: "pointer", fontFamily: T.body,
+                  background: activeUnit === "kg" ? T.primary : "transparent",
+                  color: activeUnit === "kg" ? "#fff" : T.inkSoft,
+                }}>
+                kg
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveUnit("L")}
+                style={{
+                  border: "none", borderRadius: 4, padding: "2px 7px", fontSize: 10.5, fontWeight: 700,
+                  cursor: "pointer", fontFamily: T.body,
+                  background: activeUnit === "L" ? T.blue : "transparent",
+                  color: activeUnit === "L" ? "#fff" : T.inkSoft,
+                }}>
+                L
+              </button>
+            </div>
+          )}
+          {todayVal > 0 && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: activeUnit === "L" ? T.blue : T.primary, fontFamily: T.body }}>
+              {todayVal.toFixed(1)} {activeUnit} {tc({ en: "today", hi: "आज", bn: "আজ" })}
             </span>
           )}
         </div>
@@ -478,11 +537,14 @@ function MilkProductionCard({ milkHistory, canRecord, tc, onRecord }) {
               const barH   = Math.max((v / maxVal) * (VH - 4), v > 0 ? 3 : 0);
               const x      = i * slotW;
               const isLast = i === 29;
+              const barColor = activeUnit === "L"
+                ? (isLast ? T.blue : T.blueSoft)
+                : (isLast ? T.primary : T.primarySoft);
               return (
                 <rect key={i}
                   x={x + (slotW - barW) / 2} y={VH - barH}
                   width={barW} height={barH}
-                  fill={isLast ? T.primary : T.primarySoft}
+                  fill={barColor}
                   rx={1.5} />
               );
             })}
@@ -493,7 +555,7 @@ function MilkProductionCard({ milkHistory, canRecord, tc, onRecord }) {
               {days[0].slice(5).replace("-", "/")}
             </span>
             <span style={{ fontSize: 9.5, color: T.inkFaint, fontFamily: T.body }}>
-              {tc({ en: "kg/day", hi: "कि.ग्रा./दिन", bn: "কেজি/দিন" })}
+              {activeUnit === "L" ? "L/day" : tc({ en: "kg/day", hi: "कि.ग्रा./दिन", bn: "কেজি/দিন" })}
             </span>
             <span style={{ fontSize: 9.5, color: T.inkFaint, fontFamily: T.body }}>
               {tc({ en: "today", hi: "आज", bn: "আজ" })}
@@ -505,9 +567,9 @@ function MilkProductionCard({ milkHistory, canRecord, tc, onRecord }) {
           padding: "4px 0", color: T.inkSoft }}>
           <Icon name="Droplets" size={14} color={T.inkSoft} />
           <span style={{ fontSize: 12, fontFamily: T.body }}>
-            {tc({ en: "No milk records in the last 30 days",
-                  hi: "पिछले 30 दिनों में कोई दूध रिकॉर्ड नहीं",
-                  bn: "গত ৩০ দিনে কোনো দুধের রেকর্ড নেই" })}
+            {tc({ en: `No milk records (${activeUnit}) in the last 30 days`,
+                  hi: `पिछले 30 दिनों में कोई दूध रिकॉर्ड (${activeUnit}) नहीं`,
+                  bn: `গত ৩০ দিনে কোনো দুধের রেকর্ড (${activeUnit}) নেই` })}
           </span>
         </div>
       )}

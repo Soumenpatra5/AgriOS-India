@@ -53,7 +53,7 @@ export default function DairyManager() {
   const [prodForm, setProdForm] = useState({ date: todayStr(), amLitres: "", pmLitres: "", animalId: "", salePrice: "" });
 
   const [eventOpen, setEventOpen] = useState(false);
-  const [eventForm, setEventForm] = useState({ date: todayStr(), type: "vaccination", note: "", dueDate: "" });
+  const [eventForm, setEventForm] = useState({ date: todayStr(), type: "vaccination", note: "", dueDate: "", animalId: "" });
 
   const [delId, setDelId]     = useState(null);
   const [delStore, setDelStore] = useState(null);
@@ -90,7 +90,7 @@ export default function DairyManager() {
 
   const addEvent = async () => {
     await eventService.add({ ...eventForm, enterprise: "dairy" });
-    setEventOpen(false); setEventForm({ date: todayStr(), type: "vaccination", note: "", dueDate: "" });
+    setEventOpen(false); setEventForm({ date: todayStr(), type: "vaccination", note: "", dueDate: "", animalId: "" });
     refresh(); toast(tc({ en: "Event saved", hi: "घटना सहेजी गई", bn: "ঘটনা সংরক্ষিত" }), "success");
   };
 
@@ -206,7 +206,7 @@ export default function DairyManager() {
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 13, textTransform: "capitalize" }}>{EVENT_LABELS[ev.type] ? tc(EVENT_LABELS[ev.type]) : ev.type.replace(/_/g, " ")}</div>
                     <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
-                      {fmtDate(ev.date, locale)}{ev.note ? ` · ${ev.note}` : ""}
+                      {fmtDate(ev.date, locale)}{ev.animalId ? ` · ${animals.find((a) => a.id === ev.animalId)?.name || ""}` : ""}{ev.note ? ` · ${ev.note}` : ""}
                     </div>
                   </div>
                   <button onClick={() => { setDelId(ev.id); setDelStore("events"); }}
@@ -247,6 +247,7 @@ export default function DairyManager() {
       <BottomSheet open={eventOpen} onClose={() => setEventOpen(false)} title={tc({ en: "Add Event", hi: "घटना जोड़ें", bn: "ঘটনা যোগ করুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Input label={tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })} type="date" value={eventForm.date} onChange={(v) => setEventForm((f) => ({ ...f, date: v }))} />
+          <Dropdown label={tc({ en: "Animal (optional)", hi: "पशु (वैकल्पिक)", bn: "প্রাণী (ঐচ্ছिक)" })} value={eventForm.animalId || ""} onChange={(v) => setEventForm((f) => ({ ...f, animalId: v }))} options={animalOptions} />
           <Dropdown label={tc({ en: "Event type", hi: "घटना प्रकार", bn: "ঘটনার ধরন" })} value={eventForm.type} onChange={(v) => setEventForm((f) => ({ ...f, type: v }))}
             options={[
               { value: "vaccination", label: tc(EVENT_LABELS.vaccination) },

@@ -299,14 +299,18 @@ export async function herdMetrics(sql, membership) {
       group by current_status
     `,
     sql`
-      select coalesce(sum(total_yield_kg), 0) as kg
+      select
+        coalesce(sum(case when unit = 'kg' then total_yield_kg else 0 end), 0) as kg,
+        coalesce(sum(case when unit = 'L' then total_yield_litres else 0 end), 0) as litres
       from dairy_milk_records
       where space_id = ${spaceId}
         and record_date = ${today}
         and deleted_at is null
     `,
     sql`
-      select coalesce(sum(total_yield_kg), 0) as kg
+      select
+        coalesce(sum(case when unit = 'kg' then total_yield_kg else 0 end), 0) as kg,
+        coalesce(sum(case when unit = 'L' then total_yield_litres else 0 end), 0) as litres
       from dairy_milk_records
       where space_id = ${spaceId}
         and record_date >= ${monthStart}
@@ -347,7 +351,9 @@ export async function herdMetrics(sql, membership) {
   return {
     status_counts: byStatus,
     today_milk_kg: parseFloat(todayMilk[0].kg),
+    today_milk_litres: parseFloat(todayMilk[0].litres),
     month_milk_kg: parseFloat(monthMilk[0].kg),
+    month_milk_litres: parseFloat(monthMilk[0].litres),
     health_due_in_14_days: healthDue[0].count,
     health_overdue_count: healthOverdue[0].count,
     calving_due_count: calvingDue[0].count,
@@ -363,7 +369,9 @@ export async function animalHistory(sql, membership, payload) {
   const [milkRows, reproRows, healthRows, lactationRows, feedRows] = await Promise.all([
     sql`
       select id, record_date as event_date, 'milk_record' as kind,
-             total_yield_kg, am_yield_kg, pm_yield_kg, fat_pct, snf_pct, remarks
+             unit, total_yield_kg, am_yield_kg, pm_yield_kg,
+             total_yield_litres, am_yield_litres, pm_yield_litres,
+             fat_pct, snf_pct, remarks
       from dairy_milk_records
       where animal_id = ${animal.id} and deleted_at is null
       order by record_date desc

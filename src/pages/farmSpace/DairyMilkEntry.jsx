@@ -56,12 +56,15 @@ export default function DairyMilkEntry({ spaceId }) {
       const newRows = {};
       for (const a of milking) {
         const existing = (milkList || []).find(r => r.animal_id === a.id);
+        const isLitres = existing?.unit === "L";
         newRows[a.id] = {
-          am:         existing != null ? String(existing.am_yield_kg ?? "") : "",
-          pm:         existing != null ? String(existing.pm_yield_kg ?? "") : "",
+          am:         isLitres ? String(existing.am_yield_litres ?? "") : (existing != null ? String(existing.am_yield_kg ?? "") : ""),
+          pm:         isLitres ? String(existing.pm_yield_litres ?? "") : (existing != null ? String(existing.pm_yield_kg ?? "") : ""),
           clientUuid: crypto.randomUUID(),
           error:      null,
           saved:      !!existing,
+          unit:       existing?.unit || "kg",
+          isLitres,
         };
       }
       setRows(newRows);
@@ -87,6 +90,13 @@ export default function DairyMilkEntry({ spaceId }) {
 
   const totalKg = animals.reduce((sum, a) => {
     const r = rows[a.id] || {};
+    if (r.isLitres) return sum;
+    return sum + (parseFloat(r.am) || 0) + (parseFloat(r.pm) || 0);
+  }, 0);
+
+  const totalLitres = animals.reduce((sum, a) => {
+    const r = rows[a.id] || {};
+    if (!r.isLitres) return sum;
     return sum + (parseFloat(r.am) || 0) + (parseFloat(r.pm) || 0);
   }, 0);
 
@@ -98,6 +108,7 @@ export default function DairyMilkEntry({ spaceId }) {
     const tasks = animals
       .map(a => {
         const r = rows[a.id] || {};
+        if (r.isLitres) return null; // Preserves Local ERP litre records from bulk kg overwrite
         const am = parseFloat(r.am) || 0;
         const pm = parseFloat(r.pm) || 0;
         if (am === 0 && pm === 0) return null;
@@ -230,11 +241,13 @@ export default function DairyMilkEntry({ spaceId }) {
           const r = rows[animal.id] || { am: "", pm: "", error: null };
           const rowTotal  = (parseFloat(r.am) || 0) + (parseFloat(r.pm) || 0);
           const hasError  = r.error === "failed";
+          const isL       = !!r.isLitres;
           const inputBase = {
             width: "100%", padding: "8px 4px", textAlign: "center",
             border: `1px solid ${hasError ? T.red : T.line}`, borderRadius: T.rSm,
-            fontSize: 15, fontFamily: T.body, color: T.ink,
-            background: T.bg, boxSizing: "border-box",
+            fontSize: 15, fontFamily: T.body, color: isL ? T.inkSoft : T.ink,
+            background: isL ? T.surface2 : T.bg, boxSizing: "border-box",
+            cursor: isL ? "not-allowed" : "text",
           };
           return (
             <div key={animal.id} style={{
@@ -245,9 +258,19 @@ export default function DairyMilkEntry({ spaceId }) {
               border: `1px solid ${hasError ? T.red : T.line}`,
             }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: T.body,
-                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {animal.name}
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: T.body,
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {animal.name}
+                  </span>
+                  {isL && (
+                    <span style={{
+                      fontSize: 9.5, fontWeight: 700, color: T.blue, background: T.blueSoft,
+                      borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap",
+                    }}>
+                      L (Local ERP)
+                    </span>
+                  )}
                 </div>
                 {animal.tag_id && (
                   <div style={{ fontSize: 10.5, color: T.inkSoft, fontFamily: T.body }}>
@@ -256,17 +279,21 @@ export default function DairyMilkEntry({ spaceId }) {
                 )}
                 {rowTotal > 0 && (
                   <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: T.body,
-                    color: hasError ? T.red : T.primary }}>
-                    {rowTotal.toFixed(1)} kg
+                    color: hasError ? T.red : isL ? T.blue : T.primary }}>
+                    {rowTotal.toFixed(1)} {isL ? "L" : "kg"}
                   </div>
                 )}
               </div>
               <input type="number" inputMode="decimal" min="0" step="0.1"
                 value={r.am} placeholder="0"
+                disabled={isL}
+                title={isL ? "Recorded in Litres via Local ERP bridge" : undefined}
                 onChange={e => setRow(animal.id, "am", e.target.value)}
                 style={inputBase} />
               <input type="number" inputMode="decimal" min="0" step="0.1"
                 value={r.pm} placeholder="0"
+                disabled={isL}
+                title={isL ? "Recorded in Litres via Local ERP bridge" : undefined}
                 onChange={e => setRow(animal.id, "pm", e.target.value)}
                 style={inputBase} />
             </div>
@@ -280,7 +307,11 @@ export default function DairyMilkEntry({ spaceId }) {
             {tc({ en: "Total", hi: "कुल", bn: "মোট" })}
           </span>
           <span style={{ fontSize: 18, fontWeight: 800, color: T.primary, fontFamily: T.display }}>
-            {totalKg.toFixed(1)} kg
+            {totalLitres > 0 && totalKg > 0
+              ? `${totalKg.toFixed(1)} kg · ${totalLitres.toFixed(1)} L`
+              : totalLitres > 0
+              ? `${totalLitres.toFixed(1)} L`
+              : `${totalKg.toFixed(1)} kg`}
           </span>
         </div>
       </div>

@@ -8,7 +8,7 @@
  */
 
 import { landService } from "../land/landService.js";
-import { animalService } from "../livestock/livestockService.js";
+import { animalService, productionService, eventService } from "../livestock/livestockService.js";
 import { farmSpaceApi } from "./farmSpaceApi.js";
 
 const BRIDGE_STORAGE_PREFIX = "agrios_bridge_fields_";
@@ -194,5 +194,69 @@ export const farmSpaceBridgeService = {
    */
   getBridgeMetadata(spaceId) {
     return getLocalBridgeMap(spaceId);
+  },
+
+  /**
+   * Fetches local ERP dairy milk production logs safely without modifying them.
+   * NEVER mutates IndexedDB.
+   * @param {number} limit
+   * @returns {Promise<Array>}
+   */
+  async getLocalDairyProductions(limit = 500) {
+    const list = await productionService.getForEnterprise("dairy", limit);
+    return Array.isArray(list) ? list : [];
+  },
+
+  /**
+   * Fetches local ERP dairy events safely without modifying them.
+   * NEVER mutates IndexedDB.
+   * @returns {Promise<Array>}
+   */
+  async getLocalDairyEvents() {
+    const list = await eventService.getForEnterprise("dairy");
+    return Array.isArray(list) ? list : [];
+  },
+
+  /**
+   * Runs server-side preview comparison for dairy operations against target Farm Space.
+   * NEVER mutates local records.
+   * @param {Object} params
+   * @returns {Promise<Object>}
+   */
+  async previewDairyOps({ spaceId, productions, events }) {
+    if (!spaceId) throw new Error("spaceId is required for dairy ops preview");
+    return farmSpaceApi.bridgePreviewDairyOps(spaceId, productions || [], events || []);
+  },
+
+  /**
+   * Publishes dairy operational records to the target Farm Space.
+   * Stores local bridge audit metadata under localStorage dedicated key.
+   * NEVER mutates IndexedDB records.
+   * @param {Object} params
+   * @returns {Promise<Object>}
+   */
+  async publishDairyOps({ spaceId, productions, events, overwrite = false }) {
+    if (!spaceId) throw new Error("spaceId is required for dairy ops publish");
+    const result = await farmSpaceApi.bridgePublishDairyOps(spaceId, productions || [], events || [], overwrite);
+
+    const storageKey = `agrios_bridge_dairy_ops_${spaceId}`;
+    try {
+      const currentMap = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      const now = new Date().toISOString();
+      for (const item of (result.milk?.created || [])) {
+        currentMap[`milk:${item.clientUuid}`] = { cloudId: item.id, date: item.date, unit: item.unit, lastPublishedAt: now, status: "created" };
+      }
+      for (const item of (result.milk?.updated || [])) {
+        currentMap[`milk:${item.clientUuid}`] = { cloudId: item.id, date: item.date, unit: item.unit, lastPublishedAt: now, status: "updated" };
+      }
+      for (const item of (result.events?.created || [])) {
+        currentMap[`event:${item.clientUuid}`] = { cloudId: item.id, type: item.type, date: item.date, lastPublishedAt: now, status: "created" };
+      }
+      localStorage.setItem(storageKey, JSON.stringify(currentMap));
+    } catch {
+      // Ignore storage errors
+    }
+
+    return result;
   },
 };

@@ -8,6 +8,7 @@ import { farmSpaceBridgeService } from "../../services/farmSpace/farmSpaceBridge
 const DOMAINS = [
   { id: "parcels", label: { en: "Land Parcels", hi: "भूमि खंड", bn: "জমির প্লট" }, icon: "Layers", module: "cropDashboard" },
   { id: "dairy", label: { en: "Dairy Herd", hi: "डेयरी झुंड", bn: "ডেয়ারি পাল" }, icon: "Milk", module: "dairyDashboard" },
+  { id: "dairy_ops", label: { en: "Dairy Operations", hi: "डेयरी संचालन", bn: "ডেয়ারি কার্যক্রম" }, icon: "Droplets", module: "dairyDashboard" },
   { id: "goat", label: { en: "Goats & Sheep", hi: "बकरी और भेड़", bn: "ছাগল ও ভেড়া" }, icon: "Rabbit", module: "goatDashboard" },
   { id: "pig", label: { en: "Swine / Pigs", hi: "सूअर", bn: "শূকর" }, icon: "PiggyBank", module: "pigDashboard" },
   { id: "poultry", label: { en: "Poultry Flocks", hi: "पोल्ट्री झुंड", bn: "হাঁস-মুরগির ঝাঁক" }, icon: "Bird", module: "poultryDashboard" },
@@ -61,6 +62,7 @@ function renderItemSubtitle(domain, local) {
 
 function getDomainNoun(domain) {
   if (domain === "parcels") return "parcel(s)";
+  if (domain === "dairy_ops") return "operational record(s)";
   if (domain === "poultry") return "batch(es)";
   if (domain === "fish") return "pond(s)";
   if (domain === "bee") return "hive(s)";
@@ -69,6 +71,7 @@ function getDomainNoun(domain) {
 
 function getDomainNounPlural(domain) {
   if (domain === "parcels") return "Fields";
+  if (domain === "dairy_ops") return "Operational Records";
   if (domain === "poultry") return "Batches";
   if (domain === "fish") return "Ponds";
   if (domain === "bee") return "Hives";
@@ -137,6 +140,24 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
           spaceId: space.id,
           parcels: localItems,
         });
+      } else if (domain === "dairy_ops") {
+        const [localProds, localEvents] = await Promise.all([
+          farmSpaceBridgeService.getLocalDairyProductions(),
+          farmSpaceBridgeService.getLocalDairyEvents(),
+        ]);
+        localItems = [...localProds, ...localEvents];
+        setParcels(localItems);
+
+        if (localItems.length === 0) {
+          setLoading(false);
+          return;
+        }
+
+        previewRes = await farmSpaceBridgeService.previewDairyOps({
+          spaceId: space.id,
+          productions: localProds,
+          events: localEvents,
+        });
       } else {
         localItems = await farmSpaceBridgeService.getLocalAnimals(domain);
         setParcels(localItems);
@@ -157,11 +178,24 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
 
       // Pre-select all NEW items by default
       const initialSelected = new Set();
-      (previewRes.items || []).forEach((item) => {
-        if (item.status === "NEW") {
-          initialSelected.add(item.clientUuid);
-        }
-      });
+      if (domain === "dairy_ops") {
+        (previewRes.milkItems || []).forEach((item) => {
+          if (item.publishable && item.status === "NEW") {
+            initialSelected.add(item.clientUuid);
+          }
+        });
+        (previewRes.eventItems || []).forEach((item) => {
+          if (item.publishable && item.status === "NEW") {
+            initialSelected.add(item.clientUuid);
+          }
+        });
+      } else {
+        (previewRes.items || []).forEach((item) => {
+          if (item.status === "NEW") {
+            initialSelected.add(item.clientUuid);
+          }
+        });
+      }
       setSelectedIds(initialSelected);
     } catch (err) {
       setError(err?.message || "Failed to load bridge preview");
@@ -185,11 +219,17 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
   }, [open, runPreview]);
 
   const toggleSelect = (id) => {
-    // Prevent selecting items already belonging to another Farm Space
-    const isConflict = (preview?.items || []).some(
-      (item) => item.clientUuid === id && item.status === "CONFLICT_OTHER_SPACE"
-    );
-    if (isConflict) return;
+    if (domain === "dairy_ops") {
+      const all = [...(preview?.milkItems || []), ...(preview?.eventItems || [])];
+      const match = all.find(i => i.clientUuid === id);
+      if (match && !match.publishable) return;
+    } else {
+      // Prevent selecting items already belonging to another Farm Space
+      const isConflict = (preview?.items || []).some(
+        (item) => item.clientUuid === id && item.status === "CONFLICT_OTHER_SPACE"
+      );
+      if (isConflict) return;
+    }
 
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -202,6 +242,9 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
   const selectedCount = selectedIds.size;
 
   const selectedParcels = useMemo(() => {
+    if (domain === "dairy_ops") {
+      return parcels.filter(p => selectedIds.has(String(p.id)));
+    }
     const conflictUuids = new Set(
       (preview?.items || [])
         .filter((i) => i.status === "CONFLICT_OTHER_SPACE")
@@ -210,14 +253,19 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
     return parcels.filter(
       (p) => selectedIds.has(String(p.id)) && !conflictUuids.has(String(p.id))
     );
-  }, [parcels, selectedIds, preview]);
+  }, [parcels, selectedIds, preview, domain]);
 
   const hasSelectedDiffs = useMemo(() => {
+    if (domain === "dairy_ops") {
+      return (preview?.milkItems || []).some(
+        (item) => selectedIds.has(item.clientUuid) && item.status === "EXISTS_DIFF"
+      );
+    }
     if (!preview?.items) return false;
     return preview.items.some(
       (item) => selectedIds.has(item.clientUuid) && item.status === "EXISTS_DIFF"
     );
-  }, [preview, selectedIds]);
+  }, [preview, selectedIds, domain]);
 
   const handlePublish = async () => {
     if (selectedParcels.length === 0 || !space?.id) return;
@@ -232,6 +280,15 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
           parcels: selectedParcels,
           overwrite: overwriteDiffs,
         });
+      } else if (domain === "dairy_ops") {
+        const selectedProds = selectedParcels.filter(p => p.amLitres !== undefined || p.pmLitres !== undefined || p.totalLitres !== undefined);
+        const selectedEvents = selectedParcels.filter(e => (e.type !== undefined || e.eventType !== undefined) && e.amLitres === undefined);
+        res = await farmSpaceBridgeService.publishDairyOps({
+          spaceId: space.id,
+          productions: selectedProds,
+          events: selectedEvents,
+          overwrite: overwriteDiffs,
+        });
       } else {
         res = await farmSpaceBridgeService.publishLivestock({
           spaceId: space.id,
@@ -242,15 +299,28 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
       }
       setResult(res);
       setConfirming(false);
-      const entityLabel = getDomainNoun(domain);
-      toast(
-        tc({
-          en: `Published ${res.created.length} ${entityLabel} to ${space.name}`,
-          hi: `${space.name} में ${res.created.length} प्रकाशित किए गए`,
-          bn: `${space.name}-এ ${res.created.length}টি প্রকাশ করা হয়েছে`,
-        }),
-        "success"
-      );
+      if (domain === "dairy_ops") {
+        const milkCreated = res.milk?.created?.length || 0;
+        const eventsCreated = res.events?.created?.length || 0;
+        toast(
+          tc({
+            en: `Published ${milkCreated} milk logs, ${eventsCreated} health events to ${space.name}`,
+            hi: `${space.name} में ${milkCreated} दूध रिकॉर्ड, ${eventsCreated} स्वास्थ्य घटनाएँ प्रकाशित`,
+            bn: `${space.name}-এ ${milkCreated}টি দুধের রেকর্ড, ${eventsCreated}টি স্বাস্থ্য ঘটনা প্রকাশিত`,
+          }),
+          "success"
+        );
+      } else {
+        const entityLabel = getDomainNoun(domain);
+        toast(
+          tc({
+            en: `Published ${res.created.length} ${entityLabel} to ${space.name}`,
+            hi: `${space.name} में ${res.created.length} प्रकाशित किए गए`,
+            bn: `${space.name}-এ ${res.created.length}টি প্রকাশ করা হয়েছে`,
+          }),
+          "success"
+        );
+      }
     } catch (err) {
       setError(err?.message || "Publish failed");
       toast(err?.message || "Publish failed", "error");
@@ -314,6 +384,8 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
             <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 2 }}>
               {domain === "parcels"
                 ? tc({ en: "Phase 1: Land Parcels → Farm Fields", hi: "चरण 1: भूमि खंड → फ़ार्म फ़ील्ड्स", bn: "পর্যায় ১: জমির প্লট → ফার্ম ফিল্ড" })
+                : domain === "dairy_ops"
+                ? tc({ en: "Phase 5: Dairy Operations (Milk & Health) → Cloud Dairy Records", hi: "चरण 5: डेयरी संचालन (दूध और स्वास्थ्य) → क्लाउड डेयरी रिकॉर्ड", bn: "পর্যায় ৫: ডেয়ারি কার্যক্রম (দুধ ও স্বাস্থ্য) → ক্লাউড ডেয়ারি রেকর্ড" })
                 : ["dairy", "goat", "pig"].includes(domain)
                 ? tc({ en: `Phase 2: ${activeDomainDef.label.en} → Cloud Livestock`, hi: `चरण 2: ${tc(activeDomainDef.label)} → क्लाउड पशुधन`, bn: `পর্যায় ২: ${tc(activeDomainDef.label)} → ক্লাউড পশুসম্পদ` })
                 : tc({ en: `Phase 3: ${activeDomainDef.label.en} → Cloud Register`, hi: `चरण 3: ${tc(activeDomainDef.label)} → क्लाउड रजिस्टर`, bn: `পর্যায় ৩: ${tc(activeDomainDef.label)} → ক্লাউড রেজিস্টার` })}
@@ -409,6 +481,12 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
                   en: "Publishing copies your device-local land parcels into this shared Farm Space. Local ERP records are never modified or deleted.",
                   hi: "प्रकाशन से आपके स्थानीय भूमि खंड इस साझा फ़ार्म स्पेस में कॉपी होते हैं। स्थानीय रिकॉर्ड कभी नहीं बदले जाते।",
                   bn: "প্রকাশ করার মাধ্যমে আপনার স্থানীয় জমির প্লট এই শেয়ার্ড ফার্ম স্পেসে কপি হবে। স্থানীয় রেকর্ড পরিবর্তিত বা মোছা হবে না।",
+                })
+              : domain === "dairy_ops"
+              ? tc({
+                  en: "Milk records are bridged strictly in Litres (L). Cloud Farm Space preserves local measurement units without conversion. Health events require an assigned animal.",
+                  hi: "दूध रिकॉर्ड केवल लीटर (L) में ब्रिज किए जाते हैं। क्लाउड फ़ार्म स्पेस बिना रूपांतरण के स्थानीय माप इकाइयों को संरक्षित करता है।",
+                  bn: "দুধের রেকর্ড কঠোরভাবে লিটারে (L) ব্রিজ করা হয়। ক্লাউড ফার্ম স্পেস রূপান্তর ছাড়াই স্থানীয় একক সংরক্ষণ করে।",
                 })
               : tc({
                   en: "Publishing copies your device-local animals into this shared Farm Space. Local ERP records are never modified or deleted.",
@@ -523,7 +601,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
                 <div style={{ padding: "12px 8px", background: T.surface2, borderRadius: 10 }}>
                   <div data-testid="result-published" style={{ fontSize: 20, fontWeight: 700, color: T.green }}>
-                    {result.created.length}
+                    {domain === "dairy_ops" ? ((result.milk?.created?.length || 0) + (result.events?.created?.length || 0)) : (result.created?.length || 0)}
                   </div>
                   <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
                     {tc({ en: "Published", hi: "प्रकाशित", bn: "প্রকাশিত" })}
@@ -531,7 +609,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
                 </div>
                 <div style={{ padding: "12px 8px", background: T.surface2, borderRadius: 10 }}>
                   <div data-testid="result-updated" style={{ fontSize: 20, fontWeight: 700, color: T.primary }}>
-                    {result.updated.length}
+                    {domain === "dairy_ops" ? (result.milk?.updated?.length || 0) : (result.updated?.length || 0)}
                   </div>
                   <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
                     {tc({ en: "Updated", hi: "अपडेट", bn: "আপডেট" })}
@@ -539,7 +617,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
                 </div>
                 <div style={{ padding: "12px 8px", background: T.surface2, borderRadius: 10 }}>
                   <div data-testid="result-synced" style={{ fontSize: 20, fontWeight: 700, color: T.inkFaint }}>
-                    {result.skipped.length}
+                    {domain === "dairy_ops" ? ((result.milk?.skipped?.length || 0) + (result.events?.skipped?.length || 0)) : (result.skipped?.length || 0)}
                   </div>
                   <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
                     {tc({ en: "Already Synced", hi: "पहले से सिंक", bn: "আগে থেকেই সিঙ্ক" })}
@@ -547,7 +625,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
                 </div>
               </div>
 
-              {result.created.length > 0 && (
+              {result.created && result.created.length > 0 && (
                 <div style={{ textAlign: "left", marginBottom: 16 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: T.inkFaint, marginBottom: 6 }}>
                     {tc({ en: `Newly Created ${getDomainNounPlural(domain)}:`, hi: "नए बनाए गए रिकॉर्ड्स:", bn: "নতুন তৈরি রেকর্ড:" })}
@@ -637,6 +715,14 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
           )}
 
           {!loading && !result && !confirming && preview && (
+            domain === "dairy_ops" ? (
+              <DairyOpsPreviewView
+                preview={preview}
+                selectedIds={selectedIds}
+                toggleSelect={toggleSelect}
+                tc={tc}
+              />
+            ) : (
             /* ── Preview Classification View ── */
             <div data-testid="bridge-preview-view" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               {/* Summary Badges */}
@@ -898,6 +984,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
                 </div>
               )}
             </div>
+            )
           )}
         </div>
 
@@ -963,6 +1050,248 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
             </>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DairyOpsPreviewView({ preview, selectedIds, toggleSelect, tc }) {
+  const milkSummary = preview.summary?.milk || {};
+  const eventsSummary = preview.summary?.events || {};
+  const milkItems = preview.milkItems || [];
+  const eventItems = preview.eventItems || [];
+
+  return (
+    <div data-testid="bridge-preview-view" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Unit & Data Integrity Banner */}
+      <div style={{
+        padding: "10px 14px", background: T.primarySoft, borderRadius: 10,
+        display: "flex", alignItems: "center", gap: 10, border: `1px solid ${T.primary}`,
+      }}>
+        <Icon name="Droplets" size={18} color={T.primary} />
+        <div style={{ fontSize: 12.5, color: T.primary, fontWeight: 600 }}>
+          {tc({
+            en: "Milk quantities preserved in Litres (L). Cloud analytics track Litres and Kilograms separately.",
+            hi: "दूध की मात्रा लीटर (L) में संरक्षित है। क्लाउड एनालिटिक्स लीटर और किलोग्राम को अलग-अलग ट्रैक करता है।",
+            bn: "দুধের পরিমাণ লিটারে (L) সংরক্ষিত। ক্লাউড অ্যানালিটিক্স লিটার এবং কেজি আলাদাভাবে ট্র্যাক করে।",
+          })}
+        </div>
+      </div>
+
+      {/* ── Milk Yield Logs Section ── */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.ink, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            {tc({ en: "Milk Logs", hi: "दूध रिकॉर्ड", bn: "দুধের রেকর্ড" })} ({milkItems.length})
+          </div>
+        </div>
+
+        {/* Summary Badges for Milk */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: T.surface2, color: T.ink }}>
+            Total: {milkSummary.total || 0}
+          </span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: T.greenSoft, color: T.green }}>
+            New: {milkSummary.newCount || 0}
+          </span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: T.amberSoft, color: T.amber }}>
+            Diffs: {milkSummary.diffCount || 0}
+          </span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: T.surface2, color: T.inkFaint }}>
+            Synced: {milkSummary.sameCount || 0}
+          </span>
+          {(milkSummary.conflictCount > 0 || milkSummary.blockedCount > 0) && (
+            <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: T.redSoft, color: T.red }}>
+              Blocked: {(milkSummary.conflictCount || 0) + (milkSummary.blockedCount || 0)}
+            </span>
+          )}
+        </div>
+
+        {milkItems.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: T.inkSoft, padding: "8px 0" }}>
+            {tc({ en: "No local milk entries found.", hi: "कोई स्थानीय दूध प्रविष्टि नहीं मिली।", bn: "কোনো স্থানীয় দুধের এন্ট্রি পাওয়া যায়নি।" })}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {milkItems.map((item) => {
+              const isSelected = selectedIds.has(item.clientUuid);
+              const isBlocked = !item.publishable;
+              const isDiff = item.status === "EXISTS_DIFF";
+              const isSame = item.status === "EXISTS_SAME";
+
+              let bg = T.surface2;
+              let border = T.line;
+              let badgeColor = T.green;
+              let badgeBg = T.greenSoft;
+              let badgeText = item.status;
+
+              if (isBlocked) {
+                bg = T.redSoft;
+                border = T.red;
+                badgeColor = T.red;
+                badgeBg = T.surface;
+                badgeText = item.status.replace(/_/g, " ");
+              } else if (isDiff) {
+                bg = isSelected ? T.amberSoft : T.surface2;
+                border = isSelected ? T.amber : T.line;
+                badgeColor = T.amber;
+                badgeBg = T.surface;
+                badgeText = "MODIFIED";
+              } else if (isSame) {
+                bg = T.surface2;
+                badgeColor = T.inkFaint;
+                badgeBg = T.surface;
+                badgeText = "UNCHANGED";
+              } else if (isSelected) {
+                bg = T.greenSoft;
+                border = T.green;
+              }
+
+              return (
+                <div
+                  key={item.clientUuid}
+                  onClick={() => !isBlocked && toggleSelect(item.clientUuid)}
+                  data-testid={`milk-item-${item.clientUuid}`}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 12px", background: bg, border: `1px solid ${border}`,
+                    borderRadius: 10, cursor: isBlocked ? "not-allowed" : "pointer",
+                    opacity: isSame ? 0.85 : 1,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    disabled={isBlocked || isSame}
+                    checked={isSelected}
+                    onChange={() => toggleSelect(item.clientUuid)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
+                      {item.animalName} · {item.date}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
+                      {item.totalYieldLitres.toFixed(1)} L (AM: {item.amYieldLitres.toFixed(1)} L, PM: {item.pmYieldLitres.toFixed(1)} L)
+                    </div>
+                    {item.error && (
+                      <div style={{ fontSize: 11, color: T.red, marginTop: 2 }}>{item.error}</div>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: 10.5, fontWeight: 700, color: badgeColor,
+                    background: badgeBg, padding: "2px 6px", borderRadius: 4,
+                    whiteSpace: "nowrap",
+                  }}>
+                    {badgeText}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Health Events Section ── */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.ink, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            {tc({ en: "Veterinary Health Events", hi: "स्वास्थ्य घटनाएँ", bn: "স্বাস্থ্য ঘটনা" })} ({eventItems.length})
+          </div>
+        </div>
+
+        {/* Summary Badges for Health Events */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: T.surface2, color: T.ink }}>
+            Total: {eventsSummary.total || 0}
+          </span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: T.greenSoft, color: T.green }}>
+            New: {eventsSummary.newCount || 0}
+          </span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: T.surface2, color: T.inkFaint }}>
+            Synced: {eventsSummary.sameCount || 0}
+          </span>
+          {(eventsSummary.conflictCount > 0 || eventsSummary.blockedCount > 0) && (
+            <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: T.redSoft, color: T.red }}>
+              Blocked: {(eventsSummary.conflictCount || 0) + (eventsSummary.blockedCount || 0)}
+            </span>
+          )}
+        </div>
+
+        {eventItems.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: T.inkSoft, padding: "8px 0" }}>
+            {tc({ en: "No local health events found.", hi: "कोई स्थानीय स्वास्थ्य घटना नहीं मिली।", bn: "কোনো स्थानीय স্বাস্থ্য ঘটনা পাওয়া যায়নি।" })}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {eventItems.map((ev) => {
+              const isSelected = selectedIds.has(ev.clientUuid);
+              const isBlocked = !ev.publishable;
+              const isSame = ev.status === "EXISTS_SAME";
+
+              let bg = T.surface2;
+              let border = T.line;
+              let badgeColor = T.green;
+              let badgeBg = T.greenSoft;
+              let badgeText = ev.status;
+
+              if (isBlocked) {
+                bg = T.redSoft;
+                border = T.red;
+                badgeColor = T.red;
+                badgeBg = T.surface;
+                badgeText = ev.status.replace(/_/g, " ");
+              } else if (isSame) {
+                bg = T.surface2;
+                badgeColor = T.inkFaint;
+                badgeBg = T.surface;
+                badgeText = "UNCHANGED";
+              } else if (isSelected) {
+                bg = T.greenSoft;
+                border = T.green;
+              }
+
+              return (
+                <div
+                  key={ev.clientUuid}
+                  onClick={() => !isBlocked && toggleSelect(ev.clientUuid)}
+                  data-testid={`event-item-${ev.clientUuid}`}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 12px", background: bg, border: `1px solid ${border}`,
+                    borderRadius: 10, cursor: isBlocked ? "not-allowed" : "pointer",
+                    opacity: isSame ? 0.85 : 1,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    disabled={isBlocked || isSame}
+                    checked={isSelected}
+                    onChange={() => toggleSelect(ev.clientUuid)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
+                      {ev.animalName} · {ev.date}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 2 }}>
+                      <span style={{ fontWeight: 600, textTransform: "capitalize" }}>{ev.type}</span>: {ev.title}
+                    </div>
+                    {ev.error && (
+                      <div style={{ fontSize: 11, color: T.red, marginTop: 2 }}>{ev.error}</div>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: 10.5, fontWeight: 700, color: badgeColor,
+                    background: badgeBg, padding: "2px 6px", borderRadius: 4,
+                    whiteSpace: "nowrap",
+                  }}>
+                    {badgeText}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

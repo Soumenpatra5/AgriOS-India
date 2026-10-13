@@ -1448,3 +1448,492 @@ export async function publishLivestock(sql, membership, actorUserId, payload = {
     total: normalized.length,
   };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════
+ * Phase 5: Dairy Operational Records Publishing (Milk Records & Health Events)
+ * ══════════════════════════════════════════════════════════════════════════════════ */
+
+export function validateSessionYield(rawInput) {
+  if (rawInput === undefined || rawInput === null) {
+    return { isBlank: true, isInvalid: false, value: 0 };
+  }
+  if (typeof rawInput === "string") {
+    const trimmed = rawInput.trim();
+    if (trimmed === "") return { isBlank: true, isInvalid: false, value: 0 };
+    const num = Number(trimmed);
+    if (!Number.isFinite(num) || Number.isNaN(num) || num < 0 || num > 9999.99) {
+      return { isBlank: false, isInvalid: true, value: null, reason: "INVALID_NUMERIC_RANGE" };
+    }
+    const rounded = Math.round(num * 100) / 100;
+    return { isBlank: false, isInvalid: false, value: rounded, isExplicitZero: rounded === 0 };
+  }
+  if (typeof rawInput === "number") {
+    if (!Number.isFinite(rawInput) || Number.isNaN(rawInput) || rawInput < 0 || rawInput > 9999.99) {
+      return { isBlank: false, isInvalid: true, value: null, reason: "INVALID_NUMERIC_RANGE" };
+    }
+    const rounded = Math.round(rawInput * 100) / 100;
+    return { isBlank: false, isInvalid: false, value: rounded, isExplicitZero: rounded === 0 };
+  }
+  return { isBlank: false, isInvalid: true, value: null, reason: "UNSUPPORTED_TYPE" };
+}
+
+export const SUPPORTED_DAIRY_HEALTH_TYPES = new Set([
+  "observation", "vaccination", "treatment", "deworming", "vet_visit", "other",
+]);
+
+export const REPRODUCTIVE_EVENT_TYPES = new Set([
+  "ai_breeding", "pregnancy_check", "calving", "heat_observed", "natural_service", "ai_done", "dry_off", "abortion",
+]);
+
+export async function previewDairyOperations(sql, membership, payload = {}) {
+  const { spaceId, productions = [], events = [] } = payload;
+
+  if (spaceId && String(spaceId) !== String(membership.space_id)) {
+    throw new HttpError(400, "Target Farm Space mismatch");
+  }
+
+  await assertLivestockModuleEnabled(sql, membership.space_id, "dairy");
+
+  if (!Array.isArray(productions)) throw new HttpError(400, "productions must be an array");
+  if (!Array.isArray(events)) throw new HttpError(400, "events must be an array");
+
+  // 1. Resolve Parent Animals in target Farm Space
+  const rawAnimalUuids = new Set();
+  for (const p of productions) {
+    if (p.animalId && String(p.animalId).trim()) rawAnimalUuids.add(String(p.animalId).trim());
+  }
+  for (const ev of events) {
+    if (ev.animalId && String(ev.animalId).trim()) rawAnimalUuids.add(String(ev.animalId).trim());
+  }
+
+  let cloudAnimals = [];
+  if (rawAnimalUuids.size > 0) {
+    cloudAnimals = await sql`
+      select id, space_id, client_uuid, name, tag_id, current_status
+      from dairy_animals
+      where space_id = ${membership.space_id}
+        and client_uuid = any(${Array.from(rawAnimalUuids)})
+        and deleted_at is null
+    `;
+  }
+  const animalMap = new Map();
+  for (const a of cloudAnimals) animalMap.set(a.client_uuid, a);
+
+  // 2. Pre-fetch existing cloud milk records (by client_uuid and by animal natural keys)
+  const milkClientUuids = productions.map((p) => String(p.id || "").trim()).filter(Boolean);
+  let existingMilkByClient = [];
+  if (milkClientUuids.length > 0) {
+    existingMilkByClient = await sql`
+      select id, space_id, animal_id, record_date, unit, am_yield_litres, pm_yield_litres,
+             total_yield_litres, am_yield_kg, pm_yield_kg, total_yield_kg, client_uuid
+      from dairy_milk_records
+      where client_uuid = any(${milkClientUuids}) and deleted_at is null
+    `;
+  }
+  const milkClientMap = new Map();
+  for (const row of existingMilkByClient) milkClientMap.set(row.client_uuid, row);
+
+  const resolvedAnimalCloudIds = Array.from(animalMap.values()).map((a) => a.id);
+  let existingMilkByNatural = [];
+  if (resolvedAnimalCloudIds.length > 0) {
+    existingMilkByNatural = await sql`
+      select id, space_id, animal_id, record_date, client_uuid, unit,
+             am_yield_litres, pm_yield_litres, total_yield_litres
+      from dairy_milk_records
+      where space_id = ${membership.space_id}
+        and animal_id = any(${resolvedAnimalCloudIds})
+        and deleted_at is null
+    `;
+  }
+  const milkNaturalKeyMap = new Map();
+  for (const row of existingMilkByNatural) {
+    const dStr = (row.record_date instanceof Date ? row.record_date.toISOString().slice(0, 10) : String(row.record_date)).slice(0, 10);
+    milkNaturalKeyMap.set(`${row.animal_id}:${dStr}`, row);
+  }
+
+  // 3. Pre-fetch existing cloud health events
+  const eventClientUuids = events.map((e) => String(e.id || "").trim()).filter(Boolean);
+  let existingEventsByClient = [];
+  if (eventClientUuids.length > 0) {
+    existingEventsByClient = await sql`
+      select id, space_id, animal_id, event_date, event_type, title, notes, next_due_date, client_uuid
+      from dairy_health_events
+      where client_uuid = any(${eventClientUuids}) and deleted_at is null
+    `;
+  }
+  const eventClientMap = new Map();
+  for (const row of existingEventsByClient) eventClientMap.set(row.client_uuid, row);
+
+  // 4. Reconcile Milk Records
+  const milkItems = [];
+  const batchDateKeys = new Set();
+  const batchCollisions = new Set();
+
+  for (const p of productions) {
+    const rawAnimalId = p.animalId ? String(p.animalId).trim() : "";
+    const dateStr = p.date ? String(p.date).trim() : "";
+    if (rawAnimalId && dateStr) {
+      const key = `${rawAnimalId}:${dateStr}`;
+      if (batchDateKeys.has(key)) batchCollisions.add(key);
+      else batchDateKeys.add(key);
+    }
+  }
+
+  let milkNew = 0, milkSame = 0, milkDiff = 0, milkConflict = 0, milkBlocked = 0;
+
+  for (const p of productions) {
+    const clientUuid = String(p.id || "").trim();
+    const rawAnimalId = p.animalId ? String(p.animalId).trim() : "";
+    const dateStr = p.date ? String(p.date).trim() : "";
+
+    const amVal = validateSessionYield(p.amLitres);
+    const pmVal = validateSessionYield(p.pmLitres);
+
+    let status;
+    let error = null;
+    let publishable = true;
+
+    if (!rawAnimalId) {
+      status = "UNASSIGNED_ANIMAL";
+      error = "Milk record has no assigned animal. Cloud Farm Space requires individual animal assignment.";
+      publishable = false;
+      milkBlocked++;
+    } else if (!animalMap.has(rawAnimalId)) {
+      status = "PARENT_NOT_FOUND";
+      error = `Parent animal with ID "${rawAnimalId}" not found in target Farm Space. Publish dairy animal first.`;
+      publishable = false;
+      milkBlocked++;
+    } else if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      status = "INVALID_DATE";
+      error = `Invalid record date "${dateStr}". Must be YYYY-MM-DD.`;
+      publishable = false;
+      milkBlocked++;
+    } else if (amVal.isInvalid || pmVal.isInvalid) {
+      status = "INVALID_QUANTITY";
+      error = "Yield values must be non-negative numbers up to 9999.99.";
+      publishable = false;
+      milkBlocked++;
+    } else if (amVal.isBlank && pmVal.isBlank) {
+      status = "INVALID_QUANTITY";
+      error = "Both morning and evening yields are blank.";
+      publishable = false;
+      milkBlocked++;
+    } else if (batchCollisions.has(`${rawAnimalId}:${dateStr}`)) {
+      status = "DUPLICATE_IN_BATCH";
+      error = "Multiple records for this animal on this date exist within the local selection.";
+      publishable = false;
+      milkBlocked++;
+    } else {
+      const parentAnimal = animalMap.get(rawAnimalId);
+      const cloudByClient = milkClientMap.get(clientUuid);
+
+      if (cloudByClient && String(cloudByClient.space_id) !== String(membership.space_id)) {
+        status = "CONFLICT_OTHER_SPACE";
+        error = "Milk record is already linked to another Farm Space.";
+        publishable = false;
+        milkConflict++;
+      } else if (cloudByClient) {
+        // Exists via same client_uuid in target space
+        const targetNatKey = `${parentAnimal.id}:${dateStr}`;
+        const naturalRow = milkNaturalKeyMap.get(targetNatKey);
+
+        if (naturalRow && naturalRow.id !== cloudByClient.id) {
+          status = "NATURAL_KEY_CONFLICT";
+          error = `Another active cloud record for ${parentAnimal.name} on ${dateStr} already exists.`;
+          publishable = false;
+          milkConflict++;
+        } else {
+          const amL = amVal.isBlank ? 0 : amVal.value;
+          const pmL = pmVal.isBlank ? 0 : pmVal.value;
+          const cloudAmL = Number(cloudByClient.am_yield_litres || 0);
+          const cloudPmL = Number(cloudByClient.pm_yield_litres || 0);
+          const isSame = cloudByClient.unit === "L" && Math.abs(cloudAmL - amL) < 0.001 && Math.abs(cloudPmL - pmL) < 0.001;
+
+          if (isSame) {
+            status = "EXISTS_SAME";
+            milkSame++;
+          } else {
+            status = "EXISTS_DIFF";
+            milkDiff++;
+          }
+        }
+      } else {
+        // New by client_uuid — check natural-key collision with another cloud row
+        const targetNatKey = `${parentAnimal.id}:${dateStr}`;
+        const naturalRow = milkNaturalKeyMap.get(targetNatKey);
+
+        if (naturalRow) {
+          status = "NATURAL_KEY_CONFLICT";
+          error = `A cloud milk record for ${parentAnimal.name} on ${dateStr} already exists with a different origin.`;
+          publishable = false;
+          milkConflict++;
+        } else {
+          status = "NEW";
+          milkNew++;
+        }
+      }
+    }
+
+    const parentAnimal = animalMap.get(rawAnimalId);
+    const cloud = milkClientMap.get(clientUuid);
+
+    milkItems.push({
+      clientUuid,
+      animalId: rawAnimalId,
+      animalName: parentAnimal?.name || (rawAnimalId ? "Unknown Animal" : "All Animals (Herd)"),
+      date: dateStr,
+      amYieldLitres: amVal.isBlank ? 0 : (amVal.value ?? 0),
+      pmYieldLitres: pmVal.isBlank ? 0 : (pmVal.value ?? 0),
+      totalYieldLitres: ((amVal.isBlank ? 0 : (amVal.value ?? 0)) + (pmVal.isBlank ? 0 : (pmVal.value ?? 0))),
+      status,
+      publishable,
+      error,
+      cloud: cloud ? { id: cloud.id, unit: cloud.unit, total: cloud.total_yield_litres || cloud.total_yield_kg } : null,
+    });
+  }
+
+  // 5. Reconcile Health Events
+  const eventItems = [];
+  let eventNew = 0, eventSame = 0, eventDiff = 0, eventConflict = 0, eventBlocked = 0;
+
+  for (const ev of events) {
+    const clientUuid = String(ev.id || "").trim();
+    const rawAnimalId = ev.animalId ? String(ev.animalId).trim() : "";
+    const dateStr = ev.date ? String(ev.date).trim() : "";
+    const rawType = String(ev.type || "").trim();
+
+    let status;
+    let error = null;
+    let publishable = true;
+
+    if (!rawAnimalId) {
+      status = "UNASSIGNED_ANIMAL";
+      error = "Event has no assigned animal. Cloud health register requires individual animal assignment.";
+      publishable = false;
+      eventBlocked++;
+    } else if (!animalMap.has(rawAnimalId)) {
+      status = "PARENT_NOT_FOUND";
+      error = `Parent animal with ID "${rawAnimalId}" not found in target Farm Space.`;
+      publishable = false;
+      eventBlocked++;
+    } else if (REPRODUCTIVE_EVENT_TYPES.has(rawType)) {
+      status = "UNSUPPORTED_EVENT_DOMAIN";
+      error = `Event "${rawType}" belongs to the reproductive register, not veterinary health.`;
+      publishable = false;
+      eventBlocked++;
+    } else if (!SUPPORTED_DAIRY_HEALTH_TYPES.has(rawType)) {
+      status = "UNSUPPORTED_EVENT_TYPE";
+      error = `Event type "${rawType}" is not supported by dairy health events.`;
+      publishable = false;
+      eventBlocked++;
+    } else if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      status = "INVALID_DATE";
+      error = `Invalid event date "${dateStr}". Must be YYYY-MM-DD.`;
+      publishable = false;
+      eventBlocked++;
+    } else {
+      const cloud = eventClientMap.get(clientUuid);
+      if (cloud && String(cloud.space_id) !== String(membership.space_id)) {
+        status = "CONFLICT_OTHER_SPACE";
+        error = "Health event is already linked to another Farm Space.";
+        publishable = false;
+        eventConflict++;
+      } else if (cloud) {
+        status = "EXISTS_SAME";
+        eventSame++;
+      } else {
+        status = "NEW";
+        eventNew++;
+      }
+    }
+
+    const parentAnimal = animalMap.get(rawAnimalId);
+    const cloud = eventClientMap.get(clientUuid);
+
+    eventItems.push({
+      clientUuid,
+      animalId: rawAnimalId,
+      animalName: parentAnimal?.name || (rawAnimalId ? "Unknown Animal" : "All Animals (Herd)"),
+      date: dateStr,
+      type: rawType,
+      title: (ev.note && String(ev.note).trim().slice(0, 80)) || rawType.replace(/_/g, " "),
+      notes: ev.note ? String(ev.note).trim() : null,
+      dueDate: ev.dueDate ? String(ev.dueDate).trim() : null,
+      status,
+      publishable,
+      error,
+      cloud: cloud ? { id: cloud.id, type: cloud.event_type, date: cloud.event_date } : null,
+    });
+  }
+
+  return {
+    spaceId: membership.space_id,
+    enterprise: "dairy",
+    summary: {
+      milk: { total: productions.length, newCount: milkNew, sameCount: milkSame, diffCount: milkDiff, conflictCount: milkConflict, blockedCount: milkBlocked },
+      events: { total: events.length, newCount: eventNew, sameCount: eventSame, diffCount: eventDiff, conflictCount: eventConflict, blockedCount: eventBlocked },
+    },
+    milkItems,
+    eventItems,
+  };
+}
+
+export async function publishDairyOperations(sql, membership, actorUserId, payload = {}) {
+  const { spaceId, productions = [], events = [], overwrite = false } = payload;
+
+  if (spaceId && String(spaceId) !== String(membership.space_id)) {
+    throw new HttpError(400, "Target Farm Space mismatch");
+  }
+
+  await assertLivestockModuleEnabled(sql, membership.space_id, "dairy");
+
+  // Re-run preview reconciliation inside transaction to guarantee consistency
+  return sql.begin(async (tx) => {
+    const preview = await previewDairyOperations(tx, membership, { spaceId, productions, events });
+
+    // Strict cross-space isolation check: rollback entire transaction if any record belongs elsewhere
+    for (const item of preview.milkItems) {
+      if (item.status === "CONFLICT_OTHER_SPACE") {
+        throw new HttpError(409, `Cross-space publish rejected: milk record "${item.clientUuid}" already belongs to another Farm Space`);
+      }
+    }
+    for (const ev of preview.eventItems) {
+      if (ev.status === "CONFLICT_OTHER_SPACE") {
+        throw new HttpError(409, `Cross-space publish rejected: health event "${ev.clientUuid}" already belongs to another Farm Space`);
+      }
+    }
+
+    const milkCreated = [];
+    const milkUpdated = [];
+    const milkSkipped = [];
+
+    for (const item of preview.milkItems) {
+      if (!item.publishable) {
+        milkSkipped.push({ clientUuid: item.clientUuid, date: item.date, reason: item.status, error: item.error });
+        continue;
+      }
+
+      if (item.status === "EXISTS_SAME") {
+        milkSkipped.push({ clientUuid: item.clientUuid, date: item.date, reason: "already_synced" });
+        continue;
+      }
+
+      if (item.status === "EXISTS_DIFF" && !overwrite) {
+        milkSkipped.push({ clientUuid: item.clientUuid, date: item.date, reason: "exists_diff_no_overwrite" });
+        continue;
+      }
+
+      // Resolve parent cloud UUID
+      const parentRows = await tx`
+        select id from dairy_animals
+        where space_id = ${membership.space_id} and client_uuid = ${item.animalId} and deleted_at is null
+      `;
+      if (!parentRows.length) {
+        milkSkipped.push({ clientUuid: item.clientUuid, date: item.date, reason: "parent_missing_at_write" });
+        continue;
+      }
+      const parentCloudId = parentRows[0].id;
+
+      if (item.status === "NEW") {
+        const rows = await tx`
+          insert into dairy_milk_records
+            (space_id, animal_id, record_date, unit,
+             am_yield_litres, pm_yield_litres, am_yield_kg, pm_yield_kg,
+             client_uuid, created_by)
+          values (
+            ${membership.space_id}, ${parentCloudId}, ${item.date}, 'L',
+            ${item.amYieldLitres}, ${item.pmYieldLitres}, 0, 0,
+            ${item.clientUuid}, ${actorUserId}
+          )
+          returning id, client_uuid, record_date, unit, total_yield_litres
+        `;
+        milkCreated.push({
+          id: rows[0].id,
+          clientUuid: rows[0].client_uuid,
+          date: item.date,
+          unit: "L",
+          yield: Number(rows[0].total_yield_litres || 0),
+        });
+      } else if (item.status === "EXISTS_DIFF" && overwrite) {
+        const rows = await tx`
+          update dairy_milk_records set
+            unit            = 'L',
+            am_yield_litres = ${item.amYieldLitres},
+            pm_yield_litres = ${item.pmYieldLitres},
+            am_yield_kg     = 0,
+            pm_yield_kg     = 0,
+            updated_at      = now()
+          where id = ${item.cloud.id} and space_id = ${membership.space_id}
+          returning id, client_uuid, record_date, unit, total_yield_litres
+        `;
+        milkUpdated.push({
+          id: rows[0].id,
+          clientUuid: rows[0].client_uuid,
+          date: item.date,
+          unit: "L",
+          yield: Number(rows[0].total_yield_litres || 0),
+        });
+      }
+    }
+
+    const eventsCreated = [];
+    const eventsSkipped = [];
+
+    for (const ev of preview.eventItems) {
+      if (!ev.publishable || ev.status !== "NEW") {
+        eventsSkipped.push({ clientUuid: ev.clientUuid, type: ev.type, reason: ev.status, error: ev.error });
+        continue;
+      }
+
+      const parentRows = await tx`
+        select id from dairy_animals
+        where space_id = ${membership.space_id} and client_uuid = ${ev.animalId} and deleted_at is null
+      `;
+      if (!parentRows.length) {
+        eventsSkipped.push({ clientUuid: ev.clientUuid, type: ev.type, reason: "parent_missing_at_write" });
+        continue;
+      }
+      const parentCloudId = parentRows[0].id;
+
+      const rows = await tx`
+        insert into dairy_health_events
+          (space_id, animal_id, event_date, event_type, title,
+           notes, next_due_date, client_uuid, created_by)
+        values (
+          ${membership.space_id}, ${parentCloudId}, ${ev.date}, ${ev.type}, ${ev.title},
+          ${ev.notes}, ${ev.dueDate || null}, ${ev.clientUuid}, ${actorUserId}
+        )
+        returning id, client_uuid, event_date, event_type, title
+      `;
+      eventsCreated.push({
+        id: rows[0].id,
+        clientUuid: rows[0].client_uuid,
+        date: ev.date,
+        type: rows[0].event_type,
+        title: rows[0].title,
+      });
+    }
+
+    await audit(tx, {
+      spaceId: membership.space_id,
+      actorUserId,
+      action: "bridge.publish_dairy_ops",
+      targetType: "dairy_milk_records",
+      meta: {
+        milkCreatedCount: milkCreated.length,
+        milkUpdatedCount: milkUpdated.length,
+        milkSkippedCount: milkSkipped.length,
+        eventsCreatedCount: eventsCreated.length,
+        eventsSkippedCount: eventsSkipped.length,
+      },
+    });
+
+    return {
+      success: true,
+      spaceId: membership.space_id,
+      enterprise: "dairy",
+      milk: { created: milkCreated, updated: milkUpdated, skipped: milkSkipped },
+      events: { created: eventsCreated, updated: [], skipped: eventsSkipped },
+    };
+  });
+}

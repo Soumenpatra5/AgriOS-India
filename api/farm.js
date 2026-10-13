@@ -605,6 +605,10 @@ const ACTIONS = {
   "bridge.previewLivestock":   { permission: (payload) => bridge.getLivestockPermission(payload?.enterprise), run: ({ sql, membership, payload })       => bridge.previewLivestock(sql, membership, payload) },
   "bridge.publishLivestock":   { permission: (payload) => bridge.getLivestockPermission(payload?.enterprise), run: ({ sql, membership, user, payload }) => bridge.publishLivestock(sql, membership, user.id, payload) },
 
+  /* Local ERP ↔ Cloud Farm Space Bridge — Dairy Operations */
+  "bridge.previewDairyOps":   { permission: "farm.dairy.record", run: ({ sql, membership, payload })       => bridge.previewDairyOperations(sql, membership, payload) },
+  "bridge.publishDairyOps":   { permission: "farm.dairy.record", run: ({ sql, membership, user, payload }) => bridge.publishDairyOperations(sql, membership, user.id, payload) },
+
   /* Fields */
   "crop.fields.list":         { permission: "farm.crop.view",    run: ({ sql, membership, payload })          => crop.listFields(sql, membership, payload) },
   "crop.fields.get":          { permission: "farm.crop.view",    run: ({ sql, membership, payload })          => crop.getField(sql, membership, payload) },

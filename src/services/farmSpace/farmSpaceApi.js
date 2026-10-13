@@ -168,4 +168,6 @@ export const farmSpaceApi = {
   bridgePublishFields: (spaceId, parcels, overwrite = false) => call("bridge.publishFields", { spaceId, payload: { spaceId, parcels, overwrite } }),
   bridgePreviewLivestock: (spaceId, enterprise, animals) => call("bridge.previewLivestock", { spaceId, payload: { spaceId, enterprise, animals } }),
   bridgePublishLivestock: (spaceId, enterprise, animals, overwrite = false) => call("bridge.publishLivestock", { spaceId, payload: { spaceId, enterprise, animals, overwrite } }),
+  bridgePreviewDairyOps:  (spaceId, productions, events) => call("bridge.previewDairyOps", { spaceId, payload: { spaceId, productions, events } }),
+  bridgePublishDairyOps:  (spaceId, productions, events, overwrite = false) => call("bridge.publishDairyOps", { spaceId, payload: { spaceId, productions, events, overwrite } }),
 };
