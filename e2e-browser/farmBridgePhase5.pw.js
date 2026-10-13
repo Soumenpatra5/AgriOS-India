@@ -354,7 +354,7 @@ test.describe("Farm Space Bridge Phase 5 — Dairy Operational Records Publishin
         req.onsuccess = () => {
           const db = req.result;
           const tx = db.transaction(["animals", "productions", "events"], "readwrite");
-          
+
           // Seed animal
           tx.objectStore("animals").put({
             id: "dairy-cow-1",
