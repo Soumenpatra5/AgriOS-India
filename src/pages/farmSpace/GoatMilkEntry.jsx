@@ -4,7 +4,8 @@ import Icon from "../../components/Icon.jsx";
 import {
   AppBar, Button, EmptyState, ErrorState, Spinner,
 } from "../../components/index.js";
-import { useApp } from "../../store/AppStore.jsx";
+import { useApp, useOnline } from "../../store/AppStore.jsx";
+import { enqueueOrCall } from "../../services/offlineQueue/offlineQueue.js";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { goatApi } from "../../services/goat/goatApi.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
@@ -27,6 +28,7 @@ function fmtDate(dateStr) {
 
 export default function GoatMilkEntry({ spaceId }) {
   const { pop, tc, toast } = useApp();
+  const online = useOnline();
 
   const [date,    setDate]    = useState(todayStr);
   const [space,   setSpace]   = useState(null);
@@ -111,18 +113,30 @@ export default function GoatMilkEntry({ spaceId }) {
       return;
     }
 
+    let queuedCount = 0;
+
     const settled = await Promise.allSettled(
-      tasks.map(t =>
-        goatApi.upsertMilk(sid, {
+      tasks.map(t => {
+        const payload = {
           animalId:   t.animalId,
           recordDate: date,
           amYieldKg:  t.am,
           pmYieldKg:  t.pm,
           clientUuid: t.clientUuid,
+        };
+        return enqueueOrCall(
+          online,
+          "goat.milk.upsert",
+          sid,
+          payload,
+          () => goatApi.upsertMilk(sid, payload)
+        )
+        .then(res => {
+          if (res?.__queued) queuedCount++;
+          return { animalId: t.animalId, ok: true };
         })
-        .then(() => ({ animalId: t.animalId, ok: true }))
-        .catch(() => ({ animalId: t.animalId, ok: false }))
-      )
+        .catch(() => ({ animalId: t.animalId, ok: false }));
+      })
     );
 
     const results   = settled.map(s => s.value);
@@ -138,7 +152,18 @@ export default function GoatMilkEntry({ spaceId }) {
     }
 
     if (failures.length === 0) {
-      toast(tc({ en: "Milk recorded", hi: "दूध दर्ज किया गया", bn: "দুধ নথিভুক্ত হয়েছে" }), "success");
+      if (queuedCount > 0) {
+        toast(
+          tc({
+            en: `${queuedCount} entries queued offline — will sync when connected`,
+            hi: `${queuedCount} प्रविष्टियाँ ऑफ़लाइन कतारबद्ध — कनेक्ट होने पर सिंक होंगी`,
+            bn: `${queuedCount}টি এন্ট্রি অফলাইনে জমা হয়েছে — সংযুক্ত হলে সিঙ্ক হবে`,
+          }),
+          "info"
+        );
+      } else {
+        toast(tc({ en: "Milk recorded", hi: "दूध दर्ज किया गया", bn: "দুধ নথিভুক্ত হয়েছে" }), "success");
+      }
       pop();
     } else if (successes > 0) {
       toast(

@@ -281,6 +281,11 @@ const ACTIONS = {
   "poultry.followup.chain_detail":   { permission: "farm.poultry.view",   run: ({ sql, membership, payload }) => wf.getChainDetail(sql, membership, payload) },
   "poultry.followup.cancel":         { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => wf.cancelChain(sql, membership, user.id, payload) },
 
+  /* Compatibility aliases for client offline queue replay */
+  "poultry.tasks.complete":          { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => wf.markTaskComplete(sql, membership, user.id, payload) },
+  "poultry.tasks.skip":              { permission: "farm.poultry.manage", run: ({ sql, membership, user, payload }) => wf.skipTask(sql, membership, user.id, payload) },
+  "poultry.tasks.outcome":           { permission: "farm.poultry.record", run: ({ sql, membership, user, payload }) => wf.recordFollowupOutcome(sql, membership, user.id, payload) },
+
   /* P6 — Finance: Sales & Costs.
      Reads are farm.poultry.view (every role).
      Recording costs is farm.poultry.record (worker can log labour/electricity).

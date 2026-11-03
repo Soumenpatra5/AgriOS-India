@@ -710,7 +710,7 @@ export default function FarmSpaceTeam() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 600, color: T.ink }}>
-                    {found.name || tc({ en: "AgriOS member", hi: "AgriOS सदस्य", bn: "AgriOS सदस्य" })}
+                    {found.name || tc({ en: "AgriOS member", hi: "AgriOS सदस्य", bn: "AgriOS সদস্য" })}
                   </div>
                   <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>{found.agrios_user_id}</div>
                 </div>

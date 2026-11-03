@@ -338,7 +338,7 @@ describe("weights", () => {
      wrong keys (weighed_at, total_weight_g) that the server ignores, causing a 400
      "Enter a valid weighing date" on every submission. */
   it("accepts YYYY-MM-DD weigh_date (canonical client format via type=date input)", async () => {
-    const b = await mkBatch(U(2), A.space.id);
+    const b = await mkBatch(U(2), A.space.id, { placement_date: "2026-09-01" });
     const r = await call(U(4), "poultry.weights.add", {
       spaceId: A.space.id,
       payload: { batchId: b.id, weigh_date: "2026-09-16", sample_count: 5, total_sample_weight_g: 4999 },

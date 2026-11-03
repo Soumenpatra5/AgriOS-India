@@ -13,6 +13,7 @@ const DB_VER    = 1;
 const STORE     = "queue";
 
 let memQueue = [];
+let memIdCounter = 0;
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -43,7 +44,7 @@ export async function enqueue(entry) {
     });
     db.close();
   } catch {
-    memQueue.push({ ...entry, enqueuedAt: Date.now() });
+    memQueue.push({ id: ++memIdCounter, ...entry, enqueuedAt: Date.now() });
   }
 }
 
@@ -90,6 +91,7 @@ export async function clearQueue() {
     db.close();
   } catch {
     memQueue = [];
+    memIdCounter = 0;
   }
 }
 

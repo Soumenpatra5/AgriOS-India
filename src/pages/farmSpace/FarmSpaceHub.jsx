@@ -300,7 +300,7 @@ export default function FarmSpaceHub({ asTab = false }) {
       desc: { en: "Message one teammate privately", hi: "किसी एक साथी को निजी संदेश", bn: "একজন সহকর্মীকে ব্যক্তিগত বার্তা" } },
     { kind: "farmSpaceSettings", perm: "farm.settings.manage", icon: "Settings", a: "faint",
       label: { en: "Farm Space settings", hi: "फ़ार्म स्पेस सेटिंग्स", bn: "ফার্ম স্পেস সেটিংস" },
-      desc: { en: "Name, members, ownership", hi: "नाम, सदस्य, स्वामित्व", bn: "নাম, सदस्य, মালিকানা" } },
+      desc: { en: "Name, members, ownership", hi: "नाम, सदस्य, स्वामित्व", bn: "নাম, সদস্য, মালিকানা" } },
   ].filter((u) => farmSpaceService.can(space, u.perm));
 
   const visible = [...dynamicModules, ...utilityItems];

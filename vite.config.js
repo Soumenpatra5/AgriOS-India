@@ -28,6 +28,7 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["fake-indexeddb/auto", "./src/test/localStorage.js"],
+    testTimeout: 15000,
     /* PGlite initialises an in-process Postgres WASM engine and replays every
        migration from scratch in each e2e suite's beforeAll. A 10 s hook window
        is too tight once the migration count grows past ~14 files; 120 s is

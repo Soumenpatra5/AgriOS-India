@@ -748,6 +748,22 @@ describe("finance — sales and costs", () => {
     expect(list.data.some((s) => s.id === add.data.id)).toBe(true);
   });
 
+  it("manager can add a milk sale in litres and amount is calculated correctly", async () => {
+    const add = await call(U(31), "dairy.sales.add", {
+      spaceId: spaceA.id,
+      payload: { saleDate: "2026-09-02", saleType: "morning",
+                  unit: "L", quantityLitres: 40, pricePerLitre: 32,
+                  buyer: "Mother Dairy", clientUuid: "sale-0902-litres" },
+    });
+    expect(add.status).toBe(200);
+    expect(add.data.unit).toBe("L");
+    expect(Number(add.data.quantity_litres)).toBe(40);
+    expect(add.data.quantity_kg).toBeNull();
+    expect(parseFloat(add.data.amount)).toBe(40 * 32);
+
+    await call(U(31), "dairy.sales.delete", { spaceId: spaceA.id, payload: { saleId: add.data.id } });
+  });
+
   it("worker cannot add a sale (no farm.dairy.finance)", async () => {
     const r = await call(U(32), "dairy.sales.add", {
       spaceId: spaceA.id,

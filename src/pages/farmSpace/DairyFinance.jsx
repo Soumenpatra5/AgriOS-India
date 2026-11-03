@@ -5,7 +5,8 @@ import {
   AppBar, Card, Button, Chip, Input, Dropdown,
   EmptyState, ErrorState, Spinner, BottomSheet, Dialog,
 } from "../../components/index.js";
-import { useApp } from "../../store/AppStore.jsx";
+import { useApp, useOnline } from "../../store/AppStore.jsx";
+import { enqueueOrCall } from "../../services/offlineQueue/offlineQueue.js";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { dairyApi } from "../../services/dairy/dairyApi.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
@@ -145,6 +146,28 @@ function SummaryCard({ summary, tc }) {
           </div>
         </div>
       )}
+      {(summary?.month_milk_produced_litres > 0 || summary?.total_milk_sold_litres > 0) && (
+        <div style={{ borderTop: `1px solid ${T.line}`, background: T.surface2 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: T.inkFaint, fontFamily: T.body,
+            letterSpacing: 0.6, textTransform: "uppercase", padding: "6px 14px 2px" }}>
+            {tc({ en: "Milk (L)", hi: "दूध (ली.)", bn: "দুধ (লি.)" })}
+          </div>
+          <div style={{ display: "flex" }}>
+            <ReconcileTile
+              label={tc({ en: "Produced", hi: "उत्पादित", bn: "উৎপাদিত" })}
+              value={Number(summary?.month_milk_produced_litres || 0).toFixed(1)} />
+            <div style={{ width: 1, background: T.line, flexShrink: 0 }} />
+            <ReconcileTile
+              label={tc({ en: "Sold", hi: "बेचा", bn: "বিক্রিত" })}
+              value={Number(summary?.total_milk_sold_litres || 0).toFixed(1)} />
+            <div style={{ width: 1, background: T.line, flexShrink: 0 }} />
+            <ReconcileTile
+              label={tc({ en: "Retained", hi: "बचाया", bn: "ধরে রাখা" })}
+              value={Math.max(0, Number(summary?.month_milk_produced_litres || 0) - Number(summary?.total_milk_sold_litres || 0)).toFixed(1)}
+              highlight />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -194,6 +217,7 @@ function CategoryChip({ category, tc }) {
 
 export default function DairyFinance({ spaceId }) {
   const { pop, tc, toast } = useApp();
+  const online = useOnline();
 
   const [space,   setSpace]   = useState(null);
   const [summary, setSummary] = useState(null);
@@ -206,7 +230,7 @@ export default function DairyFinance({ spaceId }) {
 
   /* Add sale sheet */
   const blankSform = () => ({
-    saleDate: today(), saleType: "combined", quantityKg: "",
+    saleDate: today(), saleType: "combined", quantityKg: "", unit: "kg",
     pricePerLitre: "", buyer: "", fatPct: "", snfPct: "", notes: "",
     clientUuid: crypto.randomUUID(),
   });
@@ -299,25 +323,38 @@ export default function DairyFinance({ spaceId }) {
     const qty = parseFloat(sform.quantityKg);
     if (!sform.saleDate || !qty || qty <= 0) return;
     setSbusy(true);
+    const isLitres = sform.unit === "L";
+    const payload = {
+      saleDate:      sform.saleDate,
+      saleType:      sform.saleType,
+      unit:          sform.unit || "kg",
+      ...(isLitres ? { quantityLitres: qty } : { quantityKg: qty }),
+      pricePerLitre: parseFloat(sform.pricePerLitre) || 0,
+      buyer:         sform.buyer  || null,
+      fatPct:        sform.fatPct ? parseFloat(sform.fatPct) : null,
+      snfPct:        sform.snfPct ? parseFloat(sform.snfPct) : null,
+      notes:         sform.notes  || null,
+      clientUuid:    sform.clientUuid || crypto.randomUUID(),
+    };
     try {
-      const rec = await dairyApi.addSale(spaceId || space.id, {
-        saleDate:      sform.saleDate,
-        saleType:      sform.saleType,
-        quantityKg:    qty,
-        pricePerLitre: parseFloat(sform.pricePerLitre) || 0,
-        buyer:         sform.buyer  || null,
-        fatPct:        sform.fatPct ? parseFloat(sform.fatPct) : null,
-        snfPct:        sform.snfPct ? parseFloat(sform.snfPct) : null,
-        notes:         sform.notes  || null,
-        clientUuid:    sform.clientUuid,
-      });
-      /* Only add to list if the sale falls within the displayed month. */
-      if (rec.sale_date >= fromDate && rec.sale_date <= toDate) {
-        setSales((prev) => [rec, ...prev].sort((a, b) => b.sale_date.localeCompare(a.sale_date)));
+      const rec = await enqueueOrCall(
+        online,
+        "dairy.sales.add",
+        spaceId || space.id,
+        payload,
+        () => dairyApi.addSale(spaceId || space.id, payload)
+      );
+      if (rec?.__queued) {
+        toast(tc({ en: "Sale queued offline — will sync when connected", hi: "बिक्री ऑफ़लाइन कतारबद्ध — कनेक्ट होने पर सिंक होगी", bn: "বিক্রয় অফলাইনে জমা হয়েছে — সংযুক্ত হলে সিঙ্ক হবে" }), "info");
+      } else {
+        if (rec.sale_date >= fromDate && rec.sale_date <= toDate) {
+          setSales((prev) => [rec, ...prev].sort((a, b) => b.sale_date.localeCompare(a.sale_date)));
+        }
+        toast(tc({ en: "Sale recorded", hi: "बिक्री दर्ज हुई", bn: "বিক্রয় নথিভুক্ত হয়েছে" }), "success");
+        refreshSummary();
       }
       setSaleOpen(false);
-      toast(tc({ en: "Sale recorded", hi: "बिक्री दर्ज हुई", bn: "বিক্রয় নথিভুক্ত হয়েছে" }), "success");
-      refreshSummary();
+      setSform(blankSform());
     } catch (err) {
       toast(err.message || tc({ en: "Failed to save sale", hi: "बिक्री सहेजी नहीं जा सकी", bn: "বিক্রয় সংরক্ষণ ব্যর্থ" }), "error");
     } finally {
@@ -345,24 +382,36 @@ export default function DairyFinance({ spaceId }) {
     const amt = parseFloat(cform.amount);
     if (!cform.costDate || !cform.category || !cform.description.trim() || !amt || amt <= 0) return;
     setCbusy(true);
+    const payload = {
+      costDate:    cform.costDate,
+      category:    cform.category,
+      description: cform.description.trim(),
+      amount:      amt,
+      quantity:    cform.quantity  ? parseFloat(cform.quantity)  : null,
+      unit:        cform.unit      || null,
+      unitCost:    cform.unitCost  ? parseFloat(cform.unitCost)  : null,
+      notes:       cform.notes     || null,
+      clientUuid:  cform.clientUuid || crypto.randomUUID(),
+    };
     try {
-      const rec = await dairyApi.addCost(spaceId || space.id, {
-        costDate:    cform.costDate,
-        category:    cform.category,
-        description: cform.description.trim(),
-        amount:      amt,
-        quantity:    cform.quantity  ? parseFloat(cform.quantity)  : null,
-        unit:        cform.unit      || null,
-        unitCost:    cform.unitCost  ? parseFloat(cform.unitCost)  : null,
-        notes:       cform.notes     || null,
-        clientUuid:  cform.clientUuid,
-      });
-      if (rec.cost_date >= fromDate && rec.cost_date <= toDate) {
-        setCosts((prev) => [rec, ...prev].sort((a, b) => b.cost_date.localeCompare(a.cost_date)));
+      const rec = await enqueueOrCall(
+        online,
+        "dairy.costs.add",
+        spaceId || space.id,
+        payload,
+        () => dairyApi.addCost(spaceId || space.id, payload)
+      );
+      if (rec?.__queued) {
+        toast(tc({ en: "Cost queued offline — will sync when connected", hi: "लागत ऑफ़लाइन कतारबद्ध — कनेक्ट होने पर सिंक होगी", bn: "খরচ অফলাইনে জমা হয়েছে — সংযুক্ত হলে সিঙ্ক হবে" }), "info");
+      } else {
+        if (rec.cost_date >= fromDate && rec.cost_date <= toDate) {
+          setCosts((prev) => [rec, ...prev].sort((a, b) => b.cost_date.localeCompare(a.cost_date)));
+        }
+        toast(tc({ en: "Cost recorded", hi: "लागत दर्ज हुई", bn: "খরচ নথিভুক্ত হয়েছে" }), "success");
+        refreshSummary();
       }
       setCostOpen(false);
-      toast(tc({ en: "Cost recorded", hi: "लागत दर्ज हुई", bn: "খরচ নথিভুক্ত হয়েছে" }), "success");
-      refreshSummary();
+      setCform(blankCform());
     } catch (err) {
       toast(err.message || tc({ en: "Failed to save cost", hi: "लागत सहेजी नहीं जा सकी", bn: "খরচ সংরক্ষণ ব্যর্থ" }), "error");
     } finally {
@@ -598,12 +647,34 @@ export default function DairyFinance({ spaceId }) {
             value={sform.saleType}
             onChange={(v) => setSform((f) => ({ ...f, saleType: v }))}
             options={SALE_TYPE_OPTIONS.map((o) => ({ value: o.value, label: tc(o.label) }))} />
-          <Input
-            label={tc({ en: "Quantity (kg)", hi: "मात्रा (किग्रा)", bn: "পরিমাণ (কেজি)" })}
-            type="number"
-            placeholder="0.0"
-            value={sform.quantityKg}
-            onChange={(v) => setSform((f) => ({ ...f, quantityKg: v }))} />
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+            <div style={{ flex: 1 }}>
+              <Input
+                label={tc({ en: `Quantity (${sform.unit || "kg"})`, hi: `मात्रा (${sform.unit || "kg"})`, bn: `পরিমাণ (${sform.unit || "kg"})` })}
+                type="number"
+                placeholder="0.0"
+                value={sform.quantityKg}
+                onChange={(v) => setSform((f) => ({ ...f, quantityKg: v }))} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setSform((f) => ({ ...f, unit: f.unit === "L" ? "kg" : "L" }))}
+              style={{
+                height: 40,
+                padding: "0 14px",
+                borderRadius: 8,
+                border: `1px solid ${T.border}`,
+                background: sform.unit === "L" ? "#e0f2fe" : "#f1f5f9",
+                color: sform.unit === "L" ? "#0369a1" : "#334155",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+                marginBottom: 2,
+              }}
+            >
+              {sform.unit === "L" ? "L" : "kg"}
+            </button>
+          </div>
           <Input
             label={tc({ en: "Price per litre (₹)", hi: "प्रति लीटर मूल्य (₹)", bn: "প্রতি লিটার মূল্য (₹)" })}
             type="number"
@@ -739,10 +810,11 @@ export default function DairyFinance({ spaceId }) {
 /* ── Sale row ──────────────────────────────────────────────────────────── */
 
 function SaleRow({ sale, tc, onDelete }) {
+  const sQty = sale.quantity_litres ?? sale.quantity_kg;
   const amount = sale.amount != null
     ? fmtAmount(sale.amount)
-    : sale.quantity_kg && sale.price_per_litre
-      ? fmtAmount(sale.quantity_kg * sale.price_per_litre)
+    : sQty && sale.price_per_litre
+      ? fmtAmount(sQty * sale.price_per_litre)
       : "—";
   const saleTypeLabel = SALE_TYPE_LABEL[sale.sale_type];
 
@@ -767,7 +839,9 @@ function SaleRow({ sale, tc, onDelete }) {
           </div>
           <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2, fontFamily: T.body }}>
             {fmtDate(sale.sale_date)}
-            {sale.quantity_kg ? ` · ${Number(sale.quantity_kg).toFixed(1)} kg` : ""}
+            {sale.unit === "L" || sale.quantity_litres != null
+              ? ` · ${Number(sale.quantity_litres ?? sale.quantity_kg).toFixed(1)} L`
+              : sale.quantity_kg != null ? ` · ${Number(sale.quantity_kg).toFixed(1)} kg` : ""}
             {sale.price_per_litre ? ` · ₹${Number(sale.price_per_litre).toFixed(2)}/L` : ""}
             {sale.buyer ? ` · ${sale.buyer}` : ""}
           </div>

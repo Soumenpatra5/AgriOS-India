@@ -247,7 +247,7 @@ export default function DairyManager() {
       <BottomSheet open={eventOpen} onClose={() => setEventOpen(false)} title={tc({ en: "Add Event", hi: "घटना जोड़ें", bn: "ঘটনা যোগ করুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Input label={tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })} type="date" value={eventForm.date} onChange={(v) => setEventForm((f) => ({ ...f, date: v }))} />
-          <Dropdown label={tc({ en: "Animal (optional)", hi: "पशु (वैकल्पिक)", bn: "প্রাণী (ঐচ্ছिक)" })} value={eventForm.animalId || ""} onChange={(v) => setEventForm((f) => ({ ...f, animalId: v }))} options={animalOptions} />
+          <Dropdown label={tc({ en: "Animal (optional)", hi: "पशु (वैकल्पिक)", bn: "প্রাণী (ঐচ্ছিক)" })} value={eventForm.animalId || ""} onChange={(v) => setEventForm((f) => ({ ...f, animalId: v }))} options={animalOptions} />
           <Dropdown label={tc({ en: "Event type", hi: "घटना प्रकार", bn: "ঘটনার ধরন" })} value={eventForm.type} onChange={(v) => setEventForm((f) => ({ ...f, type: v }))}
             options={[
               { value: "vaccination", label: tc(EVENT_LABELS.vaccination) },

@@ -31,28 +31,37 @@ export async function listSales(sql, membership, payload = {}) {
 
 export async function addSale(sql, membership, actorUserId, payload) {
   const { saleDate, buyer, saleType = "combined", quantityKg,
+          quantityLitres, unit = "kg",
           pricePerLitre = 0, fatPct, snfPct, notes, clientUuid } = payload ?? {};
 
   if (!saleDate) throw new HttpError(400, "saleDate required");
   if (!SALE_TYPES.has(saleType)) throw new HttpError(400, "Invalid sale_type");
-  if (!quantityKg || quantityKg <= 0) throw new HttpError(400, "quantityKg must be > 0");
+  if (unit !== "kg" && unit !== "L") throw new HttpError(400, "Invalid unit. Supported: kg, L");
+  if (unit === "L") {
+    if (!quantityLitres || quantityLitres <= 0) throw new HttpError(400, "quantityLitres must be > 0");
+  } else {
+    if (!quantityKg || quantityKg <= 0) throw new HttpError(400, "quantityKg must be > 0");
+  }
   if (pricePerLitre < 0) throw new HttpError(400, "pricePerLitre must be >= 0");
 
   if (clientUuid) {
     const dup = await sql`
-      select id from dairy_milk_sales
-      where space_id = ${membership.space_id} and client_uuid = ${clientUuid}
+      select * from dairy_milk_sales
+      where space_id = ${membership.space_id} and client_uuid = ${clientUuid} and deleted_at is null
     `;
     if (dup.length) return dup[0];
   }
 
+  const qKg = unit === "kg" ? quantityKg : null;
+  const qL  = unit === "L" ? quantityLitres : null;
+
   const rows = await sql`
     insert into dairy_milk_sales
-      (space_id, sale_date, buyer, sale_type, quantity_kg, price_per_litre,
-       fat_pct, snf_pct, notes, client_uuid, created_by)
+      (space_id, sale_date, buyer, sale_type, unit, quantity_kg, quantity_litres,
+       price_per_litre, fat_pct, snf_pct, notes, client_uuid, created_by)
     values (
-      ${membership.space_id}, ${saleDate}, ${buyer ?? null}, ${saleType},
-      ${quantityKg}, ${pricePerLitre}, ${fatPct ?? null}, ${snfPct ?? null},
+      ${membership.space_id}, ${saleDate}, ${buyer ?? null}, ${saleType}, ${unit},
+      ${qKg}, ${qL}, ${pricePerLitre}, ${fatPct ?? null}, ${snfPct ?? null},
       ${notes ?? null}, ${clientUuid ?? null}, ${actorUserId}
     )
     returning *
@@ -62,7 +71,7 @@ export async function addSale(sql, membership, actorUserId, payload) {
     spaceId: membership.space_id, actorUserId,
     action: "dairy.sale.add",
     targetType: "dairy_milk_sales", targetId: rows[0].id,
-    meta: { saleDate, quantityKg, pricePerLitre },
+    meta: { saleDate, unit, quantityKg: qKg, quantityLitres: qL, pricePerLitre },
   });
 
   return rows[0];
@@ -117,8 +126,8 @@ export async function addCost(sql, membership, actorUserId, payload) {
 
   if (clientUuid) {
     const dup = await sql`
-      select id from dairy_costs
-      where space_id = ${membership.space_id} and client_uuid = ${clientUuid}
+      select * from dairy_costs
+      where space_id = ${membership.space_id} and client_uuid = ${clientUuid} and deleted_at is null
     `;
     if (dup.length) return dup[0];
   }
@@ -178,8 +187,9 @@ export async function financeSummary(sql, membership, payload = {}) {
     const [salesRows, costRows, milkRows] = await Promise.all([
       tx`
         select
-          coalesce(sum(quantity_kg), 0)     as total_quantity_kg,
-          coalesce(sum(amount), 0)          as total_revenue
+          coalesce(sum(case when unit = 'kg' then quantity_kg else 0 end), 0)     as total_quantity_kg,
+          coalesce(sum(case when unit = 'L' then quantity_litres else 0 end), 0) as total_quantity_litres,
+          coalesce(sum(amount), 0)                                                as total_revenue
         from dairy_milk_sales
         where space_id = ${spaceId} and deleted_at is null
           and sale_date >= ${monthStart} and sale_date <= ${today}
@@ -214,6 +224,7 @@ export async function financeSummary(sql, membership, payload = {}) {
     return {
       period: { from: monthStart, to: today },
       total_milk_sold_kg: parseFloat(salesRows[0].total_quantity_kg),
+      total_milk_sold_litres: parseFloat(salesRows[0].total_quantity_litres),
       total_revenue: totalRevenue,
       total_costs: totalCosts,
       net_profit: totalRevenue - totalCosts,

@@ -4,7 +4,8 @@ import Icon from "../../components/Icon.jsx";
 import {
   AppBar, Button, EmptyState, ErrorState, Spinner,
 } from "../../components/index.js";
-import { useApp } from "../../store/AppStore.jsx";
+import { useApp, useOnline } from "../../store/AppStore.jsx";
+import { enqueueOrCall } from "../../services/offlineQueue/offlineQueue.js";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { dairyApi } from "../../services/dairy/dairyApi.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
@@ -27,6 +28,7 @@ function fmtDate(dateStr) {
 
 export default function DairyMilkEntry({ spaceId }) {
   const { pop, tc, toast } = useApp();
+  const online = useOnline();
 
   const [date, setDate]       = useState(todayStr);
   const [space, setSpace]     = useState(null);
@@ -108,11 +110,16 @@ export default function DairyMilkEntry({ spaceId }) {
     const tasks = animals
       .map(a => {
         const r = rows[a.id] || {};
-        if (r.isLitres) return null; // Preserves Local ERP litre records from bulk kg overwrite
         const am = parseFloat(r.am) || 0;
         const pm = parseFloat(r.pm) || 0;
         if (am === 0 && pm === 0) return null;
-        return { animalId: a.id, am, pm, clientUuid: r.clientUuid };
+        return {
+          animalId:   a.id,
+          am,
+          pm,
+          unit:       r.unit === "L" ? "L" : "kg",
+          clientUuid: r.clientUuid,
+        };
       })
       .filter(Boolean);
 
@@ -122,18 +129,41 @@ export default function DairyMilkEntry({ spaceId }) {
       return;
     }
 
+    let queuedCount = 0;
+
     const settled = await Promise.allSettled(
-      tasks.map(t =>
-        dairyApi.upsertMilk(sid, {
-          animalId:   t.animalId,
-          recordDate: date,
-          amYieldKg:  t.am,
-          pmYieldKg:  t.pm,
-          clientUuid: t.clientUuid,
+      tasks.map(t => {
+        const payload = t.unit === "L"
+          ? {
+              animalId:      t.animalId,
+              recordDate:    date,
+              unit:          "L",
+              amYieldLitres: t.am,
+              pmYieldLitres: t.pm,
+              clientUuid:    t.clientUuid,
+            }
+          : {
+              animalId:   t.animalId,
+              recordDate: date,
+              unit:       "kg",
+              amYieldKg:  t.am,
+              pmYieldKg:  t.pm,
+              clientUuid: t.clientUuid,
+            };
+
+        return enqueueOrCall(
+          online,
+          "dairy.milk.upsert",
+          sid,
+          payload,
+          () => dairyApi.upsertMilk(sid, payload)
+        )
+        .then(res => {
+          if (res?.__queued) queuedCount++;
+          return { animalId: t.animalId, ok: true };
         })
-        .then(() => ({ animalId: t.animalId, ok: true }))
-        .catch(() => ({ animalId: t.animalId, ok: false }))
-      )
+        .catch(() => ({ animalId: t.animalId, ok: false }));
+      })
     );
 
     const results   = settled.map(s => s.value);
@@ -149,7 +179,18 @@ export default function DairyMilkEntry({ spaceId }) {
     }
 
     if (failures.length === 0) {
-      toast(tc({ en: "Milk recorded", hi: "दूध दर्ज किया गया", bn: "দুধ নথিভুক্ত হয়েছে" }), "success");
+      if (queuedCount > 0) {
+        toast(
+          tc({
+            en: `${queuedCount} entries queued offline — will sync when connected`,
+            hi: `${queuedCount} प्रविष्टियाँ ऑफ़लाइन कतारबद्ध — कनेक्ट होने पर सिंक होंगी`,
+            bn: `${queuedCount}টি এন্ট্রি অফলাইনে জমা হয়েছে — সংযুক্ত হলে সিঙ্ক হবে`,
+          }),
+          "info"
+        );
+      } else {
+        toast(tc({ en: "Milk recorded", hi: "दूध दर्ज किया गया", bn: "দুধ নথিভুক্ত হয়েছে" }), "success");
+      }
       pop();
     } else if (successes > 0) {
       toast(
@@ -229,25 +270,24 @@ export default function DairyMilkEntry({ spaceId }) {
             {tc({ en: "Animal", hi: "पशु", bn: "প্রাণী" })}
           </span>
           <span style={{ fontSize: 11, color: T.inkFaint, fontWeight: 600, fontFamily: T.body, textAlign: "center" }}>
-            {tc({ en: "AM (kg)", hi: "सुबह (कि.ग्रा.)", bn: "সকাল (কেজি)" })}
+            {tc({ en: "AM", hi: "सुबह", bn: "সকাল" })}
           </span>
           <span style={{ fontSize: 11, color: T.inkFaint, fontWeight: 600, fontFamily: T.body, textAlign: "center" }}>
-            {tc({ en: "PM (kg)", hi: "शाम (कि.ग्रा.)", bn: "সন্ধ্যা (কেজি)" })}
+            {tc({ en: "PM", hi: "शाम", bn: "সন্ধ্যা" })}
           </span>
         </div>
 
         {/* Animal rows */}
         {animals.map(animal => {
-          const r = rows[animal.id] || { am: "", pm: "", error: null };
+          const r = rows[animal.id] || { am: "", pm: "", error: null, unit: "kg" };
           const rowTotal  = (parseFloat(r.am) || 0) + (parseFloat(r.pm) || 0);
           const hasError  = r.error === "failed";
-          const isL       = !!r.isLitres;
+          const isL       = r.unit === "L";
           const inputBase = {
             width: "100%", padding: "8px 4px", textAlign: "center",
             border: `1px solid ${hasError ? T.red : T.line}`, borderRadius: T.rSm,
-            fontSize: 15, fontFamily: T.body, color: isL ? T.inkSoft : T.ink,
-            background: isL ? T.surface2 : T.bg, boxSizing: "border-box",
-            cursor: isL ? "not-allowed" : "text",
+            fontSize: 15, fontFamily: T.body, color: T.ink,
+            background: T.bg, boxSizing: "border-box",
           };
           return (
             <div key={animal.id} style={{
@@ -258,19 +298,34 @@ export default function DairyMilkEntry({ spaceId }) {
               border: `1px solid ${hasError ? T.red : T.line}`,
             }}>
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: T.body,
                     whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {animal.name}
                   </span>
-                  {isL && (
-                    <span style={{
-                      fontSize: 9.5, fontWeight: 700, color: T.blue, background: T.blueSoft,
-                      borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap",
-                    }}>
-                      L (Local ERP)
-                    </span>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (r.saved) return;
+                      const nextUnit = isL ? "kg" : "L";
+                      setRows(prev => ({
+                        ...prev,
+                        [animal.id]: {
+                          ...prev[animal.id],
+                          unit: nextUnit,
+                          isLitres: nextUnit === "L",
+                        },
+                      }));
+                    }}
+                    style={{
+                      border: "none", borderRadius: 4, padding: "1px 5px", fontSize: 10, fontWeight: 700,
+                      cursor: r.saved ? "default" : "pointer",
+                      background: isL ? T.blueSoft : T.surface2,
+                      color: isL ? T.blue : T.inkSoft,
+                    }}
+                    title={r.saved ? tc({ en: "Saved in this unit", hi: "इस इकाई में सहेजा गया", bn: "এই এককে সংরক্ষিত" }) : tc({ en: "Tap to switch unit", hi: "इकाई बदलने के लिए टैप करें", bn: "একক পরিবর্তন করতে ট্যাপ করুন" })}>
+                    {isL ? "L" : "kg"}
+                  </button>
                 </div>
                 {animal.tag_id && (
                   <div style={{ fontSize: 10.5, color: T.inkSoft, fontFamily: T.body }}>
@@ -286,14 +341,10 @@ export default function DairyMilkEntry({ spaceId }) {
               </div>
               <input type="number" inputMode="decimal" min="0" step="0.1"
                 value={r.am} placeholder="0"
-                disabled={isL}
-                title={isL ? "Recorded in Litres via Local ERP bridge" : undefined}
                 onChange={e => setRow(animal.id, "am", e.target.value)}
                 style={inputBase} />
               <input type="number" inputMode="decimal" min="0" step="0.1"
                 value={r.pm} placeholder="0"
-                disabled={isL}
-                title={isL ? "Recorded in Litres via Local ERP bridge" : undefined}
                 onChange={e => setRow(animal.id, "pm", e.target.value)}
                 style={inputBase} />
             </div>

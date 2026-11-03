@@ -14,16 +14,25 @@ import { useOnline } from "../store/AppStore.jsx";
 import { useOfflineSync } from "../services/offlineQueue/useOfflineSync.js";
 
 async function farmReplayCall(action, spaceId, payload) {
-  const { authFetch } = await import("../services/firebase/authFetch.js");
-  const res = await authFetch("/api/farm", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action, spaceId, payload }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const err = new Error(body?.error?.message || `Replay failed (${res.status})`);
-    err.status = res.status;
+  try {
+    const { authFetch } = await import("../services/firebase/authFetch.js");
+    const res = await authFetch("/api/farm", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action, spaceId, payload }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const err = new Error(body?.error?.message || `Replay failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+  } catch (err) {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      err.reason = "offline";
+    } else if (err?.name === "TypeError" || /failed to fetch|network|load failed/i.test(err?.message || "")) {
+      err.reason = "offline";
+    }
     throw err;
   }
 }

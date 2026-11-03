@@ -1224,90 +1224,14 @@ export async function publishLivestock(sql, membership, actorUserId, payload = {
     const updated = [];
     const skipped = [];
 
+    const toCreate = [];
+    const toUpdate = [];
+
     for (const local of normalized) {
       const cloud = existingMap.get(local.clientUuid);
 
       if (!cloud) {
-        let inserted = null;
-        if (e === "dairy") {
-          const rows = await tx`
-            insert into dairy_animals
-              (space_id, name, species, breed, tag_id, current_status, client_uuid, created_by)
-            values (
-              ${membership.space_id}, ${local.name}, ${local.species}, ${local.breed},
-              ${local.tagId}, ${local.currentStatus}, ${local.clientUuid}, ${actorUserId}
-            )
-            returning id, space_id, name, client_uuid
-          `;
-          inserted = rows[0];
-        } else if (e === "goat" || e === "sheep") {
-          const rows = await tx`
-            insert into goat_animals
-              (space_id, name, species, sex, breed, tag_id, current_status, client_uuid, created_by)
-            values (
-              ${membership.space_id}, ${local.name}, ${local.species}, ${local.sex}, ${local.breed},
-              ${local.tagId}, ${local.currentStatus}, ${local.clientUuid}, ${actorUserId}
-            )
-            returning id, space_id, name, client_uuid
-          `;
-          inserted = rows[0];
-        } else if (e === "pig") {
-          const rows = await tx`
-            insert into pig_animals
-              (space_id, name, sex, breed, tag_id, current_status, client_uuid, created_by)
-            values (
-              ${membership.space_id}, ${local.name}, ${local.sex}, ${local.breed},
-              ${local.tagId}, ${local.currentStatus}, ${local.clientUuid}, ${actorUserId}
-            )
-            returning id, space_id, name, client_uuid
-          `;
-          inserted = rows[0];
-        } else if (e === "poultry") {
-          const rows = await tx`
-            insert into poultry_batches
-              (space_id, name, poultry_type, purpose, breed, placement_date,
-               placed_qty, status, shed_id, notes, client_uuid, created_by)
-            values (
-              ${membership.space_id}, ${local.name}, ${local.poultryType}, ${local.purpose},
-              ${local.breed}, ${local.placementDate}, ${local.placedQty}, ${local.status},
-              ${local.shedId}, ${local.notes}, ${local.clientUuid}, ${actorUserId}
-            )
-            returning id, space_id, name, client_uuid
-          `;
-          inserted = rows[0];
-        } else if (e === "fish") {
-          const rows = await tx`
-            insert into fish_ponds
-              (space_id, name, pond_type, culture_type, species, area_sqm,
-               stocking_date, stocking_count, current_status, notes, client_uuid, created_by)
-            values (
-              ${membership.space_id}, ${local.name}, ${local.pondType}, ${local.cultureType},
-              ${local.species}, ${local.areaSqm}, ${local.stockingDate}, ${local.stockingCount},
-              ${local.currentStatus}, ${local.notes}, ${local.clientUuid}, ${actorUserId}
-            )
-            returning id, space_id, name, client_uuid
-          `;
-          inserted = rows[0];
-        } else if (e === "bee") {
-          const rows = await tx`
-            insert into bee_hives
-              (space_id, name, apiary_id, hive_type, installation_date,
-               current_status, notes, client_uuid, created_by)
-            values (
-              ${membership.space_id}, ${local.name}, ${local.apiaryId}, ${local.hiveType},
-              ${local.installationDate}, ${local.currentStatus}, ${local.notes},
-              ${local.clientUuid}, ${actorUserId}
-            )
-            returning id, space_id, name, client_uuid
-          `;
-          inserted = rows[0];
-        }
-
-        created.push({
-          id: inserted.id,
-          clientUuid: inserted.client_uuid,
-          name: inserted.name,
-        });
+        toCreate.push(local);
       } else {
         const diffs = diffAnimal(e, local, cloud);
 
@@ -1319,6 +1243,76 @@ export async function publishLivestock(sql, membership, actorUserId, payload = {
             reason: "already_synced",
           });
         } else if (overwrite) {
+          toUpdate.push({ local, cloud });
+        } else {
+          skipped.push({
+            id: cloud.id,
+            clientUuid: cloud.client_uuid,
+            name: cloud.name,
+            reason: "exists_diff_no_overwrite",
+          });
+        }
+      }
+    }
+
+    if (toCreate.length > 0) {
+      let rows = [];
+      if (e === "dairy") {
+        const cols = ["space_id", "name", "species", "breed", "tag_id", "current_status", "client_uuid", "created_by"];
+        const toInsert = toCreate.map((local) => ({
+          space_id: membership.space_id, name: local.name, species: local.species, breed: local.breed,
+          tag_id: local.tagId, current_status: local.currentStatus, client_uuid: local.clientUuid, created_by: actorUserId,
+        }));
+        rows = await tx`insert into dairy_animals ${tx(toInsert, ...cols)} returning id, space_id, name, client_uuid`;
+      } else if (e === "goat" || e === "sheep") {
+        const cols = ["space_id", "name", "species", "sex", "breed", "tag_id", "current_status", "client_uuid", "created_by"];
+        const toInsert = toCreate.map((local) => ({
+          space_id: membership.space_id, name: local.name, species: local.species, sex: local.sex, breed: local.breed,
+          tag_id: local.tagId, current_status: local.currentStatus, client_uuid: local.clientUuid, created_by: actorUserId,
+        }));
+        rows = await tx`insert into goat_animals ${tx(toInsert, ...cols)} returning id, space_id, name, client_uuid`;
+      } else if (e === "pig") {
+        const cols = ["space_id", "name", "sex", "breed", "tag_id", "current_status", "client_uuid", "created_by"];
+        const toInsert = toCreate.map((local) => ({
+          space_id: membership.space_id, name: local.name, sex: local.sex, breed: local.breed,
+          tag_id: local.tagId, current_status: local.currentStatus, client_uuid: local.clientUuid, created_by: actorUserId,
+        }));
+        rows = await tx`insert into pig_animals ${tx(toInsert, ...cols)} returning id, space_id, name, client_uuid`;
+      } else if (e === "poultry") {
+        const cols = ["space_id", "name", "poultry_type", "purpose", "breed", "placement_date", "placed_qty", "status", "shed_id", "notes", "client_uuid", "created_by"];
+        const toInsert = toCreate.map((local) => ({
+          space_id: membership.space_id, name: local.name, poultry_type: local.poultryType, purpose: local.purpose, breed: local.breed,
+          placement_date: local.placementDate, placed_qty: local.placedQty, status: local.status, shed_id: local.shedId, notes: local.notes,
+          client_uuid: local.clientUuid, created_by: actorUserId,
+        }));
+        rows = await tx`insert into poultry_batches ${tx(toInsert, ...cols)} returning id, space_id, name, client_uuid`;
+      } else if (e === "fish") {
+        const cols = ["space_id", "name", "pond_type", "culture_type", "species", "area_sqm", "stocking_date", "stocking_count", "current_status", "notes", "client_uuid", "created_by"];
+        const toInsert = toCreate.map((local) => ({
+          space_id: membership.space_id, name: local.name, pond_type: local.pondType, culture_type: local.cultureType, species: local.species,
+          area_sqm: local.areaSqm, stocking_date: local.stockingDate, stocking_count: local.stockingCount, current_status: local.currentStatus, notes: local.notes,
+          client_uuid: local.clientUuid, created_by: actorUserId,
+        }));
+        rows = await tx`insert into fish_ponds ${tx(toInsert, ...cols)} returning id, space_id, name, client_uuid`;
+      } else if (e === "bee") {
+        const cols = ["space_id", "name", "apiary_id", "hive_type", "installation_date", "current_status", "notes", "client_uuid", "created_by"];
+        const toInsert = toCreate.map((local) => ({
+          space_id: membership.space_id, name: local.name, apiary_id: local.apiaryId, hive_type: local.hiveType, installation_date: local.installationDate,
+          current_status: local.currentStatus, notes: local.notes, client_uuid: local.clientUuid, created_by: actorUserId,
+        }));
+        rows = await tx`insert into bee_hives ${tx(toInsert, ...cols)} returning id, space_id, name, client_uuid`;
+      }
+
+      for (const inserted of rows) {
+        created.push({
+          id: inserted.id,
+          clientUuid: inserted.client_uuid,
+          name: inserted.name,
+        });
+      }
+    }
+
+    for (const { local, cloud } of toUpdate) {
           let updatedRow = null;
           if (e === "dairy") {
             const rows = await tx`
@@ -1408,16 +1402,7 @@ export async function publishLivestock(sql, membership, actorUserId, payload = {
             clientUuid: updatedRow.client_uuid,
             name: updatedRow.name,
           });
-        } else {
-          skipped.push({
-            id: cloud.id,
-            clientUuid: cloud.client_uuid,
-            name: cloud.name,
-            reason: "exists_diff_no_overwrite",
-          });
         }
-      }
-    }
 
     return { created, updated, skipped };
   });
@@ -1807,6 +1792,28 @@ export async function publishDairyOperations(sql, membership, actorUserId, paylo
     const milkUpdated = [];
     const milkSkipped = [];
 
+    // 1. Batch resolve all parent cloud UUIDs in a single query
+    const animalClientUuids = [...new Set([
+      ...preview.milkItems.map((m) => m.animalId),
+      ...preview.eventItems.map((e) => e.animalId),
+    ].filter(Boolean))];
+
+    const parentAnimalMap = new Map();
+    if (animalClientUuids.length > 0) {
+      const parentRows = await tx`
+        select id, client_uuid from dairy_animals
+        where space_id = ${membership.space_id}
+          and client_uuid = any(${animalClientUuids})
+          and deleted_at is null
+      `;
+      for (const r of parentRows) {
+        parentAnimalMap.set(r.client_uuid, r.id);
+      }
+    }
+
+    const toInsertMilk = [];
+    const toUpdateMilk = [];
+
     for (const item of preview.milkItems) {
       if (!item.publishable) {
         milkSkipped.push({ clientUuid: item.clientUuid, date: item.date, reason: item.status, error: item.error });
@@ -1823,61 +1830,77 @@ export async function publishDairyOperations(sql, membership, actorUserId, paylo
         continue;
       }
 
-      // Resolve parent cloud UUID
-      const parentRows = await tx`
-        select id from dairy_animals
-        where space_id = ${membership.space_id} and client_uuid = ${item.animalId} and deleted_at is null
-      `;
-      if (!parentRows.length) {
+      const parentCloudId = parentAnimalMap.get(item.animalId);
+      if (!parentCloudId) {
         milkSkipped.push({ clientUuid: item.clientUuid, date: item.date, reason: "parent_missing_at_write" });
         continue;
       }
-      const parentCloudId = parentRows[0].id;
 
       if (item.status === "NEW") {
-        const rows = await tx`
-          insert into dairy_milk_records
-            (space_id, animal_id, record_date, unit,
-             am_yield_litres, pm_yield_litres, am_yield_kg, pm_yield_kg,
-             client_uuid, created_by)
-          values (
-            ${membership.space_id}, ${parentCloudId}, ${item.date}, 'L',
-            ${item.amYieldLitres}, ${item.pmYieldLitres}, 0, 0,
-            ${item.clientUuid}, ${actorUserId}
-          )
-          returning id, client_uuid, record_date, unit, total_yield_litres
-        `;
-        milkCreated.push({
-          id: rows[0].id,
-          clientUuid: rows[0].client_uuid,
-          date: item.date,
+        toInsertMilk.push({
+          space_id: membership.space_id,
+          animal_id: parentCloudId,
+          record_date: item.date,
           unit: "L",
-          yield: Number(rows[0].total_yield_litres || 0),
+          am_yield_litres: item.amYieldLitres,
+          pm_yield_litres: item.pmYieldLitres,
+          am_yield_kg: 0,
+          pm_yield_kg: 0,
+          client_uuid: item.clientUuid,
+          created_by: actorUserId,
+          _date: item.date,
         });
       } else if (item.status === "EXISTS_DIFF" && overwrite) {
-        const rows = await tx`
-          update dairy_milk_records set
-            unit            = 'L',
-            am_yield_litres = ${item.amYieldLitres},
-            pm_yield_litres = ${item.pmYieldLitres},
-            am_yield_kg     = 0,
-            pm_yield_kg     = 0,
-            updated_at      = now()
-          where id = ${item.cloud.id} and space_id = ${membership.space_id}
-          returning id, client_uuid, record_date, unit, total_yield_litres
-        `;
-        milkUpdated.push({
-          id: rows[0].id,
-          clientUuid: rows[0].client_uuid,
-          date: item.date,
+        toUpdateMilk.push(item);
+      }
+    }
+
+    if (toInsertMilk.length > 0) {
+      const cols = [
+        "space_id", "animal_id", "record_date", "unit",
+        "am_yield_litres", "pm_yield_litres", "am_yield_kg", "pm_yield_kg",
+        "client_uuid", "created_by",
+      ];
+      const rows = await tx`
+        insert into dairy_milk_records ${tx(toInsertMilk, ...cols)}
+        returning id, client_uuid, record_date, unit, total_yield_litres
+      `;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        milkCreated.push({
+          id: row.id,
+          clientUuid: row.client_uuid,
+          date: toInsertMilk[i]._date || row.record_date,
           unit: "L",
-          yield: Number(rows[0].total_yield_litres || 0),
+          yield: Number(row.total_yield_litres || 0),
         });
       }
     }
 
+    for (const item of toUpdateMilk) {
+      const rows = await tx`
+        update dairy_milk_records set
+          unit            = 'L',
+          am_yield_litres = ${item.amYieldLitres},
+          pm_yield_litres = ${item.pmYieldLitres},
+          am_yield_kg     = 0,
+          pm_yield_kg     = 0,
+          updated_at      = now()
+        where id = ${item.cloud.id} and space_id = ${membership.space_id}
+        returning id, client_uuid, record_date, unit, total_yield_litres
+      `;
+      milkUpdated.push({
+        id: rows[0].id,
+        clientUuid: rows[0].client_uuid,
+        date: item.date,
+        unit: "L",
+        yield: Number(rows[0].total_yield_litres || 0),
+      });
+    }
+
     const eventsCreated = [];
     const eventsSkipped = [];
+    const toInsertEvents = [];
 
     for (const ev of preview.eventItems) {
       if (!ev.publishable || ev.status !== "NEW") {
@@ -1885,33 +1908,45 @@ export async function publishDairyOperations(sql, membership, actorUserId, paylo
         continue;
       }
 
-      const parentRows = await tx`
-        select id from dairy_animals
-        where space_id = ${membership.space_id} and client_uuid = ${ev.animalId} and deleted_at is null
-      `;
-      if (!parentRows.length) {
+      const parentCloudId = parentAnimalMap.get(ev.animalId);
+      if (!parentCloudId) {
         eventsSkipped.push({ clientUuid: ev.clientUuid, type: ev.type, reason: "parent_missing_at_write" });
         continue;
       }
-      const parentCloudId = parentRows[0].id;
 
+      toInsertEvents.push({
+        space_id: membership.space_id,
+        animal_id: parentCloudId,
+        event_date: ev.date,
+        event_type: ev.type,
+        title: ev.title,
+        notes: ev.notes,
+        next_due_date: ev.dueDate || null,
+        client_uuid: ev.clientUuid,
+        created_by: actorUserId,
+        _date: ev.date,
+      });
+    }
+
+    if (toInsertEvents.length > 0) {
+      const eventCols = [
+        "space_id", "animal_id", "event_date", "event_type", "title",
+        "notes", "next_due_date", "client_uuid", "created_by",
+      ];
       const rows = await tx`
-        insert into dairy_health_events
-          (space_id, animal_id, event_date, event_type, title,
-           notes, next_due_date, client_uuid, created_by)
-        values (
-          ${membership.space_id}, ${parentCloudId}, ${ev.date}, ${ev.type}, ${ev.title},
-          ${ev.notes}, ${ev.dueDate || null}, ${ev.clientUuid}, ${actorUserId}
-        )
+        insert into dairy_health_events ${tx(toInsertEvents, ...eventCols)}
         returning id, client_uuid, event_date, event_type, title
       `;
-      eventsCreated.push({
-        id: rows[0].id,
-        clientUuid: rows[0].client_uuid,
-        date: ev.date,
-        type: rows[0].event_type,
-        title: rows[0].title,
-      });
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        eventsCreated.push({
+          id: row.id,
+          clientUuid: row.client_uuid,
+          date: toInsertEvents[i]._date || row.event_date,
+          type: row.event_type,
+          title: row.title,
+        });
+      }
     }
 
     await audit(tx, {

@@ -5,7 +5,8 @@ import {
   Card, Button, Input, Dropdown,
   EmptyState, ErrorState, Spinner, BottomSheet, accent,
 } from "../../components/index.js";
-import { useApp } from "../../store/AppStore.jsx";
+import { useApp, useOnline } from "../../store/AppStore.jsx";
+import { enqueueOrCall } from "../../services/offlineQueue/offlineQueue.js";
 import { poultryApi } from "../../services/poultry/poultryApi.js";
 import { getPlanForDay, LIFECYCLE_MILESTONES, previewTasksForDay } from "../../config/poultryBatchPlan.js";
 
@@ -65,6 +66,7 @@ function fmtDate(iso) {
 
 export default function PoultryWorkflowTab({ space, batch, canRecord, canManage }) {
   const { tc, toast, push } = useApp();
+  const online = useOnline();
   const [summary, setSummary]     = useState(null);
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -122,15 +124,26 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
     if (!completeTask || completingRef.current) return;
     completingRef.current = true;
     setCompleting(true);
+    const payload = {
+      taskId: completeTask.id,
+      notes: completeNotes.trim() || null,
+      clientUuid: crypto.randomUUID(),
+    };
     try {
-      await poultryApi.completeTask(space.id, {
-        taskId: completeTask.id,
-        notes: completeNotes.trim() || null,
-        clientUuid: crypto.randomUUID(),
-      });
+      const res = await enqueueOrCall(
+        online,
+        "poultry.workflow.complete",
+        space.id,
+        payload,
+        () => poultryApi.completeTask(space.id, payload)
+      );
       setCompleteTask(null);
-      toast(tc({ en: "Task completed", hi: "कार्य पूरा हुआ", bn: "কাজ সম্পন্ন হয়েছে", ta: "பணி முடிந்தது", te: "పని పూర్తైంది", mr: "कार्य पूर्ण झाले", pa: "ਕੰਮ ਪੂਰਾ ਹੋਇਆ", or: "କାର୍ଯ୍ୟ ସମ୍ପୂର୍ଣ ହୋଇଛି" }), "success");
-      load(true);
+      if (res?.__queued) {
+        toast(tc({ en: "Task completion queued offline", hi: "कार्य पूर्णता ऑफ़लाइन कतारबद्ध", bn: "কাজ সম্পন্ন অফলাইনে জমা হয়েছে" }), "info");
+      } else {
+        toast(tc({ en: "Task completed", hi: "कार्य पूरा हुआ", bn: "কাজ সম্পন্ন হয়েছে", ta: "பணி முடிந்தது", te: "పని పూర్తైంది", mr: "कार्य पूर्ण झाले", pa: "ਕੰਮ ਪੂਰਾ ਹੋਇਆ", or: "କାର୍ଯ୍ୟ ସମ୍ପୂର୍ଣ ହୋଇଛି" }), "success");
+        load(true);
+      }
     } catch (err) {
       toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর্থ", ta: "தோல்வி", te: "విఫలమైంది", mr: "अयशस्वी", pa: "ਅਸਫਲ", or: "ବିଫଳ" }), "error");
     } finally { completingRef.current = false; setCompleting(false); }
@@ -139,16 +152,27 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
   const doSkip = async () => {
     if (!skipTask || skipping) return;
     setSkipping(true);
+    const payload = {
+      taskId: skipTask.id,
+      reason: skipReason,
+      notes: skipNotes.trim() || null,
+      clientUuid: crypto.randomUUID(),
+    };
     try {
-      await poultryApi.skipTask(space.id, {
-        taskId: skipTask.id,
-        reason: skipReason,
-        notes: skipNotes.trim() || null,
-        clientUuid: crypto.randomUUID(),
-      });
+      const res = await enqueueOrCall(
+        online,
+        "poultry.workflow.skip",
+        space.id,
+        payload,
+        () => poultryApi.skipTask(space.id, payload)
+      );
       setSkipTask(null);
-      toast(tc({ en: "Task skipped", hi: "कार्य छोड़ा गया", bn: "কাজ এড়িয়ে যাওয়া হয়েছে", ta: "பணி தவிர்க்கப்பட்டது", te: "పని దాటవేయబడింది", mr: "कार्य वगळले", pa: "ਕੰਮ ਛੱਡਿਆ ਗਿਆ", or: "କାର୍ଯ୍ୟ ଛାଡ଼ି ଦିଆ ହୋଇଛି" }), "success");
-      load(true);
+      if (res?.__queued) {
+        toast(tc({ en: "Task skip queued offline", hi: "कार्य छोड़ना ऑफ़लाइन कतारबद्ध", bn: "কাজ এড়ানো অফলাইনে জমা হয়েছে" }), "info");
+      } else {
+        toast(tc({ en: "Task skipped", hi: "कार्य छोड़ा गया", bn: "কাজ এড়িয়ে যাওয়া হয়েছে", ta: "பணி தவிர்க்கப்பட்டது", te: "పని దాటవేయబడింది", mr: "कार्य वगळले", pa: "ਕੰਮ ਛੱਡਿਆ ਗਿਆ", or: "କାର୍ଯ୍ୟ ଛାଡ଼ି ଦିଆ ହୋଇଛି" }), "success");
+        load(true);
+      }
     } catch (err) {
       toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর্থ", ta: "தோல்வி", te: "విఫలమైంది", mr: "अयशस्वी", pa: "ਅਸਫਲ", or: "ବିଫଳ" }), "error");
     } finally { setSkipping(false); }
@@ -157,18 +181,29 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
   const doRecordOutcome = async () => {
     if (!outcomeTask || recordingOutcome) return;
     setRecordingOutcome(true);
+    const payload = {
+      chainId: outcomeTask.chain_id,
+      taskId:  outcomeTask.id,
+      outcome: outcomeValue,
+      observationNotes: outcomeNotes.trim() || null,
+      actionTaken:      outcomeAction.trim() || null,
+      clientUuid:       crypto.randomUUID(),
+    };
     try {
-      await poultryApi.recordOutcome(space.id, {
-        chainId: outcomeTask.chain_id,
-        taskId:  outcomeTask.id,
-        outcome: outcomeValue,
-        observationNotes: outcomeNotes.trim() || null,
-        actionTaken:      outcomeAction.trim() || null,
-        clientUuid:       crypto.randomUUID(),
-      });
+      const res = await enqueueOrCall(
+        online,
+        "poultry.followup.record_outcome",
+        space.id,
+        payload,
+        () => poultryApi.recordOutcome(space.id, payload)
+      );
       setOutcomeTask(null);
-      toast(tc({ en: "Outcome recorded", hi: "परिणाम दर्ज हुआ", bn: "ফলাফল রেকর্ড হয়েছে", ta: "முடிவு பதிவாகியது", te: "ఫలితం రికార్డ్ అయింది", mr: "परिणाम नोंदवला", pa: "ਨਤੀਜਾ ਦਰਜ ਹੋਇਆ", or: "ଫଳାଫଳ ରେକର୍ଡ ହୋଇଛି" }), "success");
-      load(true);
+      if (res?.__queued) {
+        toast(tc({ en: "Outcome queued offline", hi: "परिणाम ऑफ़लाइन कतारबद्ध", bn: "ফলাফল অফলাইনে জমা হয়েছে" }), "info");
+      } else {
+        toast(tc({ en: "Outcome recorded", hi: "परिणाम दर्ज हुआ", bn: "ফলাফল রেকর্ড হয়েছে", ta: "முடிவு பதிவாகியது", te: "ఫలితం రికార్డ్ అయింది", mr: "परिणाम नोंदवला", pa: "ਨਤੀਜਾ ਦਰਜ ਹੋਇਆ", or: "ଫଳାଫଳ ରେକର୍ଡ ହୋଇଛି" }), "success");
+        load(true);
+      }
     } catch (err) {
       toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর্থ", ta: "தோல்வி", te: "విఫలమైంది", mr: "अयशस्वी", pa: "ਅਸਫਲ", or: "ବିଫଳ" }), "error");
     } finally { setRecordingOutcome(false); }
@@ -177,15 +212,24 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
   const doReportIncident = async () => {
     if (!incidentDesc.trim() || reporting) return;
     setReporting(true);
+    const payload = {
+      batchId:     batch.id,
+      description: incidentDesc.trim(),
+      clientUuid:  crypto.randomUUID(),
+    };
     try {
-      const result = await poultryApi.reportIncident(space.id, {
-        batchId:     batch.id,
-        description: incidentDesc.trim(),
-        clientUuid:  crypto.randomUUID(),
-      });
+      const result = await enqueueOrCall(
+        online,
+        "poultry.incident.report",
+        space.id,
+        payload,
+        () => poultryApi.reportIncident(space.id, payload)
+      );
       setIncidentOpen(false);
       setIncidentDesc("");
-      if (result?.guided_response) {
+      if (result?.__queued) {
+        toast(tc({ en: "Incident queued offline", hi: "घटना ऑफ़लाइन कतारबद्ध", bn: "ঘটনা অফলাইনে জমা হয়েছে" }), "info");
+      } else if (result?.guided_response) {
         setIncidentResult({
           id:             result.id,
           severity:       result.severity,
@@ -197,9 +241,9 @@ export default function PoultryWorkflowTab({ space, batch, canRecord, canManage 
       } else {
         toast(tc({ en: "Problem reported", hi: "समस्या दर्ज हुई", bn: "সমস্যা রিপোর্ট হয়েছে", ta: "சிக்கல் தெரிவிக்கப்பட்டது", te: "సమస్య నివేదించబడింది", mr: "समस्या नोंदवली गेली", pa: "ਸਮੱਸਿਆ ਦਰਜ ਹੋਈ", or: "ସମସ୍ୟା ରିପୋର୍ଟ ହୋଇଛି" }), "success");
       }
-      load(true);
+      if (!result?.__queued) load(true);
     } catch (err) {
-      toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব्यर्थ", ta: "தோல்வி", te: "విఫలమైంది", mr: "अयशस्वी", pa: "ਅਸਫਲ", or: "ବିଫଳ" }), "error");
+      toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর্থ", ta: "தோல்வி", te: "విఫలమైంది", mr: "अयशस्वी", pa: "ਅਸਫਲ", or: "ବିଫଳ" }), "error");
     } finally { setReporting(false); }
   };
 

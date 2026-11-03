@@ -136,6 +136,7 @@ const MIGRATIONS = [
   "0029_farm_collaboration_state.sql",
   "0030_farm_collaboration_phase2.sql",
   "0031_dairy_milk_litres.sql",
+  "0032_dairy_sales_litres.sql",
 ];
 
 export async function freshDb() {

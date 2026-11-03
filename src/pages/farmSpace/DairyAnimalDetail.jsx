@@ -5,7 +5,8 @@ import {
   AppBar, Card, Button, Chip, Input, Dropdown,
   EmptyState, ErrorState, Spinner, BottomSheet, Dialog,
 } from "../../components/index.js";
-import { useApp } from "../../store/AppStore.jsx";
+import { useApp, useOnline } from "../../store/AppStore.jsx";
+import { enqueueOrCall } from "../../services/offlineQueue/offlineQueue.js";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { dairyApi } from "../../services/dairy/dairyApi.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
@@ -159,6 +160,7 @@ function InfoRow({ label, value }) {
 
 export default function DairyAnimalDetail({ animalId, spaceId }) {
   const { pop, tc, toast, locale } = useApp();
+  const online = useOnline();
 
   const [space, setSpace]           = useState(null);
   const [animal, setAnimal]         = useState(null);
@@ -172,7 +174,7 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
 
   /* Milk log sheet */
   const [milkOpen, setMilkOpen] = useState(false);
-  const [mform, setMform] = useState({ recordDate: today(), amYieldKg: "", pmYieldKg: "", fatPct: "", snfPct: "", remarks: "" });
+  const [mform, setMform] = useState({ recordDate: today(), amYieldKg: "", pmYieldKg: "", fatPct: "", snfPct: "", remarks: "", unit: "kg" });
   const [mbusy, setMbusy] = useState(false);
 
   /* Delete milk confirm */
@@ -285,20 +287,59 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
   const saveMilk = async () => {
     if (!mform.recordDate) return;
     setMbusy(true);
+    const clientUuid = crypto.randomUUID();
+    const isLitres = mform.unit === "L";
+    const amVal = parseFloat(mform.amYieldKg) || 0;
+    const pmVal = parseFloat(mform.pmYieldKg) || 0;
+    const payload = isLitres
+      ? {
+          animalId,
+          recordDate:    mform.recordDate,
+          unit:          "L",
+          amYieldLitres: amVal,
+          pmYieldLitres: pmVal,
+          fatPct:        mform.fatPct ? parseFloat(mform.fatPct) : null,
+          snfPct:        mform.snfPct ? parseFloat(mform.snfPct) : null,
+          remarks:       mform.remarks || null,
+          clientUuid,
+        }
+      : {
+          animalId,
+          recordDate: mform.recordDate,
+          unit:       "kg",
+          amYieldKg:  amVal,
+          pmYieldKg:  pmVal,
+          fatPct:     mform.fatPct ? parseFloat(mform.fatPct) : null,
+          snfPct:     mform.snfPct ? parseFloat(mform.snfPct) : null,
+          remarks:    mform.remarks || null,
+          clientUuid,
+        };
+
     try {
-      await dairyApi.upsertMilk(space.id, {
-        animalId,
-        recordDate: mform.recordDate,
-        amYieldKg:  parseFloat(mform.amYieldKg) || 0,
-        pmYieldKg:  parseFloat(mform.pmYieldKg) || 0,
-        fatPct:     mform.fatPct ? parseFloat(mform.fatPct) : null,
-        snfPct:     mform.snfPct ? parseFloat(mform.snfPct) : null,
-        remarks:    mform.remarks || null,
-      });
-      toast(tc({ en: "Milk record saved", hi: "दूध रिकॉर्ड सहेजा", bn: "দুধ রেকর্ড সংরক্ষিত" }), "success");
+      const res = await enqueueOrCall(
+        online,
+        "dairy.milk.upsert",
+        space.id,
+        payload,
+        () => dairyApi.upsertMilk(space.id, payload)
+      );
+      if (res?.__queued) {
+        toast(
+          tc({
+            en: "Milk record queued offline — will sync when connected",
+            hi: "दूध रिकॉर्ड ऑफ़लाइन कतारबद्ध — कनेक्ट होने पर सिंक होगा",
+            bn: "দুধ রেকর্ড অফলাইনে জমা হয়েছে — সংযুক্ত হলে সিঙ্ক হবে",
+          }),
+          "info"
+        );
+      } else {
+        toast(tc({ en: "Milk record saved", hi: "दूध रिकॉर्ड सहेजा", bn: "দুধ রেকর্ড সংরক্ষিত" }), "success");
+      }
       setMilkOpen(false);
-      setMform({ recordDate: today(), amYieldKg: "", pmYieldKg: "", fatPct: "", snfPct: "", remarks: "" });
-      dairyApi.listMilk(space.id, { animalId, limit: 30 }).then(setMilkList).catch(() => {});
+      setMform({ recordDate: today(), amYieldKg: "", pmYieldKg: "", fatPct: "", snfPct: "", remarks: "", unit: mform.unit || "kg" });
+      if (online) {
+        dairyApi.listMilk(space.id, { animalId, limit: 30 }).then(setMilkList).catch(() => {});
+      }
     } catch (err) {
       toast(err.message || tc({ en: "Save failed", hi: "सहेजा नहीं जा सका", bn: "সংরক্ষণ ব্যর্থ" }), "error");
     } finally { setMbusy(false); }
@@ -827,16 +868,38 @@ export default function DairyAnimalDetail({ animalId, spaceId }) {
         onClose={() => setMilkOpen(false)}
         title={tc({ en: "Log Milk", hi: "दूध दर्ज करें", bn: "দুধ লিখুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Input label={tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })} type="date"
-            value={mform.recordDate} onChange={(v) => setMform((f) => ({ ...f, recordDate: v }))} />
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+            <div style={{ flex: 1 }}>
+              <Input label={tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })} type="date"
+                value={mform.recordDate} onChange={(v) => setMform((f) => ({ ...f, recordDate: v }))} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setMform((f) => ({ ...f, unit: f.unit === "L" ? "kg" : "L" }))}
+              style={{
+                height: 40,
+                padding: "0 14px",
+                borderRadius: 8,
+                border: `1px solid ${T.border}`,
+                background: mform.unit === "L" ? "#e0f2fe" : "#f1f5f9",
+                color: mform.unit === "L" ? "#0369a1" : "#334155",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+                marginBottom: 2,
+              }}
+            >
+              {mform.unit === "L" ? "L" : "kg"}
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
-              <Input label={tc({ en: "AM yield (kg)", hi: "सुबह (kg)", bn: "সকাল (kg)" })}
+              <Input label={tc({ en: `AM yield (${mform.unit || "kg"})`, hi: `सुबह (${mform.unit || "kg"})`, bn: `সকাল (${mform.unit || "kg"})` })}
                 type="number" placeholder="0" value={mform.amYieldKg}
                 onChange={(v) => setMform((f) => ({ ...f, amYieldKg: v }))} />
             </div>
             <div style={{ flex: 1 }}>
-              <Input label={tc({ en: "PM yield (kg)", hi: "शाम (kg)", bn: "সন্ধ্যা (kg)" })}
+              <Input label={tc({ en: `PM yield (${mform.unit || "kg"})`, hi: `शाम (${mform.unit || "kg"})`, bn: `সন্ধ্যা (${mform.unit || "kg"})` })}
                 type="number" placeholder="0" value={mform.pmYieldKg}
                 onChange={(v) => setMform((f) => ({ ...f, pmYieldKg: v }))} />
             </div>
@@ -1428,36 +1491,48 @@ function MilkTrendChart({ milkList, tc }) {
     days.push(d.toISOString().slice(0, 10));
   }
 
-  const isAllL = milkList.length > 0 && milkList.every(r => r.unit === "L");
-  const hasL = milkList.some(r => r.unit === "L");
-  const unitSuffix = isAllL ? "L" : hasL ? "L/kg" : "kg";
+  const hasL = milkList.some(r => r.unit === "L" && ((Number(r.total_yield_litres) || 0) > 0 || (Number(r.am_yield_litres) || 0) + (Number(r.pm_yield_litres) || 0) > 0));
+  const hasKg = milkList.some(r => r.unit !== "L" && ((Number(r.total_yield_kg) || 0) > 0 || (Number(r.am_yield_kg) || 0) + (Number(r.pm_yield_kg) || 0) > 0));
+  const hasBoth = hasL && hasKg;
+
+  const [activeUnit, setActiveUnit] = useState(() => (hasKg || !hasL ? "kg" : "L"));
+
+  useEffect(() => {
+    if (!hasBoth) {
+      setActiveUnit(hasL && !hasKg ? "L" : "kg");
+    }
+  }, [hasL, hasKg, hasBoth]);
 
   const byDate = {};
   for (const r of milkList) {
     const key = (r.record_date || "").slice(0, 10);
-    const total = r.unit === "L"
-      ? (Number(r.total_yield_litres) || ((Number(r.am_yield_litres) || 0) + (Number(r.pm_yield_litres) || 0)))
-      : (Number(r.total_yield_kg) || ((Number(r.am_yield_kg) || 0) + (Number(r.pm_yield_kg) || 0)));
-    byDate[key] = (byDate[key] || 0) + total;
+    const isRowL = r.unit === "L";
+    if (activeUnit === "L" && isRowL) {
+      const total = Number(r.total_yield_litres) || ((Number(r.am_yield_litres) || 0) + (Number(r.pm_yield_litres) || 0));
+      byDate[key] = (byDate[key] || 0) + total;
+    } else if (activeUnit === "kg" && !isRowL) {
+      const total = Number(r.total_yield_kg) || ((Number(r.am_yield_kg) || 0) + (Number(r.pm_yield_kg) || 0));
+      byDate[key] = (byDate[key] || 0) + total;
+    }
   }
 
   const values  = days.map(d => byDate[d] || 0);
   const maxVal  = Math.max(...values, 1);
   const hasData = values.some(v => v > 0);
-  if (!hasData) return null;
+  if (!hasData && !hasBoth) return null;
 
   /* Derived statistics. */
   const daysWithData = values.filter(v => v > 0);
-  const avgKg  = daysWithData.reduce((s, v) => s + v, 0) / daysWithData.length;
-  const peakKg = Math.max(...values);
-  const peakIdx = values.lastIndexOf(peakKg);
-  const proj305 = avgKg * 305;
-  const proj305Str = `${proj305.toFixed(0)} ${unitSuffix}`;
+  const avgVal  = daysWithData.length ? (daysWithData.reduce((s, v) => s + v, 0) / daysWithData.length) : 0;
+  const peakVal = Math.max(...values);
+  const peakIdx = values.lastIndexOf(peakVal);
+  const proj305 = avgVal * 305;
+  const proj305Str = `${proj305.toFixed(0)} ${activeUnit}`;
 
   const VW = 300; const VH = 60;
   const slotW = VW / 30;
   const barW  = Math.max(slotW - 1.5, 1);
-  const avgY  = VH - Math.max((avgKg / maxVal) * (VH - 4), 0);
+  const avgY  = VH - Math.max((avgVal / maxVal) * (VH - 4), 0);
 
   return (
     <div style={{ background: T.surface, border: `1px solid ${T.line}`,
@@ -1466,12 +1541,40 @@ function MilkTrendChart({ milkList, tc }) {
       {/* Header */}
       <div style={{ padding: "10px 14px 4px", display: "flex",
         justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: T.inkFaint,
-          fontFamily: T.body, textTransform: "uppercase", letterSpacing: 0.7 }}>
-          {tc({ en: "30-day trend", hi: "30 दिन रुझान", bn: "৩০ দিনের ট্রেন্ড" })}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: T.inkFaint,
+            fontFamily: T.body, textTransform: "uppercase", letterSpacing: 0.7 }}>
+            {tc({ en: "30-day trend", hi: "30 दिन रुझान", bn: "৩০ দিনের ট্রেন্ড" })}
+          </span>
+          {hasBoth && (
+            <div style={{ display: "flex", gap: 3, background: T.surface2, borderRadius: T.rSm, padding: 2 }}>
+              <button
+                type="button"
+                onClick={() => setActiveUnit("kg")}
+                style={{
+                  border: "none", borderRadius: 4, padding: "2px 7px", fontSize: 10.5, fontWeight: 700,
+                  cursor: "pointer", fontFamily: T.body,
+                  background: activeUnit === "kg" ? T.primary : "transparent",
+                  color: activeUnit === "kg" ? "#fff" : T.inkSoft,
+                }}>
+                kg
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveUnit("L")}
+                style={{
+                  border: "none", borderRadius: 4, padding: "2px 7px", fontSize: 10.5, fontWeight: 700,
+                  cursor: "pointer", fontFamily: T.body,
+                  background: activeUnit === "L" ? T.blue : "transparent",
+                  color: activeUnit === "L" ? "#fff" : T.inkSoft,
+                }}>
+                L
+              </button>
+            </div>
+          )}
+        </div>
         <span style={{ fontSize: 11, fontWeight: 700, fontFamily: T.body, color: T.orange }}>
-          ↑ {peakKg.toFixed(1)} {tc({ en: "kg peak", hi: "kg सर्वाधिक", bn: "kg শীর্ষ" })}
+          ↑ {peakVal.toFixed(1)} {activeUnit} {tc({ en: "peak", hi: "सर्वाधिक", bn: "শীর্ষ" })}
         </span>
       </div>
 
@@ -1490,8 +1593,8 @@ function MilkTrendChart({ milkList, tc }) {
             const barH  = Math.max((v / maxVal) * (VH - 4), v > 0 ? 3 : 0);
             const x     = i * slotW;
             const fill  = (i === peakIdx && v > 0) ? T.orange
-                        : (i === 29)               ? T.primary
-                        :                            T.primarySoft;
+                        : (i === 29)               ? (activeUnit === "L" ? T.blue : T.primary)
+                        :                            (activeUnit === "L" ? T.blueSoft : T.primarySoft);
             return (
               <rect key={i}
                 x={x + (slotW - barW) / 2} y={VH - barH}
@@ -1518,11 +1621,11 @@ function MilkTrendChart({ milkList, tc }) {
       <div style={{ borderTop: `1px solid ${T.line}`, display: "flex" }}>
         <StatTile
           label={tc({ en: "Avg / day", hi: "औसत/दिन", bn: "গড়/দিন" })}
-          value={`${avgKg.toFixed(1)} ${unitSuffix}`} />
+          value={`${avgVal.toFixed(1)} ${activeUnit}`} />
         <div style={{ width: 1, background: T.line }} />
         <StatTile
           label={tc({ en: "Peak day", hi: "सर्वाधिक", bn: "সর্বোচ্চ" })}
-          value={`${peakKg.toFixed(1)} ${unitSuffix}`}
+          value={`${peakVal.toFixed(1)} ${activeUnit}`}
           highlight />
         <div style={{ width: 1, background: T.line }} />
         <StatTile

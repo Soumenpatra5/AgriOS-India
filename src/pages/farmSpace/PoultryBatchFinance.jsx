@@ -240,7 +240,7 @@ export default function PoultryBatchFinance({ batchId }) {
       setDelTarget(null);
       load();
     } catch (err) {
-      toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর्থ" }), "error");
+      toast(err.message || tc({ en: "Failed", hi: "विफल", bn: "ব্যর্থ" }), "error");
     } finally { setDelBusy(false); }
   };
 

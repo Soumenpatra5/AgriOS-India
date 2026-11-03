@@ -559,7 +559,7 @@ export default function FarmSpaceBridgeModal({ open, onClose, space }) {
               <Icon name="Folder" size={36} style={{ color: T.inkFaint, margin: "0 auto 10px" }} />
               <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>
                 {domain === "parcels"
-                  ? tc({ en: "No local land parcels found", hi: "कोई स्थानीय भूमि खंड नहीं मिला", bn: "কোনো स्थानीय জমির প্লট পাওয়া যায়নি" })
+                  ? tc({ en: "No local land parcels found", hi: "कोई स्थानीय भूमि खंड नहीं मिला", bn: "কোনো স্থানীয় জমির প্লট পাওয়া যায়নি" })
                   : tc({ en: "No local animals found for this enterprise", hi: "इस उद्यम के लिए कोई स्थानीय पशु नहीं मिले", bn: "এই এন্টারপ্রাইজের জন্য কোনো প্রাণী পাওয়া যায়নি" })}
               </div>
               <div style={{ fontSize: 12.5, color: T.inkSoft, marginTop: 4 }}>
@@ -1219,7 +1219,7 @@ function DairyOpsPreviewView({ preview, selectedIds, toggleSelect, tc }) {
 
         {eventItems.length === 0 ? (
           <div style={{ fontSize: 12.5, color: T.inkSoft, padding: "8px 0" }}>
-            {tc({ en: "No local health events found.", hi: "कोई स्थानीय स्वास्थ्य घटना नहीं मिली।", bn: "কোনো स्थानीय স্বাস্থ্য ঘটনা পাওয়া যায়নি।" })}
+            {tc({ en: "No local health events found.", hi: "कोई स्थानीय स्वास्थ्य घटना नहीं मिली।", bn: "কোনো স্থানীয় স্বাস্থ্য ঘটনা পাওয়া যায়নি।" })}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

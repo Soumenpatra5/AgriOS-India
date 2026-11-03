@@ -5,7 +5,8 @@ import {
   AppBar, Card, Button, Chip, Input, Dropdown,
   EmptyState, ErrorState, Spinner, BottomSheet, Dialog,
 } from "../../components/index.js";
-import { useApp } from "../../store/AppStore.jsx";
+import { useApp, useOnline } from "../../store/AppStore.jsx";
+import { enqueueOrCall } from "../../services/offlineQueue/offlineQueue.js";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { goatApi } from "../../services/goat/goatApi.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
@@ -154,6 +155,7 @@ function InfoRow({ label, value }) {
 
 export default function GoatAnimalDetail({ animalId, spaceId }) {
   const { pop, tc, toast } = useApp();
+  const online = useOnline();
 
   const [space, setSpace]     = useState(null);
   const [animal, setAnimal]   = useState(null);
@@ -263,19 +265,39 @@ export default function GoatAnimalDetail({ animalId, spaceId }) {
   const saveMilk = async () => {
     if (!mform.recordDate) return;
     setMbusy(true);
+    const clientUuid = crypto.randomUUID();
+    const payload = {
+      animalId,
+      recordDate: mform.recordDate,
+      amYieldKg:  parseFloat(mform.amYieldKg) || 0,
+      pmYieldKg:  parseFloat(mform.pmYieldKg) || 0,
+      fatPct:     mform.fatPct ? parseFloat(mform.fatPct) : null,
+      remarks:    mform.remarks || null,
+      clientUuid,
+    };
     try {
-      await goatApi.upsertMilk(space.id, {
-        animalId,
-        recordDate: mform.recordDate,
-        amYieldKg:  parseFloat(mform.amYieldKg) || 0,
-        pmYieldKg:  parseFloat(mform.pmYieldKg) || 0,
-        fatPct:     mform.fatPct ? parseFloat(mform.fatPct) : null,
-        remarks:    mform.remarks || null,
-      });
-      toast(tc({ en: "Milk record saved", hi: "दूध रिकॉर्ड सहेजा", bn: "দুধ রেকর্ড সংরক্ষিত" }), "success");
+      const res = await enqueueOrCall(
+        online,
+        "goat.milk.upsert",
+        space.id,
+        payload,
+        () => goatApi.upsertMilk(space.id, payload)
+      );
+      if (res?.__queued) {
+        toast(
+          tc({
+            en: "Milk record queued offline — will sync when connected",
+            hi: "दूध रिकॉर्ड ऑफ़लाइन कतारबद्ध — कनेक्ट होने पर सिंक होगा",
+            bn: "দুধ রেকর্ড অফলাইনে জমা হয়েছে — সংযুক্ত হলে সিঙ্ক হবে",
+          }),
+          "info"
+        );
+      } else {
+        toast(tc({ en: "Milk record saved", hi: "दूध रिकॉर्ड सहेजा", bn: "দুধ রেকর্ড সংরক্ষিত" }), "success");
+        refreshHistory();
+      }
       setMilkOpen(false);
       setMform({ recordDate: today(), amYieldKg: "", pmYieldKg: "", fatPct: "", remarks: "" });
-      refreshHistory();
     } catch (err) {
       toast(err.message || tc({ en: "Save failed", hi: "सहेजा नहीं जा सका", bn: "সংরক্ষণ ব্যর্থ" }), "error");
     } finally { setMbusy(false); }
