@@ -139,6 +139,7 @@ const AuctionPage        = lazy(() => import("../pages/logistics/AuctionPage.jsx
 const ProcurementPage    = lazy(() => import("../pages/logistics/ProcurementPage.jsx"));
 const ExportPage         = lazy(() => import("../pages/logistics/ExportPage.jsx"));
 const LogisticsAnalytics = lazy(() => import("../pages/logistics/LogisticsAnalytics.jsx"));
+const FpoFederationHub   = lazy(() => import("../pages/fpo/FpoFederationHub.jsx"));
 const AICommerceHub      = lazy(() => import("../pages/aiCommerce/AICommerceHub.jsx"));
 const RecommendationsPage  = lazy(() => import("../pages/aiCommerce/RecommendationsPage.jsx"));
 const ForecastPage       = lazy(() => import("../pages/aiCommerce/ForecastPage.jsx"));
@@ -304,6 +305,7 @@ function StackScreen({ item }) {
   if (item.kind === "logProcurement")       return <ProcurementPage />;
   if (item.kind === "logExport")            return <ExportPage />;
   if (item.kind === "logAnalytics")         return <LogisticsAnalytics />;
+  if (item.kind === "fpoHub" || item.kind === "logFpoHub") return <FpoFederationHub />;
   if (item.kind === "aiCommerceHub")        return <AICommerceHub />;
   if (item.kind === "aiRecs")               return <RecommendationsPage />;  if (item.kind === "aiForecast")           return <ForecastPage />;
   if (item.kind === "aiMatch")              return <MatchmakingPage />;

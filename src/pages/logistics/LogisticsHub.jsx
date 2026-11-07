@@ -17,6 +17,7 @@ export default function LogisticsHub() {
     { kind: "logContracts",   label: tc({en:"Contract Farming",hi:"अनुबंध खेती",bn:"চুক্তি চাষ"}),desc: tc({en:"Digital buyer agreements",hi:"डिजिटल क्रेता समझौते",bn:"ডিজিটাল ক্রেতা চুক্তি"}), icon: "FileSignature", a: "primary" },
     { kind: "logAuctions",    label: tc({en:"Auctions",hi:"नीलामी",bn:"নিলাম"}),     desc: tc({en:"Forward & reverse bidding",hi:"फॉरवर्ड और रिवर्स बोली",bn:"ফরোয়ার্ড ও রিভার্স বিডিং"}),   icon: "Gavel",         a: "yellow"  },
     { kind: "logProcurement", label: tc({en:"Procurement",hi:"खरीद",bn:"সংগ্রহ"}),  desc: tc({en:"Tenders & purchase orders",hi:"निविदाएँ और खरीद आदेश",bn:"দরপত্র ও ক্রয় আদেশ"}),   icon: "ClipboardList", a: "blue"    },
+    { kind: "logFpoHub",      label: tc({en:"FPO Federation",hi:"एफपीओ फेडरेशन",bn:"এফপিও ফেডারেশন"}), desc: tc({en:"Bulk pooling & e-NAM / ONDC",hi:"थोक संकलन और ई-नाम / ओएनडीसी",bn:"যৌথ সংগ্রহ ও ই-নাম / ONDC"}), icon: "Users", a: "primary" },
     { kind: "logExport",      label: tc({en:"Export",hi:"निर्यात",bn:"রপ্তানি"}),       desc: tc({en:"Docs & compliance",hi:"दस्तावेज़ और अनुपालन",bn:"নথি ও সম্মতি"}),           icon: "Container",     a: "primary" },
     { kind: "logAnalytics",   label: tc({en:"Analytics",hi:"विश्लेषण",bn:"বিশ্লেষণ"}),    desc: tc({en:"Supply-chain KPIs",hi:"सप्लाई-चेन KPI",bn:"সাপ্লাই-চেইন KPI"}),           icon: "BarChart3",     a: "orange"  },
   ];
