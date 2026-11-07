@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { voice } from "../../ai/voice/speech.js";
+import { parseShedVoiceCommand } from "../../services/voice/shedVoiceParser.js";
 import { T } from "../../theme/ThemeProvider.jsx";
 import Icon from "../../components/Icon.jsx";
 import {
@@ -7,6 +9,7 @@ import {
 import { useApp, useOnline } from "../../store/AppStore.jsx";
 import { enqueueOrCall } from "../../services/offlineQueue/offlineQueue.js";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
+import { rosterCache } from "../../services/farmSpace/rosterCache.js";
 import { dairyApi } from "../../services/dairy/dairyApi.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 
@@ -27,7 +30,7 @@ function fmtDate(dateStr) {
 }
 
 export default function DairyMilkEntry({ spaceId }) {
-  const { pop, tc, toast } = useApp();
+  const { pop, tc, toast, lang } = useApp();
   const online = useOnline();
 
   const [date, setDate]       = useState(todayStr);
@@ -37,23 +40,105 @@ export default function DairyMilkEntry({ spaceId }) {
   const [state, setState]     = useState("loading");
   const [reason, setReason]   = useState(null);
   const [saving, setSaving]   = useState(false);
+  const [isOfflineRoster, setIsOfflineRoster] = useState(false);
+  const [listening, setListening]             = useState(false);
+  const voiceCtrl                             = useRef(null);
+
+  const toggleVoice = () => {
+    if (listening) {
+      voiceCtrl.current?.stop();
+      setListening(false);
+      return;
+    }
+    if (!voice.sttSupported) {
+      toast(tc({
+        en: "Voice input is not supported in this browser.",
+        hi: "इस ब्राउज़र में ध्वनि इनपुट समर्थित नहीं है।",
+        bn: "এই ব্রাউজারে ভয়েস ইনপুট সমর্থিত নয়।",
+      }), "error");
+      return;
+    }
+    setListening(true);
+    toast(tc({
+      en: "Listening... say e.g. 'Ganga morning 12 litres'",
+      hi: "सुन रहा हूँ... बोलिए जैसे 'गंगा सुबह १२ लीटर'",
+      bn: "শুনছি... বলুন যেমন 'গঙ্গা সকাল ১২ লিটার'",
+    }), "info");
+
+    voiceCtrl.current = voice.listen({
+      lang,
+      onResult: (transcript, isFinal) => {
+        if (!isFinal) return;
+        const cmd = parseShedVoiceCommand(transcript, animals);
+        if (cmd?.animal && cmd.yieldAmount !== null) {
+          setRows((prev) => {
+            const cur = prev[cmd.animal.id] || {};
+            const isL = cmd.unit === "L";
+            return {
+              ...prev,
+              [cmd.animal.id]: {
+                ...cur,
+                [cmd.session]: String(cmd.yieldAmount),
+                unit: cmd.unit,
+                isLitres: isL,
+                error: null,
+              },
+            };
+          });
+          toast(
+            `${cmd.animal.name}: ${cmd.yieldAmount} ${cmd.unit} (${cmd.session.toUpperCase()})`,
+            "success"
+          );
+        } else {
+          toast(tc({
+            en: "Could not recognize animal or yield. Please try again.",
+            hi: "पशु या दूध की मात्रा पहचानी नहीं जा सकी। पुनः प्रयास करें।",
+            bn: "প্রাণী বা দুধের পরিমাণ বোঝা যায়নি। আবার চেষ্টা করুন।",
+          }), "warning");
+        }
+      },
+      onEnd: () => setListening(false),
+      onError: () => setListening(false),
+    });
+  };
 
   const load = useCallback(async (targetDate) => {
     setState("loading");
     try {
-      const active = await farmSpaceService.active();
+      let active = await farmSpaceService.active().catch(() => null);
+      if (!active) {
+        active = farmSpaceService.peekActive();
+      }
       if (!active) { setReason(FARM_ERROR.NOT_FOUND); setState("error"); return; }
       setSpace(active);
 
       const sid = spaceId || active.id;
-      const [animalList, milkList] = await Promise.all([
-        dairyApi.listAnimals(sid, { includeTerminal: false }),
-        dairyApi.listMilk(sid, { fromDate: targetDate, toDate: targetDate, limit: 200 }),
-      ]);
+      let animalList = null;
+      let milkList = null;
+      let offlineFallback = false;
+
+      try {
+        [animalList, milkList] = await Promise.all([
+          dairyApi.listAnimals(sid, { includeTerminal: false }),
+          dairyApi.listMilk(sid, { fromDate: targetDate, toDate: targetDate, limit: 200 }),
+        ]);
+        const milking = (animalList || []).filter(a => a.current_status === "milking");
+        rosterCache.save(sid, "dairy", milking);
+      } catch (fetchErr) {
+        const cached = rosterCache.get(sid, "dairy");
+        if (cached?.animals?.length) {
+          animalList = cached.animals;
+          milkList = [];
+          offlineFallback = true;
+        } else {
+          throw fetchErr;
+        }
+      }
 
       /* Only milking animals appear in bulk entry; heifer/dry are excluded. */
-      const milking = (animalList || []).filter(a => a.current_status === "milking");
+      const milking = offlineFallback ? animalList : (animalList || []).filter(a => a.current_status === "milking");
       setAnimals(milking);
+      setIsOfflineRoster(offlineFallback);
 
       const newRows = {};
       for (const a of milking) {
@@ -216,7 +301,18 @@ export default function DairyMilkEntry({ spaceId }) {
       title={tc({ en: "Daily Milk", hi: "दैनिक दूध", bn: "দৈনিক দুধ" })}
       onBack={pop}
       action={
-        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button
+            type="button"
+            onClick={toggleVoice}
+            style={{
+              background: listening ? T.redSoft : "none",
+              border: `1px solid ${listening ? T.red : "transparent"}`,
+              cursor: "pointer", padding: "6px 8px", borderRadius: T.rSm, lineHeight: 0,
+            }}
+            title={tc({ en: "Voice Input", hi: "ध्वनि इनपुट", bn: "ভয়েস ইনপুট" })}>
+            <Icon name="Mic" size={18} color={listening ? T.red : T.ink} />
+          </button>
           <button onClick={() => goDate(-1)}
             style={{ background: "none", border: "none", cursor: "pointer",
               padding: "6px 8px", borderRadius: T.rSm, lineHeight: 0 }}>
@@ -262,6 +358,22 @@ export default function DairyMilkEntry({ spaceId }) {
     <>
       {bar}
       <div style={{ padding: "12px 16px 120px" }}>
+        {isOfflineRoster && (
+          <div style={{
+            background: T.blueSoft, border: `1px solid ${T.blue}`,
+            borderRadius: T.rMd, padding: "8px 12px", marginBottom: 12,
+            display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: T.ink,
+          }}>
+            <Icon name="CloudOff" size={16} color={T.blue} />
+            <span>
+              {tc({
+                en: "Offline herd roster loaded. Yield entries will be queued and synced when online.",
+                hi: "ऑफ़लाइन सूची लोड की गई। दर्ज किया गया दूध ऑनलाइन होने पर सिंक होगा।",
+                bn: "অফলাইন তালিকা লোড হয়েছে। নথিভুক্ত দুধ অনলাইনে এলে সিঙ্ক হবে।",
+              })}
+            </span>
+          </div>
+        )}
 
         {/* Column headers */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px", gap: 8,

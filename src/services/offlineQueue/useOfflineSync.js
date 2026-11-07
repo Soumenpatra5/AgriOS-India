@@ -21,20 +21,35 @@ export function useOfflineSync(farmCallFn, online) {
 
   useEffect(() => { refreshCount(); }, [refreshCount]);
 
+  const triggerReplay = useCallback(() => {
+    setReplaying(true);
+    replayQueue(farmCallFn)
+      .then(result => {
+        setLastReplay({ ...result, at: Date.now() });
+        refreshCount();
+      })
+      .catch(() => {})
+      .finally(() => setReplaying(false));
+  }, [farmCallFn, refreshCount]);
+
   useEffect(() => {
     /* Reconnected — was offline, now online */
     if (!wasOnline.current && online) {
-      setReplaying(true);
-      replayQueue(farmCallFn)
-        .then(result => {
-          setLastReplay({ ...result, at: Date.now() });
-          refreshCount();
-        })
-        .catch(() => {})
-        .finally(() => setReplaying(false));
+      triggerReplay();
     }
     wasOnline.current = online;
-  }, [online, farmCallFn, refreshCount]);
+  }, [online, triggerReplay]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const onMessage = (event) => {
+      if (event?.data?.type === "TRIGGER_OFFLINE_SYNC") {
+        triggerReplay();
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [triggerReplay]);
 
   return { pendingCount, replaying, lastReplay, refreshCount };
 }

@@ -1095,4 +1095,59 @@ describe("finance operations", () => {
     });
     expect(r.status).toBe(403);
   });
+
+  /* ── Migration 0033: Goat Milk Litres Parity ───────────────────────────────── */
+  describe("Migration 0033: Goat Milk Litres Parity", () => {
+    it("upserts and stores valid litre-based goat milk records", async () => {
+      const res = await call(U(52), "goat.milk.upsert", {
+        spaceId: spaceA.id,
+        payload: {
+          animalId: animalA1Id,
+          recordDate: "2026-09-15",
+          unit: "L",
+          amYieldLitres: 1.25,
+          pmYieldLitres: 0.95,
+          clientUuid: "goat-milk-litre-1",
+        },
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.unit).toBe("L");
+      expect(Number(res.data.am_yield_litres)).toBe(1.25);
+      expect(Number(res.data.pm_yield_litres)).toBe(0.95);
+      expect(Number(res.data.total_yield_litres)).toBe(2.2);
+      expect(Number(res.data.am_yield_kg)).toBe(0);
+      expect(Number(res.data.pm_yield_kg)).toBe(0);
+    });
+
+    it("prevents overwriting litre record with kilogram record (HTTP 409)", async () => {
+      const res = await call(U(52), "goat.milk.upsert", {
+        spaceId: spaceA.id,
+        payload: {
+          animalId: animalA1Id,
+          recordDate: "2026-09-15",
+          unit: "kg",
+          amYieldKg: 1.5,
+          pmYieldKg: 1.0,
+        },
+      });
+      expect(res.status).toBe(409);
+      expect(res.error).toMatch(/Cannot overwrite litre-based record/i);
+    });
+
+    it("returns existing record on duplicate clientUuid replay", async () => {
+      const res = await call(U(52), "goat.milk.upsert", {
+        spaceId: spaceA.id,
+        payload: {
+          animalId: animalA1Id,
+          recordDate: "2026-09-15",
+          unit: "L",
+          amYieldLitres: 1.25,
+          pmYieldLitres: 0.95,
+          clientUuid: "goat-milk-litre-1",
+        },
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.unit).toBe("L");
+    });
+  });
 });

@@ -19,6 +19,16 @@ import { enqueue, listQueue, dequeue } from "./offlineQueueStore.js";
 
 const PENDING_SENTINEL = { __queued: true };
 
+export function registerBackgroundSync() {
+  if (typeof window !== "undefined" && typeof navigator !== "undefined" && "serviceWorker" in navigator && "SyncManager" in window) {
+    navigator.serviceWorker.ready.then((reg) => {
+      if (reg?.sync?.register) {
+        reg.sync.register("replay-farm-writes").catch(() => {});
+      }
+    }).catch(() => {});
+  }
+}
+
 export async function enqueueOrCall(online, action, spaceId, payload, callFn) {
   if (online) {
     return callFn();
@@ -32,6 +42,7 @@ export async function enqueueOrCall(online, action, spaceId, payload, callFn) {
   }
 
   await enqueue({ action, spaceId, payload });
+  registerBackgroundSync();
   return { ...PENDING_SENTINEL, id: payload.clientUuid };
 }
 

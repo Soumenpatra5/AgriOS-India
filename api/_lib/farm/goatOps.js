@@ -41,59 +41,107 @@ export async function listMilk(sql, membership, payload = {}) {
 
 export async function upsertMilk(sql, membership, actorUserId, payload) {
   const { animalId, recordDate, amYieldKg = 0, pmYieldKg = 0,
+          amYieldLitres = null, pmYieldLitres = null, unit = "kg",
           fatPct, remarks, clientUuid } = payload ?? {};
 
   if (!recordDate) throw new HttpError(400, "recordDate required");
+  if (unit !== "kg" && unit !== "L") throw new HttpError(400, "Invalid unit. Supported: kg, L");
+
   const animal = await loadAnimal(sql, membership, animalId);
   assertAnimalWritable(animal);
 
   if (clientUuid) {
     const existing = await sql`
-      select id from goat_milk_records
+      select id, unit from goat_milk_records
       where space_id = ${membership.space_id} and client_uuid = ${clientUuid}
     `;
     if (existing.length) return existing[0];
   }
 
   const existing = await sql`
-    select id from goat_milk_records
+    select id, unit from goat_milk_records
     where animal_id = ${animalId} and record_date = ${recordDate} and deleted_at is null
   `;
 
   let result;
   if (existing.length) {
-    result = await sql`
-      update goat_milk_records set
-        am_yield_kg = ${amYieldKg},
-        pm_yield_kg = ${pmYieldKg},
-        fat_pct     = ${fatPct ?? null},
-        remarks     = ${remarks ?? null}
-      where id = ${existing[0].id}
-      returning *
-    `;
+    if (existing[0].unit !== unit) {
+      if (existing[0].unit === "L") {
+        throw new HttpError(409, "Cannot overwrite litre-based record with kilogram entry. This record was logged in litres.");
+      }
+      throw new HttpError(409, "Cannot overwrite kilogram-based record with litre entry. This record was logged in kilograms.");
+    }
+
+    if (unit === "L") {
+      const amL = amYieldLitres != null ? Number(amYieldLitres) : 0;
+      const pmL = pmYieldLitres != null ? Number(pmYieldLitres) : 0;
+      result = await sql`
+        update goat_milk_records set
+          unit            = 'L',
+          am_yield_litres = ${amL},
+          pm_yield_litres = ${pmL},
+          am_yield_kg     = 0,
+          pm_yield_kg     = 0,
+          fat_pct         = ${fatPct ?? null},
+          remarks         = ${remarks ?? null}
+        where id = ${existing[0].id}
+        returning *
+      `;
+    } else {
+      result = await sql`
+        update goat_milk_records set
+          unit            = 'kg',
+          am_yield_kg     = ${amYieldKg},
+          pm_yield_kg     = ${pmYieldKg},
+          am_yield_litres = null,
+          pm_yield_litres = null,
+          fat_pct         = ${fatPct ?? null},
+          remarks         = ${remarks ?? null}
+        where id = ${existing[0].id}
+        returning *
+      `;
+    }
+
     await audit(sql, {
       spaceId: membership.space_id, actorUserId,
       action: "goat.milk.update",
       targetType: "goat_milk_records", targetId: existing[0].id,
-      meta: { animalId, recordDate },
+      meta: { animalId, recordDate, unit },
     });
   } else {
-    result = await sql`
-      insert into goat_milk_records
-        (space_id, animal_id, record_date, am_yield_kg, pm_yield_kg,
-         fat_pct, remarks, client_uuid, created_by)
-      values (
-        ${membership.space_id}, ${animalId}, ${recordDate},
-        ${amYieldKg}, ${pmYieldKg}, ${fatPct ?? null},
-        ${remarks ?? null}, ${clientUuid ?? null}, ${actorUserId}
-      )
-      returning *
-    `;
+    if (unit === "L") {
+      const amL = amYieldLitres != null ? Number(amYieldLitres) : 0;
+      const pmL = pmYieldLitres != null ? Number(pmYieldLitres) : 0;
+      result = await sql`
+        insert into goat_milk_records
+          (space_id, animal_id, record_date, unit, am_yield_litres, pm_yield_litres,
+           am_yield_kg, pm_yield_kg, fat_pct, remarks, client_uuid, created_by)
+        values (
+          ${membership.space_id}, ${animalId}, ${recordDate}, 'L',
+          ${amL}, ${pmL}, 0, 0, ${fatPct ?? null},
+          ${remarks ?? null}, ${clientUuid ?? null}, ${actorUserId}
+        )
+        returning *
+      `;
+    } else {
+      result = await sql`
+        insert into goat_milk_records
+          (space_id, animal_id, record_date, unit, am_yield_kg, pm_yield_kg,
+           fat_pct, remarks, client_uuid, created_by)
+        values (
+          ${membership.space_id}, ${animalId}, ${recordDate}, 'kg',
+          ${amYieldKg}, ${pmYieldKg}, ${fatPct ?? null},
+          ${remarks ?? null}, ${clientUuid ?? null}, ${actorUserId}
+        )
+        returning *
+      `;
+    }
+
     await audit(sql, {
       spaceId: membership.space_id, actorUserId,
       action: "goat.milk.create",
       targetType: "goat_milk_records", targetId: result[0].id,
-      meta: { animalId, recordDate },
+      meta: { animalId, recordDate, unit },
     });
   }
 

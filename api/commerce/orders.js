@@ -51,8 +51,8 @@ async function create(req, res, sql, user) {
 
   const listingIds = value.items.map((i) => i.listingId);
 
-  const result = await sql.begin(async (tx) => {
-    // Lock the listing rows for the duration of the transaction.
+  // 1. Transaction 1: Reserve stock and insert pending order (short row locks)
+  const { order, items, totals, lines } = await sql.begin(async (tx) => {
     const rows = await tx`select * from listings where id in ${tx(listingIds)} and deleted_at is null for update`;
     const byId = new Map(rows.map((r) => [r.id, r]));
 
@@ -91,25 +91,36 @@ async function create(req, res, sql, user) {
       "order_id", "listing_id", "title_snapshot", "unit_price_paise", "quantity", "line_total_paise",
     )}`;
 
-    // External call inside the txn: if Razorpay fails, the whole order + stock
-    // reservation rolls back. Fine at this scale; B4 can switch to a
-    // reserve→commit→pay→confirm flow with the timeout sweep if volume grows.
-    const rzp = await createRazorpayOrder({ amountPaise: totals.total_paise, receipt: order.id });
-
-    await tx`
-      insert into payments (order_id, provider, provider_order_id, amount_paise, status)
-      values (${order.id}, 'razorpay', ${rzp.id}, ${totals.total_paise}, 'created')`;
-
-    return { order, items: totals.items, rzp };
+    return { order, items: totals.items, totals, lines };
   });
 
+  // 2. Gateway call executed OUTSIDE any DB transaction to protect connection pool
+  let rzp;
+  try {
+    rzp = await createRazorpayOrder({ amountPaise: totals.total_paise, receipt: order.id });
+  } catch (err) {
+    // Compensating action: restore stock and mark draft order cancelled
+    await sql.begin(async (tx) => {
+      for (const line of lines) {
+        await tx`update listings set qty_available = qty_available + ${line.quantity} where id = ${line.listing.id}`;
+      }
+      await tx`update orders set status = 'cancelled' where id = ${order.id}`;
+    }).catch(() => {});
+    throw err;
+  }
+
+  // 3. Record created payment
+  await sql`
+    insert into payments (order_id, provider, provider_order_id, amount_paise, status)
+    values (${order.id}, 'razorpay', ${rzp.id}, ${totals.total_paise}, 'created')`;
+
   return res.status(201).json({
-    order: publicOrder(result.order, result.items),
+    order: publicOrder(order, items),
     payment: {
       provider: "razorpay",
-      razorpayOrderId: result.rzp.id,
-      amountPaise: Number(result.order.total_paise),
-      currency: result.order.currency || "INR",
+      razorpayOrderId: rzp.id,
+      amountPaise: Number(order.total_paise),
+      currency: order.currency || "INR",
       keyId: process.env.RAZORPAY_KEY_ID, // publishable
     },
   });

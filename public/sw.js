@@ -50,6 +50,19 @@ self.addEventListener("message", (e) => {
   if (e.data === "SKIP_WAITING") self.skipWaiting();
 });
 
+/* Background Sync: replay offline farm writes when connectivity resumes */
+self.addEventListener("sync", (e) => {
+  if (e.tag === "replay-farm-writes") {
+    e.waitUntil(
+      self.clients.matchAll({ type: "window" }).then((list) => {
+        for (const client of list) {
+          client.postMessage({ type: "TRIGGER_OFFLINE_SYNC" });
+        }
+      })
+    );
+  }
+});
+
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
