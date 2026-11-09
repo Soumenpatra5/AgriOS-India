@@ -16,6 +16,7 @@
  * The caller is responsible for checking the `__queued` flag on the result. */
 
 import { enqueue, listQueue, dequeue } from "./offlineQueueStore.js";
+import { addDeadLetter } from "./offlineDeadLetterStore.js";
 
 const PENDING_SENTINEL = { __queued: true };
 
@@ -56,7 +57,8 @@ export async function replayQueue(callFn, { maxRetries = 3 } = {}) {
 
   for (const entry of entries) {
     if ((entry.retries ?? 0) >= maxRetries) {
-      /* Give up on this entry — remove it so it does not block the queue */
+      /* Give up on this entry — preserve in dead-letter store rather than silently dropping */
+      await addDeadLetter(entry, "max_retries_exceeded", { message: "Maximum retries exceeded" });
       await dequeue(entry.id);
       skipped++;
       continue;
@@ -69,8 +71,9 @@ export async function replayQueue(callFn, { maxRetries = 3 } = {}) {
     } catch (err) {
       /* Network error during replay — stop and retry next time */
       if (err?.reason === "offline") break;
-      /* Server rejected it (4xx) — remove it so it does not block */
+      /* Server rejected it (4xx) — preserve in DLQ and remove from queue so it does not block */
       if (err?.status && err.status >= 400 && err.status < 500) {
+        await addDeadLetter(entry, "server_rejected", { status: err.status, message: err.message });
         await dequeue(entry.id);
         skipped++;
       } else {

@@ -3,6 +3,7 @@
  * Shown at the top of the app when:
  *   - The device is offline AND there are queued writes (pendingCount > 0)
  *   - The queue is being replayed (replaying)
+ *   - Offline writes exceeded retries or were rejected permanently (deadLetterCount > 0)
  *   - Replay just finished with errors (lastReplay?.failed > 0)
  *
  * Hidden when everything is up-to-date. */
@@ -10,7 +11,7 @@
 import { useState, useEffect } from "react";
 import { CloudOff, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
 import { T } from "../theme/ThemeProvider.jsx";
-import { useOnline } from "../store/AppStore.jsx";
+import { useOnline, useApp } from "../store/AppStore.jsx";
 import { useOfflineSync } from "../services/offlineQueue/useOfflineSync.js";
 
 async function farmReplayCall(action, spaceId, payload) {
@@ -39,7 +40,9 @@ async function farmReplayCall(action, spaceId, payload) {
 
 export default function OfflineSyncBanner() {
   const online = useOnline();
-  const { pendingCount, replaying, lastReplay } = useOfflineSync(farmReplayCall, online);
+  const app = useApp();
+  const tc = app?.tc;
+  const { pendingCount, deadLetterCount, dismissDeadLetters, replaying, lastReplay } = useOfflineSync(farmReplayCall, online);
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
@@ -66,6 +69,43 @@ export default function OfflineSyncBanner() {
         padding: "6px 12px", background: "#22c55e", color: "#fff", fontSize: 12, fontWeight: 600 }}>
         <CheckCircle size={13} />
         {lastReplay?.replayed} record{lastReplay?.replayed !== 1 ? "s" : ""} synced
+      </div>
+    );
+  }
+
+  if (deadLetterCount > 0) {
+    const label = tc
+      ? tc({
+          en: "offline write failed to sync",
+          hi: "ऑफ़लाइन प्रविष्टि सिंक विफल",
+          bn: "অফলাইন এন্ট্রি সিঙ্ক ব্যর্থ",
+        })
+      : "offline entry failed to sync";
+    const dismissText = tc ? tc({ en: "Dismiss", hi: "खारिज करें", bn: "খারিজ করুন" }) : "Dismiss";
+
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        padding: "6px 12px", background: "#dc2626", color: "#fff", fontSize: 12, fontWeight: 600 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <AlertTriangle size={13} />
+          <span>{deadLetterCount} {label}</span>
+        </div>
+        <button
+          type="button"
+          onClick={dismissDeadLetters}
+          style={{
+            background: "rgba(255, 255, 255, 0.2)",
+            border: "none",
+            color: "#fff",
+            borderRadius: 4,
+            padding: "2px 8px",
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          {dismissText}
+        </button>
       </div>
     );
   }

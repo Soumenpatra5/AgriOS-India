@@ -12,21 +12,13 @@
 
 import { verifyToken } from "../_middleware/verifyAuth.js";
 import { streamGemini } from "./_geminiAdapter.js";
+import { rateLimit } from "../_lib/rateLimit.js";
 
 const MAX_TOKENS_CAP = 4096;
 const MAX_BODY_CHARS = 400_000;
 const MAX_MESSAGES = 40;
 const RATE = { windowMs: 60_000, max: 20 };
 
-const hits = new Map();
-function limited(ip) {
-  const now = Date.now();
-  const arr = (hits.get(ip) || []).filter((t) => now - t < RATE.windowMs);
-  if (arr.length >= RATE.max) { hits.set(ip, arr); return true; }
-  arr.push(now); hits.set(ip, arr);
-  if (hits.size > 5000) hits.clear();
-  return false;
-}
 
 // ── Provider definitions ─────────────────────────────────────────────
 const PROVIDERS = {
@@ -216,7 +208,10 @@ export default async function handler(req, res) {
   if (!keys.length) return res.status(503).json({ error: { message: "AI is not configured — add API keys in Vercel environment variables." } });
 
   const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
-  if (limited(ip)) return res.status(429).json({ error: { message: "Too many requests. Please wait a minute." } });
+  const rateLimitKey = `ai:chat:${decoded?.sub || ip}`;
+  if (await rateLimit({ key: rateLimitKey, max: RATE.max, windowMs: RATE.windowMs })) {
+    return res.status(429).json({ error: { message: "Too many requests. Please wait a minute." } });
+  }
 
   const body = req.body || {};
   const { model, messages, max_tokens } = body;
