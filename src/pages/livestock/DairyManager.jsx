@@ -7,6 +7,8 @@ import { useApp } from "../../store/AppStore.jsx";
 import { animalService, productionService, eventService } from "../../services/livestock/livestockService.js";
 import { rupee } from "../../utils/format.js";
 import { useResponsive } from "../../hooks/useResponsive.js";
+import { downloadCsv } from "../../utils/exportCsv.js";
+import { printReport } from "../../utils/printReport.js";
 
 /* id drives state; label is display only. */
 const TABS = [
@@ -103,15 +105,145 @@ export default function DairyManager() {
     setDelId(null); setDelStore(null); refresh(); toast(tc({ en: "Deleted", hi: "हटाया गया", bn: "মুছে ফেলা হয়েছে" }), "info");
   };
 
+  const handleExportCsv = () => {
+    if (tab === "Animals") {
+      if (!animals.length) { toast(tc({ en: "No animals to export", hi: "निर्यात के लिए कोई पशु नहीं", bn: "রপ্তানির জন্য কোনো প্রাণী নেই" }), "info"); return; }
+      const rows = animals.map((a) => ({
+        Name: a.name,
+        Type: a.type,
+        Breed: a.breed || "",
+        Tag: a.tagNo || "",
+        Status: a.lactationStatus || "",
+      }));
+      downloadCsv(rows, `agrios-dairy-animals-${todayStr()}.csv`);
+    } else if (tab === "Milk Log") {
+      if (!prods.length) { toast(tc({ en: "No milk logs to export", hi: "निर्यात के लिए कोई दूध लॉग नहीं", bn: "রপ্তানির জন্য কোনো দুধের লগ নেই" }), "info"); return; }
+      const rows = prods.map((p) => ({
+        Date: p.date,
+        AM_Litres: p.amLitres || 0,
+        PM_Litres: p.pmLitres || 0,
+        Total_Litres: ((Number(p.amLitres) || 0) + (Number(p.pmLitres) || 0)).toFixed(1),
+        Sale_Price_Per_L: p.salePrice || 0,
+      }));
+      downloadCsv(rows, `agrios-dairy-milk-log-${todayStr()}.csv`);
+    } else {
+      if (!events.length) { toast(tc({ en: "No events to export", hi: "निर्यात के लिए कोई घटना नहीं", bn: "রপ্তানির জন্য কোনো ঘটনা নেই" }), "info"); return; }
+      const rows = events.map((ev) => ({
+        Date: ev.date,
+        Type: ev.type,
+        DueDate: ev.dueDate || "",
+        Animal: animals.find((a) => a.id === ev.animalId)?.name || "",
+        Notes: ev.note || "",
+      }));
+      downloadCsv(rows, `agrios-dairy-events-${todayStr()}.csv`);
+    }
+    toast(tc({ en: "CSV downloaded", hi: "CSV डाउनलोड हुई", bn: "CSV ডাউনলোড হয়েছে" }), "success");
+  };
+
+  const handlePrint = () => {
+    let title = tc({ en: "Dairy Herd Management", hi: "डेयरी प्रबंधन", bn: "ডেয়ারি ব্যবস্থাপনা" });
+    let columns;
+    let rows;
+    const summaryList = [
+      { label: tc({ en: "Total Animals", hi: "कुल पशु", bn: "মোট প্রাণী" }), value: String(totalAnimals) },
+      { label: tc({ en: "Milk This Month (L)", hi: "इस माह दूध (L)", bn: "এ মাসের দুধ (L)" }), value: monthMilk.toFixed(1) },
+    ];
+
+    if (tab === "Animals") {
+      if (!animals.length) { toast(tc({ en: "No animals to print", hi: "प्रिंट के लिए कोई पशु नहीं", bn: "প্রিন্ট করার কোনো প্রাণী নেই" }), "info"); return; }
+      title = `${title} — ${tc({ en: "Animals Roster", hi: "पशु सूची", bn: "প্রাণীদের তালিকা" })}`;
+      columns = [
+        { header: tc({ en: "Tag #", hi: "टैग", bn: "ট্যাগ" }), key: "tag" },
+        { header: tc({ en: "Name", hi: "नाम", bn: "নাম" }), key: "name" },
+        { header: tc({ en: "Type", hi: "प्रकार", bn: "ধরন" }), key: "type" },
+        { header: tc({ en: "Breed", hi: "नस्ल", bn: "জাত" }), key: "breed" },
+        { header: tc({ en: "Status", hi: "स्थिति", bn: "অবস্থা" }), key: "status" },
+      ];
+      rows = animals.map((a) => ({
+        tag: a.tagNo ? `#${a.tagNo}` : "—",
+        name: a.name,
+        type: a.type === "cow" ? tc({ en: "Cow", hi: "गाय", bn: "গরু" }) : tc({ en: "Buffalo", hi: "भैंस", bn: "মহিষ" }),
+        breed: a.breed ? breedLabel(a.breed) : "—",
+        status: a.lactationStatus || "—",
+      }));
+    } else if (tab === "Milk Log") {
+      if (!prods.length) { toast(tc({ en: "No milk logs to print", hi: "प्रिंट के लिए कोई दूध लॉग नहीं", bn: "প্রিন্ট করার কোনো দুধের লগ নেই" }), "info"); return; }
+      title = `${title} — ${tc({ en: "Milk Production Log", hi: "दूध उत्पादन लॉग", bn: "দুধ উৎপাদন লগ" })}`;
+      columns = [
+        { header: tc({ en: "Date", hi: "तारीख", bn: "তারিখ" }), key: "date" },
+        { header: tc({ en: "AM (Litres)", hi: "सुबह (लीटर)", bn: "সকাল (লিটার)" }), key: "am", align: "right" },
+        { header: tc({ en: "PM (Litres)", hi: "शाम (लीटर)", bn: "সন্ধ্যা (লিটার)" }), key: "pm", align: "right" },
+        { header: tc({ en: "Total (Litres)", hi: "कुल (लीटर)", bn: "মোট (লিটার)" }), key: "total", align: "right" },
+        { header: tc({ en: "Rate (₹/L)", hi: "दर (₹/L)", bn: "দর (₹/L)" }), key: "rate", align: "right" },
+      ];
+      rows = prods.slice(0, 50).map((p) => {
+        const total = (Number(p.amLitres) || 0) + (Number(p.pmLitres) || 0);
+        return {
+          date: fmtDate(p.date, locale),
+          am: `${p.amLitres || 0} L`,
+          pm: `${p.pmLitres || 0} L`,
+          total: `${total.toFixed(1)} L`,
+          rate: p.salePrice > 0 ? rupee(p.salePrice) : "—",
+        };
+      });
+    } else {
+      if (!events.length) { toast(tc({ en: "No events to print", hi: "प्रिंट के लिए कोई घटना नहीं", bn: "প্রিন্ট করার কোনো ঘটনা নেই" }), "info"); return; }
+      title = `${title} — ${tc({ en: "Health & Events Log", hi: "स्वास्थ्य और घटनाएँ", bn: "স্বাস্থ্য ও ঘটনার লগ" })}`;
+      columns = [
+        { header: tc({ en: "Event", hi: "घटना", bn: "ঘটনা" }), key: "type" },
+        { header: tc({ en: "Date", hi: "तारीख", bn: "তারিখ" }), key: "date" },
+        { header: tc({ en: "Animal", hi: "पशु", bn: "প্রাণী" }), key: "animal" },
+        { header: tc({ en: "Notes", hi: "विवरण", bn: "নোট" }), key: "notes" },
+      ];
+      rows = events.slice(0, 50).map((ev) => ({
+        type: EVENT_LABELS[ev.type] ? tc(EVENT_LABELS[ev.type]) : ev.type,
+        date: fmtDate(ev.date, locale),
+        animal: animals.find((a) => a.id === ev.animalId)?.name || "—",
+        notes: ev.note || "—",
+      }));
+    }
+
+    const ok = printReport({
+      title,
+      subtitle: `${tc({ en: "Generated for Herd", hi: "झुंड के लिए तैयार", bn: "পালের জন্য প্রস্তুত" })}`,
+      columns,
+      rows,
+      summary: summaryList,
+    });
+    if (!ok) {
+      toast(tc({ en: "Unable to open print preview. Please check pop-up settings.", hi: "प्रिंट विंडो नहीं खुल सकी। पॉप-अप जांचें।", bn: "প্রিন্ট উইন্ডো খোলা যায়নি। পপ-আপ সেটিংস দেখুন।" }), "error");
+    }
+  };
+
   return (
     <>
       <AppBar title={tc({ en: "Dairy", hi: "डेयरी", bn: "ডেয়ারি" })} onBack={pop} action={
-        <button onClick={() => tab === "Animals" ? setAnimalOpen(true) : tab === "Milk Log" ? setProdOpen(true) : setEventOpen(true)}
-          style={{ background: T.blue, border: "none", borderRadius: 12, padding: "8px 13px",
-            cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6,
-            fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
-          <Icon name="Plus" size={15} color="#fff" /> {tc({ en: "Add", hi: "जोड़ें", bn: "যোগ" })}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {isDesktop && (
+            <>
+              <button
+                onClick={handleExportCsv}
+                aria-label={tc({ en: "Export CSV", hi: "CSV निर्यात करें", bn: "CSV ডাউনলোড করুন" })}
+                style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: "8px 12px",
+                  cursor: "pointer", color: T.ink, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, fontFamily: T.body }}>
+                <Icon name="Download" size={15} /> {tc({ en: "Export CSV", hi: "CSV निर्यात", bn: "CSV ডাউনলোড" })}
+              </button>
+              <button
+                onClick={handlePrint}
+                aria-label={tc({ en: "Print Report", hi: "रिपोर्ट प्रिंट करें", bn: "রিপোর্ট প্রিন্ট করুন" })}
+                style={{ background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: "8px 12px",
+                  cursor: "pointer", color: T.ink, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, fontFamily: T.body }}>
+                <Icon name="Printer" size={15} /> {tc({ en: "Print", hi: "प्रिंट", bn: "প্রিন্ট" })}
+              </button>
+            </>
+          )}
+          <button onClick={() => tab === "Animals" ? setAnimalOpen(true) : tab === "Milk Log" ? setProdOpen(true) : setEventOpen(true)}
+            style={{ background: T.blue, border: "none", borderRadius: 12, padding: "8px 13px",
+              cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", gap: 6,
+              fontFamily: T.body, fontSize: 13, fontWeight: 600 }}>
+            <Icon name="Plus" size={15} color="#fff" /> {tc({ en: "Add", hi: "जोड़ें", bn: "যোগ" })}
+          </button>
+        </div>
       } />
 
       {/* Summary strip */}

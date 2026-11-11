@@ -12,6 +12,7 @@ import { wishlistService } from "../../services/marketplace/wishlistService.js";
 import { reviewService } from "../../services/marketplace/reviewService.js";
 import { seedMp } from "../../services/marketplace/seedMp.js";
 import { PRODUCT_CATEGORIES } from "../../services/marketplace/constantsMp.js";
+import { useResponsive } from "../../hooks/useResponsive.js";
 
 const QUICK_LINKS = [
   { kind: "mpOrders",   label: {en:"My Orders",hi:"मेरे ऑर्डर",bn:"আমার অর্ডার"}, icon: "ClipboardList", a: "blue"    },
@@ -21,6 +22,7 @@ const QUICK_LINKS = [
 
 export default function MarketplaceHub({ category = "all" } = {}) {
   const { pop, push, toast, tc } = useApp();
+  const { isDesktop } = useResponsive(768);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState(category);
   const [list, setList] = useState(null);           // null = loading
@@ -111,10 +113,10 @@ export default function MarketplaceHub({ category = "all" } = {}) {
             {sellers.length > 0 && cat === "all" && !q && (
               <div>
                 <SectionHeader title={tc({en:"Stores",hi:"स्टोर",bn:"স্টোর"})} />
-                <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+                <div style={{ display: isDesktop ? "grid" : "flex", gridTemplateColumns: isDesktop ? "repeat(auto-fill, minmax(180px, 1fr))" : undefined, gap: 10, overflowX: isDesktop ? "visible" : "auto", paddingBottom: 4 }}>
                   {sellers.map((s) => (
                     <Card key={s.id} onClick={() => push({ kind: "mpStore", props: { sellerId: s.id } })}
-                      pad={12} style={{ minWidth: 150, flexShrink: 0 }}>
+                      pad={12} style={{ minWidth: isDesktop ? undefined : 150, flexShrink: isDesktop ? undefined : 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <IconTile name={s.icon || "Store"} a={s.accent || "primary"} size={34} iconSize={17} />
                         {s.verificationStatus === "verified" && <Icon name="BadgeCheck" size={15} color={T.blue} />}
@@ -134,8 +136,8 @@ export default function MarketplaceHub({ category = "all" } = {}) {
             {featured.length > 0 && !q && (
               <div>
                 <SectionHeader title={tc({en:"Featured",hi:"विशेष",bn:"বিশেষ"})} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  {featured.slice(0, 2).map((p) => (
+                <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(4, 1fr)" : "1fr 1fr", gap: 12 }}>
+                  {featured.slice(0, isDesktop ? 4 : 2).map((p) => (
                     <ProductCard key={p.id} product={p} wished={wishedIds.has(p.id)}
                       onToggleWish={() => toggleWish(p)}
                       onClick={() => push({ kind: "mpProduct", props: { id: p.id } })} />
@@ -151,7 +153,7 @@ export default function MarketplaceHub({ category = "all" } = {}) {
                 <EmptyState icon="SearchX" title={tc({en:"Nothing found",hi:"कुछ नहीं मिला",bn:"কিছু পাওয়া যায়নি"})}
                   body={q ? tc({en:`No products match "${q}".`,hi:`"${q}" से मेल खाने वाला कोई उत्पाद नहीं।`,bn:`"${q}" এর সাথে মেলে এমন কোনো পণ্য নেই।`}) : tc({en:"No products in this category yet.",hi:"इस श्रेणी में अभी कोई उत्पाद नहीं है।",bn:"এই বিভাগে এখনও কোনো পণ্য নেই।"})} />
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(4, 1fr)" : "1fr 1fr", gap: 12 }}>
                   {list.map((p) => (
                     <ProductCard key={p.id} product={p} wished={wishedIds.has(p.id)}
                       onToggleWish={() => toggleWish(p)}
