@@ -10,6 +10,7 @@ import { DISCLAIMERS } from "../i18n/strings.js";
 import CameraCapture from "../components/CameraCapture.jsx";
 import { compressImage, toImageBlock } from "../ai/vision/imagePipeline.js";
 import { shareText, canShare } from "../utils/share.js";
+import { useResponsive } from "../hooks/useResponsive.js";
 
 const QUICK_TEMPLATES = [
   { cat: { en: "Today's plan", hi: "आज की योजना", bn: "আজকের পরিকল্পনা" },
@@ -24,6 +25,7 @@ const QUICK_TEMPLATES = [
 
 export default function AIChat({ agentId = null, conversationId = null }) {
   const { t, tc, lang, pop, toast } = useApp();
+  const { isDesktop } = useResponsive(768);
   const ai = useAI({ agentId, conversationId, lang });
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
@@ -78,6 +80,212 @@ export default function AIChat({ agentId = null, conversationId = null }) {
         : `${t("aiError")}${ai.error.message ? ` — ${ai.error.message}` : ""}`)
     : null;
 
+  /* ── Desktop View (Screen >= 768px): 2-Column AI Workspace ── */
+  if (isDesktop) {
+    return (
+      <div style={{ display: "flex", height: "calc(100vh - 120px)", background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, overflow: "hidden", boxShadow: T.shadowSm, animation: "ag-fade .25s var(--ag-ease)" }}>
+        {/* Left Sidebar: Session List & Actions */}
+        <div style={{ width: 320, background: T.surface2, borderRight: `1px solid ${T.line}`, display: "flex", flexDirection: "column", padding: "16px", gap: 14 }}>
+          <button
+            onClick={ai.reset}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "10px 16px",
+              background: T.primary,
+              color: "#fff",
+              border: "none",
+              borderRadius: 12,
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: "pointer",
+              boxShadow: "0 2px 6px rgba(18, 137, 78, 0.2)",
+            }}
+          >
+            <Icon name="Plus" size={16} strokeWidth={2.6} />
+            <span>{t("newChat") || "New Chat"}</span>
+          </button>
+
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            <HistoryList
+              t={t}
+              onOpen={(id) => ai.load(id)}
+              onDelete={(id) => setConfirmDelete(id)}
+              onExport={(id) => {
+                const text = conversationStore.exportText(id);
+                const blob = new Blob([text], { type: "text/plain" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "agrios-chat.txt";
+                a.click();
+                URL.revokeObjectURL(a.href);
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Right Main Panel: Active Conversation & Integrated Composer */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: T.surface }}>
+          
+          {/* Top Panel Header */}
+          <div style={{ height: 60, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button onClick={pop} aria-label="Back" style={{ background: "none", border: "none", cursor: "pointer", color: T.ink, display: "flex", padding: 4 }}>
+                <Icon name="ArrowLeft" size={20} />
+              </button>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: c.bg, color: c.fg, display: "grid", placeItems: "center" }}>
+                <Icon name={agent?.icon || "Sparkles"} size={20} />
+              </div>
+              <div>
+                <div style={{ fontFamily: T.display, fontSize: 16, fontWeight: 700, color: T.ink }}>
+                  {agent ? agent.name : t("aiTitle")}
+                </div>
+                <div style={{ fontSize: 11.5, color: T.inkSoft }}>
+                  {agent?.tagline || t("advisorAuto")}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <HeaderBtn icon="RotateCcw" label={t("newChat")} onClick={ai.reset} />
+            </div>
+          </div>
+
+          {/* Chat Messages Stream */}
+          <div role="log" aria-live="polite" style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column" }}>
+            {/* empty state */}
+            {ai.messages.length === 0 && !ai.busy && (
+              <div style={{ textAlign: "center", padding: "40px 20px", maxWidth: 480, margin: "0 auto" }}>
+                <div style={{ width: 64, height: 64, borderRadius: 20, background: c.bg, color: c.fg, display: "grid", placeItems: "center", margin: "0 auto 14px" }}>
+                  <Icon name={agent?.icon || "Sparkles"} size={30} />
+                </div>
+                <div style={{ fontFamily: T.display, fontSize: 19, fontWeight: 700, color: T.ink }}>{agent ? agent.name : t("aiTitle")}</div>
+                <div style={{ fontSize: 13, color: T.inkSoft, marginTop: 4 }}>{agent?.tagline || t("advisorAuto")}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 24 }}>
+                  {(agent?.suggested || QUICK_TEMPLATES.map((q) => q.text[lang] || q.text.en)).map((q, i) => (
+                    <button key={i} onClick={() => send(q)}
+                      style={{ textAlign: "left", padding: "12px 16px", borderRadius: 12, cursor: "pointer", fontFamily: T.body,
+                        background: T.surface2, border: `1px solid ${T.line}`, color: T.ink, fontSize: 13.5 }}>
+                      {!agent && QUICK_TEMPLATES[i] && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: T.primary, display: "block", marginBottom: 3 }}>
+                          {QUICK_TEMPLATES[i].cat[lang] || QUICK_TEMPLATES[i].cat.en}
+                        </span>
+                      )}
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* messages */}
+            {ai.messages.map((m, i) => (
+              <Bubble key={m.id} msg={m}
+                onSpeak={(txt) => { setSpeakingId(m.id); voice.speak(txt, lang); const check = setInterval(() => { if (!speechSynthesis.speaking) { setSpeakingId(null); clearInterval(check); } }, 300); }}
+                onStop={() => { voice.stopSpeaking(); setSpeakingId(null); }}
+                speaking={speakingId === m.id}
+                onShare={async (txt) => { const r = await shareText(txt, "AgriOS"); if (r === "copied") toast(t("copied") || "Copied!", "success"); }}
+                isLast={i === ai.messages.length - 1 && !ai.busy} onChip={send} />
+            ))}
+
+            {/* regenerate */}
+            {!ai.busy && ai.messages.length > 0 && ai.messages[ai.messages.length - 1].role === "assistant" && (
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                <button onClick={ai.regenerate}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: T.pill,
+                    background: T.surface2, border: `1px solid ${T.line}`, color: T.inkSoft, cursor: "pointer",
+                    fontFamily: T.body, fontSize: 12.5, fontWeight: 600 }}>
+                  <Icon name="RefreshCw" size={13} /> {t("regenerate") || "Regenerate"}
+                </button>
+              </div>
+            )}
+
+            {/* live stream */}
+            {ai.busy && (
+              <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 12 }}>
+                <div style={bubbleCss(false)}>
+                  {ai.streamText
+                    ? <Markdown text={ai.streamText} />
+                    : <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: T.inkSoft, fontSize: 13 }}>
+                        <Icon name="Sparkles" size={14} style={{ color: T.primary }} />
+                        <span style={{ animation: "ag-blink 1.2s infinite" }}>{t("aiThinking")}</span>
+                      </span>}
+                </div>
+              </div>
+            )}
+
+            {/* error */}
+            {errorText && (
+              <div style={{ background: T.redSoft, color: T.red, padding: "10px 14px", borderRadius: 10, marginTop: 10, fontSize: 13 }}>
+                {errorText}
+              </div>
+            )}
+
+            <div style={{ fontSize: 11, color: T.inkFaint, textAlign: "center", marginTop: 24 }}>
+              {DISCLAIMERS[detectLang(ai.messages, lang)] || DISCLAIMERS.en}
+            </div>
+            <div ref={endRef} />
+          </div>
+
+          {/* Desktop Composer (integrated at bottom of conversation panel) */}
+          <div style={{ borderTop: `1px solid ${T.line}`, background: T.surface, padding: "14px 20px" }}>
+            {pendingImage && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "8px 12px", borderRadius: 10, background: T.surface2 }}>
+                <img src={pendingImage.block.source?.data ? `data:image/jpeg;base64,${pendingImage.block.source.data}` : ""}
+                  alt={tc({ en: "Attached photo", hi: "संलग्न फ़ोटो", bn: "সংযুক্ত ছবি" })} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover" }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>{t("imageAttached")}</div>
+                  <div style={{ fontSize: 11.5, color: T.inkFaint, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pendingImage.meta.name}</div>
+                </div>
+                <button onClick={() => setPendingImage(null)} aria-label={tc({ en: "Remove image", hi: "छवि हटाएँ", bn: "ছবি সরান" })} style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
+                  <Icon name="X" size={16} />
+                </button>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <ComposerBtn icon="Camera" label={t("attachImage")} onClick={attach} />
+              <ComposerBtn icon="Mic" label={t("voiceInput")} onClick={mic} active={listening} />
+              <input
+                value={listening ? input || t("listening") : input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && send()}
+                placeholder={t("chatPh")}
+                disabled={ai.busy}
+                style={{ flex: 1, minWidth: 0, padding: "13px 18px", borderRadius: T.pill, border: `1px solid ${T.line}`,
+                  background: T.surface2, color: T.ink, fontFamily: T.body, fontSize: 14, outline: "none" }}
+              />
+              {ai.busy ? (
+                <ComposerBtn icon="X" label={t("stop")} onClick={ai.stop} danger />
+              ) : (
+                <button onClick={() => send()} disabled={!input.trim()} aria-label={t("send")}
+                  style={{ width: 46, height: 46, borderRadius: "50%", border: "none", flexShrink: 0, display: "grid", placeItems: "center",
+                    cursor: input.trim() ? "pointer" : "default", background: input.trim() ? T.primary : T.line, color: T.onPrimary, transition: "background .18s" }}>
+                  <Icon name="Send" size={19} strokeWidth={2.3} />
+                </button>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {cameraOpen && (
+          <CameraCapture onCapture={handleCapture} onCancel={() => setCameraOpen(false)} />
+        )}
+
+        <Dialog open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
+          title={t("deleteChat") + "?"} body={t("deleteChatBody")} icon="Trash2" danger
+          confirmLabel={t("deleteChat")} cancelLabel={t("cancel")}
+          onConfirm={() => {
+            conversationStore.remove(confirmDelete);
+            if (confirmDelete === ai.conversationId) ai.reset();
+            setConfirmDelete(null);
+          }} />
+      </div>
+    );
+  }
+
+  /* ── Mobile Phone View (Screen < 768px): 100% Unchanged ── */
   return (
     <>
       <AppBar

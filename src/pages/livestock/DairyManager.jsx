@@ -6,6 +6,7 @@ import { BottomSheet, Input, Dropdown, Dialog } from "../../components/index.js"
 import { useApp } from "../../store/AppStore.jsx";
 import { animalService, productionService, eventService } from "../../services/livestock/livestockService.js";
 import { rupee } from "../../utils/format.js";
+import { useResponsive } from "../../hooks/useResponsive.js";
 
 /* id drives state; label is display only. */
 const TABS = [
@@ -38,6 +39,7 @@ const fmtDate  = (d, locale = "en-IN") => new Date(d + "T12:00").toLocaleDateStr
 
 export default function DairyManager() {
   const { pop, push, toast, tc, locale } = useApp();
+  const { isDesktop } = useResponsive(768);
   const breedLabel = (v) => { const b = BREEDS.find((x) => x.value === v); return b ? tc(b.label) : v; };
   const [tab, setTab]       = useState("Animals");
   const [animals, setAnimals] = useState([]);
@@ -139,85 +141,241 @@ export default function DairyManager() {
         {TABS.map((t) => <Chip key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>{tc(t.label)}</Chip>)}
       </div>
 
-      <div style={{ padding: "8px 16px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
-        {tab === "Animals" && (
-          animals.length === 0
-            ? <EmptyHint icon="Milk" text={tc({ en: "Add your first cow or buffalo to start tracking", hi: "ट्रैकिंग शुरू करने के लिए पहली गाय या भैंस जोड़ें", bn: "ট্র্যাকিং শুরু করতে প্রথম গরু বা মহিষ যোগ করুন" })} />
-            : animals.map((a) => (
-              <Card key={a.id} pad={14}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: T.blueSoft, display: "grid", placeItems: "center" }}>
-                      <Icon name="Milk" size={20} color={T.blue} />
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{a.name}</div>
-                      <div style={{ fontSize: 12, color: T.inkSoft }}>
-                        {a.type === "cow" ? tc({ en: "Cow", hi: "गाय", bn: "গরু" }) : tc({ en: "Buffalo", hi: "भैंस", bn: "মহিষ" })} · {a.breed ? breedLabel(a.breed) : tc({ en: "Unknown breed", hi: "अज्ञात नस्ल", bn: "অজানা জাত" })}
-                        {a.tagNo ? ` · ${tc({ en: "Tag", hi: "टैग", bn: "ট্যাগ" })} #${a.tagNo}` : ""}
-                        <span style={{ marginLeft: 6, background: a.lactationStatus === "lactating" ? T.primarySoft : T.surface2,
-                          color: a.lactationStatus === "lactating" ? T.primary : T.inkSoft,
-                          borderRadius: 5, padding: "1px 6px", fontSize: 10, fontWeight: 600 }}>
-                          {a.lactationStatus}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <button onClick={() => { setDelId(a.id); setDelStore("animals"); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}>
-                    <Icon name="Trash2" size={15} />
-                  </button>
+      {/* ── Desktop Spreadsheet Table View (Screen >= 768px) ── */}
+      {isDesktop ? (
+        <div style={{ padding: "12px 16px 32px" }}>
+          <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, overflow: "hidden", boxShadow: T.shadowSm }}>
+            {tab === "Animals" && (
+              animals.length === 0 ? (
+                <div style={{ padding: "40px 16px" }}>
+                  <EmptyHint icon="Milk" text={tc({ en: "Add your first cow or buffalo to start tracking", hi: "ट्रैकिंग शुरू करने के लिए पहली गाय या भैंस जोड़ें", bn: "ট্র্যাকিং শুরু করতে প্রথম গরু বা মহিষ যোগ করুন" })} />
                 </div>
-              </Card>
-            ))
-        )}
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13, fontFamily: T.body }}>
+                    <thead>
+                      <tr style={{ background: T.surface2, borderBottom: `1px solid ${T.line}`, color: T.inkSoft, fontSize: 12, fontWeight: 700 }}>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Tag #", hi: "टैग #", bn: "ট্যাগ নং" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Animal Name", hi: "पशु का नाम", bn: "প্রাণীর নাম" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Species", hi: "प्रकार", bn: "ধরন" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Breed", hi: "नस्ल", bn: "জাত" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Status", hi: "स्थिति", bn: "অবস্থা" })}</th>
+                        <th style={{ padding: "12px 16px", textAlign: "right" }}>{tc({ en: "Actions", hi: "कार्रवाई", bn: "পদক্ষেপ" })}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {animals.map((a, i) => (
+                        <tr key={a.id} style={{ borderBottom: `1px solid ${T.lineSoft}`, background: i % 2 === 0 ? "transparent" : `${T.surface2}55` }}>
+                          <td style={{ padding: "12px 16px", fontWeight: 600, color: T.inkFaint }}>#{a.tagNo || "—"}</td>
+                          <td style={{ padding: "12px 16px", fontWeight: 700, color: T.ink }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 16 }}>🐄</span>
+                              <span>{a.name}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: "12px 16px", color: T.ink }}>
+                            {a.type === "cow" ? tc({ en: "Cow", hi: "गाय", bn: "গরু" }) : tc({ en: "Buffalo", hi: "भैंस", bn: "মহিষ" })}
+                          </td>
+                          <td style={{ padding: "12px 16px", color: T.inkSoft }}>
+                            {a.breed ? breedLabel(a.breed) : tc({ en: "Unknown", hi: "अज्ञात", bn: "অজানা" })}
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{ background: a.lactationStatus === "lactating" ? T.primarySoft : T.surface2,
+                              color: a.lactationStatus === "lactating" ? T.primary : T.inkSoft,
+                              borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                              {a.lactationStatus}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                            <button onClick={() => { setDelId(a.id); setDelStore("animals"); }}
+                              aria-label={tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" })}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}>
+                              <Icon name="Trash2" size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
 
-        {tab === "Milk Log" && (
-          prods.length === 0
-            ? <EmptyHint icon="Milk" text={tc({ en: "Log morning and evening milk to track yield", hi: "उपज देखने के लिए सुबह-शाम का दूध दर्ज करें", bn: "ফলন দেখতে সকাল-সন্ধ্যার দুধ লিখুন" })} />
-            : prods.slice(0, 30).map((p) => {
-              const total = (Number(p.amLitres) || 0) + (Number(p.pmLitres) || 0);
-              return (
-                <Card key={p.id} pad={12}>
+            {tab === "Milk Log" && (
+              prods.length === 0 ? (
+                <div style={{ padding: "40px 16px" }}>
+                  <EmptyHint icon="Milk" text={tc({ en: "Log morning and evening milk to track yield", hi: "उपज देखने के लिए सुबह-शाम का दूध दर्ज करें", bn: "ফলন দেখতে সকাল-সন্ধ্যার দুধ লিখুন" })} />
+                </div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13, fontFamily: T.body }}>
+                    <thead>
+                      <tr style={{ background: T.surface2, borderBottom: `1px solid ${T.line}`, color: T.inkSoft, fontSize: 12, fontWeight: 700 }}>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Morning (AM)", hi: "सुबह", bn: "সকাল" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Evening (PM)", hi: "शाम", bn: "সন্ধ্যা" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Total Yield", hi: "कुल उपज", bn: "মোট দুধ" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Rate", hi: "दर", bn: "দর" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Total Value", hi: "कुल मूल्य", bn: "মোট মূল্য" })}</th>
+                        <th style={{ padding: "12px 16px", textAlign: "right" }}>{tc({ en: "Actions", hi: "कार्रवाई", bn: "পদক্ষেপ" })}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {prods.slice(0, 50).map((p, i) => {
+                        const total = (Number(p.amLitres) || 0) + (Number(p.pmLitres) || 0);
+                        const value = p.salePrice > 0 ? total * Number(p.salePrice) : 0;
+                        return (
+                          <tr key={p.id} style={{ borderBottom: `1px solid ${T.lineSoft}`, background: i % 2 === 0 ? "transparent" : `${T.surface2}55` }}>
+                            <td style={{ padding: "12px 16px", fontWeight: 600, color: T.ink }}>{fmtDate(p.date, locale)}</td>
+                            <td style={{ padding: "12px 16px", color: T.inkSoft }}>{p.amLitres || 0} L</td>
+                            <td style={{ padding: "12px 16px", color: T.inkSoft }}>{p.pmLitres || 0} L</td>
+                            <td style={{ padding: "12px 16px", fontWeight: 700, color: T.blue }}>{total.toFixed(1)} L</td>
+                            <td style={{ padding: "12px 16px", color: T.ink }}>{p.salePrice > 0 ? `${rupee(p.salePrice)}/L` : "—"}</td>
+                            <td style={{ padding: "12px 16px", fontWeight: 600, color: T.primary }}>{value > 0 ? rupee(value) : "—"}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                              <button onClick={() => { setDelId(p.id); setDelStore("productions"); }}
+                                aria-label={tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" })}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}>
+                                <Icon name="Trash2" size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+
+            {tab === "Events" && (
+              events.length === 0 ? (
+                <div style={{ padding: "40px 16px" }}>
+                  <EmptyHint icon="Syringe" text={tc({ en: "Log vaccinations, AI, and health events", hi: "टीकाकरण, गर्भाधान और स्वास्थ्य घटनाएँ दर्ज करें", bn: "টিকা, প্রজনন ও স্বাস্থ্য ঘটনা লিখুন" })} />
+                </div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13, fontFamily: T.body }}>
+                    <thead>
+                      <tr style={{ background: T.surface2, borderBottom: `1px solid ${T.line}`, color: T.inkSoft, fontSize: 12, fontWeight: 700 }}>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Date", hi: "तारीख", bn: "তারিখ" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Event Type", hi: "घटना का प्रकार", bn: "ঘটনার ধরন" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Animal", hi: "पशु", bn: "প্রাণী" })}</th>
+                        <th style={{ padding: "12px 16px" }}>{tc({ en: "Notes", hi: "विवरण", bn: "বিবরণ" })}</th>
+                        <th style={{ padding: "12px 16px", textAlign: "right" }}>{tc({ en: "Actions", hi: "कार्रवाई", bn: "পদক্ষেপ" })}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {events.slice(0, 50).map((ev, i) => (
+                        <tr key={ev.id} style={{ borderBottom: `1px solid ${T.lineSoft}`, background: i % 2 === 0 ? "transparent" : `${T.surface2}55` }}>
+                          <td style={{ padding: "12px 16px", fontWeight: 600, color: T.ink }}>{fmtDate(ev.date, locale)}</td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{ background: T.blueSoft, color: T.blue, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                              {EVENT_LABELS[ev.type] ? tc(EVENT_LABELS[ev.type]) : ev.type.replace(/_/g, " ")}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px", color: T.ink }}>
+                            {ev.animalId ? (animals.find((a) => a.id === ev.animalId)?.name || "—") : tc({ en: "All herd", hi: "पूरा झुंड", bn: "পুরো পাল" })}
+                          </td>
+                          <td style={{ padding: "12px 16px", color: T.inkSoft }}>{ev.note || "—"}</td>
+                          <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                            <button onClick={() => { setDelId(ev.id); setDelStore("events"); }}
+                              aria-label={tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" })}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}>
+                              <Icon name="Trash2" size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      ) : (
+        /* ── Mobile Phone Card View (Screen < 768px): 100% Unchanged ── */
+        <div style={{ padding: "8px 16px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {tab === "Animals" && (
+            animals.length === 0
+              ? <EmptyHint icon="Milk" text={tc({ en: "Add your first cow or buffalo to start tracking", hi: "ट्रैकिंग शुरू करने के लिए पहली गाय या भैंस जोड़ें", bn: "ট্র্যাকিং শুরু করতে প্রথম গরু বা মহিষ যোগ করুন" })} />
+              : animals.map((a) => (
+                <Card key={a.id} pad={14}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{fmtDate(p.date, locale)}</div>
-                      <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
-                        🌅 {p.amLitres || 0}L {tc({ en: "AM", hi: "सुबह", bn: "সকাল" })} · 🌆 {p.pmLitres || 0}L {tc({ en: "PM", hi: "शाम", bn: "সন্ধ্যা" })} · {tc({ en: "Total", hi: "कुल", bn: "মোট" })}: {total.toFixed(1)}L
-                        {p.salePrice > 0 && ` · ${rupee(p.salePrice)}/L`}
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: T.blueSoft, display: "grid", placeItems: "center" }}>
+                        <Icon name="Milk" size={20} color={T.blue} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{a.name}</div>
+                        <div style={{ fontSize: 12, color: T.inkSoft }}>
+                          {a.type === "cow" ? tc({ en: "Cow", hi: "गाय", bn: "গরু" }) : tc({ en: "Buffalo", hi: "भैंस", bn: "মহিষ" })} · {a.breed ? breedLabel(a.breed) : tc({ en: "Unknown breed", hi: "अज्ञात नस्ल", bn: "অজানা জাত" })}
+                          {a.tagNo ? ` · ${tc({ en: "Tag", hi: "टैग", bn: "ট্যাগ" })} #${a.tagNo}` : ""}
+                          <span style={{ marginLeft: 6, background: a.lactationStatus === "lactating" ? T.primarySoft : T.surface2,
+                            color: a.lactationStatus === "lactating" ? T.primary : T.inkSoft,
+                            borderRadius: 5, padding: "1px 6px", fontSize: 10, fontWeight: 600 }}>
+                            {a.lactationStatus}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <button onClick={() => { setDelId(p.id); setDelStore("productions"); }}
+                    <button onClick={() => { setDelId(a.id); setDelStore("animals"); }}
                       style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}>
                       <Icon name="Trash2" size={15} />
                     </button>
                   </div>
                 </Card>
-              );
-            })
-        )}
+              ))
+          )}
 
-        {tab === "Events" && (
-          events.length === 0
-            ? <EmptyHint icon="Syringe" text={tc({ en: "Log vaccinations, AI, and health events", hi: "टीकाकरण, गर्भाधान और स्वास्थ्य घटनाएँ दर्ज करें", bn: "টিকা, প্রজনন ও স্বাস্থ্য ঘটনা লিখুন" })} />
-            : events.slice(0, 30).map((ev) => (
-              <Card key={ev.id} pad={12}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13, textTransform: "capitalize" }}>{EVENT_LABELS[ev.type] ? tc(EVENT_LABELS[ev.type]) : ev.type.replace(/_/g, " ")}</div>
-                    <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
-                      {fmtDate(ev.date, locale)}{ev.animalId ? ` · ${animals.find((a) => a.id === ev.animalId)?.name || ""}` : ""}{ev.note ? ` · ${ev.note}` : ""}
+          {tab === "Milk Log" && (
+            prods.length === 0
+              ? <EmptyHint icon="Milk" text={tc({ en: "Log morning and evening milk to track yield", hi: "उपज देखने के लिए सुबह-शाम का दूध दर्ज करें", bn: "ফলন দেখতে সকাল-সন্ধ্যার দুধ লিখুন" })} />
+              : prods.slice(0, 30).map((p) => {
+                const total = (Number(p.amLitres) || 0) + (Number(p.pmLitres) || 0);
+                return (
+                  <Card key={p.id} pad={12}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{fmtDate(p.date, locale)}</div>
+                        <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
+                          🌅 {p.amLitres || 0}L {tc({ en: "AM", hi: "सुबह", bn: "সকাল" })} · 🌆 {p.pmLitres || 0}L {tc({ en: "PM", hi: "शाम", bn: "সন্ধ্যা" })} · {tc({ en: "Total", hi: "कुल", bn: "মোট" })}: {total.toFixed(1)}L
+                          {p.salePrice > 0 && ` · ${rupee(p.salePrice)}/L`}
+                        </div>
+                      </div>
+                      <button onClick={() => { setDelId(p.id); setDelStore("productions"); }}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}>
+                        <Icon name="Trash2" size={15} />
+                      </button>
                     </div>
+                  </Card>
+                );
+              })
+          )}
+
+          {tab === "Events" && (
+            events.length === 0
+              ? <EmptyHint icon="Syringe" text={tc({ en: "Log vaccinations, AI, and health events", hi: "टीकाकरण, गर्भाधान और स्वास्थ्य घटनाएँ दर्ज करें", bn: "টিকা, প্রজনন ও স্বাস্থ্য ঘটনা লিখুন" })} />
+              : events.slice(0, 30).map((ev) => (
+                <Card key={ev.id} pad={12}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13, textTransform: "capitalize" }}>{EVENT_LABELS[ev.type] ? tc(EVENT_LABELS[ev.type]) : ev.type.replace(/_/g, " ")}</div>
+                      <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 2 }}>
+                        {fmtDate(ev.date, locale)}{ev.animalId ? ` · ${animals.find((a) => a.id === ev.animalId)?.name || ""}` : ""}{ev.note ? ` · ${ev.note}` : ""}
+                      </div>
+                    </div>
+                    <button onClick={() => { setDelId(ev.id); setDelStore("events"); }}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}>
+                      <Icon name="Trash2" size={15} />
+                    </button>
                   </div>
-                  <button onClick={() => { setDelId(ev.id); setDelStore("events"); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}>
-                    <Icon name="Trash2" size={15} />
-                  </button>
-                </div>
-              </Card>
-            ))
-        )}
-      </div>
+                </Card>
+              ))
+          )}
+        </div>
+      )}
 
       <BottomSheet open={animalOpen} onClose={() => setAnimalOpen(false)} title={tc({ en: "Add Animal", hi: "पशु जोड़ें", bn: "প্রাণী যোগ করুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

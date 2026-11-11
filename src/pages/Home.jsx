@@ -19,6 +19,7 @@ import {
 import { accent } from "../components/primitives.jsx";
 import OnboardingTour from "../components/OnboardingTour.jsx";
 import { useLazySection } from "../hooks/useLazySection.js";
+import { useResponsive } from "../hooks/useResponsive.js";
 import { serviceHubService } from "../services/serviceHub/serviceHubService.js";
 import { serviceById } from "../services/serviceHub/serviceRegistry.js";
 
@@ -27,6 +28,7 @@ const H_PAD = 16;
 export default function Home() {
   const { t, tc, locale, user, push, switchTab, toast, can } = useApp();
   const { prefs } = usePrefs();
+  const { isDesktop } = useResponsive(768);
   // Dashboard widget visibility + order (Personalize → Dashboard). CSS `order`
   // reorders without moving JSX; `display:none` hides.
   const dash = prefs.dashboard;
@@ -192,6 +194,215 @@ export default function Home() {
     localStorage.setItem("ag_pwa_dismissed", "1");
   }, []);
 
+  /* ── Desktop & Tablet View (Screen >= 768px): Fluid 2-Column Operations Canvas ── */
+  if (isDesktop) {
+    return (
+      <div style={{ paddingBottom: 32, animation: "ag-fade .25s var(--ag-ease)", display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* desktop greeting bar */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: T.surface, padding: "20px 24px", borderRadius: 16, border: `1px solid ${T.line}`, boxShadow: T.shadowSm }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: `linear-gradient(150deg, ${T.primary}, ${T.primaryDark})`, color: "#fff", display: "grid", placeItems: "center", fontFamily: T.display, fontWeight: 700, fontSize: 18 }}>
+              {initials(user?.name || "Farmer")}
+            </div>
+            <div>
+              <div style={{ fontSize: 12.5, color: T.inkSoft }}>{longDate(locale)}</div>
+              <div style={{ fontFamily: T.display, fontSize: 22, fontWeight: 800, color: T.ink }}>
+                {t(greetingKey())}, {name}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => push({ kind: "alertsCenter" })}
+              aria-label={tc({ en: "Alerts", hi: "अलर्ट", bn: "সতর্কতা" })}
+              style={{ position: "relative", background: T.surface2, border: `1px solid ${T.line}`, borderRadius: 12, padding: "8px 14px", cursor: "pointer", color: T.ink, display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600 }}>
+              <Icon name="Bell" size={17} />
+              <span>{tc({ en: "Alerts", hi: "अलर्ट", bn: "সতর্কতা" })}</span>
+              {alertCount > 0 && (
+                <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, background: T.red, color: "#fff", fontSize: 10.5, fontWeight: 700, display: "grid", placeItems: "center" }}>
+                  {alertCount > 9 ? "9+" : alertCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* notification banner */}
+        {showNotifBanner && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: T.rLg, background: T.primarySoft, border: `1px solid ${T.primary}22` }}>
+            <Icon name="BellRing" size={20} style={{ color: T.primary, flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: T.primary }}>{tc({ en: "Enable weather alerts?", hi: "मौसम अलर्ट चालू करें?", bn: "আবহাওয়া সতর্কতা চালু করবেন?" })}</div>
+              <div style={{ fontSize: 12, color: T.inkSoft }}>{tc({ en: "Get notified of storms and spray windows.", hi: "तूफान और स्प्रे समय की सूचना पाएँ।", bn: "ঝড় ও স্প্রে-র সময়ের বিজ্ঞপ্তি পান।" })}</div>
+            </div>
+            <button onClick={handleNotifAllow} style={{ background: T.primary, color: "#fff", border: "none", borderRadius: 10, padding: "7px 12px", cursor: "pointer", fontFamily: T.body, fontSize: 12.5, fontWeight: 600 }}>
+              {tc({ en: "Allow", hi: "अनुमति", bn: "অনুমতি" })}
+            </button>
+            <button onClick={handleNotifDismiss} aria-label={tc({ en: "Dismiss", hi: "हटाएँ", bn: "সরান" })} style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, display: "flex", padding: 4 }}>
+              <Icon name="X" size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* 2-Column Responsive Layout */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }}>
+          
+          {/* Main Left Column */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+            
+            {/* Weather Card */}
+            {dash.widgets.weather !== false && (
+              <WeatherCard t={t} tc={tc} onOpen={() => push({ kind: "weather" })} />
+            )}
+
+            {/* Today at a glance (Metrics Grid) */}
+            {dash.widgets.glance !== false && (
+              <div>
+                <SectionHeader
+                  title={tc({ en: "Today at a glance", hi: "आज एक नज़र में", bn: "আজ এক নজরে" })}
+                  action={can("finance.view") ? t("seeAll") : undefined}
+                  onAction={can("finance.view") ? () => push({ kind: "farmLedger" }) : undefined} />
+                <div style={{ display: "grid", gridTemplateColumns: can("finance.view") ? "repeat(3, 1fr)" : "1fr", gap: 12 }}>
+                  <GlanceTile
+                    label={tc({ en: "Tasks due", hi: "बकाया काम", bn: "বাকি কাজ" })}
+                    value={overdue + dueToday}
+                    empty={openTasks === 0}
+                    emptyLabel={tc({ en: "No tasks", hi: "कोई काम नहीं", bn: "কাজ নেই" })}
+                    icon="ListChecks" accentColor={T.primary} bg={T.primarySoft}
+                    onClick={() => push({ kind: "cropCalendar" })} />
+                  {can("finance.view") && (
+                    <>
+                      <GlanceTile
+                        label={t("income")}
+                        value={ledger.income > 0 ? compact(ledger.income) : null}
+                        empty={ledger.income <= 0}
+                        emptyLabel={tc({ en: "None yet", hi: "अभी नहीं", bn: "এখনও নেই" })}
+                        icon="ArrowDownLeft" accentColor={T.blue} bg={T.blueSoft}
+                        onClick={() => push({ kind: "farmLedger" })} />
+                      <GlanceTile
+                        label={t("expense")}
+                        value={ledger.expense > 0 ? compact(ledger.expense) : null}
+                        empty={ledger.expense <= 0}
+                        emptyLabel={tc({ en: "None yet", hi: "अभी नहीं", bn: "এখনও নেই" })}
+                        icon="ArrowUpRight" accentColor={T.orange} bg={T.orangeSoft}
+                        onClick={() => push({ kind: "farmLedger" })} />
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Needs Attention */}
+            {dash.widgets.attention !== false && (
+              <NeedsAttention overdue={overdue} dueToday={dueToday} alerts={alerts} tc={tc} push={push} />
+            )}
+
+            {/* Quick Actions */}
+            {dash.widgets.quickActions !== false && (
+              <div>
+                <SectionHeader title={t("aiQuick")} action={t("seeAll")} onAction={() => switchTab("ai")} />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                  {QUICK_ACTIONS.map((q) => (
+                    <button key={q.id} onClick={() => openAI(q.id)}
+                      style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 14, padding: "14px 10px", cursor: "pointer", display: "grid", justifyItems: "center", gap: 8 }}>
+                      <IconTile name={q.icon} a={q.accent} size={48} iconSize={22} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: T.inkSoft, textAlign: "center" }}>{tc(q.title)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* My Services Grid */}
+            {myServices.length > 0 && dash.widgets.services !== false && (
+              <div>
+                <SectionHeader title={tc({ en: "My farm services", hi: "मेरे खेत की सेवाएं", bn: "আমার খামার পরিষেবা" })} action={t("seeAll")} onAction={() => switchTab("services")} />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                  {myServices.map((s) => (
+                    <button key={s.id} onClick={() => openService(s)}
+                      style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 14, padding: "14px 10px", cursor: "pointer", display: "grid", justifyItems: "center", gap: 8 }}>
+                      <IconTile name={s.icon} a={s.accent} size={48} iconSize={22} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: T.inkSoft, textAlign: "center", maxWidth: 90, lineHeight: 1.2 }}>{tc(s.title)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Calculators */}
+            {dash.widgets.calculators !== false && (
+              <div>
+                <SectionHeader title={t("calculators")} />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                  {CALCULATORS.map((c) => (
+                    <button key={c.id} onClick={() => c.id === "seed" ? push({ kind: "cropPlanner" }) : c.id === "feed" ? push({ kind: "feedCalculator" }) : push({ kind: "calculator", props: { id: c.id } })}
+                      style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rLg, padding: "14px 10px", cursor: "pointer", display: "grid", justifyItems: "center", gap: 8 }}>
+                      <IconTile name={c.icon} a={c.accent} size={42} iconSize={20} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: T.ink }}>{tc(c.title)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          {/* Right Secondary Column */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+            
+            {/* Farm Space Card */}
+            {dash.widgets.farmSpace !== false && (
+              <Suspense fallback={null}><FarmSpaceCard /></Suspense>
+            )}
+
+            {/* AI Assistant Card */}
+            {dash.widgets.aiAssistant !== false && (
+              <AIAssistantCard tc={tc} switchTab={switchTab} openAI={openAI} push={push} />
+            )}
+
+            {/* Top Schemes */}
+            {dash.widgets.schemes !== false && topSchemes.length > 0 && (
+              <div>
+                <SectionHeader title={t("schemes")} action={t("seeAll")} onAction={() => push({ kind: "schemeExplorer" })} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {topSchemes.map(({ scheme, result }) => (
+                    <SchemeCard key={scheme.id} scheme={scheme} result={result} tc={tc}
+                      onOpen={() => push({ kind: "schemeExplorer", props: { schemeId: scheme.id } })} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* News */}
+            {dash.widgets.news !== false && (
+              <div>
+                <SectionHeader title={t("news")} />
+                <Card pad={6}>
+                  {NEWS.slice(0, 3).map((n, i) => (
+                    <button key={n.id} onClick={() => openFeature(tc(n.tag), tc(n.title), "Newspaper", "blue")}
+                      style={{ width: "100%", textAlign: "left", background: "none", fontFamily: T.body,
+                        display: "flex", alignItems: "center", gap: 12, padding: "12px", cursor: "pointer",
+                        border: "none", borderTop: i ? `1px solid ${T.lineSoft}` : "none" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: T.primary, marginBottom: 3 }}>{tc(n.tag)} · {tc(n.time)}</div>
+                        <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.4 }}>{tc(n.title)}</div>
+                      </div>
+                      <Icon name="ChevronRight" size={18} style={{ color: T.inkFaint, flexShrink: 0 }} />
+                    </button>
+                  ))}
+                </Card>
+              </div>
+            )}
+
+          </div>
+
+        </div>
+
+        <OnboardingTour />
+      </div>
+    );
+  }
+
+  /* ── Mobile Phone View (Screen < 768px): 100% Unchanged ── */
   return (
     <div style={{ paddingBottom: 24, animation: "ag-fade .25s var(--ag-ease)", display: "flex", flexDirection: "column" }}>
       {/* greeting */}

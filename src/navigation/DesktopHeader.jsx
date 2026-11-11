@@ -4,11 +4,13 @@ import { useTheme } from "../theme/ThemeProvider.jsx";
 import Icon from "../components/Icon.jsx";
 import { useApp } from "../store/AppStore.jsx";
 import { LANGUAGES } from "../constants/languages.js";
+import DesktopCommandPalette from "./DesktopCommandPalette.jsx";
 
 export default function DesktopHeader() {
   const { tc, lang, setLang, push } = useApp();
   const { resolved, setTheme } = useTheme();
   const [langOpen, setLangOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const langRef = useRef(null);
 
   useEffect(() => {
@@ -19,6 +21,18 @@ export default function DesktopHeader() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Global Ctrl + K / Cmd + K shortcut to open command palette
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((prev) => !prev);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const currentLang = LANGUAGES.find((l) => l.code === lang) || LANGUAGES[0];
@@ -64,6 +78,9 @@ export default function DesktopHeader() {
           type="search"
           placeholder={searchPlaceholder}
           aria-label={tc({ en: "Global search", hi: "वैश्विक खोज", bn: "গ্লোবাল সার্চ" })}
+          onClick={() => setPaletteOpen(true)}
+          onFocus={() => setPaletteOpen(true)}
+          readOnly
           style={{
             width: "100%",
             height: 38,
@@ -77,6 +94,7 @@ export default function DesktopHeader() {
             outline: "none",
             boxSizing: "border-box",
             fontFamily: T.body,
+            cursor: "pointer",
           }}
         />
         <div
@@ -245,6 +263,8 @@ export default function DesktopHeader() {
         </button>
 
       </div>
+
+      <DesktopCommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </header>
   );
 }
