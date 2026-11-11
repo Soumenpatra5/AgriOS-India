@@ -35,14 +35,14 @@
 - Test: Vitest / `npm run check:scripts`
 
 **Step-by-step:**
-- [ ] Import `useResponsive` in `src/pages/FarmLedger.jsx`.
-- [ ] Retain exact mobile layout if `!isDesktop`.
-- [ ] If `isDesktop`:
+- [x] Import `useResponsive` in `src/pages/FarmLedger.jsx`.
+- [x] Retain exact mobile layout if `!isDesktop`.
+- [x] If `isDesktop`:
   - Display month navigator and 4 P&L cards (Net Balance, Income, Expense, Net Margin %) at top.
   - Display 2-column layout:
     - Left Column (35%): Spending by category visual bars.
     - Right Column (65%): Full spreadsheet data table with columns (Date, Type [Income/Expense badge], Category, Enterprise, Note, Amount ₹, Actions [Delete]).
-- [ ] Verify script purity and linting.
+- [x] Verify script purity and linting.
 
 ---
 
@@ -52,13 +52,13 @@
 - Test: Vitest / `npm run check:scripts`
 
 **Step-by-step:**
-- [ ] Import `useResponsive` in `src/pages/marketplace/MarketplaceHub.jsx`.
-- [ ] Retain exact mobile layout if `!isDesktop`.
-- [ ] If `isDesktop`:
+- [x] Import `useResponsive` in `src/pages/marketplace/MarketplaceHub.jsx`.
+- [x] Retain exact mobile layout if `!isDesktop`.
+- [x] If `isDesktop`:
   - Show quick action links in top bar.
   - Category filters in clean wrapping pills.
   - Products grid using 4 columns (`gridTemplateColumns: "repeat(4, 1fr)"` or `repeat(auto-fill, minmax(220px, 1fr))`).
-- [ ] Verify script purity and linting.
+- [x] Verify script purity and linting.
 
 ---
 
@@ -68,13 +68,13 @@
 - Test: Vitest / `npm run check:scripts`
 
 **Step-by-step:**
-- [ ] Import `useResponsive` in `src/pages/livestock/PoultryManager.jsx`.
-- [ ] Retain exact mobile layout if `!isDesktop`.
-- [ ] If `isDesktop`:
+- [x] Import `useResponsive` in `src/pages/livestock/PoultryManager.jsx`.
+- [x] Retain exact mobile layout if `!isDesktop`.
+- [x] If `isDesktop`:
   - Flocks tab: Table with columns (Flock Name, Breed, Bird Count, Age in Weeks, Purpose [Layer/Broiler], Actions).
   - Production tab: Table with columns (Date, Flock, Eggs Collected, Mortality, Feed Intake kg, Actions).
   - Events tab: Table with columns (Date, Event Type, Note, Due Date, Actions).
-- [ ] Verify script purity and linting.
+- [x] Verify script purity and linting.
 
 ---
 
@@ -87,10 +87,10 @@
 - Modify: `src/pages/FarmLedger.jsx` (Add Print Report button alongside CSV)
 
 **Step-by-step:**
-- [ ] Create `src/utils/printReport.js`: generates a clean styled printable window with AgriOS India header, date, title, summary cards, and data table, then triggers `window.print()`.
-- [ ] Add unit test in `src/utils/__tests__/printReport.test.js`.
-- [ ] Integrate Export CSV & Print buttons in Dairy, Poultry, and Farm Ledger desktop header bars.
-- [ ] Verify ESLint and test suite.
+- [x] Create `src/utils/printReport.js`: generates a clean styled printable window with AgriOS India header, date, title, summary cards, and data table, then triggers `window.print()`.
+- [x] Add unit test in `src/utils/__tests__/printReport.test.js`.
+- [x] Integrate Export CSV & Print buttons in Dairy, Poultry, and Farm Ledger desktop header bars.
+- [x] Verify ESLint and test suite.
 
 ---
 
@@ -100,11 +100,11 @@
 - Production: Push to `origin/main`, monitor CI and Vercel Deploy, run `npm run test:smoke`
 
 **Step-by-step:**
-- [ ] Run `npm run check:scripts` (0 errors).
-- [ ] Run `npm run lint` (0 errors).
-- [ ] Run `npm run check:bundle` ($\le 492\text{ KB}$).
-- [ ] Run `npm test` (all tests passing).
-- [ ] Commit and push to `origin/main`.
-- [ ] Verify CI and Vercel production deployment.
-- [ ] Run `npm run test:smoke` (13/13 passed).
-- [ ] Present comprehensive review summary to user.
+- [x] Run `npm run check:scripts` (0 errors).
+- [x] Run `npm run lint` (0 errors).
+- [x] Run `npm run check:bundle` ($\le 492\text{ KB}$).
+- [x] Run `npm test` (all tests passing).
+- [x] Commit and push to `origin/main`.
+- [x] Verify CI and Vercel production deployment.
+- [x] Run `npm run test:smoke` (13/13 passed).
+- [x] Present comprehensive review summary to user.
