@@ -7,6 +7,9 @@ import Icon from "../components/Icon.jsx";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import UpdateBanner from "../components/UpdateBanner.jsx";
 import OfflineSyncBanner from "../components/OfflineSyncBanner.jsx";
+import { useResponsive } from "../hooks/useResponsive.js";
+import DesktopSidebar from "./DesktopSidebar.jsx";
+import DesktopHeader from "./DesktopHeader.jsx";
 
 /* Core screens loaded eagerly (always visible on every session) */
 import Splash from "../pages/Splash.jsx";
@@ -353,6 +356,7 @@ function OfflineBar({ tc }) {
 export default function ScreenRouter() {
   const { stage, tab, stack, tc, pop, switchTab } = useApp();
   const online = useOnline();
+  const { isDesktop } = useResponsive(768);
 
   if (stage !== "app") {
     const Flow = { splash: Splash, language: LanguageSelect, onboarding: Onboarding, auth: AuthFlow }[stage] || Splash;
@@ -373,26 +377,54 @@ export default function ScreenRouter() {
   // A crash on a pushed screen should pop back; a crash on a tab root resets to Home.
   const recover = () => (stack.length ? pop() : switchTab("home"));
 
-  return (
-    <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg, position: "relative" }}>
-      {!online && <OfflineBar tc={tc} />}
-      <OfflineSyncBanner />
-      {/* ag-push-in starts a pushed screen at translateX(24px), and a transform
-          extends the scrollable area rather than being clipped by it. With the
-          scrollbars hidden globally, that left every screen silently scrollable
-          24px to the right — content then sat shifted under the right edge and
-          read as "cut off". `clip` (not `hidden`) contains it without turning
-          this into a scroll container, so sticky and fixed children still work. */}
-      <div style={{ paddingBottom: 84, overflowX: "clip" }}>
-        <ErrorBoundary variant="screen" resetKey={`${tab}:${stack.length}`} onReset={recover}>
-          <Suspense fallback={<LazyFallback />}>
-            {top
-              ? <div key={stack.length} style={{ animation: "ag-push-in .26s var(--ag-ease)" }}><StackScreen item={top} /></div>
-              : <div key={tab} style={{ animation: "ag-fade .22s var(--ag-ease)" }}><TabScreen /></div>}
-          </Suspense>
-        </ErrorBoundary>
+  /* ── Mobile Phone View (Screen < 768px): 100% Preserved & Unchanged ── */
+  if (!isDesktop) {
+    return (
+      <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg, position: "relative" }}>
+        {!online && <OfflineBar tc={tc} />}
+        <OfflineSyncBanner />
+        {/* ag-push-in starts a pushed screen at translateX(24px), and a transform
+            extends the scrollable area rather than being clipped by it. With the
+            scrollbars hidden globally, that left every screen silently scrollable
+            24px to the right — content then sat shifted under the right edge and
+            read as "cut off". `clip` (not `hidden`) contains it without turning
+            this into a scroll container, so sticky and fixed children still work. */}
+        <div style={{ paddingBottom: 84, overflowX: "clip" }}>
+          <ErrorBoundary variant="screen" resetKey={`${tab}:${stack.length}`} onReset={recover}>
+            <Suspense fallback={<LazyFallback />}>
+              {top
+                ? <div key={stack.length} style={{ animation: "ag-push-in .26s var(--ag-ease)" }}><StackScreen item={top} /></div>
+                : <div key={tab} style={{ animation: "ag-fade .22s var(--ag-ease)" }}><TabScreen /></div>}
+            </Suspense>
+          </ErrorBoundary>
+        </div>
+        <BottomNav />
+        <UpdateBanner />
+        <ToastHost />
       </div>
-      <BottomNav />
+    );
+  }
+
+  /* ── Desktop & Tablet View (Screen >= 768px): Full-Width with Sidebar & Header ── */
+  return (
+    <div style={{ display: "flex", minHeight: "100vh", background: T.bg, position: "relative" }}>
+      <DesktopSidebar />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100vh", overflow: "hidden" }}>
+        <DesktopHeader />
+        {!online && <OfflineBar tc={tc} />}
+        <OfflineSyncBanner />
+        <main style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "20px 28px 40px", background: T.bg }}>
+          <div style={{ maxWidth: 1240, margin: "0 auto", width: "100%" }}>
+            <ErrorBoundary variant="screen" resetKey={`${tab}:${stack.length}`} onReset={recover}>
+              <Suspense fallback={<LazyFallback />}>
+                {top
+                  ? <div key={stack.length} style={{ animation: "ag-push-in .26s var(--ag-ease)" }}><StackScreen item={top} /></div>
+                  : <div key={tab} style={{ animation: "ag-fade .22s var(--ag-ease)" }}><TabScreen /></div>}
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        </main>
+      </div>
       <UpdateBanner />
       <ToastHost />
     </div>
