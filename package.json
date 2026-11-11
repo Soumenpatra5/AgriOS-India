@@ -22,6 +22,7 @@
     "check:db": "node scripts/check-db.mjs",
     "check:scripts": "node scripts/check-scripts.mjs",
     "check:upstash": "node scripts/check-upstash.mjs",
+    "test:smoke": "node scripts/smoke-test-prod.mjs",
     "lint:emulator": "node scripts/check-emulator-leak.js",
     "verify:auth": "npm run test:auth && npm run lint && npm run lint:emulator"
   },
