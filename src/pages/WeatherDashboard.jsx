@@ -8,6 +8,8 @@ import { useApp } from "../store/AppStore.jsx";
 import { weatherService } from "../services/weather/weatherService.js";
 import { locationService } from "../services/location/locationService.js";
 import { computeConfidence, confidencePercent } from "../services/weather/confidence.js";
+import { useResponsive } from "../hooks/useResponsive.js";
+import { WeatherRadarCard } from "../components/geo/SatelliteFieldRadar.jsx";
 
 const SEV = {
   critical: { bg: "#7f1d1d", fg: "#fca5a5" },
@@ -58,6 +60,7 @@ const moonPhase = (date) => {
 
 export default function WeatherDashboard() {
   const { pop, push, locale, toast, tc } = useApp();
+  const { isDesktop } = useResponsive(768);
   const [loc, setLoc] = useState(() => locationService.getActive());
   const [state, setState] = useState({ status: "idle", data: null, alerts: [], advice: [], stale: false });
   const [gpsBusy, setGpsBusy] = useState(false);
@@ -155,6 +158,17 @@ export default function WeatherDashboard() {
 
             {/* Current conditions hero */}
             <CurrentHero cur={data.current} today={data.daily?.[0]} locName={loc?.name} tc={tc} />
+
+            {/* Desktop Weather Radar & Wind Telemetry */}
+            {isDesktop && (
+              <WeatherRadarCard
+                rainProbability={data.daily?.[0]?.precipProb ?? 0}
+                windSpeedKph={data.current?.windSpeed ?? 0}
+                windDirection={windDirLabel(data.current?.windDirection) || "N"}
+                tempC={data.current?.temp ?? 25}
+                humidity={data.current?.humidity ?? 60}
+              />
+            )}
 
             {/* Severe weather alerts */}
             {alerts.length > 0 && (

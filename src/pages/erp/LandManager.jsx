@@ -8,12 +8,16 @@ import { landService, SOIL_TYPES, WATER_SOURCES, OWNERSHIP } from "../../service
 import { farmService } from "../../services/farm/farmService.js";
 import StatTile from "../../components/erp/StatTile.jsx";
 import { RecordRow, EmptyHint, Pill } from "../../components/erp/RecordList.jsx";
+import { useResponsive } from "../../hooks/useResponsive.js";
+import { SatelliteFieldMap, WeatherRadarCard } from "../../components/geo/SatelliteFieldRadar.jsx";
 
 export default function LandManager() {
   const { pop, toast, can, tc } = useApp();
+  const { isDesktop } = useResponsive(768);
   const [parcels, setParcels] = useState([]);
   const [util, setUtil]       = useState(null);
   const [farmId, setFarmId]   = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
   const [tick, setTick]       = useState(0);
   const refresh = () => setTick((n) => n + 1);
 
@@ -60,32 +64,161 @@ export default function LandManager() {
         </button>
       } />
 
-      {util && (
-        <div style={{ display: "flex", gap: 10, padding: "8px 16px 4px", overflowX: "auto" }}>
-          <StatTile a="orange" label={tc({ en: "Parcels", hi: "खंड", bn: "প্লট" })} value={util.parcels} />
-          <StatTile a="orange" label={tc({ en: "Total Acres", hi: "कुल एकड़", bn: "মোট একর" })} value={util.totalAcres.toFixed(1)} />
-          <StatTile a="primary" label={tc({ en: "Utilised", hi: "उपयोग", bn: "ব্যবহৃত" })} value={`${util.pct}%`} />
-        </div>
-      )}
+      {/* ── Desktop 2-Column Satellite & Parcels Hub (Screen >= 768px) ── */}
+      {isDesktop ? (
+        <div style={{ padding: "16px 20px 32px", display: "grid", gridTemplateColumns: "360px 1fr", gap: 20, alignItems: "start" }}>
+          {/* Left Column: Parcels List & Action Controls */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {util && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <StatTile a="orange" label={tc({ en: "Parcels", hi: "खंड", bn: "প্লট" })} value={util.parcels} />
+                <StatTile a="orange" label={tc({ en: "Total Acres", hi: "कुल एकड़", bn: "মোট একর" })} value={util.totalAcres.toFixed(1)} />
+                <StatTile a="primary" label={tc({ en: "Utilised", hi: "उपयोग", bn: "ব্যবহৃত" })} value={`${util.pct}%`} />
+              </div>
+            )}
 
-      <div style={{ padding: "10px 16px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
-        {parcels.length === 0
-          ? <EmptyHint icon="Map" text={tc({ en: "Add land parcels — soil, water, lease and crop rotation are tracked per parcel", hi: "भूमि खंड जोड़ें — मिट्टी, पानी, पट्टा और फ़सल चक्र प्रति खंड दर्ज होते हैं", bn: "জমির প্লট যোগ করুন — মাটি, জল, ইজারা ও ফসল আবর্তন প্রতি প্লটে রাখা হয়" })} />
-          : parcels.map((p) => (
-            <RecordRow key={p.id} icon="Map" iconColor={T.orange} iconBg={T.orangeSoft}
-              title={p.name}
-              badge={p.ownership !== "owned" ? <Pill fg={T.blue} bg={T.blueSoft}>{p.ownership}</Pill> : null}
-              subtitle={`${p.areaAcres} acres${p.soilType ? ` · ${p.soilType}` : ""}${p.waterSource ? ` · ${p.waterSource}` : ""}${p.currentCrop ? ` · 🌾 ${p.currentCrop}` : " · fallow"}`}
-              right={
-                <button onClick={(e) => { e.stopPropagation(); setCropTarget(p.id); setCropName(p.currentCrop || ""); }}
-                  style={{ background: T.primarySoft, color: T.primary, border: "none", borderRadius: 9,
-                    padding: "6px 10px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: T.body, flexShrink: 0 }}>
-                  Set crop
+            <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, overflow: "hidden", boxShadow: T.shadowSm }}>
+              <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.line}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>
+                  {tc({ en: "Parcels Registry", hi: "भूमि खंड सूची", bn: "জমির প্লটের তালিকা" })} ({parcels.length})
+                </div>
+                <button
+                  onClick={() => setOpen(true)}
+                  style={{
+                    background: T.orange,
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                  }}
+                >
+                  <Icon name="Plus" size={13} color="#fff" />
+                  {tc({ en: "Add", hi: "जोड़ें", bn: "যোগ" })}
                 </button>
-              }
-              onDelete={can("records.delete") ? () => setDelId(p.id) : undefined} />
-          ))}
-      </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {parcels.length === 0 ? (
+                  <div style={{ padding: "32px 16px" }}>
+                    <EmptyHint icon="Map" text={tc({ en: "Add land parcels to track telemetry and crops", hi: "टेलीमेट्री और फ़सल ट्रैक करने के लिए खंड जोड़ें", bn: "টেলিমেট্রি ও ফসল ট্র্যাক করতে প্লট যোগ করুন" })} />
+                  </div>
+                ) : (
+                  parcels.map((p) => {
+                    const isSel = p.id === (selectedId || parcels[0]?.id);
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => setSelectedId(p.id)}
+                        style={{
+                          padding: "12px 16px",
+                          borderBottom: `1px solid ${T.lineSoft}`,
+                          background: isSel ? `${T.orangeSoft}66` : "transparent",
+                          cursor: "pointer",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          transition: "background 0.2s ease",
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: isSel ? T.orange : T.ink, display: "flex", alignItems: "center", gap: 6 }}>
+                            <Icon name="MapPin" size={14} color={isSel ? T.orange : T.inkSoft} />
+                            {p.name}
+                            {p.ownership !== "owned" && <Pill fg={T.blue} bg={T.blueSoft}>{p.ownership}</Pill>}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: T.inkSoft, marginTop: 3 }}>
+                            {p.areaAcres} ac · {p.soilType || "Soil"} {p.currentCrop ? `· 🌾 ${p.currentCrop}` : "· fallow"}
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setCropTarget(p.id); setCropName(p.currentCrop || ""); }}
+                            style={{
+                              background: T.primarySoft,
+                              color: T.primary,
+                              border: "none",
+                              borderRadius: 6,
+                              padding: "4px 8px",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Set crop
+                          </button>
+                          {can("records.delete") && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDelId(p.id); }}
+                              aria-label={tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" })}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4 }}
+                            >
+                              <Icon name="Trash2" size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Satellite Map & Weather Radar */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <SatelliteFieldMap
+              parcels={parcels}
+              selectedId={selectedId || parcels[0]?.id}
+              onSelectParcel={(id) => setSelectedId(id)}
+            />
+
+            <WeatherRadarCard
+              rainProbability={18}
+              windSpeedKph={11}
+              windDirection="ENE"
+              tempC={29}
+              humidity={62}
+            />
+          </div>
+        </div>
+      ) : (
+        /* Mobile layout (Screen < 768px): 100% untouched */
+        <>
+          {util && (
+            <div style={{ display: "flex", gap: 10, padding: "8px 16px 4px", overflowX: "auto" }}>
+              <StatTile a="orange" label={tc({ en: "Parcels", hi: "खंड", bn: "প্লট" })} value={util.parcels} />
+              <StatTile a="orange" label={tc({ en: "Total Acres", hi: "कुल एकड़", bn: "মোট একর" })} value={util.totalAcres.toFixed(1)} />
+              <StatTile a="primary" label={tc({ en: "Utilised", hi: "उपयोग", bn: "ব্যবহৃত" })} value={`${util.pct}%`} />
+            </div>
+          )}
+
+          <div style={{ padding: "10px 16px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {parcels.length === 0
+              ? <EmptyHint icon="Map" text={tc({ en: "Add land parcels — soil, water, lease and crop rotation are tracked per parcel", hi: "भूमि खंड जोड़ें — मिट्टी, पानी, पट्टा और फ़सल चक्र प्रति खंड दर्ज होते हैं", bn: "জমির প্লট যোগ করুন — মাটি, জল, ইজারা ও ফসল আবর্তন প্রতি প্লটে রাখা হয়" })} />
+              : parcels.map((p) => (
+                <RecordRow key={p.id} icon="Map" iconColor={T.orange} iconBg={T.orangeSoft}
+                  title={p.name}
+                  badge={p.ownership !== "owned" ? <Pill fg={T.blue} bg={T.blueSoft}>{p.ownership}</Pill> : null}
+                  subtitle={`${p.areaAcres} acres${p.soilType ? ` · ${p.soilType}` : ""}${p.waterSource ? ` · ${p.waterSource}` : ""}${p.currentCrop ? ` · 🌾 ${p.currentCrop}` : " · fallow"}`}
+                  right={
+                    <button onClick={(e) => { e.stopPropagation(); setCropTarget(p.id); setCropName(p.currentCrop || ""); }}
+                      style={{ background: T.primarySoft, color: T.primary, border: "none", borderRadius: 9,
+                        padding: "6px 10px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: T.body, flexShrink: 0 }}>
+                      Set crop
+                    </button>
+                  }
+                  onDelete={can("records.delete") ? () => setDelId(p.id) : undefined} />
+              ))}
+          </div>
+        </>
+      )}
 
       <BottomSheet open={open} onClose={() => setOpen(false)} title={tc({ en: "Add Land Parcel", hi: "भूमि खंड जोड़ें", bn: "জমির প্লট যোগ করুন" })}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
