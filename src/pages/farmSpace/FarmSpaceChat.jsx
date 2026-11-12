@@ -6,7 +6,8 @@ import { useApp } from "../../store/AppStore.jsx";
 import { farmSpaceService, FARM_ERROR } from "../../services/farmSpace/farmSpaceService.js";
 import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
 import { useFarmPoll } from "../../hooks/useFarmPoll.js";
-import { countOnlineMembers } from "../../services/farmSpace/presenceUtils.js";
+import { countOnlineMembers, getPresenceState } from "../../services/farmSpace/presenceUtils.js";
+import { useResponsive } from "../../hooks/useResponsive.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 import { REACTION_EMOJI, OWN_DELETE_WINDOW_MS } from "../../../api/_lib/farm/chat.js";
 import { senderName, formatDuration, AttachmentDraftChip, ActionRow, Bubble } from "./chatBubble.jsx";
@@ -64,6 +65,7 @@ function mergeMessages(prev, incoming) {
 
 export default function FarmSpaceChat() {
   const { pop, push, tc, toast } = useApp();
+  const { isDesktop } = useResponsive();
   const [space, setSpace] = useState(null);
   const [messages, setMessages] = useState([]);
   const [pending, setPending] = useState([]);     // optimistic, not yet acknowledged
@@ -593,6 +595,696 @@ export default function FarmSpaceChat() {
     + (linkedTask ? 36 : 0) + (typingMembers.length > 0 ? 28 : 0)
     + (mentionDropdownOpen ? Math.min(mentionMatches.length * 42, 168) + 12 : 0);
 
+  if (isDesktop) {
+    return (
+      <>
+        <div style={{
+          maxWidth: 1240,
+          margin: "0 auto",
+          padding: "16px 20px",
+          height: "calc(100vh - 120px)",
+          display: "flex",
+          gap: 16,
+          boxSizing: "border-box",
+        }}>
+          {/* Left Sidebar (280px) */}
+          <div style={{
+            width: 280,
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            background: T.surface,
+            border: `1px solid ${T.line}`,
+            borderRadius: 16,
+            overflow: "hidden",
+          }}>
+            {/* Farm Space Header */}
+            <div style={{ padding: "16px 14px", borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: T.primarySoft,
+                color: T.primary,
+                display: "grid",
+                placeItems: "center",
+                fontWeight: 800,
+                fontSize: 16,
+              }}>
+                {(space?.name || "F").slice(0, 1).toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {space?.name || tc({ en: "Farm Space", hi: "फ़ार्म स्पेस", bn: "ফার্ম স্পেস" })}
+                </div>
+                <div style={{
+                  fontSize: 11.5,
+                  fontWeight: 500,
+                  color: onlineCount > 0 ? "#16a34a" : T.inkFaint,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  marginTop: 2,
+                }}>
+                  <span style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: onlineCount > 0 ? "#16a34a" : "#9ca3af",
+                    display: "inline-block",
+                  }} />
+                  <span>
+                    {onlineCount > 0
+                      ? tc({
+                          en: `${onlineCount} active`,
+                          hi: `${onlineCount} सक्रिय`,
+                          bn: `${onlineCount} জন সক্রিয়`,
+                        })
+                      : tc({ en: "Offline", hi: "ऑफ़लाइन", bn: "অফলাইন" })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Channels & Shortcuts */}
+            <div style={{ padding: "12px 10px", borderBottom: `1px solid ${T.line}`, display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: T.inkFaint, padding: "0 6px 4px" }}>
+                {tc({ en: "Channels", hi: "चैनल", bn: "চ্যানেল" })}
+              </div>
+              <button
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  background: T.primarySoft,
+                  color: T.primary,
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: T.body,
+                  fontSize: 13.5,
+                  fontWeight: 700,
+                  textAlign: "left",
+                }}
+              >
+                <Icon name="MessageSquare" size={15} />
+                <span style={{ flex: 1 }}># general</span>
+                <span style={{ fontSize: 10.5, background: T.primary, color: "#fff", padding: "1px 6px", borderRadius: 99 }}>
+                  {messages.length}
+                </span>
+              </button>
+              <button
+                onClick={() => push({ kind: "farmSpaceTasks" })}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  background: "none",
+                  color: T.ink,
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: T.body,
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  textAlign: "left",
+                }}
+              >
+                <Icon name="ClipboardList" size={15} style={{ color: T.inkSoft }} />
+                <span style={{ flex: 1 }}>{tc({ en: "Tasks Board", hi: "कार्य बोर्ड", bn: "কাজের বোর্ড" })}</span>
+              </button>
+            </div>
+
+            {/* Team Members List */}
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{
+                fontSize: 11,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                color: T.inkFaint,
+                padding: "12px 14px 6px",
+                display: "flex",
+                justifyContent: "space-between",
+              }}>
+                <span>{tc({ en: "Team Members", hi: "टीम सदस्य", bn: "দলের সদস্যবৃন্দ" })}</span>
+                <span>{members.length}</span>
+              </div>
+              <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px", display: "flex", flexDirection: "column", gap: 2 }}>
+                {members.map((mem) => {
+                  const name = farmSpaceService.displayName(mem);
+                  const presence = getPresenceState(mem?.last_seen_at);
+                  const isOnline = presence.state === "online";
+                  return (
+                    <button
+                      key={mem.user_id || mem.id}
+                      onClick={() => {
+                        if (name) {
+                          setDraft((prev) => (prev ? `${prev} @${name} ` : `@${name} `));
+                          textareaRef.current?.focus();
+                        }
+                      }}
+                      title={tc({ en: "Click to mention", hi: "उल्लेख करने के लिए क्लिक करें", bn: "উল্লেখ করতে ক্লিক করুন" })}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "7px 8px",
+                        borderRadius: 8,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontFamily: T.body,
+                        textAlign: "left",
+                        width: "100%",
+                      }}
+                    >
+                      <div style={{ position: "relative", flexShrink: 0 }}>
+                        <div style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 99,
+                          background: T.surface2,
+                          color: T.ink,
+                          display: "grid",
+                          placeItems: "center",
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}>
+                          {(name || "?").slice(0, 1).toUpperCase()}
+                        </div>
+                        <span style={{
+                          position: "absolute",
+                          bottom: 0,
+                          right: 0,
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: isOnline ? "#16a34a" : "#9ca3af",
+                          border: `1.5px solid ${T.surface}`,
+                        }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {name}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: T.inkSoft, textTransform: "capitalize" }}>
+                          {mem.role || "member"}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Main Chat Pane */}
+          <div style={{
+            flex: 1,
+            minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+            background: T.surface,
+            border: `1px solid ${T.line}`,
+            borderRadius: 16,
+            overflow: "hidden",
+          }}>
+            {/* Desktop Pane Top Header */}
+            <div style={{
+              padding: "12px 18px",
+              borderBottom: `1px solid ${T.line}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              background: T.surface,
+            }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: T.ink, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Icon name="MessageSquare" size={17} style={{ color: T.primary }} />
+                  <span># general</span>
+                </div>
+                <div style={{ fontSize: 12, color: T.inkSoft, marginTop: 1 }}>
+                  {tc({ en: "Team discussion & operational updates", hi: "टीम चर्चा एवं संचालन अपडेट", bn: "দলের আলোচনা ও অপারেশনাল আপডেট" })}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  onClick={openSearch}
+                  aria-label={tc({ en: "Search messages", hi: "संदेश खोजें", bn: "বার্তা খুঁজুন" })}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: `1px solid ${T.line}`,
+                    background: T.surface2,
+                    color: T.inkSoft,
+                    cursor: "pointer",
+                    fontSize: 12.5,
+                    fontFamily: T.body,
+                  }}
+                >
+                  <Icon name="Search" size={14} />
+                  <span>{tc({ en: "Search", hi: "खोजें", bn: "খুঁজুন" })}</span>
+                </button>
+                {pinned.length > 0 && (
+                  <button
+                    onClick={() => setPinnedOpen(true)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 12px",
+                      borderRadius: 8,
+                      border: `1px solid ${T.primary}`,
+                      background: T.primarySoft,
+                      color: T.primary,
+                      cursor: "pointer",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      fontFamily: T.body,
+                    }}
+                  >
+                    <Icon name="Pin" size={14} />
+                    <span>{tc({ en: "Pinned", hi: "पिन किया", bn: "পিন করা" })} ({pinned.length})</span>
+                  </button>
+                )}
+                <button
+                  onClick={pop}
+                  aria-label={tc({ en: "Back", hi: "पीछे", bn: "ফিরে যান" })}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: T.inkSoft,
+                    padding: 6,
+                    display: "flex",
+                  }}
+                >
+                  <Icon name="X" size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Pinned message inline banner if any */}
+            {pinned.length > 0 && (
+              <button
+                onClick={() => setPinnedOpen(true)}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 16px",
+                  background: T.primarySoft,
+                  border: "none",
+                  borderBottom: `1px solid ${T.line}`,
+                  cursor: "pointer",
+                  fontFamily: T.body,
+                  textAlign: "left",
+                }}
+              >
+                <Icon name="Pin" size={14} style={{ color: T.primary, flexShrink: 0 }} />
+                <span style={{ fontSize: 12.5, color: T.primary, fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {pinned[0].body || tc({ en: "Pinned message", hi: "पिन किया संदेश", bn: "পিন করা বার্তা" })}
+                </span>
+                {pinned.length > 1 && (
+                  <span style={{ fontSize: 11, color: T.primary, fontWeight: 700, flexShrink: 0 }}>+{pinned.length - 1}</span>
+                )}
+              </button>
+            )}
+
+            {/* Desktop Messages Scroll Area */}
+            <div style={{
+              flex: 1,
+              minWidth: 0,
+              overflowY: "auto",
+              padding: "16px 20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}>
+              {!messages.length && !pending.length && (
+                <div style={{ padding: "60px 20px", textAlign: "center", color: T.inkSoft, fontSize: 13.5, lineHeight: 1.6 }}>
+                  {tc({ en: "No messages yet. Anything you write here is seen by everyone in this Farm Space — and by nobody outside it.",
+                        hi: "अभी कोई संदेश नहीं। यहाँ आप जो लिखेंगे वह इस फ़ार्म स्पेस के सभी लोग देखेंगे — बाहर कोई नहीं।",
+                        bn: "এখনও কোনও বার্তা নেই। এখানে যা লিখবেন তা এই ফার্ম স্পেসের সবাই দেখবে — বাইরের কেউ নয়।" })}
+                </div>
+              )}
+
+              {messages.map((m) => (
+                <div key={m.id} ref={(el) => { messageRefs.current[m.id] = el; }}
+                  style={{ borderRadius: 14, transition: "background-color .6s ease",
+                    backgroundColor: highlightId === m.id ? T.primarySoft : "transparent" }}>
+                  <Bubble m={m} own={mine(m)} myUserId={space?.user_id} tc={tc}
+                    onOpen={() => openActions(m)} onReact={(emoji) => doReact(m, emoji)}
+                    onOpenTask={(taskId) => push({ kind: "farmSpaceTasks", taskId })} />
+                </div>
+              ))}
+
+              {pending.map((p) => (
+                <Bubble key={p.localId} own
+                  m={{ body: p.body, attachments: p.attachments, mentions: p.mentions, task_id: p.taskId, task_title: p.task_title, sender_name: null, created_at: null, reply_to: p.replyPreview
+                    ? { sender_name: senderName(p.replyPreview), body: p.replyPreview.body, deleted: p.replyPreview.deleted }
+                    : null }}
+                  tc={tc}
+                  footer={p.state === OUTBOX_FAILED
+                    ? <button onClick={() => retry(p)}
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer",
+                          color: T.red, fontSize: 11, fontWeight: 600, fontFamily: T.body }}>
+                        {tc({ en: "Not sent · Retry", hi: "नहीं भेजा · फिर कोशिश", bn: "পাঠানো হয়নি · আবার চেষ্টা" })}
+                      </button>
+                    : <span style={{ fontSize: 11, color: T.inkFaint }}>
+                        {tc({ en: "Sending…", hi: "भेजा जा रहा है…", bn: "পাঠানো হচ্ছে…" })}
+                      </span>}
+                  onOpenTask={(taskId) => push({ kind: "farmSpaceTasks", taskId })} />
+              ))}
+              <div ref={bottomRef} />
+            </div>
+
+            {/* Desktop Composer Area */}
+            <div style={{
+              position: "relative",
+              background: T.surface,
+              borderTop: `1px solid ${T.line}`,
+              zIndex: 10,
+            }}>
+              {typingMembers.length > 0 && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "5px 14px",
+                  background: T.surface, borderBottom: `1px solid ${T.lineSoft}`, fontSize: 12,
+                  color: T.primary, fontWeight: 500,
+                }}>
+                  <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                    <span style={{ width: 4, height: 4, borderRadius: 99, background: T.primary, animation: "ag-pulse 1s infinite" }} />
+                    <span style={{ width: 4, height: 4, borderRadius: 99, background: T.primary, animation: "ag-pulse 1s infinite .2s" }} />
+                    <span style={{ width: 4, height: 4, borderRadius: 99, background: T.primary, animation: "ag-pulse 1s infinite .4s" }} />
+                  </div>
+                  <span>
+                    {typingMembers.length === 1
+                      ? tc({ en: `${typingMembers[0].name} is typing…`, hi: `${typingMembers[0].name} टाइप कर रहे हैं…`, bn: `${typingMembers[0].name} টাইপ করছেন…` })
+                      : typingMembers.length === 2
+                      ? tc({ en: `${typingMembers[0].name} and ${typingMembers[1].name} are typing…`, hi: `${typingMembers[0].name} और ${typingMembers[1].name} टाइप कर रहे हैं…`, bn: `${typingMembers[0].name} ও ${typingMembers[1].name} টাইপ করছেন…` })
+                      : tc({ en: `${typingMembers[0].name} and ${typingMembers.length - 1} others are typing…`, hi: `${typingMembers[0].name} और ${typingMembers.length - 1} अन्य टाइप कर रहे हैं…`, bn: `${typingMembers[0].name} ও আরও ${typingMembers.length - 1} জন টাইপ করছেন…` })}
+                  </span>
+                </div>
+              )}
+              {(replyTo || editing) && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+                  borderBottom: `1px solid ${T.lineSoft}`, background: T.surface2 }}>
+                  <div style={{ width: 3, alignSelf: "stretch", background: T.primary, borderRadius: 2, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: T.primary }}>
+                      {editing
+                        ? tc({ en: "Editing", hi: "संपादन", bn: "সম্পাদনা" })
+                        : tc({ en: `Replying to ${senderName(replyTo) || ""}`, hi: `${senderName(replyTo) || ""} को उत्तर`, bn: `${senderName(replyTo) || ""}-কে উত্তর` })}
+                    </div>
+                    <div style={{ fontSize: 12, color: T.inkSoft, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {(editing || replyTo)?.body}
+                    </div>
+                  </div>
+                  <button onClick={doCancelCompose} aria-label={tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" })}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: T.inkFaint, padding: 4, display: "flex" }}>
+                    <Icon name="X" size={16} />
+                  </button>
+                </div>
+              )}
+
+              {linkedTask && (
+                <div style={{ padding: "6px 12px 0", display: "flex" }}>
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px",
+                    borderRadius: 10, background: T.primarySoft, border: `1px solid ${T.primary}`,
+                    color: T.primary, fontSize: 12, fontWeight: 600,
+                  }}>
+                    <Icon name="ClipboardList" size={13} />
+                    <span style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {linkedTask.title}
+                    </span>
+                    <button onClick={() => setLinkedTask(null)}
+                      aria-label={tc({ en: "Remove linked task", hi: "लिंक किया कार्य हटाएँ", bn: "সংযুক্ত কাজ সরান" })}
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", color: T.primary }}>
+                      <Icon name="X" size={13} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {attachments.attachmentDrafts.length > 0 && (
+                <div style={{ display: "flex", gap: 8, padding: "8px 12px 0", overflowX: "auto" }}>
+                  {attachments.attachmentDrafts.map((d) => (
+                    <AttachmentDraftChip key={d.localId} draft={d} tc={tc}
+                      onRemove={() => attachments.removeDraft(d.localId)} onRetry={attachments.retryDraft} />
+                  ))}
+                </div>
+              )}
+
+              {mentionQuery != null && mentionMatches.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "6px 8px",
+                  borderBottom: `1px solid ${T.lineSoft}`, maxHeight: 168, overflowY: "auto" }}>
+                  {mentionMatches.map((mem) => (
+                    <button key={mem.user_id} onClick={() => pickMention(mem)}
+                      style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 8px", borderRadius: 10,
+                        background: "none", border: "none", cursor: "pointer", textAlign: "left", fontFamily: T.body }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 999, background: T.primarySoft, color: T.primary,
+                        display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                        {(farmSpaceService.displayName(mem) || "?").slice(0, 1).toUpperCase()}
+                      </div>
+                      <span style={{ fontSize: 13.5, color: T.ink, fontWeight: 600 }}>{farmSpaceService.displayName(mem)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {recording ? (
+                <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <button onClick={() => stopRecording(true)}
+                    aria-label={tc({ en: "Discard recording", hi: "रिकॉर्डिंग रद्द करें", bn: "রেকর্ডিং বাতিল করুন" })}
+                    style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
+                      background: T.surface2, color: T.red, cursor: "pointer", display: "grid", placeItems: "center" }}>
+                    <Icon name="Trash2" size={18} />
+                  </button>
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 9, height: 9, borderRadius: 999, background: T.red, animation: "ag-pulse 1s ease-in-out infinite" }} />
+                    <span style={{ fontSize: 14, color: T.ink, fontWeight: 600 }}>
+                      {tc({ en: "Recording…", hi: "रिकॉर्ड हो रहा है…", bn: "রেকর্ড হচ্ছে…" })} {formatDuration(recordSeconds)}
+                    </span>
+                  </div>
+                  <button onClick={() => stopRecording(false)}
+                    aria-label={tc({ en: "Stop and add to message", hi: "रोकें और संदेश में जोड़ें", bn: "থামুন এবং বার্তায় যোগ করুন" })}
+                    style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
+                      background: T.primary, color: "#fff", cursor: "pointer", display: "grid", placeItems: "center" }}>
+                    <Icon name="Check" size={18} />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ padding: "10px 12px", display: "flex", gap: 9, alignItems: "flex-end" }}>
+                  <button onClick={() => setAttachSheetOpen(true)} disabled={!!editing}
+                    aria-label={tc({ en: "Attach", hi: "संलग्न करें", bn: "সংযুক্ত করুন" })}
+                    style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
+                      background: T.surface2, color: editing ? T.inkFaint : T.inkSoft,
+                      cursor: editing ? "default" : "pointer", display: "grid", placeItems: "center" }}>
+                    <Icon name="Paperclip" size={18} />
+                  </button>
+                  <textarea
+                    ref={textareaRef}
+                    value={draft}
+                    onChange={onDraftChange}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                    rows={1}
+                    placeholder={tc({ en: "Message your team…", hi: "टीम को संदेश…", bn: "দলকে বার্তা…" })}
+                    aria-label={tc({ en: "Message", hi: "संदेश", bn: "বার্তা" })}
+                    style={{ flex: 1, resize: "none", maxHeight: 120, padding: "10px 12px", borderRadius: 14,
+                      border: `1px solid ${T.line}`, background: T.surface2, color: T.ink,
+                      fontFamily: T.body, fontSize: 14.5, lineHeight: 1.4, outline: "none" }} />
+                  {canSend ? (
+                    <button onClick={send}
+                      aria-label={tc({ en: "Send", hi: "भेजें", bn: "পাঠান" })}
+                      style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
+                        background: T.primary, color: "#fff", cursor: "pointer", display: "grid", placeItems: "center" }}>
+                      <Icon name={editing ? "Check" : "Send"} size={18} />
+                    </button>
+                  ) : (
+                    <button onClick={startRecording} disabled={!!editing}
+                      aria-label={tc({ en: "Record a voice message", hi: "आवाज़ संदेश रिकॉर्ड करें", bn: "ভয়েস বার্তা রেকর্ড করুন" })}
+                      style={{ width: 42, height: 42, borderRadius: 999, flexShrink: 0, border: "none",
+                        background: T.surface2, color: editing ? T.inkFaint : T.inkSoft,
+                        cursor: editing ? "default" : "pointer", display: "grid", placeItems: "center" }}>
+                      <Icon name="Mic" size={18} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Common Modals */}
+        <BottomSheet open={attachSheetOpen} onClose={() => setAttachSheetOpen(false)}
+          title={tc({ en: "Attach", hi: "संलग्न करें", bn: "সংযুক্ত করুন" })}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <ActionRow icon="ImagePlus" label={tc({ en: "Photo or video", hi: "फ़ोटो या वीडियो", bn: "ছবি বা ভিডিও" })}
+              onClick={() => { setAttachSheetOpen(false); mediaInputRef.current?.click(); }} />
+            <ActionRow icon="FileText" label={tc({ en: "Document", hi: "दस्तावेज़", bn: "নথি" })}
+              onClick={() => { setAttachSheetOpen(false); docInputRef.current?.click(); }} />
+            <ActionRow icon="MapPin" label={tc({ en: "Location", hi: "स्थान", bn: "অবস্থান" })}
+              onClick={() => { setAttachSheetOpen(false); attachments.addLocationDraft(); }} />
+            <ActionRow icon="ClipboardList" label={tc({ en: "Link a task", hi: "कार्य लिंक करें", bn: "কাজ লিঙ্ক করুন" })}
+              onClick={() => { setAttachSheetOpen(false); openTaskPicker(); }} />
+          </div>
+        </BottomSheet>
+
+        <BottomSheet open={taskPickerOpen} onClose={() => setTaskPickerOpen(false)}
+          title={tc({ en: "Link a task", hi: "कार्य लिंक करें", bn: "কাজ লিঙ্ক করুন" })}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "56vh", overflowY: "auto" }}>
+            {loadingTasks && (
+              <div style={{ padding: "24px 0", display: "grid", placeItems: "center" }}>
+                <Spinner size={20} />
+              </div>
+            )}
+            {!loadingTasks && availableTasks.length === 0 && (
+              <div style={{ padding: "24px 16px", textAlign: "center", color: T.inkSoft, fontSize: 13.5 }}>
+                {tc({ en: "No tasks available to link.", hi: "लिंक करने के लिए कोई कार्य उपलब्ध नहीं है।", bn: "লিঙ্ক করার মতো কোনও কাজ উপলব্ধ নেই।" })}
+              </div>
+            )}
+            {!loadingTasks && availableTasks.filter((t) => !t.deleted_at).map((t) => (
+              <button key={t.id}
+                onClick={() => { setLinkedTask({ id: t.id, title: t.title }); setTaskPickerOpen(false); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+                  borderRadius: 12, border: `1px solid ${T.line}`, background: T.surface,
+                  cursor: "pointer", textAlign: "left", fontFamily: T.body, width: "100%"
+                }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: T.primarySoft,
+                  display: "grid", placeItems: "center", color: T.primary, flexShrink: 0 }}>
+                  <Icon name="ClipboardList" size={15} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {t.title}
+                  </div>
+                  {t.status && (
+                    <div style={{ fontSize: 11, color: T.inkSoft, textTransform: "capitalize" }}>
+                      {t.status}
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </BottomSheet>
+
+        <BottomSheet open={searchOpen} onClose={() => setSearchOpen(false)}
+          title={tc({ en: "Search messages", hi: "संदेश खोजें", bn: "বার্তা খুঁজুন" })}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ position: "relative" }}>
+              <Icon name="Search" size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: T.inkFaint }} />
+              <input autoFocus value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={tc({ en: "Search this chat…", hi: "इस चैट में खोजें…", bn: "এই চ্যাটে খুঁজুন…" })}
+                aria-label={tc({ en: "Search messages", hi: "संदेश खोजें", bn: "বার্তা খুঁজুন" })}
+                style={{ width: "100%", padding: "11px 14px 11px 34px", borderRadius: T.rMd, border: `1px solid ${T.line}`,
+                  background: T.surface2, color: T.ink, fontFamily: T.body, fontSize: 14.5, outline: "none", boxSizing: "border-box" }} />
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: "56vh", overflowY: "auto" }}>
+              {searching && <div style={{ padding: "16px 0", display: "grid", placeItems: "center" }}><Spinner size={18} /></div>}
+              {!searching && searchQuery.trim() && searchResults.length === 0 && (
+                <div style={{ padding: "20px 0", textAlign: "center", color: T.inkFaint, fontSize: 13 }}>
+                  {tc({ en: "No messages found.", hi: "कोई संदेश नहीं मिला।", bn: "কোনও বার্তা পাওয়া যায়নি।" })}
+                </div>
+              )}
+              {!searching && searchResults.map((m) => (
+                <button key={m.id} onClick={() => jumpToMessage(m.id)}
+                  style={{ textAlign: "left", padding: "10px 11px", borderRadius: T.rMd, border: `1px solid ${T.line}`,
+                    background: T.surface, cursor: "pointer", fontFamily: T.body, display: "flex", flexDirection: "column", gap: 3 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: T.inkSoft }}>{senderName(m)}</span>
+                    <span style={{ fontSize: 10.5, color: T.inkFaint, flexShrink: 0 }}>
+                      {m.created_at ? new Date(m.created_at).toLocaleDateString() : ""}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 13, color: T.ink, lineHeight: 1.4 }}>{highlightSnippet(m.body, searchQuery.trim())}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </BottomSheet>
+
+        <BottomSheet open={!!actionsFor} onClose={closeActions}
+          title={tc({ en: "Message", hi: "संदेश", bn: "বার্তা" })}>
+          {actionsFor && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", gap: 8, padding: "4px 0 12px", justifyContent: "center" }}>
+                {REACTION_EMOJI.map((e) => (
+                  <button key={e} onClick={() => doReact(actionsFor, e)}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 24, padding: 4,
+                      borderRadius: 10, lineHeight: 1 }}>
+                    {e}
+                  </button>
+                ))}
+              </div>
+              <ActionRow icon="CornerUpLeft" label={tc({ en: "Reply", hi: "उत्तर दें", bn: "উত্তর দিন" })} onClick={() => doReply(actionsFor)} />
+              <ActionRow icon="Copy" label={tc({ en: "Copy", hi: "कॉपी", bn: "কপি" })} onClick={() => doCopy(actionsFor)} />
+              {canEditOwn(actionsFor) && (
+                <ActionRow icon="Pencil" label={tc({ en: "Edit", hi: "संपादित करें", bn: "সম্পাদনা" })} onClick={() => doStartEdit(actionsFor)} />
+              )}
+              {canModerate && !actionsFor.pinned_at && (
+                <ActionRow icon="Pin" label={tc({ en: "Pin", hi: "पिन करें", bn: "পিন করুন" })} onClick={() => doPin(actionsFor)} />
+              )}
+              {canModerate && actionsFor.pinned_at && (
+                <ActionRow icon="PinOff" label={tc({ en: "Unpin", hi: "अनपिन करें", bn: "আনপিন করুন" })} onClick={() => doUnpin(actionsFor)} />
+              )}
+              <ActionRow icon="UserX" label={tc({ en: "Delete for me", hi: "मेरे लिए हटाएँ", bn: "আমার জন্য মুছুন" })}
+                onClick={() => { setConfirmDelete({ message: actionsFor, forEveryone: false }); closeActions(); }} />
+              {canDeleteForEveryone(actionsFor) && (
+                <ActionRow icon="Trash2" danger label={tc({ en: "Delete for everyone", hi: "सभी के लिए हटाएँ", bn: "সবার জন্য মুছুন" })}
+                  onClick={() => { setConfirmDelete({ message: actionsFor, forEveryone: true }); closeActions(); }} />
+              )}
+            </div>
+          )}
+        </BottomSheet>
+
+        <BottomSheet open={pinnedOpen} onClose={() => setPinnedOpen(false)}
+          title={tc({ en: "Pinned messages", hi: "पिन किए संदेश", bn: "পিন করা বার্তা" })}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {!pinned.length ? (
+              <div style={{ fontSize: 13, color: T.inkSoft, textAlign: "center", padding: "12px 0" }}>
+                {tc({ en: "Nothing pinned yet.", hi: "अभी कुछ पिन नहीं है।", bn: "এখনও কিছু পিন করা নেই।" })}
+              </div>
+            ) : pinned.map((m) => (
+              <Card key={m.id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: T.inkSoft }}>{senderName(m)}</div>
+                <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.45 }}>{m.body}</div>
+              </Card>
+            ))}
+          </div>
+        </BottomSheet>
+
+        <Dialog open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
+          title={confirmDelete?.forEveryone
+            ? tc({ en: "Delete for everyone?", hi: "सभी के लिए हटाएँ?", bn: "সবার জন্য মুছবেন?" })
+            : tc({ en: "Delete for me?", hi: "मेरे लिए हटाएँ?", bn: "আমার জন্য মুছবেন?" })}
+          body={confirmDelete?.forEveryone
+            ? tc({ en: "This removes the message for everyone in this Farm Space.",
+                   hi: "यह संदेश इस फ़ार्म स्पेस के सभी लोगों के लिए हटा देगा।",
+                   bn: "এটি এই ফার্ম স্পেসের সবার জন্য বার্তাটি মুছে দেবে।" })
+            : tc({ en: "This only removes it from your own view — others will still see it.",
+                   hi: "यह केवल आपके लिए हटेगा — बाकी लोग इसे देखते रहेंगे।",
+                   bn: "এটি শুধু আপনার দৃষ্টি থেকে সরবে — অন্যরা এটি দেখতেই থাকবেন।" })}
+          icon="Trash2" danger
+          confirmLabel={tc({ en: "Delete", hi: "हटाएँ", bn: "মুছুন" })}
+          cancelLabel={tc({ en: "Cancel", hi: "रद्द", bn: "বাতিল" })}
+          onConfirm={() => (confirmDelete.forEveryone ? doDeleteForEveryone(confirmDelete.message) : doDeleteForMe(confirmDelete.message))} />
+      </>
+    );
+  }
+
+  /* Mobile Layout: 100% Untouched */
   return (
     <>
       <AppBar title={title} onBack={pop} action={

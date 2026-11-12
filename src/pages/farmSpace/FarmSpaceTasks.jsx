@@ -10,6 +10,8 @@ import { farmSpaceApi } from "../../services/farmSpace/farmSpaceApi.js";
 import { farmErrorText } from "./FarmSpaceHub.jsx";
 import { allowedTransitions } from "../../../api/_lib/farm/tasks.js";
 import { notificationService } from "../../services/notifications/notificationService.js";
+import { useResponsive } from "../../hooks/useResponsive.js";
+import { computeKanbanBuckets, KANBAN_COLUMNS } from "./farmTasksKanban.js";
 
 /* Shared farm tasks.
 
@@ -69,6 +71,7 @@ function announceNew(tasks, userId, tc) {
 
 export default function FarmSpaceTasks() {
   const { pop, tc, toast } = useApp();
+  const { isDesktop } = useResponsive(768);
   const [space, setSpace] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [state, setState] = useState("loading");
@@ -78,6 +81,8 @@ export default function FarmSpaceTasks() {
   const [openTask, setOpenTask] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const kanbanBuckets = useMemo(() => computeKanbanBuckets(tasks), [tasks]);
 
   /* Cache-first, same pattern as the hub: paint whatever this session already
      knows instantly, confirm it against the server in the background, and
@@ -161,38 +166,196 @@ export default function FarmSpaceTasks() {
   return (
     <>
       <AppBar title={title} onBack={pop} />
-      <div style={{ padding: "4px 16px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* ── Desktop Team Kanban Board (Screen >= 768px) ── */}
+      {isDesktop ? (
+        <div style={{ padding: "8px 24px 32px", display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Top Bar with Stats & Controls */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: T.surface, padding: "14px 18px", borderRadius: 14, border: `1px solid ${T.line}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="CheckSquare" size={18} color={T.primary} />
+                {tc({ en: "Team Task Flow", hi: "टीम कार्य प्रवाह", bn: "দলের কাজের প্রবাহ" })} ({tasks.length})
+              </div>
+            </div>
+            {canCreate && (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Icon name="Plus" size={15} /> {tc({ en: "New Task", hi: "नया कार्य", bn: "নতুন কাজ" })}
+              </Button>
+            )}
+          </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {[["open", { en: "To do", hi: "करना है", bn: "করতে হবে" }],
-            ["done", { en: "Done", hi: "हो गया", bn: "হয়ে গেছে" }],
-            ["all",  { en: "All", hi: "सभी", bn: "সব" }]].map(([id, label]) => (
-            <Chip key={id} active={filter === id} onClick={() => setFilter(id)}>{tc(label)}</Chip>
-          ))}
-          <div style={{ flex: 1 }} />
-          {canCreate && (
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Icon name="Plus" size={15} /> {tc({ en: "New", hi: "नया", bn: "নতুন" })}
-            </Button>
+          {/* 4-Column Kanban Canvas */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, alignItems: "start" }}>
+            {KANBAN_COLUMNS.map((col) => {
+              const colTasks = kanbanBuckets[col.id] || [];
+              return (
+                <div
+                  key={col.id}
+                  style={{
+                    background: T.surface,
+                    borderRadius: 14,
+                    border: `1px solid ${T.line}`,
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    minHeight: 460,
+                  }}
+                >
+                  {/* Column Header */}
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderBottom: `1px solid ${T.line}`,
+                      background: T.surface2,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: col.color }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{tc(col.title)}</span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: T.surface,
+                        padding: "2px 7px",
+                        borderRadius: 10,
+                        border: `1px solid ${T.line}`,
+                        color: T.inkSoft,
+                      }}
+                    >
+                      {colTasks.length}
+                    </span>
+                  </div>
+
+                  {/* Task Cards in Column */}
+                  <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+                    {colTasks.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "28px 10px", fontSize: 12, color: T.inkFaint }}>
+                        {tc({ en: "No tasks", hi: "कोई कार्य नहीं", bn: "কোনো কাজ নেই" })}
+                      </div>
+                    ) : (
+                      colTasks.map((t) => {
+                        const moves = allowedTransitions(t.status, space?.my_role);
+                        return (
+                          <div
+                            key={t.id}
+                            onClick={() => setOpenTask(t)}
+                            style={{
+                              background: T.surface,
+                              borderRadius: 10,
+                              border: `1px solid ${T.lineSoft}`,
+                              padding: "12px",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                              cursor: "pointer",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 8,
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: T.ink, lineHeight: 1.35 }}>
+                                {t.title}
+                              </span>
+                              <StatusPill status={t.status} overdue={t.is_overdue} tc={tc} />
+                            </div>
+
+                            {t.note && (
+                              <div style={{ fontSize: 11.5, color: T.inkSoft, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                                {t.note}
+                              </div>
+                            )}
+
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4, paddingTop: 6, borderTop: `1px solid ${T.lineSoft}`, fontSize: 11, color: T.inkSoft }}>
+                              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                <Icon name="User" size={12} color={T.inkFaint} />
+                                {t.assignee_name || tc({ en: "Unassigned", hi: "अनपेक्षित", bn: "অনির্ধারিত" })}
+                              </span>
+                              {t.due_date && (
+                                <span style={{ color: t.is_overdue ? T.red : T.inkFaint, fontWeight: t.is_overdue ? 700 : 500 }}>
+                                  {t.due_date.slice(5)}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Direct Advance Action Button on Card */}
+                            {moves.length > 0 && (
+                              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                                {moves.slice(0, 1).map((nextStatus) => {
+                                  const lbl = ACTION_LABEL[nextStatus] || { en: nextStatus, hi: nextStatus, bn: nextStatus };
+                                  return (
+                                    <button
+                                      key={nextStatus}
+                                      disabled={busy}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        move(t, nextStatus);
+                                      }}
+                                      style={{
+                                        width: "100%",
+                                        padding: "5px 0",
+                                        borderRadius: 6,
+                                        background: T.primarySoft,
+                                        color: T.primary,
+                                        border: "none",
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      {tc(lbl)}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* Mobile layout (Screen < 768px): 100% untouched */
+        <div style={{ padding: "4px 16px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {[["open", { en: "To do", hi: "करना है", bn: "করতে হবে" }],
+              ["done", { en: "Done", hi: "हो गया", bn: "হয়ে গেছে" }],
+              ["all",  { en: "All", hi: "सभी", bn: "সব" }]].map(([id, label]) => (
+              <Chip key={id} active={filter === id} onClick={() => setFilter(id)}>{tc(label)}</Chip>
+            ))}
+            <div style={{ flex: 1 }} />
+            {canCreate && (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Icon name="Plus" size={15} /> {tc({ en: "New", hi: "नया", bn: "নতুন" })}
+              </Button>
+            )}
+          </div>
+
+          {!shown.length ? (
+            <EmptyState icon="ClipboardList"
+              title={tc({ en: "Nothing here", hi: "यहाँ कुछ नहीं", bn: "এখানে কিছু নেই" })}
+              body={canCreate
+                ? tc({ en: "Create a task and assign it to someone on your team.",
+                       hi: "एक कार्य बनाएँ और अपनी टीम के किसी सदस्य को सौंपें।",
+                       bn: "একটি কাজ তৈরি করে দলের কাউকে দিন।" })
+                : tc({ en: "You have no tasks assigned right now.",
+                       hi: "अभी आपको कोई कार्य नहीं सौंपा गया है।",
+                       bn: "এখন আপনাকে কোনও কাজ দেওয়া হয়নি।" })} />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {shown.map((t) => <TaskRow key={t.id} task={t} tc={tc} onOpen={() => setOpenTask(t)} />)}
+            </div>
           )}
         </div>
-
-        {!shown.length ? (
-          <EmptyState icon="ClipboardList"
-            title={tc({ en: "Nothing here", hi: "यहाँ कुछ नहीं", bn: "এখানে কিছু নেই" })}
-            body={canCreate
-              ? tc({ en: "Create a task and assign it to someone on your team.",
-                     hi: "एक कार्य बनाएँ और अपनी टीम के किसी सदस्य को सौंपें।",
-                     bn: "একটি কাজ তৈরি করে দলের কাউকে দিন।" })
-              : tc({ en: "You have no tasks assigned right now.",
-                     hi: "अभी आपको कोई कार्य नहीं सौंपा गया है।",
-                     bn: "এখন আপনাকে কোনও কাজ দেওয়া হয়নি।" })} />
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {shown.map((t) => <TaskRow key={t.id} task={t} tc={tc} onOpen={() => setOpenTask(t)} />)}
-          </div>
-        )}
-      </div>
+      )}
 
       <TaskSheet task={openTask} space={space} busy={busy} tc={tc}
         onClose={() => setOpenTask(null)} onMove={move} />
