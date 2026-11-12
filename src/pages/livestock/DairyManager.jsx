@@ -9,6 +9,7 @@ import { rupee } from "../../utils/format.js";
 import { useResponsive } from "../../hooks/useResponsive.js";
 import { downloadCsv } from "../../utils/exportCsv.js";
 import { printReport } from "../../utils/printReport.js";
+import { AnalyticsTrendChart, AnalyticsCategoryBreakdown } from "../../components/analytics/AnalyticsCharts.jsx";
 
 /* id drives state; label is display only. */
 const TABS = [
@@ -74,6 +75,43 @@ export default function DairyManager() {
     return prods.filter((p) => p.date.startsWith(prefix))
       .reduce((s, p) => s + (Number(p.amLitres) || 0) + (Number(p.pmLitres) || 0), 0);
   }, [prods]);
+
+  const milkTrendData = useMemo(() => {
+    if (!prods.length) return [];
+    const sorted = [...prods].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const slice = sorted.slice(-14);
+    return slice.map((p) => {
+      const am = Number(p.amLitres) || 0;
+      const pm = Number(p.pmLitres) || 0;
+      return {
+        date: p.date ? p.date.slice(5) : "",
+        label: p.date ? p.date.slice(5) : "",
+        value: am + pm,
+        secondaryValue: am,
+      };
+    });
+  }, [prods]);
+
+  const animalBreakdown = useMemo(() => {
+    if (!animals.length) return [];
+    const counts = {};
+    animals.forEach((a) => {
+      const key = a.lactationStatus || "other";
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const labels = {
+      lactating: { en: "Lactating", hi: "दुधारू", bn: "দুধেল" },
+      dry: { en: "Dry", hi: "सूखी", bn: "শুকনো" },
+      pregnant: { en: "Pregnant", hi: "गर्भवती", bn: "গর্ভবতী" },
+      heifer: { en: "Heifer", hi: "बछिया", bn: "বকনা" },
+      other: { en: "Other", hi: "अन्य", bn: "অন্যান্য" },
+    };
+    return Object.entries(counts).map(([k, count]) => ({
+      categoryId: k,
+      label: tc(labels[k] || { en: k, hi: k, bn: k }),
+      total: count,
+    }));
+  }, [animals, tc]);
 
   const animalOptions = [{ value: "", label: tc({ en: "All animals", hi: "सभी पशु", bn: "সব প্রাণী" }) }, ...animals.map((a) => ({ value: a.id, label: `${a.name} (${a.type})` }))];
 
@@ -276,6 +314,33 @@ export default function DairyManager() {
       {/* ── Desktop Spreadsheet Table View (Screen >= 768px) ── */}
       {isDesktop ? (
         <div style={{ padding: "12px 16px 32px" }}>
+          {tab === "Animals" && animals.length > 0 && animalBreakdown.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <AnalyticsCategoryBreakdown
+                title={tc({ en: "Herd Status Distribution", hi: "झुंड स्थिति वितरण", bn: "পশুর অবস্থা বণ্টন" })}
+                categories={animalBreakdown}
+                totalAmount={animals.length}
+                prefix=""
+                unit={tc({ en: "animals", hi: "पशु", bn: "প্রাণী" })}
+              />
+            </div>
+          )}
+
+          {tab === "Milk Log" && milkTrendData.length >= 2 && (
+            <div style={{ marginBottom: 16 }}>
+              <AnalyticsTrendChart
+                data={milkTrendData}
+                height={150}
+                title={tc({ en: "14-Day Milk Production Yield Trend (Total vs Morning)", hi: "14-दिवसीय दुग्ध उत्पादन रुझान (कुल बनाम सुबह)", bn: "১৪ দিনের দুধ উৎপাদন ট্রেন্ড (মোট বনাম সকাল)" })}
+                primaryLabel={tc({ en: "Total Yield", hi: "कुल उपज", bn: "মোট ফলন" })}
+                secondaryLabel={tc({ en: "Morning (AM)", hi: "सुबह (AM)", bn: "সকাল (AM)" })}
+                primaryColor={T.primary}
+                secondaryColor={T.blue}
+                unit="L"
+              />
+            </div>
+          )}
+
           <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, overflow: "hidden", boxShadow: T.shadowSm }}>
             {tab === "Animals" && (
               animals.length === 0 ? (

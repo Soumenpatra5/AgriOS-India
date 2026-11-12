@@ -8,6 +8,7 @@ import { animalService, productionService, eventService } from "../../services/l
 import { useResponsive } from "../../hooks/useResponsive.js";
 import { downloadCsv } from "../../utils/exportCsv.js";
 import { printReport } from "../../utils/printReport.js";
+import { AnalyticsTrendChart, AnalyticsCategoryBreakdown } from "../../components/analytics/AnalyticsCharts.jsx";
 
 /* id drives state and the render branches; label is display only. Translating
    the value itself would silently break every `tab === "Flocks"` check. */
@@ -76,6 +77,38 @@ export default function PoultryManager() {
     const prefix = new Date().toISOString().slice(0, 7);
     return prods.filter((p) => p.date.startsWith(prefix)).reduce((s, p) => s + (Number(p.eggs) || 0), 0);
   }, [prods]);
+
+  const poultryTrendData = useMemo(() => {
+    if (!prods.length) return [];
+    const sorted = [...prods].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const slice = sorted.slice(-14);
+    return slice.map((p) => ({
+      date: p.date ? p.date.slice(5) : "",
+      label: p.date ? p.date.slice(5) : "",
+      value: Number(p.eggs) || 0,
+      secondaryValue: Number(p.feedKg) || 0,
+    }));
+  }, [prods]);
+
+  const flockBreakdown = useMemo(() => {
+    if (!flocks.length) return [];
+    const counts = {};
+    flocks.forEach((f) => {
+      const key = f.purpose || "other";
+      counts[key] = (counts[key] || 0) + (Number(f.count) || 0);
+    });
+    const labels = {
+      layer: { en: "Layer", hi: "लेयर", bn: "লেয়ার" },
+      broiler: { en: "Broiler", hi: "ब्रॉयलर", bn: "ব্রয়লার" },
+      breeder: { en: "Breeder", hi: "प्रजनक", bn: "প্রজননকারী" },
+      other: { en: "Other", hi: "अन्य", bn: "অন্যান্য" },
+    };
+    return Object.entries(counts).map(([k, count]) => ({
+      categoryId: k,
+      label: tc(labels[k] || { en: k, hi: k, bn: k }),
+      total: count,
+    }));
+  }, [flocks, tc]);
 
   const addFlock = async () => {
     if (!flockForm.name || !flockForm.count) return;
@@ -273,6 +306,33 @@ export default function PoultryManager() {
       {/* ── Desktop Spreadsheet Table View (Screen >= 768px) ── */}
       {isDesktop ? (
         <div style={{ padding: "12px 16px 32px" }}>
+          {tab === "Flocks" && flocks.length > 0 && flockBreakdown.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <AnalyticsCategoryBreakdown
+                title={tc({ en: "Flock Purpose Distribution", hi: "झुंड उद्देश्य वितरण", bn: "ঝাঁকের উদ্দেশ্য বণ্টন" })}
+                categories={flockBreakdown}
+                totalAmount={totalBirds}
+                prefix=""
+                unit={tc({ en: "birds", hi: "पक्षी", bn: "পাখি" })}
+              />
+            </div>
+          )}
+
+          {tab === "Production" && poultryTrendData.length >= 2 && (
+            <div style={{ marginBottom: 16 }}>
+              <AnalyticsTrendChart
+                data={poultryTrendData}
+                height={150}
+                title={tc({ en: "14-Day Egg Production & Feed Intake Trend", hi: "14-दिवसीय अंडा उत्पादन एवं दाना खपत रुझान", bn: "১৪ দিনের ডিম উৎপাদন ও খাদ্য গ্রহণের ট্রেন্ড" })}
+                primaryLabel={tc({ en: "Eggs Collected", hi: "एकत्रित अंडे", bn: "সংগৃহীত ডিম" })}
+                secondaryLabel={tc({ en: "Feed (kg)", hi: "दाना (किग्रा)", bn: "খাদ্য (কেজি)" })}
+                primaryColor={T.orange}
+                secondaryColor={T.primary}
+                unit={tc({ en: "eggs", hi: "अंडे", bn: "ডিম" })}
+              />
+            </div>
+          )}
+
           <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, overflow: "hidden", boxShadow: T.shadowSm }}>
             {tab === "Flocks" && (
               flocks.length === 0 ? (

@@ -13,6 +13,7 @@ import { compact, rupee } from "../utils/format.js";
 import { downloadCsv } from "../utils/exportCsv.js";
 import { printReport } from "../utils/printReport.js";
 import { useResponsive } from "../hooks/useResponsive.js";
+import { AnalyticsCategoryBreakdown, AnalyticsBarComparison } from "../components/analytics/AnalyticsCharts.jsx";
 
 const MONTHS_I18N = [
   {en:"January",hi:"जनवरी",bn:"জানুয়ারি"},{en:"February",hi:"फरवरी",bn:"ফেব্রুয়ারি"},
@@ -53,6 +54,30 @@ export default function FarmLedger() {
   const [summary, setSummary] = useState({ net: 0, income: 0, expense: 0 });
   const [txns, setTxns]       = useState([]);
   const [breakdown, setBreakdown] = useState([]);
+  const [multiMonthBars, setMultiMonthBars] = useState([]);
+
+  useEffect(() => {
+    if (!isDesktop) return;
+    let alive = true;
+    (async () => {
+      const bars = [];
+      for (let offset = 2; offset >= 0; offset--) {
+        const d = new Date(year, month - offset, 1);
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1;
+        const s = await ledgerService.monthSummary(y, m);
+        const mObj = MONTHS_I18N[d.getMonth()];
+        const mShort = mObj ? tc(mObj).slice(0, 3) : `${m}`;
+        bars.push({
+          label: `${mShort}`,
+          primary: s.income,
+          secondary: s.expense,
+        });
+      }
+      if (alive) setMultiMonthBars(bars);
+    })();
+    return () => { alive = false; };
+  }, [isDesktop, year, month, tick, tc]);
 
   useEffect(() => {
     let alive = true;
@@ -215,32 +240,36 @@ export default function FarmLedger() {
 
             {/* 2-Column Main Workspace */}
             <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 20, alignItems: "start" }}>
-              {/* Left Column: Spending Breakdown */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.inkSoft, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Icon name="PieChart" size={15} /> {tc({ en: "Spending by category", hi: "श्रेणी अनुसार खर्च", bn: "বিভাগ অনুযায়ী ব্যয়" })}
-                </div>
-                <Card pad={16} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  {breakdown.length === 0 ? (
+              {/* Left Column: Spending Breakdown & Multi-Month Flow */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {breakdown.length === 0 ? (
+                  <Card pad={16} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.inkSoft, display: "flex", alignItems: "center", gap: 6 }}>
+                      <Icon name="PieChart" size={15} /> {tc({ en: "Spending by category", hi: "श्रेणी अनुसार खर्च", bn: "বিভাগ অনুযায়ী ব্যয়" })}
+                    </div>
                     <div style={{ color: T.inkFaint, fontSize: 12.5, textAlign: "center", padding: "16px 0" }}>
                       {tc({ en: "No expense recorded this month", hi: "इस महीने कोई खर्च दर्ज नहीं है", bn: "এই মাসে কোনো ব্যয় রেকর্ড করা নেই" })}
                     </div>
-                  ) : (
-                    breakdown.map((b) => (
-                      <div key={b.categoryId}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                          <Icon name={b.icon} size={14} style={{ color: T.inkSoft, flexShrink: 0 }} />
-                          <span style={{ flex: 1, fontSize: 12.5, color: T.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.label}</span>
-                          <span style={{ fontSize: 12.5, fontWeight: 700, color: T.ink, fontVariantNumeric: "tabular-nums" }}>{rupee(b.total)}</span>
-                          <span style={{ fontSize: 11, color: T.inkFaint, width: 34, textAlign: "right" }}>{b.pct}%</span>
-                        </div>
-                        <div style={{ height: 6, borderRadius: 3, background: T.surface2, overflow: "hidden" }}>
-                          <div style={{ width: `${b.pct}%`, height: "100%", background: T.red, borderRadius: 3, transition: "width .4s var(--ag-ease)" }} />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </Card>
+                  </Card>
+                ) : (
+                  <AnalyticsCategoryBreakdown
+                    title={tc({ en: "Spending by category", hi: "श्रेणी अनुसार खर्च", bn: "বিভাগ অনুযায়ী ব্যয়" })}
+                    categories={breakdown}
+                    totalAmount={summary.expense}
+                  />
+                )}
+
+                {multiMonthBars.length > 0 && (
+                  <AnalyticsBarComparison
+                    items={multiMonthBars}
+                    height={150}
+                    title={tc({ en: "Recent Cash Flow", hi: "हालिया नकदी प्रवाह", bn: "সাম্প্রতিক নগদ প্রবাহ" })}
+                    primaryLabel={tc({ en: "Income", hi: "आय", bn: "আয়" })}
+                    secondaryLabel={tc({ en: "Expense", hi: "खर्च", bn: "ব্যয়" })}
+                    primaryColor={T.primary}
+                    secondaryColor={T.red}
+                  />
+                )}
               </div>
 
               {/* Right Column: Spreadsheet Table */}
