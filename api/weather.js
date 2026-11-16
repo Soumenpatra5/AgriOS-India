@@ -7,29 +7,24 @@
    Vercel → Project → Settings → Environment Variables. Until then this returns
    503 and the client falls back to Open-Meteo automatically. */
 
+import { verifyToken } from "./_middleware/verifyAuth.js";
+import { rateLimit } from "./_lib/rateLimit.js";
+
 const OW_URL = "https://api.openweathermap.org/data/2.5/forecast";
 const RATE = { windowMs: 60_000, max: 30 };
-const hits = new Map();
-
-function limited(ip) {
-  const now = Date.now();
-  const arr = (hits.get(ip) || []).filter((t) => now - t < RATE.windowMs);
-  if (arr.length >= RATE.max) { hits.set(ip, arr); return true; }
-  arr.push(now); hits.set(ip, arr);
-  if (hits.size > 5000) hits.clear();
-  return false;
-}
 
 const num = (v) => (typeof v === "number" && isFinite(v) ? v : null);
 
 export default async function handler(req, res) {
-  const { verifyToken } = await import("./_middleware/verifyAuth.js");
   const decoded = await verifyToken(req);
   if (!decoded) return res.status(401).json({ error: { message: "Unauthorized" } });
   if (req.method !== "POST") return res.status(405).json({ error: { message: "POST only" } });
 
   const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
-  if (limited(ip)) return res.status(429).json({ error: { message: "Too many requests. Please wait a minute." } });
+  const rateLimitKey = `weather:${decoded?.sub || ip}`;
+  if (await rateLimit({ key: rateLimitKey, max: RATE.max, windowMs: RATE.windowMs })) {
+    return res.status(429).json({ error: { message: "Too many requests. Please wait a minute." } });
+  }
 
   const { provider = "openweather", lat, lon } = req.body || {};
   if (num(lat) === null || num(lon) === null) {
@@ -47,7 +42,8 @@ export default async function handler(req, res) {
   const url = `${OW_URL}?lat=${lat}&lon=${lon}&units=metric&appid=${key}`;
   const upstream = await fetch(url);
   if (!upstream.ok) {
-    return res.status(upstream.status).json({ error: { message: `upstream error (${upstream.status})` } });
+    console.error(`OpenWeather upstream error: status=${upstream.status}`);
+    return res.status(upstream.status).json({ error: { message: "Weather data is currently unavailable." } });
   }
   const d = await upstream.json();
   // Minimal normalization to the app shape. Extend when this provider is adopted.

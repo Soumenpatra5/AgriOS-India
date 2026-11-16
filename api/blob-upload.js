@@ -61,6 +61,26 @@ const KIND_RULES = {
   },
 };
 
+/* Strict path validation: files must live directly under farm-chat/<spaceId>/<filename>,
+   with no path traversal (..), backslashes, or nested slashes permitted. */
+export function validateUploadPath(pathname, spaceId) {
+  if (typeof spaceId !== "string" || !spaceId.trim() || typeof pathname !== "string") {
+    return false;
+  }
+  if (pathname.includes("..") || pathname.includes("\\") || pathname.includes("//")) {
+    return false;
+  }
+  const prefix = `farm-chat/${spaceId}/`;
+  if (!pathname.startsWith(prefix)) {
+    return false;
+  }
+  const fileName = pathname.slice(prefix.length);
+  if (!fileName || fileName.includes("/") || !/^[a-zA-Z0-9_.-]+$/.test(fileName)) {
+    return false;
+  }
+  return true;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: { message: "POST only" } });
 
@@ -79,8 +99,8 @@ export default async function handler(req, res) {
         if (!rules) throw new HttpError(400, "Unsupported attachment kind");
 
         /* The client names the file, but only within its own space's
-           namespace — never trusted beyond that. */
-        if (typeof spaceId !== "string" || !pathname.startsWith(`farm-chat/${spaceId}/`)) {
+           namespace — strictly validated against traversal and path breakouts. */
+        if (!validateUploadPath(pathname, spaceId)) {
           throw new HttpError(400, "Invalid upload path");
         }
 
